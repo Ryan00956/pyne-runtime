@@ -44,6 +44,28 @@ class StrategyModule:
         self._commission_type: str | None = None
         self._commission_value = 0.0
 
+    def __call__(self, title: str = "", overlay: bool = True, **kwargs: Any) -> None:
+        """Declare strategy metadata and Pine-like replay settings."""
+        config = {
+            key: kwargs.get(key)
+            for key in (
+                "pyramiding",
+                "slippage",
+                "mintick",
+                "min_tick",
+                "commission_type",
+                "commission_value",
+            )
+            if key in kwargs
+        }
+        self.configure(**config)
+        self._collector.set_indicator_meta(
+            title=title,
+            overlay=overlay,
+            script_type="strategy",
+            **kwargs,
+        )
+
     def configure(
         self,
         *,

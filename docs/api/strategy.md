@@ -6,7 +6,15 @@ The current implementation is an event and position semantics layer. It is not
 a broker simulator and does not model order books, margin, or intrabar path.
 
 ```python
-indicator("Trend Strategy", overlay=True)
+strategy(
+    "Trend Strategy",
+    overlay=True,
+    pyramiding=1,
+    slippage=2,
+    mintick=0.01,
+    commission_type=strategy.commission.percent,
+    commission_value=0.1,
+)
 
 fast = ta.ema(close, 12)
 slow = ta.ema(close, 26)
@@ -25,8 +33,12 @@ plot(strategy.position_size, "Position")
 
 ## Configuration
 
+Prefer the Pine-like declaration form:
+
 ```python
-strategy.configure(
+strategy(
+    "My Strategy",
+    overlay=True,
     pyramiding=1,
     slippage=2,
     mintick=0.01,
@@ -34,6 +46,10 @@ strategy.configure(
     commission_value=0.1,
 )
 ```
+
+`strategy.configure(...)` is also available as a Python-friendly alias when a
+script has already declared metadata through `indicator(...)` or does not need
+declaration metadata.
 
 `pyramiding` controls additional same-direction entries:
 

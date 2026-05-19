@@ -231,6 +231,64 @@ strategy.close_when(bar_index == 1, "Long", price=close)
     ]
 
 
+def test_strategy_callable_declares_metadata_and_configures_replay() -> None:
+    result = pn.run(
+        """
+strategy(
+    "Declared Strategy",
+    overlay=False,
+    pyramiding=1,
+    slippage=1,
+    mintick=0.1,
+    commission_type=strategy.commission.percent,
+    commission_value=1,
+)
+strategy.entry_when(close > open, "Long", strategy.long, qty=1, price=close)
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.meta == {
+        "title": "Declared Strategy",
+        "overlay": False,
+        "script_type": "strategy",
+        "pyramiding": 1,
+        "slippage": 1,
+        "mintick": 0.1,
+        "commission_type": "percent",
+        "commission_value": 1,
+        "securityMode": "safe",
+    }
+    assert result.lines[0]["pane"] == "separate"
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 1.6,
+            "position_after": 1.0,
+            "comment": "",
+            "commission": 0.016,
+        },
+        {
+            "time": 3,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 2.9,
+            "position_after": 2.0,
+            "comment": "",
+            "commission": 0.029,
+        },
+    ]
+
+
 def test_strategy_exit_emits_limit_exit_for_long_position() -> None:
     result = pn.run(
         """

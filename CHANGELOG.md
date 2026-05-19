@@ -37,3 +37,4 @@
 - Added `strategy.configure(pyramiding=...)` with same-direction entry limits and weighted average position price replay.
 - Added partial `strategy.exit(qty=...)` position reduction semantics.
 - Added Pine-like `strategy.configure(slippage=..., commission_type=..., commission_value=...)` replay costs.
+- Added callable `strategy(...)` declarations for Pine-like strategy metadata and replay configuration.
