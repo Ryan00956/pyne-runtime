@@ -743,3 +743,94 @@ plot(strategy.position_size, "Position")
     assert result.ok
     assert len(result.output["strategy"]["orders"]) == 1
     assert result.values("Position") == [1.0, 1.0, 1.0, 1.0]
+
+
+def test_strategy_reporting_exposes_equity_profit_and_closed_trades() -> None:
+    result = pn.run(
+        """
+strategy(
+    "Report",
+    overlay=True,
+    initial_capital=1000,
+    currency="USD",
+    commission_type=strategy.commission.cash_per_order,
+    commission_value=1,
+)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=2, price=close)
+strategy.close_when(bar_index == 2, "Long", price=close)
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+plot(strategy.openprofit, "Open Profit")
+plot(strategy.grossprofit, "Gross Profit")
+plot(strategy.grossloss, "Gross Loss")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 13, "low": 10, "close": 12, "volume": 100},
+            {"time": 3, "open": 12, "high": 12, "low": 10, "close": 11, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Equity") == [999.0, 1003.0, 1000.0]
+    assert result.values("Net Profit") == [-1.0, -1.0, 0.0]
+    assert result.values("Open Profit") == [0.0, 4.0, 0.0]
+    assert result.values("Gross Profit") == [0.0, 0.0, 2.0]
+    assert result.values("Gross Loss") == [0.0, 0.0, 0.0]
+    assert result.output["strategy"]["summary"] == {
+        "initial_capital": 1000.0,
+        "currency": "USD",
+        "equity": 1000.0,
+        "netprofit": 0.0,
+        "openprofit": 0.0,
+        "grossprofit": 2.0,
+        "grossloss": 0.0,
+        "commission": 2.0,
+    }
+    assert result.output["strategy"]["closedtrades"] == [
+        {
+            "entry_time": 1,
+            "exit_time": 3,
+            "entry_id": "Long",
+            "exit_id": "Long",
+            "side": "long",
+            "qty": 2.0,
+            "entry_price": 10.0,
+            "exit_price": 11.0,
+            "profit": 2.0,
+            "commission": 1.0,
+            "net_profit": 1.0,
+        }
+    ]
+    assert result.output["strategy"]["opentrades"] == []
+
+
+def test_strategy_reporting_exposes_open_trades() -> None:
+    result = pn.run(
+        """
+strategy("Open Report", overlay=True, initial_capital=1000)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=2, price=close)
+plot(strategy.equity, "Equity")
+plot(strategy.openprofit, "Open Profit")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 12, "low": 10, "close": 10.5, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Equity") == [1000.0, 1001.0]
+    assert result.values("Open Profit") == [0.0, 1.0]
+    assert result.output["strategy"]["opentrades"] == [
+        {
+            "entry_time": 1,
+            "entry_id": "Long",
+            "side": "long",
+            "qty": 2.0,
+            "entry_price": 10.0,
+            "profit": 1.0,
+        }
+    ]

@@ -26,6 +26,7 @@ strategy.cancel("Long", when=barstate.islast)
 strategy.close_all(when=barstate.islast, comment="End")
 
 plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
 ```
 
 ## Direction Constants
@@ -85,6 +86,16 @@ Commission uses Pine-like constants:
 - `strategy.commission.percent`: `commission_value` is a percent of traded notional.
 - `strategy.commission.cash_per_order`: `commission_value` is charged once per filled order.
 - `strategy.commission.cash_per_contract`: `commission_value` is charged per filled unit.
+
+Capital reporting:
+
+- `initial_capital` defaults to `100000`.
+- `currency` defaults to `syminfo.currency` when available.
+- `strategy.equity` is `initial_capital + strategy.netprofit + strategy.openprofit`.
+- `strategy.netprofit` is realized gross profit/loss minus accumulated commission.
+- `strategy.openprofit` marks the current net position to the current bar's `close`.
+- `strategy.grossprofit` and `strategy.grossloss` track realized gross PnL before
+  commission. `strategy.grossloss` is reported as a negative number.
 
 ## Entry
 
@@ -175,6 +186,9 @@ price. When `qty` is omitted, the exit closes the full current position.
 ```python
 plot(strategy.position_size, "Position")
 plot(strategy.position_avg_price, "Average Price")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+plot(strategy.openprofit, "Open Profit")
 ```
 
 Position values are replayed from the emitted event ledger in chronological
@@ -217,7 +231,28 @@ Strategy output is serialized under `output["strategy"]`:
       "size": 1.0,
       "side": "long",
       "avg_price": 123.45
-    }
+    },
+    "summary": {
+      "initial_capital": 100000.0,
+      "currency": "USD",
+      "equity": 100250.0,
+      "netprofit": 125.0,
+      "openprofit": 125.0,
+      "grossprofit": 250.0,
+      "grossloss": 0.0,
+      "commission": 0.0
+    },
+    "closedtrades": [],
+    "opentrades": [
+      {
+        "entry_time": 1710000000,
+        "entry_id": "Long",
+        "side": "long",
+        "qty": 1.0,
+        "entry_price": 123.45,
+        "profit": 125.0
+      }
+    ]
   }
 }
 ```

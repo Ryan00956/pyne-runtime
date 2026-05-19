@@ -45,9 +45,16 @@ class StrategyModule:
         self._collector = collector
         self._position_size = np.zeros(context.bar_count, dtype=np.float64)
         self._position_avg_price = np.full(context.bar_count, np.nan, dtype=np.float64)
+        self._equity = np.zeros(context.bar_count, dtype=np.float64)
+        self._netprofit = np.zeros(context.bar_count, dtype=np.float64)
+        self._openprofit = np.zeros(context.bar_count, dtype=np.float64)
+        self._grossprofit = np.zeros(context.bar_count, dtype=np.float64)
+        self._grossloss = np.zeros(context.bar_count, dtype=np.float64)
         self._touched = False
         self._event_seq = 0
         self._pyramiding = 0
+        self._initial_capital = 100000.0
+        self._currency = str(context.syminfo.currency or "")
         self._slippage_ticks = 0
         self._mintick = max(float(context.syminfo.mintick), 0.0)
         self._commission_type: str | None = None
@@ -64,6 +71,8 @@ class StrategyModule:
                 "min_tick",
                 "commission_type",
                 "commission_value",
+                "initial_capital",
+                "currency",
             )
             if key in kwargs
         }
@@ -84,6 +93,8 @@ class StrategyModule:
         min_tick: float | None = None,
         commission_type: str | None = None,
         commission_value: float | None = None,
+        initial_capital: float | None = None,
+        currency: str | None = None,
     ) -> None:
         """Configure lightweight strategy replay options.
 
@@ -102,6 +113,10 @@ class StrategyModule:
             self._commission_type = _normalize_commission_type(commission_type)
         if commission_value is not None:
             self._commission_value = max(float(commission_value), 0.0)
+        if initial_capital is not None:
+            self._initial_capital = max(float(initial_capital), 0.0)
+        if currency is not None:
+            self._currency = str(currency)
 
     @property
     def position_size(self) -> PyneSeries:
@@ -113,6 +128,26 @@ class StrategyModule:
             self._position_avg_price.copy(),
             name="strategy.position_avg_price",
         )
+
+    @property
+    def equity(self) -> PyneSeries:
+        return PyneSeries(self._equity.copy(), name="strategy.equity")
+
+    @property
+    def netprofit(self) -> PyneSeries:
+        return PyneSeries(self._netprofit.copy(), name="strategy.netprofit")
+
+    @property
+    def openprofit(self) -> PyneSeries:
+        return PyneSeries(self._openprofit.copy(), name="strategy.openprofit")
+
+    @property
+    def grossprofit(self) -> PyneSeries:
+        return PyneSeries(self._grossprofit.copy(), name="strategy.grossprofit")
+
+    @property
+    def grossloss(self) -> PyneSeries:
+        return PyneSeries(self._grossloss.copy(), name="strategy.grossloss")
 
     def entry(
         self,
@@ -469,6 +504,11 @@ class StrategyModule:
         current_size = 0.0
         current_avg = np.nan
         same_direction_entry_count = 0
+        gross_profit = 0.0
+        gross_loss = 0.0
+        total_commission = 0.0
+        closed_trades: list[dict[str, Any]] = []
+        open_trade: dict[str, Any] | None = None
         pending_orders: list[dict[str, Any]] = []
         orders_by_time: dict[int, list[dict[str, Any]]] = {}
         for order in sorted(
@@ -507,22 +547,45 @@ class StrategyModule:
                         continue
                     fill_side = "buy" if side == self.long else "sell"
                     fill_price = self._fill_price(float(order.get("_base_price", order.get("price", np.nan))), fill_side)
+                    qty = float(order.get("qty", 0.0))
                     position_after, avg_after = _entry_position_after(
                         previous_size=current_size,
                         previous_avg=current_avg,
                         side=side,
-                        qty=float(order.get("qty", 0.0)),
+                        qty=qty,
                         price=fill_price,
                     )
                     if current_size == 0 or (current_size > 0) != (position_after > 0):
                         same_direction_entry_count = 1
                     else:
                         same_direction_entry_count += 1
+                    previous_size = current_size
+                    previous_avg = current_avg
                     current_size = position_after
                     current_avg = avg_after
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(float(position_after), 8)
-                    self._apply_commission(order, qty=float(order.get("qty", 0.0)), price=fill_price)
+                    commission = self._apply_commission(
+                        order,
+                        qty=qty,
+                        price=fill_price,
+                    )
+                    signed_qty = qty if side == self.long else -qty
+                    gross_profit, gross_loss, total_commission, open_trade = _record_fill(
+                        order=order,
+                        signed_qty=signed_qty,
+                        previous_size=previous_size,
+                        previous_avg=previous_avg,
+                        previous_trade=open_trade,
+                        fill_price=fill_price,
+                        next_size=position_after,
+                        next_avg=avg_after,
+                        commission=commission,
+                        closed_trades=closed_trades,
+                        gross_profit=gross_profit,
+                        gross_loss=gross_loss,
+                        total_commission=total_commission,
+                    )
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
                 elif order.get("type") == "order":
@@ -544,14 +607,34 @@ class StrategyModule:
                         same_direction_entry_count = 0
                     elif current_size == 0 or (current_size > 0) != (position_after > 0):
                         same_direction_entry_count = 1
+                    previous_size = current_size
+                    previous_avg = current_avg
                     current_size = position_after
                     current_avg = avg_after
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(float(position_after), 8)
-                    self._apply_commission(order, qty=qty, price=fill_price)
+                    commission = self._apply_commission(order, qty=qty, price=fill_price)
+                    signed_qty = qty if side == self.long else -qty
+                    gross_profit, gross_loss, total_commission, open_trade = _record_fill(
+                        order=order,
+                        signed_qty=signed_qty,
+                        previous_size=previous_size,
+                        previous_avg=previous_avg,
+                        previous_trade=open_trade,
+                        fill_price=fill_price,
+                        next_size=position_after,
+                        next_avg=avg_after,
+                        commission=commission,
+                        closed_trades=closed_trades,
+                        gross_profit=gross_profit,
+                        gross_loss=gross_loss,
+                        total_commission=total_commission,
+                    )
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
                 elif order.get("type") in {"close", "close_all", "exit"} and current_size != 0:
+                    previous_size = current_size
+                    previous_avg = current_avg
                     if order.get("type") == "exit":
                         requested_qty = abs(float(order.get("qty", abs(current_size))))
                         fill_qty = min(requested_qty, abs(current_size))
@@ -566,7 +649,23 @@ class StrategyModule:
                     order["qty"] = round(fill_qty, 8)
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(next_size, 8)
-                    self._apply_commission(order, qty=fill_qty, price=fill_price)
+                    commission = self._apply_commission(order, qty=fill_qty, price=fill_price)
+                    signed_qty = -fill_qty if previous_size > 0 else fill_qty
+                    gross_profit, gross_loss, total_commission, open_trade = _record_fill(
+                        order=order,
+                        signed_qty=signed_qty,
+                        previous_size=previous_size,
+                        previous_avg=previous_avg,
+                        previous_trade=open_trade,
+                        fill_price=fill_price,
+                        next_size=next_size,
+                        next_avg=current_avg if next_size != 0 else np.nan,
+                        commission=commission,
+                        closed_trades=closed_trades,
+                        gross_profit=gross_profit,
+                        gross_loss=gross_loss,
+                        total_commission=total_commission,
+                    )
                     order["_active"] = True
                     current_size = next_size
                     if current_size == 0:
@@ -647,6 +746,8 @@ class StrategyModule:
                             same_direction_entry_count = 0
                         elif current_size == 0 or (current_size > 0) != (position_after > 0):
                             same_direction_entry_count = 1
+                    previous_size = current_size
+                    previous_avg = current_avg
                     current_size = position_after
                     current_avg = avg_after
                     order["price"] = round(float(fill_price), 8)
@@ -654,13 +755,45 @@ class StrategyModule:
                     if order.get("_oca_name"):
                         order["oca_name"] = order.get("_oca_name")
                         order["oca_type"] = order.get("_oca_type") or StrategyOca.none
-                    self._apply_commission(order, qty=float(order.get("qty", 0.0)), price=fill_price)
+                    fill_qty = float(order.get("qty", 0.0))
+                    commission = self._apply_commission(order, qty=fill_qty, price=fill_price)
+                    signed_qty = fill_qty if side == self.long else -fill_qty
+                    gross_profit, gross_loss, total_commission, open_trade = _record_fill(
+                        order=order,
+                        signed_qty=signed_qty,
+                        previous_size=previous_size,
+                        previous_avg=previous_avg,
+                        previous_trade=open_trade,
+                        fill_price=fill_price,
+                        next_size=position_after,
+                        next_avg=avg_after,
+                        commission=commission,
+                        closed_trades=closed_trades,
+                        gross_profit=gross_profit,
+                        gross_loss=gross_loss,
+                        total_commission=total_commission,
+                    )
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
                     _apply_oca_after_fill(order, pending_orders)
                 pending_orders = [item for item in remaining_pending if not item.get("_canceled")]
+            net_profit = gross_profit + gross_loss - total_commission
+            open_profit = _open_profit(current_size, current_avg, float(self._context.close.values[idx]))
             self._position_size[idx] = current_size
             self._position_avg_price[idx] = current_avg
+            self._grossprofit[idx] = gross_profit
+            self._grossloss[idx] = gross_loss
+            self._netprofit[idx] = net_profit
+            self._openprofit[idx] = open_profit
+            self._equity[idx] = self._initial_capital + net_profit + open_profit
+
+        self._sync_strategy_report(
+            closed_trades=closed_trades,
+            open_trade=open_trade,
+            gross_profit=gross_profit,
+            gross_loss=gross_loss,
+            total_commission=total_commission,
+        )
 
     def _sync_position_snapshot(self) -> None:
         if not self._touched:
@@ -677,6 +810,41 @@ class StrategyModule:
             "avg_price": round(final_avg, 8) if final_avg is not None else None,
         }
 
+    def _sync_strategy_report(
+        self,
+        *,
+        closed_trades: list[dict[str, Any]],
+        open_trade: dict[str, Any] | None,
+        gross_profit: float,
+        gross_loss: float,
+        total_commission: float,
+    ) -> None:
+        if not self._touched:
+            return
+        final_openprofit = float(self._openprofit[-1]) if len(self._openprofit) else 0.0
+        final_netprofit = float(self._netprofit[-1]) if len(self._netprofit) else 0.0
+        final_equity = float(self._equity[-1]) if len(self._equity) else self._initial_capital
+        open_trades = []
+        if open_trade is not None:
+            open_trades.append({
+                **open_trade,
+                "profit": round(final_openprofit, 8),
+            })
+        self._collector.strategy_report = {
+            "summary": {
+                "initial_capital": round(self._initial_capital, 8),
+                "currency": self._currency,
+                "equity": round(final_equity, 8),
+                "netprofit": round(final_netprofit, 8),
+                "openprofit": round(final_openprofit, 8),
+                "grossprofit": round(gross_profit, 8),
+                "grossloss": round(gross_loss, 8),
+                "commission": round(total_commission, 8),
+            },
+            "closedtrades": closed_trades,
+            "opentrades": open_trades,
+        }
+
     def _next_event_seq(self) -> int:
         self._event_seq += 1
         return self._event_seq
@@ -687,7 +855,7 @@ class StrategyModule:
             return float(price) + slippage
         return float(price) - slippage
 
-    def _apply_commission(self, order: dict[str, Any], *, qty: float, price: float) -> None:
+    def _apply_commission(self, order: dict[str, Any], *, qty: float, price: float) -> float:
         commission = _commission_amount(
             commission_type=self._commission_type,
             commission_value=self._commission_value,
@@ -696,6 +864,7 @@ class StrategyModule:
         )
         if commission > 0:
             order["commission"] = round(commission, 8)
+        return commission
 
 
 def _condition_values(value: Any, length: int) -> list[bool]:
@@ -837,6 +1006,157 @@ def _commission_amount(
     if commission_type == StrategyCommission.cash_per_contract:
         return abs(float(qty)) * commission_value
     return 0.0
+
+
+def _record_fill(
+    *,
+    order: dict[str, Any],
+    signed_qty: float,
+    previous_size: float,
+    previous_avg: float,
+    previous_trade: dict[str, Any] | None,
+    fill_price: float,
+    next_size: float,
+    next_avg: float,
+    commission: float,
+    closed_trades: list[dict[str, Any]],
+    gross_profit: float,
+    gross_loss: float,
+    total_commission: float,
+) -> tuple[float, float, float, dict[str, Any] | None]:
+    total_commission += commission
+    realized = _realized_profit(
+        previous_size=previous_size,
+        previous_avg=previous_avg,
+        signed_qty=signed_qty,
+        fill_price=fill_price,
+    )
+    closed_qty = _closed_quantity(previous_size=previous_size, signed_qty=signed_qty)
+
+    if closed_qty > 0:
+        if realized >= 0:
+            gross_profit += realized
+        else:
+            gross_loss += realized
+        if previous_trade is not None:
+            closed_trades.append(_closed_trade(
+                previous_trade=previous_trade,
+                order=order,
+                qty=closed_qty,
+                exit_price=fill_price,
+                profit=realized,
+                commission=commission,
+            ))
+
+    next_trade = _next_open_trade(
+        previous_trade=previous_trade,
+        order=order,
+        signed_qty=signed_qty,
+        previous_size=previous_size,
+        fill_price=fill_price,
+        next_size=next_size,
+        next_avg=next_avg,
+    )
+    return gross_profit, gross_loss, total_commission, next_trade
+
+
+def _realized_profit(
+    *,
+    previous_size: float,
+    previous_avg: float,
+    signed_qty: float,
+    fill_price: float,
+) -> float:
+    if previous_size == 0 or signed_qty == 0 or is_na_value(previous_avg):
+        return 0.0
+    if (previous_size > 0) == (signed_qty > 0):
+        return 0.0
+    qty = min(abs(previous_size), abs(signed_qty))
+    if previous_size > 0:
+        return (float(fill_price) - float(previous_avg)) * qty
+    return (float(previous_avg) - float(fill_price)) * qty
+
+
+def _closed_quantity(*, previous_size: float, signed_qty: float) -> float:
+    if previous_size == 0 or signed_qty == 0:
+        return 0.0
+    if (previous_size > 0) == (signed_qty > 0):
+        return 0.0
+    return min(abs(previous_size), abs(signed_qty))
+
+
+def _next_open_trade(
+    *,
+    previous_trade: dict[str, Any] | None,
+    order: dict[str, Any],
+    signed_qty: float,
+    previous_size: float,
+    fill_price: float,
+    next_size: float,
+    next_avg: float,
+) -> dict[str, Any] | None:
+    if next_size == 0:
+        return None
+
+    side = "long" if next_size > 0 else "short"
+    next_qty = abs(next_size)
+    reversed_position = previous_size != 0 and (previous_size > 0) != (next_size > 0)
+    opened_from_flat = previous_size == 0
+
+    if previous_trade is None or opened_from_flat or reversed_position:
+        return {
+            "entry_time": int(order.get("time", 0)),
+            "entry_id": str(order.get("id", "")),
+            "side": side,
+            "qty": round(next_qty, 8),
+            "entry_price": round(float(fill_price), 8),
+        }
+
+    if (previous_size > 0) == (signed_qty > 0):
+        return {
+            **previous_trade,
+            "side": side,
+            "qty": round(next_qty, 8),
+            "entry_price": round(float(next_avg), 8) if not is_na_value(next_avg) else previous_trade["entry_price"],
+        }
+
+    return {
+        **previous_trade,
+        "side": side,
+        "qty": round(next_qty, 8),
+    }
+
+
+def _closed_trade(
+    *,
+    previous_trade: dict[str, Any],
+    order: dict[str, Any],
+    qty: float,
+    exit_price: float,
+    profit: float,
+    commission: float,
+) -> dict[str, Any]:
+    return {
+        "entry_time": previous_trade.get("entry_time"),
+        "exit_time": int(order.get("time", 0)),
+        "entry_id": previous_trade.get("entry_id", ""),
+        "exit_id": str(order.get("id", "")),
+        "side": previous_trade.get("side", ""),
+        "qty": round(float(qty), 8),
+        "entry_price": previous_trade.get("entry_price"),
+        "exit_price": round(float(exit_price), 8),
+        "profit": round(float(profit), 8),
+        "commission": round(float(commission), 8),
+        "net_profit": round(float(profit) - float(commission), 8),
+    }
+
+
+def _open_profit(position_size: float, position_avg: float, close_price: float) -> float:
+    if position_size == 0 or is_na_value(position_avg):
+        return 0.0
+    if position_size > 0:
+        return (float(close_price) - float(position_avg)) * abs(position_size)
+    return (float(position_avg) - float(close_price)) * abs(position_size)
 
 
 def _entry_position_after(

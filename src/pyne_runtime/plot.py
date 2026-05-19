@@ -88,6 +88,7 @@ class OutputCollector:
         self.signals: list[dict[str, Any]] = []
         self.strategy_orders: list[dict[str, Any]] = []
         self.strategy_position: dict[str, Any] = {}
+        self.strategy_report: dict[str, Any] = {}
         self._object_lines: dict[str, dict[str, Any]] = {}
         self._object_labels: dict[str, dict[str, Any]] = {}
         self._object_boxes: dict[str, dict[str, Any]] = {}
@@ -167,6 +168,8 @@ class OutputCollector:
                 "orders": orders,
                 "position": self.strategy_position,
             }
+            if self.strategy_report:
+                result["strategy"].update(self.strategy_report)
 
         objects: dict[str, Any] = {}
         if self._object_lines:
