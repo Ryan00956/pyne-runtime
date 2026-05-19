@@ -38,3 +38,4 @@
 - Added partial `strategy.exit(qty=...)` position reduction semantics.
 - Added Pine-like `strategy.configure(slippage=..., commission_type=..., commission_value=...)` replay costs.
 - Added callable `strategy(...)` declarations for Pine-like strategy metadata and replay configuration.
+- Added Pine-like `strategy.order()`, `strategy.order_when()`, and `strategy.close_all()` strategy events.

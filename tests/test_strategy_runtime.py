@@ -96,6 +96,91 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [0.0, -1.5, -1.5, -1.5]
 
 
+def test_strategy_order_reduces_and_reverses_net_position() -> None:
+    result = pn.run(
+        """
+indicator("Order", overlay=True)
+strategy.order_when(bar_index == 0, "Buy", strategy.long, qty=2, price=close)
+strategy.order_when(bar_index == 1, "Sell Some", strategy.short, qty=1, price=close)
+strategy.order_when(bar_index == 2, "Reverse", strategy.short, qty=3, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.position_avg_price, "Average")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Buy",
+            "type": "order",
+            "side": "long",
+            "qty": 2.0,
+            "price": 1.5,
+            "position_after": 2.0,
+            "comment": "",
+        },
+        {
+            "time": 2,
+            "id": "Sell Some",
+            "type": "order",
+            "side": "short",
+            "qty": 1.0,
+            "price": 1.0,
+            "position_after": 1.0,
+            "comment": "",
+        },
+        {
+            "time": 3,
+            "id": "Reverse",
+            "type": "order",
+            "side": "short",
+            "qty": 3.0,
+            "price": 2.8,
+            "position_after": -2.0,
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [2.0, 1.0, -2.0, -2.0]
+    assert result.values("Average") == [1.5, 1.5, 2.8, 2.8]
+
+
+def test_strategy_order_alias_accepts_when_keyword_and_costs() -> None:
+    result = pn.run(
+        """
+indicator("Order Alias", overlay=True)
+strategy.configure(
+    slippage=1,
+    mintick=0.1,
+    commission_type=strategy.commission.cash_per_contract,
+    commission_value=0.5,
+)
+strategy.order("Buy", strategy.long, qty=2, when=bar_index == 0, price=close)
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Buy",
+            "type": "order",
+            "side": "long",
+            "qty": 2.0,
+            "price": 1.6,
+            "position_after": 2.0,
+            "comment": "",
+            "commission": 1.0,
+        },
+    ]
+    assert result.values("Position") == [2.0, 2.0, 2.0, 2.0]
+
+
 def test_strategy_unused_does_not_emit_strategy_output() -> None:
     result = pn.run(
         """
@@ -108,6 +193,44 @@ plot(close, "Close")
 
     assert result.ok
     assert "strategy" not in result.output
+
+
+def test_strategy_close_all_closes_any_open_position() -> None:
+    result = pn.run(
+        """
+indicator("Close All", overlay=True)
+strategy.entry_when(bar_index == 0, "Short", strategy.short, qty=2, price=close)
+strategy.close_all(when=bar_index == 2, price=close, comment="Risk off")
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Short",
+            "type": "entry",
+            "side": "short",
+            "qty": 2.0,
+            "price": 1.5,
+            "position_after": -2.0,
+            "comment": "",
+        },
+        {
+            "time": 3,
+            "id": "close_all",
+            "type": "close_all",
+            "side": "flat",
+            "qty": 2.0,
+            "price": 2.8,
+            "position_after": 0.0,
+            "comment": "Risk off",
+        },
+    ]
+    assert result.values("Position") == [-2.0, -2.0, 0.0, 0.0]
 
 
 def test_strategy_configure_pyramiding_allows_same_direction_adds() -> None:

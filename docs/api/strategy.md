@@ -22,6 +22,7 @@ slow = ta.ema(close, 26)
 strategy.entry_when(ta.cross(fast, slow), "Long", strategy.long, qty=1)
 strategy.close_when(ta.cross(slow, fast), "Long")
 strategy.exit("Long Exit", from_entry="Long", stop=close * 0.95, limit=close * 1.05)
+strategy.close_all(when=barstate.islast, comment="End")
 
 plot(strategy.position_size, "Position")
 ```
@@ -89,15 +90,34 @@ Entries use lightweight target/replay semantics:
 - same-direction duplicate entries are limited by `strategy.configure(pyramiding=...)`
 - a later opposite-direction entry can reverse or replace the target position
 
+## Order
+
+```python
+strategy.order_when(condition, id, direction=strategy.long, qty=1, price=None, comment="")
+strategy.order(id, direction=strategy.long, qty=1, when=True, price=None, comment="")
+```
+
+`strategy.order*` is a lower-level net-position order. Unlike
+`strategy.entry*`, it is not limited by `pyramiding`:
+
+- same-direction orders add to the current position
+- opposite-direction orders reduce the current position
+- if an opposite-direction order is larger than the current position, it reverses the position
+- slippage and commission settings apply to filled order prices
+
 ## Close
 
 ```python
 strategy.close_when(condition, id="", price=None, comment="")
 strategy.close(id="", when=True, price=None, comment="")
+strategy.close_all(when=True, price=None, comment="")
 ```
 
 `close_when()` emits close events only when there is an open position at that
 bar in the replayed event timeline.
+
+`close_all()` emits a close-all event that closes any open long or short
+position at matching bars.
 
 ## Exit
 

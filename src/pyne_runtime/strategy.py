@@ -161,6 +161,67 @@ class StrategyModule:
         self._replay_position()
         self._sync_position_snapshot()
 
+    def order(
+        self,
+        id: str,
+        direction: str = long,
+        *,
+        qty: float = 1.0,
+        when: PyneSeries | np.ndarray | list | bool = True,
+        price: PyneSeries | np.ndarray | list | float | None = None,
+        comment: str = "",
+    ) -> None:
+        """Emit lower-level strategy order events when ``when`` is true."""
+        self.order_when(
+            when,
+            id=id,
+            direction=direction,
+            qty=qty,
+            price=price,
+            comment=comment,
+        )
+
+    def order_when(
+        self,
+        condition: PyneSeries | np.ndarray | list | bool,
+        id: str,
+        direction: str = long,
+        *,
+        qty: float = 1.0,
+        price: PyneSeries | np.ndarray | list | float | None = None,
+        comment: str = "",
+    ) -> None:
+        """Emit lower-level order events when ``condition`` is true.
+
+        Unlike ``entry_when()``, these events are not limited by pyramiding.
+        They add, reduce, or reverse the replayed net position.
+        """
+        flags = _condition_values(condition, self._context.bar_count)
+        prices = _price_values(price, self._context.close, self._context.bar_count)
+        side = _normalize_direction(direction)
+        qty_abs = abs(float(qty))
+
+        for idx, flag in enumerate(flags):
+            if not flag:
+                continue
+            event_price = prices[idx]
+            self._collector.strategy_orders.append({
+                "time": self._context.times[idx],
+                "id": str(id),
+                "type": "order",
+                "side": side,
+                "qty": qty_abs,
+                "price": round(float(event_price), 8),
+                "position_after": 0.0,
+                "comment": comment,
+                "_base_price": float(event_price),
+                "_seq": self._next_event_seq(),
+            })
+            self._touched = True
+
+        self._replay_position()
+        self._sync_position_snapshot()
+
     def close(
         self,
         id: str = "",
@@ -205,6 +266,38 @@ class StrategyModule:
             self._touched = True
             self._replay_position()
 
+        self._sync_position_snapshot()
+
+    def close_all(
+        self,
+        *,
+        when: PyneSeries | np.ndarray | list | bool = True,
+        price: PyneSeries | np.ndarray | list | float | None = None,
+        comment: str = "",
+    ) -> None:
+        """Emit close-all events when ``when`` is true."""
+        flags = _condition_values(when, self._context.bar_count)
+        prices = _price_values(price, self._context.close, self._context.bar_count)
+
+        for idx, flag in enumerate(flags):
+            if not flag:
+                continue
+            event_price = prices[idx]
+            self._collector.strategy_orders.append({
+                "time": self._context.times[idx],
+                "id": "close_all",
+                "type": "close_all",
+                "side": "flat",
+                "qty": 0.0,
+                "price": round(float(event_price), 8),
+                "position_after": 0.0,
+                "comment": comment,
+                "_base_price": float(event_price),
+                "_seq": self._next_event_seq(),
+            })
+            self._touched = True
+
+        self._replay_position()
         self._sync_position_snapshot()
 
     def exit(
@@ -311,7 +404,30 @@ class StrategyModule:
                     self._apply_commission(order, qty=float(order.get("qty", 0.0)), price=fill_price)
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
-                elif order.get("type") in {"close", "exit"} and current_size != 0:
+                elif order.get("type") == "order":
+                    side = _normalize_direction(str(order.get("side", self.long)))
+                    fill_side = "buy" if side == self.long else "sell"
+                    fill_price = self._fill_price(float(order.get("_base_price", order.get("price", np.nan))), fill_side)
+                    qty = float(order.get("qty", 0.0))
+                    position_after, avg_after = _order_position_after(
+                        previous_size=current_size,
+                        previous_avg=current_avg,
+                        side=side,
+                        qty=qty,
+                        price=fill_price,
+                    )
+                    if position_after == 0:
+                        same_direction_entry_count = 0
+                    elif current_size == 0 or (current_size > 0) != (position_after > 0):
+                        same_direction_entry_count = 1
+                    current_size = position_after
+                    current_avg = avg_after
+                    order["price"] = round(float(fill_price), 8)
+                    order["position_after"] = round(float(position_after), 8)
+                    self._apply_commission(order, qty=qty, price=fill_price)
+                    order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
+                    order["_active"] = True
+                elif order.get("type") in {"close", "close_all", "exit"} and current_size != 0:
                     if order.get("type") == "exit":
                         requested_qty = abs(float(order.get("qty", abs(current_size))))
                         fill_qty = min(requested_qty, abs(current_size))
@@ -469,6 +585,28 @@ def _entry_position_after(
     new_size = previous_size + signed_qty
     if new_size == 0:
         return 0.0, np.nan
+    if is_na_value(previous_avg):
+        return new_size, float(price)
+    weighted = (abs(previous_size) * previous_avg + qty * float(price)) / abs(new_size)
+    return new_size, weighted
+
+
+def _order_position_after(
+    *,
+    previous_size: float,
+    previous_avg: float,
+    side: str,
+    qty: float,
+    price: float,
+) -> tuple[float, float]:
+    signed_qty = qty if side == StrategyModule.long else -qty
+    new_size = previous_size + signed_qty
+    if new_size == 0:
+        return 0.0, np.nan
+    if previous_size == 0 or (previous_size > 0) != (new_size > 0):
+        return new_size, float(price)
+    if (previous_size > 0) != (signed_qty > 0):
+        return new_size, previous_avg
     if is_na_value(previous_avg):
         return new_size, float(price)
     weighted = (abs(previous_size) * previous_avg + qty * float(price)) / abs(new_size)
