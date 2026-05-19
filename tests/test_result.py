@@ -34,8 +34,8 @@ def test_result_error_detail_is_structured() -> None:
         "message": "boom",
         "hint": "fix it",
         "docsUrl": (
-            "https://github.com/CandleScope/CandleScope/tree/main/packages/"
-            "pyne-runtime/docs/reference/error_codes.md#pyne-runtime-error"
+            "https://github.com/Ryan00956/pyne-runtime/tree/main/docs/"
+            "reference/error_codes.md#pyne-runtime-error"
         ),
     }
 

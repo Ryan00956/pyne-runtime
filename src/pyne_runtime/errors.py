@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-DOCS_BASE_URL = "https://github.com/CandleScope/CandleScope/tree/main/packages/pyne-runtime/docs"
+DOCS_BASE_URL = "https://github.com/Ryan00956/pyne-runtime/tree/main/docs"
 
 
 ERROR_HINTS: dict[str, str] = {

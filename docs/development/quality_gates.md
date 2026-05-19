@@ -7,12 +7,6 @@ Pyne Runtime is intended to be developed and tested as an independent package.
 From the repository root:
 
 ```bash
-python -m pip install -e packages/pyne-runtime[dev]
-```
-
-Or from `packages/pyne-runtime`:
-
-```bash
 python -m pip install -e .[dev]
 ```
 
@@ -21,8 +15,8 @@ python -m pip install -e .[dev]
 Run these before committing package changes:
 
 ```bash
-python -m ruff check packages/pyne-runtime
-python -m pytest packages/pyne-runtime/tests
+python -m ruff check .
+python -m pytest
 ```
 
 From the package root, the full package check also verifies build metadata:
@@ -44,7 +38,7 @@ The build output is written to a temporary directory, so the package tree stays 
 Package code must not import CandleScope application modules. This should return no matches:
 
 ```bash
-Select-String -Path packages/pyne-runtime/src/pyne_runtime/*.py -Pattern 'from app\.|import app\.|app\.'
+Select-String -Path src/pyne_runtime/*.py -Pattern 'from app\.|import app\.|app\.'
 ```
 
 ## Release Readiness

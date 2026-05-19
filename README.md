@@ -24,28 +24,28 @@ print(result.lines)
 
 ## Install Locally
 
-From the CandleScope repository root:
+From the repository root:
 
 ```bash
-python -m pip install -e packages/pyne-runtime
+python -m pip install -e .[dev]
 ```
 
 ## Command Line
 
 ```bash
-pyne run packages/pyne-runtime/examples/ma_cross.py --ohlcv packages/pyne-runtime/examples/sample_ohlcv.csv --out result.json
+pyne run examples/ma_cross.py --ohlcv examples/sample_ohlcv.csv --out result.json
 ```
 
 ```bash
 pyne --version
 python -m pyne_runtime --version
 pyne schema
-pyne validate packages/pyne-runtime/examples/ma_cross.py
+pyne validate examples/ma_cross.py
 ```
 
 ## Status
 
-This package is the standalone runtime extraction of Pyne. It does not import CandleScope application modules.
+This package is the standalone runtime extraction of Pyne.
 
 ## Documentation
 
