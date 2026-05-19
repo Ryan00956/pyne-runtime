@@ -54,10 +54,17 @@ Start here:
 - [Quickstart](docs/quickstart.md)
 - [First Indicator Tutorial](docs/tutorials/first_indicator.md)
 - [CSV To Signal Tutorial](docs/tutorials/csv_to_signal.md)
+- [Host-Backed `request.security()`](docs/tutorials/host_request_security.md)
 
 Concepts:
 
 - [Data Model](docs/concepts/data_model.md)
+- [Series Semantics](docs/concepts/series_semantics.md)
+- [`na` Semantics](docs/concepts/na_semantics.md)
+- [Bar Execution Model](docs/concepts/bar_execution_model.md)
+- [State Semantics](docs/concepts/state_semantics.md)
+- [Expression Helpers](docs/concepts/expression_helpers.md)
+- [Drawing Objects](docs/concepts/drawing_objects.md)
 - [Script Runtime](docs/concepts/script_runtime.md)
 - [Security Modes](docs/concepts/security_modes.md)
 - [Incremental Runtime](docs/concepts/incremental_runtime.md)
@@ -72,6 +79,8 @@ API:
 - [PyneSettings](docs/api/settings.md)
 - [`ta` API](docs/api/ta.md)
 - [`input` API](docs/api/input.md)
+- [`request` API](docs/api/request.md)
+- [`strategy` API](docs/api/strategy.md)
 - [Plot API](docs/api/plot.md)
 
 Reference:
@@ -80,7 +89,10 @@ Reference:
 - [CLI](docs/reference/cli.md)
 - [Error Codes](docs/reference/error_codes.md)
 - [Compatibility](docs/reference/compatibility.md)
+- [Pine-Like API Matrix](docs/reference/pine_like_api_matrix.md)
 
 Development:
 
 - [Quality Gates](docs/development/quality_gates.md)
+- [Pine-Like Semantics Execution Plan](docs/development/pine_semantics_execution_plan_zh.md)
+- [Phase 11 Request Security Expression Thunks Plan](docs/development/request_security_expression_thunks_plan_zh.md)

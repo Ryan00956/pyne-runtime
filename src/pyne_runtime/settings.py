@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Any
 
 
 SECURITY_MODES = {"safe", "research", "unsafe"}
@@ -23,6 +24,7 @@ class PyneSettings:
     max_output_points: int = 1_000_000
     cache_max_items: int = 32
     allowed_imports: tuple[str, ...] = DEFAULT_ALLOWED_IMPORTS
+    data_provider: Any = None
 
     def __post_init__(self) -> None:
         security_mode = normalize_security_mode(self.security_mode)
@@ -79,6 +81,7 @@ class PyneSettings:
             max_output_points=self.max_output_points,
             cache_max_items=self.cache_max_items,
             allowed_imports=self.allowed_imports,
+            data_provider=self.data_provider,
         )
 
 

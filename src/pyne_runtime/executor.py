@@ -9,6 +9,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import queue
 import time
+from dataclasses import replace
 from typing import Any
 
 from .errors import error_hint
@@ -27,9 +28,12 @@ def execute_pyne_script(
     executor_mode: str | None = None,
     timeout_seconds: float | None = None,
     settings: PyneSettings | None = None,
+    data_provider: Any = None,
 ) -> PyneResult:
     """Execute a Pyne script using the configured strategy."""
     settings = settings or PyneSettings.from_env()
+    if data_provider is not None:
+        settings = replace(settings, data_provider=data_provider)
     mode = (executor_mode or settings.executor_mode or "process").strip().lower()
     if mode == "inline":
         return PyneRuntime(settings=settings).execute(

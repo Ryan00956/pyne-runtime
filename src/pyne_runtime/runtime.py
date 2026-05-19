@@ -17,6 +17,7 @@ Usage::
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -25,9 +26,9 @@ from .context import PyneContext
 from .ta import TaModule
 from .input import InputModule
 from .color import color as color_singleton
-from .cache import pyne as pyne_cache_namespace
 from .math_ext import pyne_math
 from .plot import OutputCollector, create_plot_functions
+from .request import PyneRequestError, RequestModule
 from .incremental import IncrementalPyneResult, PyneIncrementalSession, is_incremental_pyne_script
 from . import utils
 from .cache import pyne_cache
@@ -43,6 +44,11 @@ from .security import (
     validate_script_security,
 )
 from .settings import PyneSettings
+from .series import switch as series_switch
+from .series import when as series_when
+from .series import where as series_where
+from .state import PyneStateNamespace
+from .strategy import StrategyModule
 
 
 class PyneRuntime:
@@ -113,8 +119,10 @@ class PyneRuntime:
             # 2. Create module instances bound to this context
             ta = TaModule(ctx)
             input_mod = InputModule(params=params, context=ctx)
-            collector = OutputCollector(times=ctx.time)
+            state = PyneStateNamespace()
+            collector = OutputCollector(times=ctx.times)
             plot_funcs = create_plot_functions(collector)
+            strategy = StrategyModule(ctx, collector)
 
             # 3. Build script execution namespace
             script_globals = self._build_namespace(
@@ -124,6 +132,8 @@ class PyneRuntime:
                 plot_funcs=plot_funcs,
                 params=params,
                 policy=policy,
+                state=state,
+                strategy=strategy,
             )
 
             # 4. Execute
@@ -157,6 +167,9 @@ class PyneRuntime:
             message = str(exc)
             code = classify_security_error(message)
             return PyneResult(ok=False, code=code, error=message, hint=error_hint(code))
+        except PyneRequestError as exc:
+            code = exc.code
+            return PyneResult(ok=False, code=code, error=str(exc), hint=error_hint(code))
         except Exception as exc:
             error_msg = f"Script error: {exc}"
             return PyneResult(
@@ -188,6 +201,8 @@ class PyneRuntime:
         plot_funcs: dict[str, Any],
         params: dict[str, Any],
         policy: PyneSecurityPolicy,
+        state: PyneStateNamespace,
+        strategy: StrategyModule,
     ) -> dict[str, Any]:
         """Build the global namespace injected into user scripts.
 
@@ -203,6 +218,9 @@ class PyneRuntime:
         ns["close"] = ctx.close
         ns["volume"] = ctx.volume
         ns["time"] = ctx.time
+        ns["bar_index"] = ctx.bar_index
+        ns["last_bar_index"] = ctx.last_bar_index
+        ns["barstate"] = ctx.barstate
         ns["bar_count"] = ctx.bar_count
 
         # Derived sources
@@ -218,6 +236,12 @@ class PyneRuntime:
         # input.* — parameter declaration
         ns["input"] = input_mod
 
+        # request.* — host-backed multi-context data requests
+        ns["request"] = RequestModule(ctx, provider=self.settings.data_provider)
+
+        # strategy.* — lightweight strategy event semantics
+        ns["strategy"] = strategy
+
         # Drawing functions
         ns.update(plot_funcs)  # plot, hline, fill, bar, marker, etc.
 
@@ -228,18 +252,31 @@ class PyneRuntime:
         ns["math"] = pyne_math
 
         # pyne.* — local helper namespace for cache and future runtime helpers.
-        ns["pyne"] = pyne_cache_namespace
-        ns["cache"] = pyne_cache_namespace.cache
-        ns["cache_clear"] = pyne_cache_namespace.cache_clear
-        ns["cache_stats"] = pyne_cache_namespace.cache_stats
+        pyne_namespace = SimpleNamespace(
+            cache=pyne_cache.get_or_load,
+            cache_clear=pyne_cache.clear,
+            cache_stats=pyne_cache.stats,
+            var=state.var,
+            state=state.state,
+            state_snapshot=state.snapshot,
+        )
+        ns["pyne"] = pyne_namespace
+        ns["cache"] = pyne_namespace.cache
+        ns["cache_clear"] = pyne_namespace.cache_clear
+        ns["cache_stats"] = pyne_namespace.cache_stats
+        ns["var"] = state.var
+        ns["state"] = state.state
 
         # ── Layer 2.5: Utility functions (global access) ─────
         # These are also available via ta.* but exposed at top level
         # for convenience, matching Pine's global functions
         ns["crossover"] = utils.crossover
+        ns["cross"] = utils.cross
         ns["crossunder"] = utils.crossunder
-        ns["iff"] = lambda cond, a, b: np.where(cond, a, b)
-        ns["where"] = ns["iff"]
+        ns["when"] = series_when
+        ns["iff"] = series_when
+        ns["where"] = series_where
+        ns["switch"] = series_switch
         ns["ref"] = utils.shift
         ns["highest"] = utils.highest
         ns["lowest"] = utils.lowest

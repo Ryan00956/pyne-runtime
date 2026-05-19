@@ -37,6 +37,8 @@ Custom output arrays do not align with the OHLCV input length.
 ## PYNE_UNSUPPORTED_FEATURE
 
 The script requested a feature not supported by this runtime.
+This is also returned when `request.security()` is used without a configured
+host data provider.
 
 ## PYNE_PROCESS_FAILED
 

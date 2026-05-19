@@ -21,6 +21,7 @@ def run(
     settings: PyneSettings | None = None,
     security_mode: str | None = None,
     executor_mode: str | None = None,
+    data_provider: Any = None,
 ) -> PyneResult:
     """Run a Pyne script against OHLCV data."""
     script_text = _read_script(script)
@@ -31,6 +32,7 @@ def run(
         security_mode=security_mode,
         executor_mode=executor_mode,
         settings=settings,
+        data_provider=data_provider,
     )
 
 

@@ -23,10 +23,23 @@ from typing import Any
 
 import numpy as np
 
+from .series import PyneSeries
+from .state import PyneVar
+from .values import is_na_value
+
 
 class _Namespace:
-    def __init__(self, **entries: str) -> None:
+    def __init__(self, **entries: Any) -> None:
         self.__dict__.update(entries)
+
+
+class _CallableNamespace(_Namespace):
+    def __init__(self, call: Any, **entries: Any) -> None:
+        super().__init__(**entries)
+        self._call = call
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self._call(*args, **kwargs)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -39,6 +52,14 @@ class PlotRef:
     id: str
     title: str
     pane: str = "main"
+
+
+@dataclass(frozen=True)
+class ObjectRef:
+    """Opaque reference to a mutable drawing object."""
+
+    id: str
+    kind: str
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -64,12 +85,21 @@ class OutputCollector:
         self.labels: list[dict[str, Any]] = []
         self.barcolors: list[dict[str, Any]] = []
         self.signals: list[dict[str, Any]] = []
+        self.strategy_orders: list[dict[str, Any]] = []
+        self.strategy_position: dict[str, Any] = {}
+        self._object_lines: dict[str, dict[str, Any]] = {}
+        self._object_labels: dict[str, dict[str, Any]] = {}
         self._indicator_meta: dict[str, Any] = {}
         self._plot_counter: int = 0
+        self._object_counter: int = 0
 
     def _next_id(self) -> str:
         self._plot_counter += 1
         return f"plot_{self._plot_counter}"
+
+    def _next_object_id(self, kind: str) -> str:
+        self._object_counter += 1
+        return f"{kind}_{self._object_counter}"
 
     def set_indicator_meta(self, title: str = "", overlay: bool = True, **kwargs: Any) -> None:
         """Set indicator metadata (from ``indicator()`` call)."""
@@ -108,6 +138,26 @@ class OutputCollector:
             result["barcolors"] = self.barcolors
         if self.signals:
             result["signals"] = self.signals
+        if self.strategy_orders or self.strategy_position:
+            orders = [
+                {key: value for key, value in order.items() if key != "_seq"}
+                for order in sorted(
+                    self.strategy_orders,
+                    key=lambda item: (item.get("time", 0), item.get("_seq", 0)),
+                )
+            ]
+            result["strategy"] = {
+                "orders": orders,
+                "position": self.strategy_position,
+            }
+
+        objects: dict[str, Any] = {}
+        if self._object_lines:
+            objects["lines"] = list(self._object_lines.values())
+        if self._object_labels:
+            objects["labels"] = list(self._object_labels.values())
+        if objects:
+            result["objects"] = objects
 
         return result
 
@@ -129,7 +179,11 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         """
         collector.set_indicator_meta(title=title, overlay=overlay, **kwargs)
 
-    def _values_from_data(data: np.ndarray | list | Any) -> list:
+    def _values_from_data(data: PyneSeries | np.ndarray | list | Any) -> list:
+        if isinstance(data, PyneVar):
+            data = data.get()
+        if isinstance(data, PyneSeries):
+            return data.to_numpy().tolist()
         if isinstance(data, np.ndarray):
             return data.tolist()
         if isinstance(data, list):
@@ -139,6 +193,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
     def _color_for_index(color_data: Any, idx: int, timestamp: int) -> str | None:
         if color_data is None:
             return None
+        if isinstance(color_data, PyneSeries):
+            color_data = color_data.to_numpy()
         if isinstance(color_data, np.ndarray):
             if idx < len(color_data):
                 return str(color_data[idx])
@@ -151,21 +207,66 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                 if item.get("time") == timestamp or "time" not in item:
                     return str(item.get("color")) if item.get("color") else None
                 return None
+            if is_na_value(item):
+                return None
             return str(item) if item else None
+        if is_na_value(color_data):
+            return None
         return str(color_data) if color_data else None
 
     def _is_valid_value(value: Any) -> bool:
-        return value is not None and not (isinstance(value, float) and np.isnan(value))
+        return not is_na_value(value)
+
+    def _condition_is_true(value: Any) -> bool:
+        return False if is_na_value(value) else bool(value)
+
+    def _scalar_from_value(value: Any) -> Any:
+        if isinstance(value, PyneVar):
+            value = value.get()
+        if isinstance(value, PyneSeries):
+            values = value.to_numpy().tolist()
+        elif isinstance(value, np.ndarray):
+            values = value.tolist()
+        elif isinstance(value, list):
+            values = value
+        else:
+            return _serialize_scalar(value)
+
+        for item in reversed(values):
+            if not is_na_value(item):
+                return _serialize_scalar(item)
+        return None
+
+    def _serialize_scalar(value: Any) -> Any:
+        if is_na_value(value):
+            return None
+        if isinstance(value, np.generic):
+            value = value.item()
+        if isinstance(value, bool | str | int):
+            return value
+        if isinstance(value, float):
+            return round(value, 8)
+        return value
+
+    def _line_entry(ref: ObjectRef) -> dict[str, Any] | None:
+        if not isinstance(ref, ObjectRef) or ref.kind != "line":
+            return None
+        return collector._object_lines.get(ref.id)
+
+    def _label_entry(ref: ObjectRef) -> dict[str, Any] | None:
+        if not isinstance(ref, ObjectRef) or ref.kind != "label":
+            return None
+        return collector._object_labels.get(ref.id)
 
     def plot(
-        data: np.ndarray | list,
+        data: PyneSeries | np.ndarray | list,
         title: str = "",
-        color: str | np.ndarray = "#f59e0b",
+        color: str | PyneSeries | np.ndarray = "#f59e0b",
         linewidth: int = 2,
         style: str = "solid",
         overlay: bool | None = None,
         pane: str | None = None,
-        color_array: np.ndarray | None = None,
+        color_array: PyneSeries | np.ndarray | None = None,
     ) -> PlotRef:
         """Plot a line series.
 
@@ -221,31 +322,44 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                 hist_points.append(point)
             collector.histograms.append({
                 "title": title or plot_id,
-                "color_up": str(color) if not isinstance(color, np.ndarray) else "#26a69a",
-                "color_down": str(color) if not isinstance(color, np.ndarray) else "#ef5350",
+                "color_up": (
+                    str(color)
+                    if not isinstance(color, (np.ndarray, PyneSeries))
+                    else "#26a69a"
+                ),
+                "color_down": (
+                    str(color)
+                    if not isinstance(color, (np.ndarray, PyneSeries))
+                    else "#ef5350"
+                ),
                 "pane": pane,
                 "data": hist_points,
             })
             return PlotRef(id=plot_id, title=title, pane=pane)
 
+        line_color_values = color.to_numpy() if isinstance(color, PyneSeries) else color
         line_entry: dict[str, Any] = {
             "id": plot_id,
             "title": title or plot_id,
-            "color": str(color) if not isinstance(color, np.ndarray) else str(color[0]) if len(color) > 0 else "#f59e0b",
+            "color": (
+                str(line_color_values)
+                if not isinstance(line_color_values, np.ndarray)
+                else str(line_color_values[0]) if len(line_color_values) > 0 else "#f59e0b"
+            ),
             "linewidth": linewidth,
             "style": style,
             "pane": pane,
             "data": points,
         }
 
-        if color_array is not None or isinstance(color, np.ndarray):
+        if color_array is not None or isinstance(color, (np.ndarray, PyneSeries)):
             line_entry["per_bar_color"] = True
 
         collector.lines.append(line_entry)
         return PlotRef(id=plot_id, title=title, pane=pane)
 
     def bar(
-        data: np.ndarray | list,
+        data: PyneSeries | np.ndarray | list,
         title: str = "",
         color_up: str = "#26a69a",
         color_down: str = "#ef5350",
@@ -335,7 +449,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         })
 
     def bgcolor(
-        condition: np.ndarray | bool,
+        condition: PyneSeries | np.ndarray | bool,
         color: str = "rgba(59,130,246,0.1)",
         pane: str | None = None,
         title: str = "",
@@ -352,10 +466,13 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         if pane is None:
             pane = "main"
 
+        if isinstance(condition, PyneSeries):
+            condition = condition.to_numpy()
+
         if isinstance(condition, np.ndarray):
             regions = []
             for i, (t, c) in enumerate(zip(collector.times, condition)):
-                if c:
+                if _condition_is_true(c):
                     regions.append({"time": t})
         elif condition:
             regions = [{"time": t} for t in collector.times]
@@ -371,7 +488,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             })
 
     def marker(
-        condition: np.ndarray,
+        condition: PyneSeries | np.ndarray,
         shape: str = "circle",
         color: str = "#f59e0b",
         text: str = "",
@@ -399,9 +516,16 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         if pane is None:
             pane = "separate" if not collector._indicator_meta.get("overlay", True) else "main"
 
+        if isinstance(condition, PyneSeries):
+            condition_values = condition.to_numpy()
+        elif isinstance(condition, np.ndarray):
+            condition_values = condition
+        else:
+            condition_values = [condition] * len(collector.times)
+
         marks = []
-        for i, (t, c) in enumerate(zip(collector.times, condition)):
-            if c:
+        for i, (t, c) in enumerate(zip(collector.times, condition_values)):
+            if _condition_is_true(c):
                 marks.append({
                     "time": t,
                     "shape": shape,
@@ -424,7 +548,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             })
 
     def barcolor(
-        color_arr: np.ndarray | str,
+        color_arr: PyneSeries | np.ndarray | str,
     ) -> None:
         """Color individual candlestick bars.
 
@@ -435,6 +559,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         """
         if isinstance(color_arr, str):
             colors_list = [color_arr] * len(collector.times)
+        elif isinstance(color_arr, PyneSeries):
+            colors_list = color_arr.to_numpy().tolist()
         elif isinstance(color_arr, np.ndarray):
             colors_list = color_arr.tolist()
         else:
@@ -442,19 +568,19 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
 
         bar_colors = []
         for t, c in zip(collector.times, colors_list):
-            if c and c != "":
+            if not is_na_value(c) and c != "":
                 bar_colors.append({"time": t, "color": str(c)})
 
         if bar_colors:
             collector.barcolors.append({"data": bar_colors})
 
     def emit_signal(
-        condition: np.ndarray | bool,
+        condition: PyneSeries | np.ndarray | bool,
         name: str = "",
         side: str = "buy",
         message: str = "",
         strength: float | None = None,
-        price: np.ndarray | float | None = None,
+        price: PyneSeries | np.ndarray | float | None = None,
         payload: dict[str, Any] | None = None,
         pane: str = "main",
     ) -> None:
@@ -464,7 +590,9 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         Trading modules may consume them, but Pyne indicators do not manage API
         keys or submit orders.
         """
-        if isinstance(condition, np.ndarray):
+        if isinstance(condition, PyneSeries):
+            flags = condition.to_numpy().tolist()
+        elif isinstance(condition, np.ndarray):
             flags = condition.tolist()
         elif isinstance(condition, list):
             flags = condition
@@ -475,7 +603,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         normalized_side = str(side or "alert").lower()
         data = []
         for t, flag, signal_price in zip(collector.times, flags, prices):
-            if not flag:
+            if not _condition_is_true(flag):
                 continue
             point: dict[str, Any] = {
                 "time": t,
@@ -501,7 +629,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             })
 
     def alertcondition(
-        condition: np.ndarray | bool,
+        condition: PyneSeries | np.ndarray | bool,
         title: str = "",
         message: str = "",
         side: str = "alert",
@@ -545,10 +673,169 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             "style": style,
         })
 
+    def line_new(
+        x1: Any,
+        y1: Any,
+        x2: Any,
+        y2: Any,
+        color: str = "#2196f3",
+        width: int = 1,
+        style: str = "solid",
+        extend: str = "none",
+        xloc: str = "bar_index",
+        pane: str | None = None,
+    ) -> ObjectRef:
+        if pane is None:
+            pane = "main"
+        object_id = collector._next_object_id("line")
+        collector._object_lines[object_id] = {
+            "id": object_id,
+            "x1": _scalar_from_value(x1),
+            "y1": _scalar_from_value(y1),
+            "x2": _scalar_from_value(x2),
+            "y2": _scalar_from_value(y2),
+            "color": color,
+            "width": int(width),
+            "style": style,
+            "extend": extend,
+            "xloc": xloc,
+            "pane": pane,
+        }
+        return ObjectRef(id=object_id, kind="line")
+
+    def line_set_xy1(ref: ObjectRef, x: Any, y: Any) -> None:
+        entry = _line_entry(ref)
+        if entry is not None:
+            entry["x1"] = _scalar_from_value(x)
+            entry["y1"] = _scalar_from_value(y)
+
+    def line_set_xy2(ref: ObjectRef, x: Any, y: Any) -> None:
+        entry = _line_entry(ref)
+        if entry is not None:
+            entry["x2"] = _scalar_from_value(x)
+            entry["y2"] = _scalar_from_value(y)
+
+    def line_set_x1(ref: ObjectRef, x: Any) -> None:
+        entry = _line_entry(ref)
+        if entry is not None:
+            entry["x1"] = _scalar_from_value(x)
+
+    def line_set_y1(ref: ObjectRef, y: Any) -> None:
+        entry = _line_entry(ref)
+        if entry is not None:
+            entry["y1"] = _scalar_from_value(y)
+
+    def line_set_x2(ref: ObjectRef, x: Any) -> None:
+        entry = _line_entry(ref)
+        if entry is not None:
+            entry["x2"] = _scalar_from_value(x)
+
+    def line_set_y2(ref: ObjectRef, y: Any) -> None:
+        entry = _line_entry(ref)
+        if entry is not None:
+            entry["y2"] = _scalar_from_value(y)
+
+    def line_set_color(ref: ObjectRef, color: str) -> None:
+        entry = _line_entry(ref)
+        if entry is not None:
+            entry["color"] = color
+
+    def line_set_width(ref: ObjectRef, width: int) -> None:
+        entry = _line_entry(ref)
+        if entry is not None:
+            entry["width"] = int(width)
+
+    def line_set_style(ref: ObjectRef, style: str) -> None:
+        entry = _line_entry(ref)
+        if entry is not None:
+            entry["style"] = style
+
+    def line_set_extend(ref: ObjectRef, extend: str) -> None:
+        entry = _line_entry(ref)
+        if entry is not None:
+            entry["extend"] = extend
+
+    def line_delete(ref: ObjectRef) -> None:
+        if isinstance(ref, ObjectRef) and ref.kind == "line":
+            collector._object_lines.pop(ref.id, None)
+
+    def label_new(
+        x: Any,
+        y: Any,
+        text: str = "",
+        color: str = "#ffffff",
+        textcolor: str = "#000000",
+        style: str = "label_down",
+        size: str = "normal",
+        xloc: str = "bar_index",
+        pane: str | None = None,
+    ) -> ObjectRef:
+        if pane is None:
+            pane = "main"
+        object_id = collector._next_object_id("label")
+        collector._object_labels[object_id] = {
+            "id": object_id,
+            "x": _scalar_from_value(x),
+            "y": _scalar_from_value(y),
+            "text": str(text),
+            "color": color,
+            "textcolor": textcolor,
+            "style": style,
+            "size": size,
+            "xloc": xloc,
+            "pane": pane,
+        }
+        return ObjectRef(id=object_id, kind="label")
+
+    def label_set_xy(ref: ObjectRef, x: Any, y: Any) -> None:
+        entry = _label_entry(ref)
+        if entry is not None:
+            entry["x"] = _scalar_from_value(x)
+            entry["y"] = _scalar_from_value(y)
+
+    def label_set_x(ref: ObjectRef, x: Any) -> None:
+        entry = _label_entry(ref)
+        if entry is not None:
+            entry["x"] = _scalar_from_value(x)
+
+    def label_set_y(ref: ObjectRef, y: Any) -> None:
+        entry = _label_entry(ref)
+        if entry is not None:
+            entry["y"] = _scalar_from_value(y)
+
+    def label_set_text(ref: ObjectRef, text: str) -> None:
+        entry = _label_entry(ref)
+        if entry is not None:
+            entry["text"] = str(text)
+
+    def label_set_color(ref: ObjectRef, color: str) -> None:
+        entry = _label_entry(ref)
+        if entry is not None:
+            entry["color"] = color
+
+    def label_set_textcolor(ref: ObjectRef, textcolor: str) -> None:
+        entry = _label_entry(ref)
+        if entry is not None:
+            entry["textcolor"] = textcolor
+
+    def label_set_style(ref: ObjectRef, style: str) -> None:
+        entry = _label_entry(ref)
+        if entry is not None:
+            entry["style"] = style
+
+    def label_set_size(ref: ObjectRef, size: str) -> None:
+        entry = _label_entry(ref)
+        if entry is not None:
+            entry["size"] = size
+
+    def label_delete(ref: ObjectRef) -> None:
+        if isinstance(ref, ObjectRef) and ref.kind == "label":
+            collector._object_labels.pop(ref.id, None)
+
     # ── Legacy compatibility ─────────────────────────────────
 
     def add_line(
-        data: np.ndarray | list,
+        data: PyneSeries | np.ndarray | list,
         title: str = "",
         color: str = "#f59e0b",
         pane: str | None = None,
@@ -556,8 +843,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         line_style: str | int | None = None,
         overlay: bool | None = None,
         type: str = "line",
-        color_data: list | np.ndarray | None = None,
-        colorData: list | np.ndarray | None = None,
+        color_data: list | PyneSeries | np.ndarray | None = None,
+        colorData: list | PyneSeries | np.ndarray | None = None,
         linewidth: int | None = None,
         style: str | int | None = None,
         **_: Any,
@@ -620,6 +907,46 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
     hline.style_dashed = "dashed"
     hline.style_dotted = "dotted"
 
+    line_namespace = _Namespace(
+        new=line_new,
+        set_xy1=line_set_xy1,
+        set_xy2=line_set_xy2,
+        set_x1=line_set_x1,
+        set_y1=line_set_y1,
+        set_x2=line_set_x2,
+        set_y2=line_set_y2,
+        set_color=line_set_color,
+        set_width=line_set_width,
+        set_style=line_set_style,
+        set_extend=line_set_extend,
+        delete=line_delete,
+        style_solid="solid",
+        style_dashed="dashed",
+        style_dotted="dotted",
+        extend_none="none",
+        extend_left="left",
+        extend_right="right",
+        extend_both="both",
+    )
+    label_namespace = _CallableNamespace(
+        label_func,
+        new=label_new,
+        set_xy=label_set_xy,
+        set_x=label_set_x,
+        set_y=label_set_y,
+        set_text=label_set_text,
+        set_color=label_set_color,
+        set_textcolor=label_set_textcolor,
+        set_style=label_set_style,
+        set_size=label_set_size,
+        delete=label_delete,
+        style_label_up="label_up",
+        style_label_down="label_down",
+        style_label_left="label_left",
+        style_label_right="label_right",
+        style_label_center="label_center",
+    )
+
     return {
         "indicator": indicator,
         "plot": plot,
@@ -631,7 +958,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         "barcolor": barcolor,
         "emit_signal": emit_signal,
         "alertcondition": alertcondition,
-        "label": label_func,
+        "line": line_namespace,
+        "label": label_namespace,
         "add_line": add_line,
         "shape": _Namespace(
             triangleup="triangle_up",

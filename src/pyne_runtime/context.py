@@ -15,6 +15,9 @@ from typing import Any
 
 import numpy as np
 
+from .barstate import PyneBarState
+from .series import PyneSeries
+
 
 @dataclass
 class PyneContext:
@@ -26,22 +29,27 @@ class PyneContext:
         low:     Low prices
         close:   Close prices
         volume:  Volume values
-        time:    Timestamps (list of int, Unix seconds)
+        time:    Timestamps as a Pine-like series
+        times:   Raw timestamp list used for output serialization
         bar_count: Number of bars
     """
-    open: np.ndarray
-    high: np.ndarray
-    low: np.ndarray
-    close: np.ndarray
-    volume: np.ndarray
-    time: list[int]
+    open: PyneSeries
+    high: PyneSeries
+    low: PyneSeries
+    close: PyneSeries
+    volume: PyneSeries
+    time: PyneSeries
+    times: list[int]
     bar_count: int = 0
 
     # ── Derived fields (lazy-computed) ───────────────────────
-    _hl2: np.ndarray | None = field(default=None, repr=False)
-    _hlc3: np.ndarray | None = field(default=None, repr=False)
-    _ohlc4: np.ndarray | None = field(default=None, repr=False)
-    _hlcc4: np.ndarray | None = field(default=None, repr=False)
+    _hl2: PyneSeries | None = field(default=None, repr=False)
+    _hlc3: PyneSeries | None = field(default=None, repr=False)
+    _ohlc4: PyneSeries | None = field(default=None, repr=False)
+    _hlcc4: PyneSeries | None = field(default=None, repr=False)
+    _bar_index: PyneSeries | None = field(default=None, repr=False)
+    _last_bar_index: PyneSeries | None = field(default=None, repr=False)
+    _barstate: PyneBarState | None = field(default=None, repr=False)
 
     @classmethod
     def from_ohlcv(cls, ohlcv: list[dict[str, Any]]) -> PyneContext:
@@ -57,44 +65,73 @@ class PyneContext:
         volumes = np.array([float(d.get("volume", 0)) for d in ohlcv], dtype=np.float64)
 
         return cls(
-            open=opens,
-            high=highs,
-            low=lows,
-            close=closes,
-            volume=volumes,
-            time=times,
+            open=PyneSeries(opens, name="open"),
+            high=PyneSeries(highs, name="high"),
+            low=PyneSeries(lows, name="low"),
+            close=PyneSeries(closes, name="close"),
+            volume=PyneSeries(volumes, name="volume"),
+            time=PyneSeries(np.array(times, dtype=np.float64), name="time"),
+            times=times,
             bar_count=len(ohlcv),
         )
 
     @property
-    def hl2(self) -> np.ndarray:
+    def hl2(self) -> PyneSeries:
         """(high + low) / 2"""
         if self._hl2 is None:
             self._hl2 = (self.high + self.low) / 2
         return self._hl2
 
     @property
-    def hlc3(self) -> np.ndarray:
+    def hlc3(self) -> PyneSeries:
         """(high + low + close) / 3"""
         if self._hlc3 is None:
             self._hlc3 = (self.high + self.low + self.close) / 3
         return self._hlc3
 
     @property
-    def ohlc4(self) -> np.ndarray:
+    def ohlc4(self) -> PyneSeries:
         """(open + high + low + close) / 4"""
         if self._ohlc4 is None:
             self._ohlc4 = (self.open + self.high + self.low + self.close) / 4
         return self._ohlc4
 
     @property
-    def hlcc4(self) -> np.ndarray:
+    def hlcc4(self) -> PyneSeries:
         """(high + low + close + close) / 4"""
         if self._hlcc4 is None:
             self._hlcc4 = (self.high + self.low + self.close + self.close) / 4
         return self._hlcc4
 
-    def resolve_source(self, source_name: str) -> np.ndarray:
+    @property
+    def bar_index(self) -> PyneSeries:
+        """Zero-based bar index series."""
+        if self._bar_index is None:
+            self._bar_index = PyneSeries(
+                np.arange(self.bar_count, dtype=np.float64),
+                name="bar_index",
+            )
+        return self._bar_index
+
+    @property
+    def last_bar_index(self) -> PyneSeries:
+        """Series containing the last available bar index."""
+        if self._last_bar_index is None:
+            last = max(self.bar_count - 1, 0)
+            self._last_bar_index = PyneSeries(
+                np.full(self.bar_count, float(last), dtype=np.float64),
+                name="last_bar_index",
+            )
+        return self._last_bar_index
+
+    @property
+    def barstate(self) -> PyneBarState:
+        """Pine-like barstate flags for batch execution."""
+        if self._barstate is None:
+            self._barstate = PyneBarState.for_batch(self.bar_count)
+        return self._barstate
+
+    def resolve_source(self, source_name: str) -> PyneSeries:
         """Resolve a source name string to its numpy array.
 
         Args:

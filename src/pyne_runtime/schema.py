@@ -17,6 +17,8 @@ OUTPUT_KEYS = (
     "bgcolors",
     "barcolors",
     "signals",
+    "strategy",
+    "objects",
 )
 
 

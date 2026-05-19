@@ -22,6 +22,8 @@ from typing import Any, TYPE_CHECKING
 
 import numpy as np
 
+from .series import PyneSeries
+
 if TYPE_CHECKING:
     from .context import PyneContext
 
@@ -217,11 +219,11 @@ class InputModule:
 
     def source(
         self,
-        defval: np.ndarray | str | None = None,
+        defval: PyneSeries | np.ndarray | str | None = None,
         title: str = "Source",
         tooltip: str = "",
         group: str = "",
-    ) -> np.ndarray:
+    ) -> PyneSeries:
         """Source parameter — select price field (close, open, hl2, etc.).
 
         Pine equivalent: ``input.source(close, "Source")``
@@ -238,8 +240,12 @@ class InputModule:
             raise RuntimeError("input.source() requires a Pyne runtime context")
 
         # Determine default source name
-        if defval is None or isinstance(defval, np.ndarray):
-            default_name = self._identify_source(defval) if isinstance(defval, np.ndarray) else "close"
+        if defval is None or isinstance(defval, (np.ndarray, PyneSeries)):
+            default_name = (
+                self._identify_source(defval)
+                if isinstance(defval, (np.ndarray, PyneSeries))
+                else "close"
+            )
         else:
             default_name = str(defval)
 
@@ -261,18 +267,20 @@ class InputModule:
         # If user passed a string name, resolve it
         if isinstance(selected, str):
             return self._ctx.resolve_source(selected)
-        # If it's already a numpy array (from default), use it
-        if isinstance(selected, np.ndarray):
+        # If it's already a source object (from default), use it
+        if isinstance(selected, (np.ndarray, PyneSeries)):
             return selected
         # Fallback
         return self._ctx.close
 
-    def _identify_source(self, arr: np.ndarray) -> str:
+    def _identify_source(self, arr: PyneSeries | np.ndarray) -> str:
         """Try to identify which source a numpy array corresponds to."""
         if self._ctx is None:
             return "close"
         for name in ["close", "open", "high", "low", "hl2", "hlc3", "ohlc4"]:
             ctx_arr = self._ctx.resolve_source(name)
             if arr is ctx_arr:
+                return name
+            if isinstance(arr, np.ndarray) and np.asarray(ctx_arr) is arr:
                 return name
         return "close"

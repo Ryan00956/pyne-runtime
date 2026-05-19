@@ -16,3 +16,16 @@
 - Added `PyneResult` series lookup helpers.
 - Added `PyneData` column, row, head/tail, and range helpers.
 - Split Pyne Runtime into an independent repository layout with CI metadata.
+- Added `PyneSeries` with Pine-like history references such as `close[1]`.
+- Added callable `na` semantics for missing-value checks and series-aware `nz()`.
+- Added batch `bar_index`, `last_bar_index`, `time[1]`, and `barstate.*` semantics.
+- Added runtime-scoped `var()` / `pyne.var()` state cells with carry-forward `set_each()`.
+- Added series-aware `ta.cross`, `ta.dev`, `ta.variance`, `ta.mom`, `ta.linreg`, and `ta.hma`.
+- Added series-aware `ta.alma`, `ta.swma`, `ta.correlation`, and rolling percentile helpers.
+- Added series-aware `ta.cmo`, `ta.wpr`, `ta.tsi`, `ta.dmi`, and `ta.sar`.
+- Added series-aware `when()` and `switch()` expression helpers.
+- Added Pine-like `line` and `label` drawing object handles with final object snapshots.
+- Added host-backed `request.security()` for aligned OHLCV field requests.
+- Added Pine-like `strategy.*` event output with lightweight position replay.
+- Added a Pine-like API compatibility matrix and broader semantics examples.
+- Added `request.security()` callable expression thunks for requested-context calculations.

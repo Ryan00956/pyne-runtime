@@ -14,6 +14,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from .series import PyneSeries, to_numpy, wrap_like
+from .values import is_na_sentinel
+
 
 class Color:
     """Pine-style color namespace.
@@ -74,10 +77,10 @@ class Color:
 
     @staticmethod
     def when(
-        condition: np.ndarray | bool,
+        condition: PyneSeries | np.ndarray | bool,
         true_color: str,
         false_color: str,
-    ) -> np.ndarray | str:
+    ) -> PyneSeries | np.ndarray | str:
         """Conditional color selection.
 
         Pine equivalent: ``condition ? color.green : color.red``
@@ -91,18 +94,29 @@ class Color:
             If condition is a numpy array, returns an array of color strings.
             If condition is a scalar bool, returns a single color string.
         """
+        if isinstance(condition, PyneSeries):
+            result = np.where(
+                to_numpy(condition, dtype=bool),
+                "" if is_na_sentinel(true_color) else true_color,
+                "" if is_na_sentinel(false_color) else false_color,
+            )
+            return wrap_like(result, condition)
         if isinstance(condition, np.ndarray):
-            return np.where(condition, true_color, false_color)
+            return np.where(
+                condition,
+                "" if is_na_sentinel(true_color) else true_color,
+                "" if is_na_sentinel(false_color) else false_color,
+            )
         return true_color if condition else false_color
 
     @staticmethod
     def from_gradient(
-        value: np.ndarray,
+        value: PyneSeries | np.ndarray,
         low: float,
         high: float,
         low_color: str = "#22c55e",
         high_color: str = "#ef4444",
-    ) -> np.ndarray:
+    ) -> PyneSeries | np.ndarray:
         """Map values to a color gradient.
 
         Useful for heatmap-style coloring, e.g. RSI coloring by value.
@@ -123,7 +137,8 @@ class Color:
         hr, hg, hb = int(high_hex[0:2], 16), int(high_hex[2:4], 16), int(high_hex[4:6], 16)
 
         # Normalize values to [0, 1]
-        t = np.clip((value - low) / (high - low + 1e-10), 0, 1)
+        values = to_numpy(value, dtype=np.float64)
+        t = np.clip((values - low) / (high - low + 1e-10), 0, 1)
 
         # Interpolate RGB
         r = (lr + t * (hr - lr)).astype(int)
@@ -135,7 +150,7 @@ class Color:
             f"#{rv:02x}{gv:02x}{bv:02x}"
             for rv, gv, bv in zip(r, g, b)
         ])
-        return result
+        return wrap_like(result, value)
 
 
 # Module-level singleton — injected as ``color`` in script namespace

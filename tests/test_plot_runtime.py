@@ -38,3 +38,65 @@ label("U")
     assert len(output["barcolors"]) == 1
     assert len(output["signals"]) == 1
     assert len(output["labels"]) == 1
+
+
+def test_line_and_label_objects_are_collected_and_updated() -> None:
+    result = pn.run(
+        """
+indicator("Objects", overlay=True)
+trend = line.new(
+    bar_index[2],
+    close[2],
+    bar_index,
+    close,
+    color=color.orange,
+    width=1,
+)
+line.set_color(trend, color.blue)
+line.set_width(trend, 3)
+line.set_xy2(trend, bar_index, high)
+note = label.new(bar_index, high, text="Hi", color=color.green)
+label.set_text(note, "Updated")
+label.set_color(note, color.red)
+label.set_xy(note, bar_index[1], low[1])
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    objects = result.output["objects"]
+    assert set(objects) == {"lines", "labels"}
+
+    line_object = objects["lines"][0]
+    assert line_object["id"] == "line_1"
+    assert line_object["x1"] == 0
+    assert line_object["y1"] == 1.5
+    assert line_object["x2"] == 2
+    assert line_object["y2"] == 4
+    assert line_object["color"] == "#2196f3"
+    assert line_object["width"] == 3
+
+    label_object = objects["labels"][0]
+    assert label_object["id"] == "label_2"
+    assert label_object["x"] == 1
+    assert label_object["y"] == 1.5
+    assert label_object["text"] == "Updated"
+    assert label_object["color"] == "#ef5350"
+
+
+def test_drawing_objects_can_be_deleted() -> None:
+    result = pn.run(
+        """
+indicator("Deleted", overlay=True)
+trend = line.new(bar_index[1], close[1], bar_index, close)
+note = label.new(bar_index, high, text="gone")
+line.delete(trend)
+label.delete(note)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert "objects" not in result.output

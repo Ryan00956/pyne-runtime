@@ -8,16 +8,25 @@ import pyne_runtime as pn
 
 Core functions:
 
-- `pn.run(script, data, params=None, settings=None, security_mode=None, executor_mode=None)`
+- `pn.run(script, data, params=None, settings=None, security_mode=None, executor_mode=None, data_provider=None)`
 - `pn.read_ohlcv(path, time_unit="s", columns=None)`
 - `pn.from_pandas(df, **columns)`
 - `pn.validate(script, settings=None)`
 - `pn.schema()`
 - `pn.__version__`
+- `pn.na`
 
 Core classes:
 
 - `pn.PyneData`
+- `pn.PyneBarState`
 - `pn.PyneResult`
 - `pn.PyneSettings`
+- `pn.PyneSeries`
+- `pn.PyneStateNamespace`
+- `pn.PyneVar`
 - `pn.PyneRuntime`
+- `pn.DataProvider`
+- `pn.RequestEvalContext`
+- `pn.RequestModule`
+- `pn.StrategyModule`

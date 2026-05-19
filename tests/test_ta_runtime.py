@@ -86,3 +86,78 @@ marker(close > open, text="Up")
     assert atr_values
     assert all(math.isfinite(value) for value in rsi_values[-5:])
     assert "markers" in result.output
+
+
+def test_expanded_ta_helpers_are_series_aware() -> None:
+    result = pn.run(
+        """
+plot(ta.mom(close, 2), "MOM")
+plot(ta.dev(close, 3), "DEV")
+plot(ta.variance(close, 3), "VAR")
+plot(ta.linreg(close, 3), "LINREG")
+plot(ta.hma(close, 4), "HMA")
+marker(ta.cross(close, ta.sma(close, 3)), text="Cross")
+plot(ta.mom(close[1], 2), "Shifted MOM")
+""",
+        _bars(12),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert _series_values(result, "MOM")[-1] == 2.0
+    assert math.isclose(_series_values(result, "DEV")[-1], 2.0 / 3.0, abs_tol=1e-8)
+    assert math.isclose(_series_values(result, "VAR")[-1], 2.0 / 3.0, abs_tol=1e-8)
+    assert _series_values(result, "LINREG")[-1] == 111.0
+    assert _series_values(result, "HMA")
+    assert _series_values(result, "Shifted MOM")[-1] == 2.0
+
+
+def test_second_batch_ta_helpers_are_series_aware() -> None:
+    result = pn.run(
+        """
+plot(ta.swma(close), "SWMA")
+plot(ta.alma(close, 5, 0.85, 6), "ALMA")
+plot(ta.percentile_nearest_rank(close, 5, 50), "PNR")
+plot(ta.percentile_linear_interpolation(close, 5, 50), "PLI")
+plot(ta.correlation(close, open, 5), "CORR")
+plot(ta.alma(close[1], 5, 0.85, 6), "Shifted ALMA")
+""",
+        _bars(12),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert _series_values(result, "SWMA")[-1] == 109.5
+    assert _series_values(result, "ALMA")
+    assert _series_values(result, "PNR")[-1] == 109.0
+    assert _series_values(result, "PLI")[-1] == 109.0
+    assert math.isclose(_series_values(result, "CORR")[-1], 1.0, abs_tol=1e-8)
+    assert _series_values(result, "Shifted ALMA")
+
+
+def test_third_batch_ta_helpers_are_series_aware() -> None:
+    result = pn.run(
+        """
+plus_di, minus_di, adx = ta.dmi(5, 5)
+plot(ta.cmo(close, 5), "CMO")
+plot(ta.wpr(5), "WPR")
+plot(ta.tsi(close, 5, 3), "TSI")
+plot(plus_di, "Plus DI")
+plot(minus_di, "Minus DI")
+plot(adx, "ADX")
+plot(ta.sar(0.02, 0.02, 0.2), "SAR")
+plot(ta.cmo(close[1], 5), "Shifted CMO")
+""",
+        _bars(30),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert _series_values(result, "CMO")[-1] == 100.0
+    assert math.isclose(_series_values(result, "WPR")[-1], -100.0 / 6.0, abs_tol=1e-8)
+    assert _series_values(result, "TSI")[-1] > 99.0
+    assert _series_values(result, "Plus DI")[-1] > 0.0
+    assert _series_values(result, "Minus DI")[-1] == 0.0
+    assert _series_values(result, "ADX")[-1] > 0.0
+    assert _series_values(result, "SAR")
+    assert _series_values(result, "Shifted CMO")[-1] == 100.0
