@@ -76,6 +76,7 @@ declaration metadata.
 
 - `slippage` is a number of ticks, not a direct price or percent value.
 - `mintick` / `min_tick` supplies the symbol's minimum price movement.
+- When `mintick` / `min_tick` is omitted, Pyne uses `syminfo.mintick`.
 - buy fills use `price + slippage * mintick`.
 - sell fills use `price - slippage * mintick`.
 

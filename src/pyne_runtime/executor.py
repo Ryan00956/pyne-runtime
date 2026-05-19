@@ -29,11 +29,20 @@ def execute_pyne_script(
     timeout_seconds: float | None = None,
     settings: PyneSettings | None = None,
     data_provider: Any = None,
+    syminfo: Any = None,
+    timeframe: Any = None,
+    session: Any = None,
 ) -> PyneResult:
     """Execute a Pyne script using the configured strategy."""
     settings = settings or PyneSettings.from_env()
     if data_provider is not None:
         settings = replace(settings, data_provider=data_provider)
+    if syminfo is not None:
+        settings = replace(settings, syminfo=syminfo)
+    if timeframe is not None:
+        settings = replace(settings, timeframe=timeframe)
+    if session is not None:
+        settings = replace(settings, session=session)
     mode = (executor_mode or settings.executor_mode or "process").strip().lower()
     if mode == "inline":
         return PyneRuntime(settings=settings).execute(

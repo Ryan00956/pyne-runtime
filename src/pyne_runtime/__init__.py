@@ -13,6 +13,7 @@ from .incremental import (
     SharedPyneIncrementalSession,
     is_incremental_pyne_script,
 )
+from .metadata import SessionInfo, SymbolInfo, TimeframeInfo
 from .plot import ObjectRef
 from .request import DataProvider, RequestEvalContext, RequestModule
 from .result import PyneResult
@@ -45,6 +46,9 @@ __all__ = [
     "PYNE_INPUT_SCHEMA_VERSION",
     "PYNE_OUTPUT_SCHEMA_VERSION",
     "SharedPyneIncrementalSession",
+    "SessionInfo",
+    "SymbolInfo",
+    "TimeframeInfo",
     "execute_pyne_script",
     "execute_pyne_script_in_process",
     "from_pandas",

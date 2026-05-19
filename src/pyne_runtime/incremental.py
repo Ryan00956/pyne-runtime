@@ -19,6 +19,7 @@ from .barstate import PyneIncrementalBarState
 from .cache import pyne as pyne_cache_namespace
 from .color import color as color_singleton
 from .math_ext import pyne_math
+from .metadata import SessionInfo, SymbolInfo, TimeframeInfo
 from .security import (
     PyneSecurityError,
     PyneSecurityPolicy,
@@ -421,12 +422,18 @@ class IncrementalContext:
         params: dict[str, Any],
         meta: dict[str, Any] | None = None,
         limits: IncrementalLimits | None = None,
+        syminfo: SymbolInfo | None = None,
+        timeframe: TimeframeInfo | None = None,
+        session: SessionInfo | None = None,
     ) -> None:
         self.params = params
         self.meta = meta or {}
         self._limits = limits or IncrementalLimits(enabled=False)
         self._limit_tracker = _LimitTracker(self._limits)
         self.ta = IncrementalTaNamespace(self._limit_tracker)
+        self.syminfo = syminfo or SymbolInfo()
+        self.timeframe = timeframe or TimeframeInfo()
+        self.session = session or SessionInfo()
         self._states: dict[str, StateCell] = {}
         self._windows: dict[str, Window] = {}
         self._series: dict[str, dict[str, Any]] = {}
@@ -669,7 +676,14 @@ class PyneIncrementalSession:
         end_s: int | None = None,
     ) -> IncrementalPyneResult:
         self.prepare()
-        self._ctx = IncrementalContext(params=self.params, meta=self._meta, limits=self._limits)
+        self._ctx = IncrementalContext(
+            params=self.params,
+            meta=self._meta,
+            limits=self._limits,
+            syminfo=self.settings.syminfo,
+            timeframe=self.settings.timeframe,
+            session=self.settings.session,
+        )
         self._call_optional(self._init_func, self._ctx)
         self._closed_count = 0
         self._active_preview_time = None
@@ -699,7 +713,14 @@ class PyneIncrementalSession:
     def on_bar_closed(self, item: dict[str, Any]) -> IncrementalPyneResult:
         self.prepare()
         if self._ctx is None:
-            self._ctx = IncrementalContext(params=self.params, meta=self._meta, limits=self._limits)
+            self._ctx = IncrementalContext(
+                params=self.params,
+                meta=self._meta,
+                limits=self._limits,
+                syminfo=self.settings.syminfo,
+                timeframe=self.settings.timeframe,
+                session=self.settings.session,
+            )
             self._call_optional(self._init_func, self._ctx)
         bar = IncrementalBar.from_dict(item, is_confirmed=True)
         bar_index = self._closed_count
@@ -729,7 +750,14 @@ class PyneIncrementalSession:
     def on_bar_updated(self, item: dict[str, Any]) -> IncrementalPyneResult:
         self.prepare()
         if self._ctx is None:
-            self._ctx = IncrementalContext(params=self.params, meta=self._meta, limits=self._limits)
+            self._ctx = IncrementalContext(
+                params=self.params,
+                meta=self._meta,
+                limits=self._limits,
+                syminfo=self.settings.syminfo,
+                timeframe=self.settings.timeframe,
+                session=self.settings.session,
+            )
             self._call_optional(self._init_func, self._ctx)
         bar = IncrementalBar.from_dict(item, is_confirmed=False)
         preview_ctx = self._ctx.clone_for_preview()
@@ -776,6 +804,9 @@ class PyneIncrementalSession:
         return {
             "indicator": indicator,
             "params": self.params,
+            "syminfo": self.settings.syminfo,
+            "timeframe": self.settings.timeframe,
+            "session": self.settings.session,
             "true": True,
             "false": False,
             "color": color_singleton,

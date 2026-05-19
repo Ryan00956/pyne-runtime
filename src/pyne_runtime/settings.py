@@ -5,6 +5,8 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
+from .metadata import normalize_session_info, normalize_symbol_info, normalize_timeframe_info
+
 
 SECURITY_MODES = {"safe", "research", "unsafe"}
 EXECUTOR_MODES = {"inline", "process"}
@@ -26,6 +28,9 @@ class PyneSettings:
     cache_max_items: int = 32
     allowed_imports: tuple[str, ...] = DEFAULT_ALLOWED_IMPORTS
     data_provider: Any = None
+    syminfo: Any = None
+    timeframe: Any = "1"
+    session: Any = None
 
     def __post_init__(self) -> None:
         security_mode = normalize_security_mode(self.security_mode)
@@ -48,6 +53,9 @@ class PyneSettings:
             "allowed_imports",
             tuple(str(item).strip() for item in self.allowed_imports if str(item).strip()),
         )
+        object.__setattr__(self, "syminfo", normalize_symbol_info(self.syminfo))
+        object.__setattr__(self, "timeframe", normalize_timeframe_info(self.timeframe))
+        object.__setattr__(self, "session", normalize_session_info(self.session))
 
     @classmethod
     def from_env(cls) -> "PyneSettings":
@@ -68,6 +76,17 @@ class PyneSettings:
             max_drawing_objects=_int_env("PYNE_MAX_DRAWING_OBJECTS", 500),
             cache_max_items=_int_env("PYNE_CACHE_MAX_ITEMS", 32),
             allowed_imports=allowed_imports,
+            syminfo={
+                "tickerid": os.getenv("PYNE_TICKERID", ""),
+                "ticker": os.getenv("PYNE_TICKER", ""),
+                "prefix": os.getenv("PYNE_SYMBOL_PREFIX", ""),
+                "currency": os.getenv("PYNE_CURRENCY", ""),
+                "basecurrency": os.getenv("PYNE_BASE_CURRENCY", ""),
+                "mintick": _float_env("PYNE_MINTICK", 1.0),
+                "pointvalue": _float_env("PYNE_POINTVALUE", 1.0),
+                "type": os.getenv("PYNE_SYMBOL_TYPE", ""),
+            },
+            timeframe=os.getenv("PYNE_TIMEFRAME", "1"),
         )
 
     def with_security_mode(self, security_mode: str | None) -> "PyneSettings":
@@ -86,6 +105,9 @@ class PyneSettings:
             cache_max_items=self.cache_max_items,
             allowed_imports=self.allowed_imports,
             data_provider=self.data_provider,
+            syminfo=self.syminfo,
+            timeframe=self.timeframe,
+            session=self.session,
         )
 
 

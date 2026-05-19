@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+import pyne_runtime as pn
+
+
+def _bars() -> list[dict[str, float]]:
+    return [
+        {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100},
+        {"time": 2, "open": 2, "high": 3, "low": 1, "close": 2.5, "volume": 120},
+        {"time": 3, "open": 3, "high": 4, "low": 2, "close": 3.5, "volume": 140},
+    ]
+
+
+def test_default_runtime_metadata_is_available_to_scripts() -> None:
+    result = pn.run(
+        """
+indicator("Metadata", overlay=False)
+plot(syminfo.mintick, "Min Tick")
+plot(timeframe.multiplier, "Timeframe Multiplier")
+plot(1 if timeframe.isintraday else 0, "Intraday")
+plot(1 if session.ismarket else 0, "Market")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Min Tick") == [1.0, 1.0, 1.0]
+    assert result.values("Timeframe Multiplier") == [1.0, 1.0, 1.0]
+    assert result.values("Intraday") == [1.0, 1.0, 1.0]
+    assert result.values("Market") == [1.0, 1.0, 1.0]
+
+
+def test_runtime_metadata_can_be_supplied_through_run() -> None:
+    result = pn.run(
+        """
+indicator("Metadata", overlay=False)
+plot(syminfo.mintick, "Min Tick")
+plot(1 if syminfo.ticker == "AAPL" else 0, "Ticker Match")
+plot(timeframe.multiplier, "Timeframe Multiplier")
+plot(1 if timeframe.isintraday else 0, "Intraday")
+plot(1 if timeframe.isdaily else 0, "Daily")
+plot(1 if session.ismarket else 0, "Market")
+""",
+        _bars(),
+        executor_mode="inline",
+        syminfo={"tickerid": "NASDAQ:AAPL", "mintick": 0.01, "currency": "USD"},
+        timeframe="1h",
+        session={"ismarket": False},
+    )
+
+    assert result.ok
+    assert result.values("Min Tick") == [0.01, 0.01, 0.01]
+    assert result.values("Ticker Match") == [1.0, 1.0, 1.0]
+    assert result.values("Timeframe Multiplier") == [60.0, 60.0, 60.0]
+    assert result.values("Intraday") == [1.0, 1.0, 1.0]
+    assert result.values("Daily") == [0.0, 0.0, 0.0]
+    assert result.values("Market") == [0.0, 0.0, 0.0]
+
+
+def test_timeframe_parses_daily_weekly_and_monthly_periods() -> None:
+    assert pn.TimeframeInfo.from_value("1D").isdaily
+    assert pn.TimeframeInfo.from_value("2W").isweekly
+    assert pn.TimeframeInfo.from_value("3M").ismonthly
+    assert pn.TimeframeInfo.from_value("5").multiplier == 5
+
+
+def test_strategy_slippage_uses_syminfo_mintick_when_not_overridden() -> None:
+    result = pn.run(
+        """
+strategy("Metadata Strategy", overlay=True, slippage=2)
+strategy.order("Buy", strategy.long, qty=1, when=bar_index == 0, price=close)
+""",
+        _bars(),
+        executor_mode="inline",
+        syminfo={"mintick": 0.25},
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Buy",
+            "type": "order",
+            "side": "long",
+            "qty": 1.0,
+            "price": 2.0,
+            "position_after": 1.0,
+            "comment": "",
+        },
+    ]

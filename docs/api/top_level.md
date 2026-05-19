@@ -8,7 +8,7 @@ import pyne_runtime as pn
 
 Core functions:
 
-- `pn.run(script, data, params=None, settings=None, security_mode=None, executor_mode=None, data_provider=None)`
+- `pn.run(script, data, params=None, settings=None, security_mode=None, executor_mode=None, data_provider=None, syminfo=None, timeframe=None, session=None)`
 - `pn.read_ohlcv(path, time_unit="s", columns=None)`
 - `pn.from_pandas(df, **columns)`
 - `pn.validate(script, settings=None)`
@@ -27,6 +27,9 @@ Core classes:
 - `pn.PyneStateNamespace`
 - `pn.PyneVar`
 - `pn.PyneRuntime`
+- `pn.SymbolInfo`
+- `pn.TimeframeInfo`
+- `pn.SessionInfo`
 - `pn.DataProvider`
 - `pn.RequestEvalContext`
 - `pn.RequestModule`

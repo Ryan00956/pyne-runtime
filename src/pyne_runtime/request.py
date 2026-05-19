@@ -92,6 +92,18 @@ class RequestEvalContext:
         return self.context.barstate
 
     @property
+    def syminfo(self) -> Any:
+        return self.context.syminfo
+
+    @property
+    def timeframe_info(self) -> Any:
+        return self.context.timeframe
+
+    @property
+    def session(self) -> Any:
+        return self.context.session
+
+    @property
     def hl2(self) -> PyneSeries:
         return self.context.hl2
 
@@ -164,7 +176,11 @@ class RequestModule:
             )
 
         requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
-        requested_ctx = PyneContext.from_ohlcv(requested)
+        requested_ctx = PyneContext.from_ohlcv(
+            requested,
+            syminfo={"tickerid": str(symbol), "ticker": str(symbol)},
+            timeframe=str(timeframe),
+        )
         requested_times = requested_ctx.times
         if callable(expression):
             requested_values, expression_name = self._evaluate_expression_thunk(

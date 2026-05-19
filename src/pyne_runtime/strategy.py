@@ -49,7 +49,7 @@ class StrategyModule:
         self._event_seq = 0
         self._pyramiding = 0
         self._slippage_ticks = 0
-        self._mintick = 1.0
+        self._mintick = max(float(context.syminfo.mintick), 0.0)
         self._commission_type: str | None = None
         self._commission_value = 0.0
 

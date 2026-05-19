@@ -16,6 +16,8 @@ from typing import Any
 import numpy as np
 
 from .barstate import PyneBarState
+from .metadata import SessionInfo, SymbolInfo, TimeframeInfo
+from .metadata import normalize_session_info, normalize_symbol_info, normalize_timeframe_info
 from .series import PyneSeries
 
 
@@ -42,6 +44,9 @@ class PyneContext:
     time: PyneSeries
     time_close: PyneSeries
     times: list[int]
+    syminfo: SymbolInfo = field(default_factory=SymbolInfo)
+    timeframe: TimeframeInfo = field(default_factory=TimeframeInfo)
+    session: SessionInfo = field(default_factory=SessionInfo)
     bar_count: int = 0
 
     # ── Derived fields (lazy-computed) ───────────────────────
@@ -54,7 +59,14 @@ class PyneContext:
     _barstate: PyneBarState | None = field(default=None, repr=False)
 
     @classmethod
-    def from_ohlcv(cls, ohlcv: list[dict[str, Any]]) -> PyneContext:
+    def from_ohlcv(
+        cls,
+        ohlcv: list[dict[str, Any]],
+        *,
+        syminfo: Any = None,
+        timeframe: Any = None,
+        session: Any = None,
+    ) -> PyneContext:
         """Create context from a list of OHLCV dicts.
 
         Each dict must have: time, open, high, low, close, volume.
@@ -76,6 +88,9 @@ class PyneContext:
             time=PyneSeries(np.array(times, dtype=np.float64), name="time"),
             time_close=PyneSeries(time_closes, name="time_close"),
             times=times,
+            syminfo=normalize_symbol_info(syminfo),
+            timeframe=normalize_timeframe_info(timeframe),
+            session=normalize_session_info(session),
             bar_count=len(ohlcv),
         )
 

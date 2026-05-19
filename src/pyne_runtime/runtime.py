@@ -107,6 +107,7 @@ class PyneRuntime:
                     script=script,
                     params=params,
                     policy=policy,
+                    settings=self.settings,
                 )
                 result = self._collect_incremental_result(incremental.seed(ohlcv))
                 result.meta = {**result.meta, "securityMode": policy.mode}
@@ -114,7 +115,12 @@ class PyneRuntime:
                 return result
 
             # 1. Build data context
-            ctx = PyneContext.from_ohlcv(ohlcv)
+            ctx = PyneContext.from_ohlcv(
+                ohlcv,
+                syminfo=self.settings.syminfo,
+                timeframe=self.settings.timeframe,
+                session=self.settings.session,
+            )
 
             # 2. Create module instances bound to this context
             ta = TaModule(ctx)
@@ -226,6 +232,9 @@ class PyneRuntime:
         ns["last_bar_index"] = ctx.last_bar_index
         ns["barstate"] = ctx.barstate
         ns["bar_count"] = ctx.bar_count
+        ns["syminfo"] = ctx.syminfo
+        ns["timeframe"] = ctx.timeframe
+        ns["session"] = ctx.session
 
         # Derived sources
         ns["hl2"] = ctx.hl2
