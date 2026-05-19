@@ -3,8 +3,7 @@
 `strategy` is the Pine-like namespace for deterministic strategy events.
 
 The current implementation is an event and position semantics layer. It is not
-a broker simulator and does not model order books, slippage, commission, margin,
-or partial fills.
+a broker simulator and does not model order books, margin, or intrabar path.
 
 ```python
 indicator("Trend Strategy", overlay=True)
@@ -27,7 +26,13 @@ plot(strategy.position_size, "Position")
 ## Configuration
 
 ```python
-strategy.configure(pyramiding=1)
+strategy.configure(
+    pyramiding=1,
+    slippage=2,
+    mintick=0.01,
+    commission_type=strategy.commission.percent,
+    commission_value=0.1,
+)
 ```
 
 `pyramiding` controls additional same-direction entries:
@@ -37,6 +42,19 @@ strategy.configure(pyramiding=1)
 - same-direction entries update `strategy.position_size` and weighted
   `strategy.position_avg_price`
 - an opposite-direction entry reverses or replaces the current position
+
+`slippage` follows Pine's tick-based model:
+
+- `slippage` is a number of ticks, not a direct price or percent value.
+- `mintick` / `min_tick` supplies the symbol's minimum price movement.
+- buy fills use `price + slippage * mintick`.
+- sell fills use `price - slippage * mintick`.
+
+Commission uses Pine-like constants:
+
+- `strategy.commission.percent`: `commission_value` is a percent of traded notional.
+- `strategy.commission.cash_per_order`: `commission_value` is charged once per filled order.
+- `strategy.commission.cash_per_contract`: `commission_value` is charged per filled unit.
 
 ## Entry
 
@@ -113,6 +131,7 @@ Strategy output is serialized under `output["strategy"]`:
         "qty": 1.0,
         "price": 123.45,
         "position_after": 1.0,
+        "commission": 0.12,
         "comment": ""
       },
       {
@@ -139,7 +158,6 @@ Strategy output is serialized under `output["strategy"]`:
 
 Known limits:
 
-- no commission or slippage model
 - no intrabar path model
 - Python `if` cannot branch directly on series conditions; use
   `entry_when()` and `close_when()`

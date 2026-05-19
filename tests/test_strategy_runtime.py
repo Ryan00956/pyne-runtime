@@ -150,6 +150,87 @@ plot(strategy.position_avg_price, "Average")
     assert result.values("Average") == [1.5, 1.5, 2.15, 2.15]
 
 
+def test_strategy_configure_applies_pine_like_tick_slippage() -> None:
+    result = pn.run(
+        """
+indicator("Slippage", overlay=True)
+strategy.configure(slippage=2, mintick=0.1)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.close_when(bar_index == 1, "Long", price=close)
+plot(strategy.position_avg_price, "Average")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 1.7,
+            "position_after": 1.0,
+            "comment": "",
+        },
+        {
+            "time": 2,
+            "id": "Long",
+            "type": "close",
+            "side": "flat",
+            "qty": 1.0,
+            "price": 0.8,
+            "position_after": 0.0,
+            "comment": "",
+        },
+    ]
+    assert result.values("Average") == [1.7]
+
+
+def test_strategy_configure_applies_percent_commission() -> None:
+    result = pn.run(
+        """
+indicator("Commission", overlay=True)
+strategy.configure(
+    commission_type=strategy.commission.percent,
+    commission_value=1,
+)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=2, price=close)
+strategy.close_when(bar_index == 1, "Long", price=close)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 2.0,
+            "price": 1.5,
+            "position_after": 2.0,
+            "comment": "",
+            "commission": 0.03,
+        },
+        {
+            "time": 2,
+            "id": "Long",
+            "type": "close",
+            "side": "flat",
+            "qty": 2.0,
+            "price": 1.0,
+            "position_after": 0.0,
+            "comment": "",
+            "commission": 0.02,
+        },
+    ]
+
+
 def test_strategy_exit_emits_limit_exit_for_long_position() -> None:
     result = pn.run(
         """

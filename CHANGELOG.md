@@ -36,3 +36,4 @@
 - Added tuple/multi-return `request.security()` expressions for Python unpacking.
 - Added `strategy.configure(pyramiding=...)` with same-direction entry limits and weighted average position price replay.
 - Added partial `strategy.exit(qty=...)` position reduction semantics.
+- Added Pine-like `strategy.configure(slippage=..., commission_type=..., commission_value=...)` replay costs.

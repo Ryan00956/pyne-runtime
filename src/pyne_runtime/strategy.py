@@ -12,6 +12,14 @@ from .state import PyneVar
 from .values import is_na_value
 
 
+class StrategyCommission:
+    """Pine-like commission type constants."""
+
+    percent = "percent"
+    cash_per_order = "cash_per_order"
+    cash_per_contract = "cash_per_contract"
+
+
 class StrategyModule:
     """Lightweight Pine-like ``strategy`` namespace.
 
@@ -21,6 +29,7 @@ class StrategyModule:
 
     long = "long"
     short = "short"
+    commission = StrategyCommission
 
     def __init__(self, context: PyneContext, collector: OutputCollector) -> None:
         self._context = context
@@ -30,8 +39,21 @@ class StrategyModule:
         self._touched = False
         self._event_seq = 0
         self._pyramiding = 0
+        self._slippage_ticks = 0
+        self._mintick = 1.0
+        self._commission_type: str | None = None
+        self._commission_value = 0.0
 
-    def configure(self, *, pyramiding: int | None = None) -> None:
+    def configure(
+        self,
+        *,
+        pyramiding: int | None = None,
+        slippage: int | None = None,
+        mintick: float | None = None,
+        min_tick: float | None = None,
+        commission_type: str | None = None,
+        commission_value: float | None = None,
+    ) -> None:
         """Configure lightweight strategy replay options.
 
         ``pyramiding`` follows Pine's mental model: ``0`` allows the first
@@ -40,6 +62,15 @@ class StrategyModule:
         """
         if pyramiding is not None:
             self._pyramiding = max(int(pyramiding), 0)
+        if slippage is not None:
+            self._slippage_ticks = max(int(slippage), 0)
+        tick_value = mintick if mintick is not None else min_tick
+        if tick_value is not None:
+            self._mintick = max(float(tick_value), 0.0)
+        if commission_type is not None:
+            self._commission_type = _normalize_commission_type(commission_type)
+        if commission_value is not None:
+            self._commission_value = max(float(commission_value), 0.0)
 
     @property
     def position_size(self) -> PyneSeries:
@@ -100,6 +131,7 @@ class StrategyModule:
                 "price": round(float(event_price), 8),
                 "position_after": 0.0,
                 "comment": comment,
+                "_base_price": float(event_price),
                 "_seq": self._next_event_seq(),
             })
             self._touched = True
@@ -145,6 +177,7 @@ class StrategyModule:
                 "price": round(float(event_price), 8),
                 "position_after": 0.0,
                 "comment": comment,
+                "_base_price": float(event_price),
                 "_seq": self._next_event_seq(),
             })
             self._touched = True
@@ -205,6 +238,7 @@ class StrategyModule:
                 "position_after": 0.0,
                 "reason": reason,
                 "comment": comment,
+                "_base_price": float(event_price),
                 "_seq": self._next_event_seq(),
             })
             self._touched = True
@@ -235,12 +269,14 @@ class StrategyModule:
                         pyramiding=self._pyramiding,
                     ):
                         continue
+                    fill_side = "buy" if side == self.long else "sell"
+                    fill_price = self._fill_price(float(order.get("_base_price", order.get("price", np.nan))), fill_side)
                     position_after, avg_after = _entry_position_after(
                         previous_size=current_size,
                         previous_avg=current_avg,
                         side=side,
                         qty=float(order.get("qty", 0.0)),
-                        price=float(order.get("price", np.nan)),
+                        price=fill_price,
                     )
                     if current_size == 0 or (current_size > 0) != (position_after > 0):
                         same_direction_entry_count = 1
@@ -248,7 +284,9 @@ class StrategyModule:
                         same_direction_entry_count += 1
                     current_size = position_after
                     current_avg = avg_after
+                    order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(float(position_after), 8)
+                    self._apply_commission(order, qty=float(order.get("qty", 0.0)), price=fill_price)
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
                 elif order.get("type") in {"close", "exit"} and current_size != 0:
@@ -261,8 +299,12 @@ class StrategyModule:
                     next_size = 0.0
                     if remaining > 0:
                         next_size = remaining if current_size > 0 else -remaining
+                    fill_side = "sell" if current_size > 0 else "buy"
+                    fill_price = self._fill_price(float(order.get("_base_price", order.get("price", np.nan))), fill_side)
                     order["qty"] = round(fill_qty, 8)
+                    order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(next_size, 8)
+                    self._apply_commission(order, qty=fill_qty, price=fill_price)
                     order["_active"] = True
                     current_size = next_size
                     if current_size == 0:
@@ -289,6 +331,22 @@ class StrategyModule:
     def _next_event_seq(self) -> int:
         self._event_seq += 1
         return self._event_seq
+
+    def _fill_price(self, price: float, side: str) -> float:
+        slippage = self._slippage_ticks * self._mintick
+        if side == "buy":
+            return float(price) + slippage
+        return float(price) - slippage
+
+    def _apply_commission(self, order: dict[str, Any], *, qty: float, price: float) -> None:
+        commission = _commission_amount(
+            commission_type=self._commission_type,
+            commission_value=self._commission_value,
+            qty=qty,
+            price=price,
+        )
+        if commission > 0:
+            order["commission"] = round(commission, 8)
 
 
 def _condition_values(value: Any, length: int) -> list[bool]:
@@ -343,6 +401,35 @@ def _entry_allowed(
     if side == StrategyModule.short and previous_size > 0:
         return True
     return same_direction_entry_count < pyramiding + 1
+
+
+def _normalize_commission_type(value: str) -> str:
+    normalized = str(value or "").lower()
+    if normalized in {"percent", "strategy.commission.percent"}:
+        return StrategyCommission.percent
+    if normalized in {"cash_per_order", "cash_per_order_contract", "strategy.commission.cash_per_order"}:
+        return StrategyCommission.cash_per_order
+    if normalized in {"cash_per_contract", "cash_per_contracts", "strategy.commission.cash_per_contract"}:
+        return StrategyCommission.cash_per_contract
+    return normalized
+
+
+def _commission_amount(
+    *,
+    commission_type: str | None,
+    commission_value: float,
+    qty: float,
+    price: float,
+) -> float:
+    if commission_type is None or commission_value <= 0:
+        return 0.0
+    if commission_type == StrategyCommission.percent:
+        return abs(float(qty) * float(price)) * commission_value / 100.0
+    if commission_type == StrategyCommission.cash_per_order:
+        return commission_value
+    if commission_type == StrategyCommission.cash_per_contract:
+        return abs(float(qty)) * commission_value
+    return 0.0
 
 
 def _entry_position_after(
