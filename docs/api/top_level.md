@@ -20,6 +20,7 @@ Core classes:
 
 - `pn.PyneData`
 - `pn.PyneBarState`
+- `pn.PyneIncrementalBarState`
 - `pn.PyneResult`
 - `pn.PyneSettings`
 - `pn.PyneSeries`

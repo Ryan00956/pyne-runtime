@@ -5,7 +5,7 @@ The context is created once per script execution from the raw OHLCV data.
 It provides numpy arrays for all standard fields (open, high, low, close,
 volume, time) plus derived fields (hl2, hlc3, ohlc4, hlcc4).
 
-These arrays are injected into the script's global namespace so users
+These series are injected into the script's global namespace so users
 can write ``ta.sma(close, 20)`` directly.
 """
 from __future__ import annotations
@@ -30,6 +30,7 @@ class PyneContext:
         close:   Close prices
         volume:  Volume values
         time:    Timestamps as a Pine-like series
+        time_close: Bar close timestamps as a Pine-like series
         times:   Raw timestamp list used for output serialization
         bar_count: Number of bars
     """
@@ -39,6 +40,7 @@ class PyneContext:
     close: PyneSeries
     volume: PyneSeries
     time: PyneSeries
+    time_close: PyneSeries
     times: list[int]
     bar_count: int = 0
 
@@ -63,6 +65,7 @@ class PyneContext:
         lows = np.array([float(d.get("low", 0)) for d in ohlcv], dtype=np.float64)
         closes = np.array([float(d.get("close", 0)) for d in ohlcv], dtype=np.float64)
         volumes = np.array([float(d.get("volume", 0)) for d in ohlcv], dtype=np.float64)
+        time_closes = np.array(_derive_time_close(ohlcv, times), dtype=np.float64)
 
         return cls(
             open=PyneSeries(opens, name="open"),
@@ -71,6 +74,7 @@ class PyneContext:
             close=PyneSeries(closes, name="close"),
             volume=PyneSeries(volumes, name="volume"),
             time=PyneSeries(np.array(times, dtype=np.float64), name="time"),
+            time_close=PyneSeries(time_closes, name="time_close"),
             times=times,
             bar_count=len(ohlcv),
         )
@@ -150,6 +154,8 @@ class PyneContext:
             "low": self.low,
             "close": self.close,
             "volume": self.volume,
+            "time": self.time,
+            "time_close": self.time_close,
             "hl2": self.hl2,
             "hlc3": self.hlc3,
             "ohlc4": self.ohlc4,
@@ -161,3 +167,16 @@ class PyneContext:
                 f"Available: {list(mapping.keys())}"
             )
         return mapping[source_name]
+
+
+def _derive_time_close(ohlcv: list[dict[str, Any]], times: list[int]) -> list[float]:
+    values: list[float] = []
+    for index, item in enumerate(ohlcv):
+        explicit = item.get("time_close")
+        if explicit is not None:
+            values.append(float(explicit))
+        elif index + 1 < len(times):
+            values.append(float(times[index + 1]))
+        else:
+            values.append(float("nan"))
+    return values

@@ -17,6 +17,8 @@ DEFAULT_COLUMNS = {
     "volume": "volume",
 }
 
+OPTIONAL_COLUMNS = {"time_close"}
+
 
 @dataclass(frozen=True)
 class PyneData:
@@ -62,19 +64,23 @@ class PyneData:
         low: str = "low",
         close: str = "close",
         volume: str = "volume",
+        time_close: str | None = None,
         time_unit: str = "s",
     ) -> "PyneData":
         _require_pandas()
         rows = []
         for item in df.to_dict(orient="records"):
-            rows.append({
+            row = {
                 "time": item[time],
                 "open": item[open],
                 "high": item[high],
                 "low": item[low],
                 "close": item[close],
                 "volume": item[volume],
-            })
+            }
+            if time_close is not None:
+                row["time_close"] = item[time_close]
+            rows.append(row)
         return cls.from_ohlcv(rows, time_unit=time_unit)
 
     def to_ohlcv(self) -> list[dict[str, Any]]:
@@ -86,7 +92,8 @@ class PyneData:
 
     @property
     def columns(self) -> tuple[str, ...]:
-        return tuple(DEFAULT_COLUMNS)
+        extras = tuple(key for key in sorted(OPTIONAL_COLUMNS) if any(key in item for item in self._ohlcv))
+        return (*DEFAULT_COLUMNS, *extras)
 
     @property
     def first(self) -> dict[str, Any]:
@@ -101,9 +108,11 @@ class PyneData:
         return int(self._ohlcv[0]["time"]), int(self._ohlcv[-1]["time"])
 
     def column(self, name: str) -> list[Any]:
-        if name not in DEFAULT_COLUMNS:
+        if name not in DEFAULT_COLUMNS and name not in OPTIONAL_COLUMNS:
             raise KeyError(f"Unknown OHLCV column: {name}")
-        return [item[name] for item in self._ohlcv]
+        if name in OPTIONAL_COLUMNS and not any(name in item for item in self._ohlcv):
+            raise KeyError(f"Unknown OHLCV column: {name}")
+        return [item.get(name) for item in self._ohlcv]
 
     def head(self, n: int = 5) -> list[dict[str, Any]]:
         return [dict(item) for item in self._ohlcv[:max(n, 0)]]
@@ -151,7 +160,7 @@ def _normalize_bar(item: dict[str, Any], *, time_unit: str) -> dict[str, Any]:
     timestamp = int(float(item["time"]))
     if time_unit.lower() in {"ms", "millisecond", "milliseconds"}:
         timestamp //= 1000
-    return {
+    normalized = {
         "time": timestamp,
         "open": float(item["open"]),
         "high": float(item["high"]),
@@ -159,6 +168,12 @@ def _normalize_bar(item: dict[str, Any], *, time_unit: str) -> dict[str, Any]:
         "close": float(item["close"]),
         "volume": float(item["volume"]),
     }
+    if "time_close" in item and item["time_close"] is not None:
+        time_close = int(float(item["time_close"]))
+        if time_unit.lower() in {"ms", "millisecond", "milliseconds"}:
+            time_close //= 1000
+        normalized["time_close"] = time_close
+    return normalized
 
 
 def _require_pandas() -> Any:

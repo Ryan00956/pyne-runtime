@@ -6,11 +6,13 @@ Pyne batch scripts expose a Pine-like bar clock as series values.
 plot(bar_index, "Bar Index")
 plot(last_bar_index, "Last Bar Index")
 plot(time[1], "Previous Time")
+plot(time_close, "Bar Close Time")
 ```
 
 Available clock values:
 
 - `time`: chart bar timestamps as a series.
+- `time_close`: chart bar close timestamps as a series.
 - `bar_index`: zero-based bar index as a series.
 - `last_bar_index`: the last available bar index as a series.
 - `bar_count`: scalar number of input bars.
@@ -20,6 +22,10 @@ Available clock values:
 ```python
 time[1]  # previous bar timestamp
 ```
+
+If input bars include `time_close`, Pyne preserves it. Otherwise batch mode infers
+`time_close` from the next bar's `time`; the final bar is `na` because there is
+no next bar from which to infer a close timestamp.
 
 ## `barstate`
 

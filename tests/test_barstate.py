@@ -18,6 +18,7 @@ def test_bar_index_and_last_bar_index_are_series() -> None:
 plot(bar_index, "Bar Index")
 plot(last_bar_index, "Last Bar Index")
 plot(time[1], "Previous Time")
+plot(time_close, "Time Close")
 """,
         _bars(),
         executor_mode="inline",
@@ -27,6 +28,24 @@ plot(time[1], "Previous Time")
     assert result.values("Bar Index") == [0.0, 1.0, 2.0, 3.0]
     assert result.values("Last Bar Index") == [3.0, 3.0, 3.0, 3.0]
     assert result.values("Previous Time") == [10.0, 20.0, 30.0]
+    assert result.values("Time Close") == [20.0, 30.0, 40.0]
+
+
+def test_explicit_time_close_is_preserved() -> None:
+    bars = [
+        {**bar, "time_close": bar["time"] + 5}
+        for bar in _bars()
+    ]
+    result = pn.run(
+        """
+plot(time_close, "Time Close")
+""",
+        bars,
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Time Close") == [15.0, 25.0, 35.0, 45.0]
 
 
 def test_batch_barstate_flags_emit_expected_markers() -> None:

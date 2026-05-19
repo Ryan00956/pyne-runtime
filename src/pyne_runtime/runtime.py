@@ -221,6 +221,7 @@ class PyneRuntime:
         ns["close"] = ctx.close
         ns["volume"] = ctx.volume
         ns["time"] = ctx.time
+        ns["time_close"] = ctx.time_close
         ns["bar_index"] = ctx.bar_index
         ns["last_bar_index"] = ctx.last_bar_index
         ns["barstate"] = ctx.barstate
