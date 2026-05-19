@@ -33,3 +33,4 @@
 - Added `strategy.exit()` stop/limit exit events for lightweight strategy replay.
 - Added incremental `ctx.bar_index`, `bar.bar_index`, and scalar `ctx.barstate.*` realtime preview/confirmation semantics.
 - Added optional OHLCV `time_close` support and batch `time_close` series inference.
+- Added tuple/multi-return `request.security()` expressions for Python unpacking.

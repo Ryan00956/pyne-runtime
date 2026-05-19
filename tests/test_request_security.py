@@ -196,6 +196,58 @@ plot(higher_mid, "Higher Mid")
     assert result.values("Higher Mid") == [10, 10, 31, 31]
 
 
+def test_request_security_accepts_tuple_thunk_expression() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 9, "high": 12, "low": 8, "close": 10, "volume": 1000},
+        {"time": 3, "open": 29, "high": 34, "low": 28, "close": 30, "volume": 3000},
+    ])
+
+    result = pn.run(
+        """
+indicator("MTF Tuple", overlay=True)
+higher_open, higher_close = request.security("BTCUSDT", "2", lambda ctx: (ctx.open, ctx.close))
+plot(higher_open, "Higher Open")
+plot(higher_close, "Higher Close")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Higher Open") == [9, 9, 29, 29]
+    assert result.values("Higher Close") == [10, 10, 30, 30]
+
+
+def test_request_security_accepts_tuple_field_expression() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 9, "high": 12, "low": 8, "close": 10, "volume": 1000},
+        {"time": 3, "open": 29, "high": 34, "low": 28, "close": 30, "volume": 3000},
+    ])
+
+    result = pn.run(
+        """
+indicator("MTF Field Tuple", overlay=True)
+higher_high, higher_low = request.security("BTCUSDT", "2", ("high", "low"), gaps="on")
+plot(higher_high, "Higher High")
+plot(higher_low, "Higher Low")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.get_series("Higher High") == [
+        {"time": 1, "value": 12.0},
+        {"time": 3, "value": 34.0},
+    ]
+    assert result.get_series("Higher Low") == [
+        {"time": 1, "value": 8.0},
+        {"time": 3, "value": 28.0},
+    ]
+
+
 def test_request_security_gaps_and_lookahead_work_with_thunks() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 12, "low": 8, "close": 10, "volume": 1000},
@@ -231,7 +283,7 @@ def test_request_security_rejects_invalid_thunk_return_type() -> None:
     result = pn.run(
         """
 indicator("Invalid Thunk", overlay=True)
-bad = request.security("BTCUSDT", "2", lambda ctx: (ctx.close, ctx.open))
+bad = request.security("BTCUSDT", "2", lambda ctx: {"close": ctx.close})
 plot(bad, "Bad")
 """,
         _bars(),
@@ -241,7 +293,7 @@ plot(bad, "Bad")
 
     assert not result.ok
     assert result.code == "PYNE_UNSUPPORTED_FEATURE"
-    assert "single series" in str(result.error)
+    assert "series, tuple of series, or scalar" in str(result.error)
 
 
 def test_request_security_reports_thunk_exceptions() -> None:

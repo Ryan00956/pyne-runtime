@@ -15,6 +15,8 @@ from .series import where as series_where
 from .ta import TaModule
 from .values import is_na_value
 
+RequestValues = list[Any] | tuple[list[Any], ...]
+
 
 class DataProvider(Protocol):
     """Host interface used by ``request.security()``.
@@ -74,6 +76,10 @@ class RequestEvalContext:
         return self.context.time
 
     @property
+    def time_close(self) -> PyneSeries:
+        return self.context.time_close
+
+    @property
     def bar_index(self) -> PyneSeries:
         return self.context.bar_index
 
@@ -127,11 +133,11 @@ class RequestModule:
         self,
         symbol: str,
         timeframe: str,
-        expression: PyneSeries | str | Callable[[RequestEvalContext], Any],
+        expression: PyneSeries | str | tuple[Any, ...] | list[Any] | Callable[[RequestEvalContext], Any],
         *,
         gaps: str = "off",
         lookahead: str = "off",
-    ) -> PyneSeries:
+    ) -> PyneSeries | tuple[PyneSeries, ...]:
         """Return a requested symbol/timeframe field aligned to chart bars.
 
         Field-like expressions such as ``close``, ``close[1]``, or ``"close"``
@@ -168,25 +174,21 @@ class RequestModule:
                 requested_ctx=requested_ctx,
             )
         else:
-            field, history_offset = _resolve_requested_field(expression)
-            requested_values = _apply_history_offset(
-                [_field_value(item, field) for item in requested],
-                history_offset,
+            requested_values, expression_name = _values_from_field_expression(
+                expression,
+                requested,
+                requested_ctx,
             )
-            expression_name = field
-        values = [
-            _aligned_value(
-                chart_time,
-                requested_times,
-                requested_values,
-                gaps=gaps,
-                lookahead=lookahead,
-            )
-            for chart_time in self._context.times
-        ]
-        return PyneSeries(
-            np.asarray(values, dtype=np.float64),
-            name=f"request.security({symbol},{timeframe},{expression_name})",
+
+        return _align_request_values(
+            symbol=str(symbol),
+            timeframe=str(timeframe),
+            expression_name=expression_name,
+            chart_times=self._context.times,
+            requested_times=requested_times,
+            requested_values=requested_values,
+            gaps=gaps,
+            lookahead=lookahead,
         )
 
     def _evaluate_expression_thunk(
@@ -196,7 +198,7 @@ class RequestModule:
         symbol: str,
         timeframe: str,
         requested_ctx: PyneContext,
-    ) -> tuple[list[Any], str]:
+    ) -> tuple[RequestValues, str]:
         requested_ta = TaModule(requested_ctx)
         eval_ctx = RequestEvalContext(
             symbol=symbol,
@@ -232,12 +234,55 @@ def _resolve_requested_field(expression: PyneSeries | str) -> tuple[str, int]:
         )
 
     field, offset = _split_history_name(name)
-    if field not in {"open", "high", "low", "close", "volume", "hl2", "hlc3", "ohlc4", "hlcc4"}:
+    if field not in {
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "time",
+        "time_close",
+        "hl2",
+        "hlc3",
+        "ohlc4",
+        "hlcc4",
+    }:
         raise PyneRequestError(
             f"request.security() does not support expression field '{field}'",
             code="PYNE_UNSUPPORTED_FEATURE",
         )
     return field, offset
+
+
+def _values_from_field_expression(
+    expression: PyneSeries | str | tuple[Any, ...] | list[Any],
+    requested: list[dict[str, Any]],
+    requested_ctx: PyneContext,
+) -> tuple[RequestValues, str]:
+    if isinstance(expression, tuple | list):
+        values = []
+        names = []
+        for item in expression:
+            field, history_offset = _resolve_requested_field(item)
+            values.append(_apply_history_offset(
+                _field_values(requested, requested_ctx, field),
+                history_offset,
+            ))
+            names.append(field if history_offset <= 0 else f"{field}[{history_offset}]")
+        if not values:
+            raise PyneRequestError(
+                "request.security() multi-return expression cannot be empty",
+                code="PYNE_UNSUPPORTED_FEATURE",
+            )
+        return tuple(values), ",".join(names)
+
+    field, history_offset = _resolve_requested_field(expression)
+    values = _apply_history_offset(
+        _field_values(requested, requested_ctx, field),
+        history_offset,
+    )
+    expression_name = field if history_offset <= 0 else f"{field}[{history_offset}]"
+    return values, expression_name
 
 
 def _split_history_name(name: str) -> tuple[str, int]:
@@ -259,17 +304,25 @@ def _apply_history_offset(values: list[float], offset: int) -> list[float]:
     return shifted
 
 
-def _values_from_expression_result(result: Any, requested_ctx: PyneContext) -> list[Any]:
+def _values_from_expression_result(result: Any, requested_ctx: PyneContext) -> RequestValues:
     length = requested_ctx.bar_count
+    if isinstance(result, tuple):
+        if not result:
+            raise PyneRequestError(
+                "request.security() expression cannot return an empty tuple",
+                code="PYNE_UNSUPPORTED_FEATURE",
+            )
+        return tuple(_values_from_expression_result(item, requested_ctx) for item in result)
+
     if isinstance(result, PyneSeries):
         values = result.to_numpy().tolist()
     elif isinstance(result, np.ndarray):
         values = result.tolist()
     elif isinstance(result, list):
         values = result
-    elif isinstance(result, tuple | dict) or result is None:
+    elif isinstance(result, dict) or result is None:
         raise PyneRequestError(
-            "request.security() expression must return a single series or scalar value",
+            "request.security() expression must return a series, tuple of series, or scalar value",
             code="PYNE_UNSUPPORTED_FEATURE",
         )
     elif isinstance(result, bool | int | float | np.generic):
@@ -286,6 +339,91 @@ def _values_from_expression_result(result: Any, requested_ctx: PyneContext) -> l
             code="PYNE_RUNTIME_ERROR",
         )
     return [np.nan if is_na_value(item) else item for item in values]
+
+
+def _align_request_values(
+    *,
+    symbol: str,
+    timeframe: str,
+    expression_name: str,
+    chart_times: list[int],
+    requested_times: list[int],
+    requested_values: RequestValues,
+    gaps: str,
+    lookahead: str,
+) -> PyneSeries | tuple[PyneSeries, ...]:
+    if isinstance(requested_values, tuple):
+        return tuple(
+            _align_single_request_values(
+                symbol=symbol,
+                timeframe=timeframe,
+                expression_name=f"{expression_name}[{index}]",
+                chart_times=chart_times,
+                requested_times=requested_times,
+                requested_values=values,
+                gaps=gaps,
+                lookahead=lookahead,
+            )
+            for index, values in enumerate(requested_values)
+        )
+
+    return _align_single_request_values(
+        symbol=symbol,
+        timeframe=timeframe,
+        expression_name=expression_name,
+        chart_times=chart_times,
+        requested_times=requested_times,
+        requested_values=requested_values,
+        gaps=gaps,
+        lookahead=lookahead,
+    )
+
+
+def _align_single_request_values(
+    *,
+    symbol: str,
+    timeframe: str,
+    expression_name: str,
+    chart_times: list[int],
+    requested_times: list[int],
+    requested_values: list[Any],
+    gaps: str,
+    lookahead: str,
+) -> PyneSeries:
+    values = [
+        _aligned_value(
+            chart_time,
+            requested_times,
+            requested_values,
+            gaps=gaps,
+            lookahead=lookahead,
+        )
+        for chart_time in chart_times
+    ]
+    return PyneSeries(
+        np.asarray(values, dtype=np.float64),
+        name=f"request.security({symbol},{timeframe},{expression_name})",
+    )
+
+
+def _field_values(requested: list[dict[str, Any]], requested_ctx: PyneContext, field: str) -> list[float]:
+    context_fields = {
+        "open": requested_ctx.open,
+        "high": requested_ctx.high,
+        "low": requested_ctx.low,
+        "close": requested_ctx.close,
+        "volume": requested_ctx.volume,
+        "time": requested_ctx.time,
+        "time_close": requested_ctx.time_close,
+        "hl2": requested_ctx.hl2,
+        "hlc3": requested_ctx.hlc3,
+        "ohlc4": requested_ctx.ohlc4,
+        "hlcc4": requested_ctx.hlcc4,
+    }
+    series = context_fields.get(field)
+    if series is not None:
+        return series.to_numpy().tolist()
+    return [_field_value(bar, field) for bar in requested]
 
 
 def _field_value(bar: dict[str, Any], field: str) -> float:

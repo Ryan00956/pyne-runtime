@@ -50,6 +50,7 @@ Supported now:
 - history references on fields, such as `close[1]`
 - `expression` as a field name string, such as `"close"`
 - `expression` as a callable thunk, such as `lambda ctx: ctx.ta.ema(ctx.close, 20)`
+- tuple/multi-return expressions that can be unpacked in Python
 - `gaps="off"`: carry the latest requested value forward
 - `gaps="on"`: only emit values on exact requested bar timestamps
 - `lookahead="off"`: use the latest requested bar at or before each chart bar
@@ -78,7 +79,7 @@ higher_ema = request.security(
 The `ctx` object is a calculation-only requested context. It exposes:
 
 - `ctx.open`, `ctx.high`, `ctx.low`, `ctx.close`, `ctx.volume`
-- `ctx.time`, `ctx.bar_index`, `ctx.last_bar_index`, `ctx.barstate`
+- `ctx.time`, `ctx.time_close`, `ctx.bar_index`, `ctx.last_bar_index`, `ctx.barstate`
 - `ctx.hl2`, `ctx.hlc3`, `ctx.ohlc4`, `ctx.hlcc4`
 - `ctx.ta`
 - `ctx.when()`, `ctx.where()`, `ctx.switch()`
@@ -89,13 +90,28 @@ History references inside the thunk are applied in the requested context:
 higher_prev = request.security("BTCUSDT", "1h", lambda ctx: ctx.close[1])
 ```
 
-Callable expressions must return a single series-like value or a scalar. Tuple,
-dict, object handle, and nested request outputs are rejected.
+Callable expressions may return a single series-like value, a scalar, or a tuple
+of series-like values:
+
+```python
+higher_open, higher_close = request.security(
+    "BTCUSDT",
+    "1h",
+    lambda ctx: (ctx.open, ctx.close),
+)
+```
+
+Field tuples are also supported:
+
+```python
+higher_high, higher_low = request.security("BTCUSDT", "1h", ("high", "low"))
+```
+
+Dicts, object handles, and nested request outputs are rejected.
 
 Unsupported for now:
 
 - direct capture of already evaluated Python expressions, such as `ta.ema(close, 20)`
-- tuple or multi-return request expressions
 - nested request expressions
 - provider-owned lookahead or gap semantics
 
