@@ -18,7 +18,9 @@ indicator("Metadata", overlay=False)
 plot(syminfo.mintick, "Min Tick")
 plot(timeframe.multiplier, "Timeframe Multiplier")
 plot(1 if timeframe.isintraday else 0, "Intraday")
-plot(1 if session.ismarket else 0, "Market")
+plot(session.ismarket, "Market")
+plot(session.isfirstbar, "First Session Bar")
+plot(session.islastbar, "Last Session Bar")
 """,
         _bars(),
         executor_mode="inline",
@@ -29,6 +31,8 @@ plot(1 if session.ismarket else 0, "Market")
     assert result.values("Timeframe Multiplier") == [1.0, 1.0, 1.0]
     assert result.values("Intraday") == [1.0, 1.0, 1.0]
     assert result.values("Market") == [1.0, 1.0, 1.0]
+    assert result.values("First Session Bar") == [1.0, 0.0, 0.0]
+    assert result.values("Last Session Bar") == [0.0, 0.0, 1.0]
 
 
 def test_runtime_metadata_can_be_supplied_through_run() -> None:
@@ -40,7 +44,7 @@ plot(1 if syminfo.ticker == "AAPL" else 0, "Ticker Match")
 plot(timeframe.multiplier, "Timeframe Multiplier")
 plot(1 if timeframe.isintraday else 0, "Intraday")
 plot(1 if timeframe.isdaily else 0, "Daily")
-plot(1 if session.ismarket else 0, "Market")
+plot(session.ismarket, "Market")
 """,
         _bars(),
         executor_mode="inline",
@@ -56,6 +60,32 @@ plot(1 if session.ismarket else 0, "Market")
     assert result.values("Intraday") == [1.0, 1.0, 1.0]
     assert result.values("Daily") == [0.0, 0.0, 0.0]
     assert result.values("Market") == [0.0, 0.0, 0.0]
+
+
+def test_session_namespace_uses_bar_level_host_flags() -> None:
+    bars = [
+        {**_bars()[0], "session_ismarket": True, "session_isfirstbar": True},
+        {**_bars()[1], "session_ismarket": False},
+        {**_bars()[2], "session": {"ismarket": True, "islastbar": True}},
+    ]
+
+    result = pn.run(
+        """
+indicator("Session", overlay=False)
+plot(session.ismarket, "Market")
+plot(session.isfirstbar, "First")
+plot(session.islastbar, "Last")
+plot(when(session.ismarket, close, 0), "Market Close")
+""",
+        bars,
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Market") == [1.0, 0.0, 1.0]
+    assert result.values("First") == [1.0, 0.0, 0.0]
+    assert result.values("Last") == [0.0, 0.0, 1.0]
+    assert result.values("Market Close") == [1.5, 0.0, 3.5]
 
 
 def test_timeframe_parses_daily_weekly_and_monthly_periods() -> None:

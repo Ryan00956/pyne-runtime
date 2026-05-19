@@ -17,7 +17,21 @@ DEFAULT_COLUMNS = {
     "volume": "volume",
 }
 
-OPTIONAL_COLUMNS = {"time_close"}
+SESSION_COLUMNS = {
+    "session",
+    "session_ismarket",
+    "ismarket",
+    "is_market",
+    "session_isfirstbar",
+    "isfirstbar",
+    "is_firstbar",
+    "session_is_first_bar",
+    "session_islastbar",
+    "islastbar",
+    "is_lastbar",
+    "session_is_last_bar",
+}
+OPTIONAL_COLUMNS = {"time_close", *SESSION_COLUMNS}
 
 
 @dataclass(frozen=True)
@@ -173,7 +187,22 @@ def _normalize_bar(item: dict[str, Any], *, time_unit: str) -> dict[str, Any]:
         if time_unit.lower() in {"ms", "millisecond", "milliseconds"}:
             time_close //= 1000
         normalized["time_close"] = time_close
+    for key in SESSION_COLUMNS:
+        if key in item and item[key] is not None:
+            normalized[key] = _normalize_session_value(item[key])
     return normalized
+
+
+def _normalize_session_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _normalize_session_value(item) for key, item in value.items()}
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "y", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "n", "off"}:
+            return False
+    return value
 
 
 def _require_pandas() -> Any:

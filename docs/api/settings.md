@@ -45,8 +45,41 @@ Runtime metadata:
 - `timeframe` supplies the Pine-like `timeframe` namespace. Common strings such
   as `"1"`, `"5"`, `"1h"`, `"1D"`, `"1W"`, and `"1M"` are parsed into
   `period`, `multiplier`, `isintraday`, `isdaily`, `isweekly`, and `ismonthly`.
-- `session` supplies lightweight host-owned session flags: `ismarket`,
+- `session` supplies default host-owned session flags: `ismarket`,
   `isfirstbar`, and `islastbar`.
+
+Batch scripts see `session.ismarket`, `session.isfirstbar`, and
+`session.islastbar` as bar-level series. Hosts can provide per-bar flags in
+OHLCV rows:
+
+```python
+data = [
+    {
+        "time": 1710000000,
+        "open": 1,
+        "high": 2,
+        "low": 1,
+        "close": 1.5,
+        "volume": 100,
+        "session_ismarket": True,
+        "session_isfirstbar": True,
+    },
+    {
+        "time": 1710000060,
+        "open": 1.5,
+        "high": 2,
+        "low": 1,
+        "close": 1.2,
+        "volume": 120,
+        "session": {"ismarket": False},
+    },
+]
+```
+
+When per-bar flags are omitted, `session.ismarket` uses the default setting,
+`session.isfirstbar` defaults to the first loaded bar, and
+`session.islastbar` defaults to the last loaded bar. Incremental scripts read
+the current bar's scalar flags through `ctx.session.*`.
 
 `syminfo.mintick` defaults to `1.0`. Strategy slippage uses it when
 `strategy(..., slippage=...)` does not pass an explicit `mintick` / `min_tick`.

@@ -30,6 +30,7 @@ Core classes:
 - `pn.SymbolInfo`
 - `pn.TimeframeInfo`
 - `pn.SessionInfo`
+- `pn.SessionNamespace`
 - `pn.DataProvider`
 - `pn.RequestEvalContext`
 - `pn.RequestModule`

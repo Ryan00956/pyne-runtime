@@ -16,8 +16,8 @@ from typing import Any
 import numpy as np
 
 from .barstate import PyneBarState
-from .metadata import SessionInfo, SymbolInfo, TimeframeInfo
-from .metadata import normalize_session_info, normalize_symbol_info, normalize_timeframe_info
+from .metadata import SessionNamespace, SymbolInfo, TimeframeInfo
+from .metadata import build_session_namespace, normalize_symbol_info, normalize_timeframe_info
 from .series import PyneSeries
 
 
@@ -46,7 +46,7 @@ class PyneContext:
     times: list[int]
     syminfo: SymbolInfo = field(default_factory=SymbolInfo)
     timeframe: TimeframeInfo = field(default_factory=TimeframeInfo)
-    session: SessionInfo = field(default_factory=SessionInfo)
+    session: SessionNamespace = field(default_factory=lambda: build_session_namespace([]))
     bar_count: int = 0
 
     # ── Derived fields (lazy-computed) ───────────────────────
@@ -90,7 +90,7 @@ class PyneContext:
             times=times,
             syminfo=normalize_symbol_info(syminfo),
             timeframe=normalize_timeframe_info(timeframe),
-            session=normalize_session_info(session),
+            session=build_session_namespace(ohlcv, session),
             bar_count=len(ohlcv),
         )
 

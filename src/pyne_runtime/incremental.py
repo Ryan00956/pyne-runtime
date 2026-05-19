@@ -19,7 +19,7 @@ from .barstate import PyneIncrementalBarState
 from .cache import pyne as pyne_cache_namespace
 from .color import color as color_singleton
 from .math_ext import pyne_math
-from .metadata import SessionInfo, SymbolInfo, TimeframeInfo
+from .metadata import SessionInfo, SymbolInfo, TimeframeInfo, normalize_session_info
 from .security import (
     PyneSecurityError,
     PyneSecurityPolicy,
@@ -65,6 +65,7 @@ class IncrementalBar:
     is_realtime: bool = False
     is_new: bool = False
     is_last_confirmed_history: bool = False
+    raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, item: dict[str, Any], *, is_confirmed: bool = True) -> "IncrementalBar":
@@ -76,6 +77,7 @@ class IncrementalBar:
             close=float(item.get("close", 0)),
             volume=float(item.get("volume", 0)),
             is_confirmed=is_confirmed,
+            raw=dict(item),
         )
 
 
@@ -433,7 +435,8 @@ class IncrementalContext:
         self.ta = IncrementalTaNamespace(self._limit_tracker)
         self.syminfo = syminfo or SymbolInfo()
         self.timeframe = timeframe or TimeframeInfo()
-        self.session = session or SessionInfo()
+        self._default_session = session or SessionInfo()
+        self.session = self._default_session
         self._states: dict[str, StateCell] = {}
         self._windows: dict[str, Window] = {}
         self._series: dict[str, dict[str, Any]] = {}
@@ -474,6 +477,7 @@ class IncrementalContext:
         self.bar_index = bar_index
         self.last_bar_index = last_bar_index
         self.barstate = barstate
+        self.session = _session_info_for_bar(bar, self._default_session)
 
     def state(self, name: str, default: Any = None) -> StateCell:
         key = str(name)
@@ -854,7 +858,14 @@ class PyneIncrementalSession:
     ) -> IncrementalPyneResult:
         self.prepare()
         if self._ctx is None:
-            self._ctx = IncrementalContext(params=self.params, meta=self._meta, limits=self._limits)
+            self._ctx = IncrementalContext(
+                params=self.params,
+                meta=self._meta,
+                limits=self._limits,
+                syminfo=self.settings.syminfo,
+                timeframe=self.settings.timeframe,
+                session=self.settings.session,
+            )
             self._call_optional(self._init_func, self._ctx)
         return self._ctx.to_result(start_s=start_s, end_s=end_s)
 
@@ -990,6 +1001,33 @@ def _filter_points(points: list[dict[str, Any]], start_s: int | None, end_s: int
             continue
         filtered.append(point)
     return filtered
+
+
+def _session_info_for_bar(bar: IncrementalBar, default: SessionInfo) -> SessionInfo:
+    raw = dict(bar.raw or {})
+    nested = raw.get("session")
+    if isinstance(nested, dict):
+        raw.update(nested)
+    return normalize_session_info({
+        "ismarket": _first_present(raw, ("session_ismarket", "ismarket", "is_market"), default.ismarket),
+        "isfirstbar": _first_present(
+            raw,
+            ("session_isfirstbar", "isfirstbar", "is_firstbar", "session_is_first_bar"),
+            default.isfirstbar or bar.is_first,
+        ),
+        "islastbar": _first_present(
+            raw,
+            ("session_islastbar", "islastbar", "is_lastbar", "session_is_last_bar"),
+            default.islastbar or bar.is_last,
+        ),
+    })
+
+
+def _first_present(raw: dict[str, Any], names: tuple[str, ...], default: bool) -> bool:
+    for name in names:
+        if name in raw:
+            return bool(raw[name])
+    return bool(default)
 
 
 def _rsi_from_avgs(avg_gain: float, avg_loss: float) -> float:

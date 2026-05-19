@@ -5,6 +5,10 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+import numpy as np
+
+from .series import PyneSeries
+
 
 @dataclass(frozen=True)
 class SymbolInfo:
@@ -94,6 +98,15 @@ class SessionInfo:
         return cls()
 
 
+@dataclass(frozen=True)
+class SessionNamespace:
+    """Bar-level Pine-like ``session`` namespace exposed to batch scripts."""
+
+    ismarket: PyneSeries
+    isfirstbar: PyneSeries
+    islastbar: PyneSeries
+
+
 def normalize_symbol_info(value: Any = None) -> SymbolInfo:
     return SymbolInfo.from_value(value)
 
@@ -104,6 +117,40 @@ def normalize_timeframe_info(value: Any = None) -> TimeframeInfo:
 
 def normalize_session_info(value: Any = None) -> SessionInfo:
     return SessionInfo.from_value(value)
+
+
+def build_session_namespace(
+    ohlcv: list[dict[str, Any]],
+    session: Any = None,
+) -> SessionNamespace:
+    info = normalize_session_info(session)
+    bar_count = len(ohlcv)
+    market_values = _session_flag_values(
+        ohlcv,
+        names=("session_ismarket", "ismarket", "is_market"),
+        default=info.ismarket,
+    )
+    first_values = _session_flag_values(
+        ohlcv,
+        names=("session_isfirstbar", "isfirstbar", "is_firstbar", "session_is_first_bar"),
+        default=info.isfirstbar,
+    )
+    last_values = _session_flag_values(
+        ohlcv,
+        names=("session_islastbar", "islastbar", "is_lastbar", "session_is_last_bar"),
+        default=info.islastbar,
+    )
+
+    if not any(first_values) and bar_count:
+        first_values[0] = True
+    if not any(last_values) and bar_count:
+        last_values[-1] = True
+
+    return SessionNamespace(
+        ismarket=PyneSeries(np.array(market_values, dtype=bool), name="session.ismarket"),
+        isfirstbar=PyneSeries(np.array(first_values, dtype=bool), name="session.isfirstbar"),
+        islastbar=PyneSeries(np.array(last_values, dtype=bool), name="session.islastbar"),
+    )
 
 
 def _symbol_from_mapping(value: Mapping[str, Any]) -> SymbolInfo:
@@ -140,6 +187,31 @@ def _positive_float(value: Any, default: float) -> float:
     if number <= 0:
         return default
     return number
+
+
+def _session_flag_values(
+    ohlcv: list[dict[str, Any]],
+    *,
+    names: tuple[str, ...],
+    default: bool,
+) -> list[bool]:
+    values: list[bool] = []
+    for item in ohlcv:
+        flag_value = _lookup_session_flag(item, names)
+        values.append(default if flag_value is None else bool(flag_value))
+    return values
+
+
+def _lookup_session_flag(item: Mapping[str, Any], names: tuple[str, ...]) -> Any:
+    nested = item.get("session")
+    if isinstance(nested, Mapping):
+        for name in names:
+            if name in nested:
+                return nested[name]
+    for name in names:
+        if name in item:
+            return item[name]
+    return None
 
 
 def _parse_timeframe(period: str) -> TimeframeInfo:

@@ -25,6 +25,7 @@ pn.PyneRuntime
 pn.SymbolInfo
 pn.TimeframeInfo
 pn.SessionInfo
+pn.SessionNamespace
 pn.DataProvider
 pn.RequestEvalContext
 pn.RequestModule
@@ -47,8 +48,8 @@ pn.na
 `pn.na` is the callable missing-value sentinel also injected into scripts as `na`.
 `PyneBarState` is the batch-runtime namespace type behind script-level `barstate.*` flags.
 `PyneVar` and `PyneStateNamespace` power script-level `var()` / `pyne.var()` state cells.
-`SymbolInfo`, `TimeframeInfo`, and `SessionInfo` back the script-level
-`syminfo`, `timeframe`, and `session` namespaces.
+`SymbolInfo`, `TimeframeInfo`, `SessionInfo`, and `SessionNamespace` back the
+script-level `syminfo`, `timeframe`, and `session` namespaces.
 `DataProvider` is the host protocol for `request.security()` market data access.
 `RequestEvalContext` is the calculation-only context passed to `request.security()` expression thunks.
 `StrategyModule` is the script-level `strategy.*` event namespace.

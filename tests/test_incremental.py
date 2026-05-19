@@ -73,6 +73,29 @@ def on_bar(ctx, bar):
     assert result.meta["barstate"]["islastconfirmedhistory"] is True
 
 
+def test_incremental_context_exposes_current_session_flags() -> None:
+    script = """
+indicator("Incremental Session", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    ctx.plot("Market", 1 if ctx.session.ismarket else 0)
+    ctx.marker(ctx.session.isfirstbar, text="First Session")
+    ctx.marker(ctx.session.islastbar, text="Last Session")
+"""
+    bars = [
+        {**_bars()[0], "session_ismarket": True, "session_isfirstbar": True},
+        {**_bars()[1], "session_ismarket": False},
+        {**_bars()[2], "session": {"ismarket": True, "islastbar": True}},
+    ]
+
+    result = pn.run(script, bars, executor_mode="inline")
+
+    assert result.ok
+    assert _line_values(result, "market") == [1.0, 0.0, 1.0]
+    assert _marker_times(result, "first_session") == [1]
+    assert _marker_times(result, "last_session") == [3]
+
+
 def test_incremental_preview_barstate_does_not_persist() -> None:
     script = """
 indicator("Preview", mode="incremental", overlay=True)
