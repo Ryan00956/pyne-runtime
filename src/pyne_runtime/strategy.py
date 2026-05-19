@@ -630,9 +630,15 @@ class StrategyModule:
                     previous_size = current_size
                     if order.get("type") == "exit":
                         requested_qty = abs(float(order.get("qty", abs(current_size))))
-                        fill_qty = min(requested_qty, abs(current_size))
+                        target_qty = _target_open_qty(order, open_trades, current_size)
+                        fill_qty = min(requested_qty, target_qty)
+                    elif order.get("type") == "close":
+                        target_qty = _target_open_qty(order, open_trades, current_size)
+                        fill_qty = min(target_qty, abs(current_size))
                     else:
                         fill_qty = abs(current_size)
+                    if fill_qty <= 0:
+                        continue
                     remaining = abs(current_size) - fill_qty
                     next_size = 0.0
                     if remaining > 0:
@@ -1079,6 +1085,22 @@ def _target_entry_id(order: dict[str, Any]) -> str:
     if order.get("type") == "close":
         return str(order.get("id") or "")
     return ""
+
+
+def _target_open_qty(
+    order: dict[str, Any],
+    open_trades: list[dict[str, Any]],
+    current_size: float,
+) -> float:
+    target_entry = _target_entry_id(order)
+    if not target_entry:
+        return abs(current_size)
+    current_side = "long" if current_size > 0 else "short"
+    return sum(
+        abs(float(trade.get("qty", 0.0)))
+        for trade in open_trades
+        if trade.get("side") == current_side and trade.get("entry_id") == target_entry
+    )
 
 
 def _open_trade_from_order(

@@ -155,7 +155,9 @@ strategy.close_all(when=True, price=None, comment="")
 ```
 
 `close_when()` emits close events only when there is an open position at that
-bar in the replayed event timeline.
+bar in the replayed event timeline. When `id` is provided, replay closes the
+matching entry-id lot quantity instead of blindly closing the whole net
+position.
 
 `close_all()` emits a close-all event that closes any open long or short
 position at matching bars.
@@ -177,9 +179,10 @@ The current implementation scans each bar's `high` and `low` values:
 When stop and limit are both touched on the same bar, stop wins. This is a
 deterministic event model, not an intrabar broker simulator.
 
-When `qty` is provided, the exit reduces the current position by up to that
-quantity and leaves the remaining position open with the previous average entry
-price. When `qty` is omitted, the exit closes the full current position.
+When `from_entry` is provided, the exit targets matching entry-id lots. When
+`qty` is provided, the exit reduces that matched quantity by up to `qty` and
+leaves the remaining position open with the previous average entry price. When
+`qty` is omitted, the exit closes the full matched entry lot quantity.
 
 ## Position Series
 
@@ -265,8 +268,5 @@ The position series remains a deterministic net-position replay.
 Known limits:
 
 - no intrabar path model
-- `strategy.close(id)` currently emits a net-position close event; entry-id
-  filtering is represented in the trade ledger and will be tightened further
-  with the strategy replay model
 - Python `if` cannot branch directly on series conditions; use
   `entry_when()` and `close_when()`

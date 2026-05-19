@@ -935,3 +935,118 @@ strategy.close_all(when=bar_index == 2, price=close)
         },
     ]
     assert result.output["strategy"]["opentrades"] == []
+
+
+def test_strategy_close_id_closes_matching_entry_lot_only() -> None:
+    result = pn.run(
+        """
+strategy("Close By Id", overlay=True, initial_capital=1000, pyramiding=2)
+strategy.entry_when(bar_index == 0, "A", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 1, "B", strategy.long, qty=2, price=close)
+strategy.close("A", when=bar_index == 2, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
+            {"time": 3, "open": 12, "high": 13, "low": 11, "close": 12, "volume": 100},
+            {"time": 4, "open": 13, "high": 14, "low": 12, "close": 13, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Position") == [1.0, 3.0, 2.0, 2.0]
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "A",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 10.0,
+            "position_after": 1.0,
+            "comment": "",
+        },
+        {
+            "time": 2,
+            "id": "B",
+            "type": "entry",
+            "side": "long",
+            "qty": 2.0,
+            "price": 11.0,
+            "position_after": 3.0,
+            "comment": "",
+        },
+        {
+            "time": 3,
+            "id": "A",
+            "type": "close",
+            "side": "flat",
+            "qty": 1.0,
+            "price": 12.0,
+            "position_after": 2.0,
+            "comment": "",
+        },
+    ]
+    assert result.output["strategy"]["closedtrades"] == [
+        {
+            "entry_time": 1,
+            "exit_time": 3,
+            "entry_id": "A",
+            "exit_id": "A",
+            "side": "long",
+            "qty": 1.0,
+            "entry_price": 10.0,
+            "exit_price": 12.0,
+            "profit": 2.0,
+            "commission": 0.0,
+            "net_profit": 2.0,
+        }
+    ]
+    assert result.output["strategy"]["opentrades"] == [
+        {
+            "entry_time": 2,
+            "entry_id": "B",
+            "side": "long",
+            "qty": 2.0,
+            "entry_price": 11.0,
+            "profit": 4.0,
+        }
+    ]
+
+
+def test_strategy_exit_from_entry_without_qty_closes_matching_lot_only() -> None:
+    result = pn.run(
+        """
+strategy("Exit By Entry", overlay=True, initial_capital=1000, pyramiding=2)
+strategy.entry_when(bar_index == 0, "A", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 1, "B", strategy.long, qty=2, price=close)
+strategy.exit("Exit B", from_entry="B", limit=12, when=bar_index == 2)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
+            {"time": 3, "open": 12, "high": 13, "low": 11, "close": 12, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Position") == [1.0, 3.0, 1.0]
+    assert result.output["strategy"]["closedtrades"] == [
+        {
+            "entry_time": 2,
+            "exit_time": 3,
+            "entry_id": "B",
+            "exit_id": "Exit B",
+            "side": "long",
+            "qty": 2.0,
+            "entry_price": 11.0,
+            "exit_price": 12.0,
+            "profit": 2.0,
+            "commission": 0.0,
+            "net_profit": 2.0,
+        }
+    ]
