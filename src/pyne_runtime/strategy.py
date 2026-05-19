@@ -252,12 +252,22 @@ class StrategyModule:
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
                 elif order.get("type") in {"close", "exit"} and current_size != 0:
-                    order["qty"] = abs(current_size)
-                    order["position_after"] = 0.0
+                    if order.get("type") == "exit":
+                        requested_qty = abs(float(order.get("qty", abs(current_size))))
+                        fill_qty = min(requested_qty, abs(current_size))
+                    else:
+                        fill_qty = abs(current_size)
+                    remaining = abs(current_size) - fill_qty
+                    next_size = 0.0
+                    if remaining > 0:
+                        next_size = remaining if current_size > 0 else -remaining
+                    order["qty"] = round(fill_qty, 8)
+                    order["position_after"] = round(next_size, 8)
                     order["_active"] = True
-                    current_size = 0.0
-                    current_avg = np.nan
-                    same_direction_entry_count = 0
+                    current_size = next_size
+                    if current_size == 0:
+                        current_avg = np.nan
+                        same_direction_entry_count = 0
             self._position_size[idx] = current_size
             self._position_avg_price[idx] = current_avg
 

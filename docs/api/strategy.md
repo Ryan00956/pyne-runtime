@@ -82,6 +82,10 @@ The current implementation scans each bar's `high` and `low` values:
 When stop and limit are both touched on the same bar, stop wins. This is a
 deterministic event model, not an intrabar broker simulator.
 
+When `qty` is provided, the exit reduces the current position by up to that
+quantity and leaves the remaining position open with the previous average entry
+price. When `qty` is omitted, the exit closes the full current position.
+
 ## Position Series
 
 ```python
@@ -136,6 +140,6 @@ Strategy output is serialized under `output["strategy"]`:
 Known limits:
 
 - no commission or slippage model
-- no partial fills or intrabar path model
+- no intrabar path model
 - Python `if` cannot branch directly on series conditions; use
   `entry_when()` and `close_when()`

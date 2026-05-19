@@ -190,6 +190,48 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [1.0, 1.0, 0.0, 0.0]
 
 
+def test_strategy_exit_qty_partially_reduces_long_position() -> None:
+    result = pn.run(
+        """
+indicator("Partial Exit", overlay=True)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=2, price=close)
+strategy.exit("Take Some", from_entry="Long", qty=0.5, limit=2.7, when=bar_index == 2)
+plot(strategy.position_size, "Position")
+plot(strategy.position_avg_price, "Average")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 2.0,
+            "price": 1.5,
+            "position_after": 2.0,
+            "comment": "",
+        },
+        {
+            "time": 3,
+            "id": "Take Some",
+            "from_entry": "Long",
+            "type": "exit",
+            "side": "flat",
+            "qty": 0.5,
+            "price": 2.7,
+            "position_after": 1.5,
+            "reason": "limit",
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [2.0, 2.0, 1.5, 1.5]
+    assert result.values("Average") == [1.5, 1.5, 1.5, 1.5]
+
+
 def test_strategy_exit_emits_stop_exit_for_short_position() -> None:
     result = pn.run(
         """

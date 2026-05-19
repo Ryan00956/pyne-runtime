@@ -35,3 +35,4 @@
 - Added optional OHLCV `time_close` support and batch `time_close` series inference.
 - Added tuple/multi-return `request.security()` expressions for Python unpacking.
 - Added `strategy.configure(pyramiding=...)` with same-direction entry limits and weighted average position price replay.
+- Added partial `strategy.exit(qty=...)` position reduction semantics.
