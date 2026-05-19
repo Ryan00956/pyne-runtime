@@ -147,6 +147,64 @@ plot(strategy.position_avg_price, "Average")
     assert result.values("Average") == [1.5, 1.5, 2.8, 2.8]
 
 
+def test_strategy_risk_allow_entry_in_blocks_disallowed_entry_direction() -> None:
+    result = pn.run(
+        """
+indicator("Risk Direction", overlay=True)
+strategy.risk.allow_entry_in(strategy.direction.long)
+strategy.entry_when(bar_index == 0, "Short", strategy.short, qty=1, price=close)
+strategy.entry_when(bar_index == 1, "Long", strategy.long, qty=1, price=close)
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 2,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 1.0,
+            "position_after": 1.0,
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [0.0, 1.0, 1.0, 1.0]
+
+
+def test_strategy_risk_allow_entry_in_does_not_block_order_namespace() -> None:
+    result = pn.run(
+        """
+indicator("Risk Order", overlay=True)
+strategy.risk.allow_entry_in(strategy.risk.none)
+strategy.entry_when(bar_index == 0, "Long Entry", strategy.long, qty=1, price=close)
+strategy.order_when(bar_index == 1, "Long Order", strategy.long, qty=1, price=close)
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 2,
+            "id": "Long Order",
+            "type": "order",
+            "side": "long",
+            "qty": 1.0,
+            "price": 1.0,
+            "position_after": 1.0,
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [0.0, 1.0, 1.0, 1.0]
+
+
 def test_strategy_order_alias_accepts_when_keyword_and_costs() -> None:
     result = pn.run(
         """

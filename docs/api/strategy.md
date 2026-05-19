@@ -33,6 +33,10 @@ plot(strategy.equity, "Equity")
 
 - `strategy.long`
 - `strategy.short`
+- `strategy.direction.all`
+- `strategy.direction.long`
+- `strategy.direction.short`
+- `strategy.direction.none`
 
 ## OCA Constants
 
@@ -96,6 +100,24 @@ Capital reporting:
 - `strategy.openprofit` marks the current net position to the current bar's `close`.
 - `strategy.grossprofit` and `strategy.grossloss` track realized gross PnL before
   commission. `strategy.grossloss` is reported as a negative number.
+
+## Risk Configuration
+
+```python
+strategy.risk.allow_entry_in(strategy.direction.long)
+```
+
+`strategy.risk.allow_entry_in(...)` limits subsequent replay of
+`strategy.entry*` events:
+
+- `strategy.direction.all` / `strategy.risk.all`: allow long and short entries.
+- `strategy.direction.long` / `strategy.risk.long`: allow long entries only.
+- `strategy.direction.short` / `strategy.risk.short`: allow short entries only.
+- `strategy.direction.none` / `strategy.risk.none`: block all entries.
+
+This is a replay configuration for `strategy.entry*`. Lower-level
+`strategy.order*` calls are not blocked by this setting because they represent
+net-position order events rather than Pine-style entries.
 
 ## Entry
 

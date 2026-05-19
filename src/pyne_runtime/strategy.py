@@ -28,6 +28,32 @@ class StrategyOca:
     reduce = "reduce"
 
 
+class StrategyDirection:
+    """Pine-like strategy direction constants."""
+
+    all = "all"
+    both = "all"
+    long = "long"
+    short = "short"
+    none = "none"
+
+
+class StrategyRiskNamespace:
+    """Pine-like ``strategy.risk`` configuration namespace."""
+
+    all = StrategyDirection.all
+    both = StrategyDirection.both
+    long = StrategyDirection.long
+    short = StrategyDirection.short
+    none = StrategyDirection.none
+
+    def __init__(self, strategy: "StrategyModule") -> None:
+        self._strategy = strategy
+
+    def allow_entry_in(self, direction: str = StrategyDirection.all) -> None:
+        self._strategy._allow_entry_in = _normalize_allowed_entry_direction(direction)
+
+
 class StrategyTradesNamespace:
     """Script-facing trade ledger namespace.
 
@@ -111,6 +137,7 @@ class StrategyModule:
     short = "short"
     commission = StrategyCommission
     oca = StrategyOca
+    direction = StrategyDirection
 
     def __init__(self, context: PyneContext, collector: OutputCollector) -> None:
         self._context = context
@@ -131,6 +158,8 @@ class StrategyModule:
         self._touched = False
         self._event_seq = 0
         self._pyramiding = 0
+        self._allow_entry_in = StrategyDirection.all
+        self.risk = StrategyRiskNamespace(self)
         self._initial_capital = 100000.0
         self._currency = str(context.syminfo.currency or "")
         self._slippage_ticks = 0
@@ -629,6 +658,7 @@ class StrategyModule:
                         previous_size=current_size,
                         same_direction_entry_count=same_direction_entry_count,
                         pyramiding=self._pyramiding,
+                        allow_entry_in=self._allow_entry_in,
                     ):
                         continue
                     fill_side = "buy" if side == self.long else "sell"
@@ -798,6 +828,7 @@ class StrategyModule:
                             previous_size=current_size,
                             same_direction_entry_count=same_direction_entry_count,
                             pyramiding=self._pyramiding,
+                            allow_entry_in=self._allow_entry_in,
                         ):
                             continue
                         fill_side = "buy" if side == self.long else "sell"
@@ -1033,7 +1064,14 @@ def _entry_allowed(
     previous_size: float,
     same_direction_entry_count: int,
     pyramiding: int,
+    allow_entry_in: str = StrategyDirection.all,
 ) -> bool:
+    if allow_entry_in == StrategyDirection.none:
+        return False
+    if allow_entry_in == StrategyDirection.long and side != StrategyModule.long:
+        return False
+    if allow_entry_in == StrategyDirection.short and side != StrategyModule.short:
+        return False
     if previous_size == 0:
         return True
     if side == StrategyModule.long and previous_size < 0:
@@ -1052,6 +1090,19 @@ def _normalize_commission_type(value: str) -> str:
     if normalized in {"cash_per_contract", "cash_per_contracts", "strategy.commission.cash_per_contract"}:
         return StrategyCommission.cash_per_contract
     return normalized
+
+
+def _normalize_allowed_entry_direction(value: str) -> str:
+    normalized = str(value or StrategyDirection.all).lower()
+    if normalized in {"all", "both", "strategy.direction.all", "strategy.direction.both"}:
+        return StrategyDirection.all
+    if normalized in {"long", "strategy.long", "strategy.direction.long"}:
+        return StrategyDirection.long
+    if normalized in {"short", "strategy.short", "strategy.direction.short"}:
+        return StrategyDirection.short
+    if normalized in {"none", "false", "off", "strategy.direction.none"}:
+        return StrategyDirection.none
+    return StrategyDirection.all
 
 
 def _normalize_oca_type(value: str | None) -> str:
