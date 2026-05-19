@@ -315,6 +315,66 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [0.0, 0.0, 1.0, 1.0]
 
 
+def test_strategy_oca_reduce_decreases_sibling_pending_quantity() -> None:
+    result = pn.run(
+        """
+indicator("OCA Reduce", overlay=True)
+strategy.entry(
+    "First",
+    strategy.long,
+    qty=1,
+    when=bar_index == 0,
+    stop=2.5,
+    oca_name="scale",
+    oca_type=strategy.oca.reduce,
+)
+strategy.order(
+    "Second",
+    strategy.long,
+    qty=2,
+    when=bar_index == 0,
+    stop=3.1,
+    oca_name="scale",
+    oca_type=strategy.oca.reduce,
+)
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 3,
+            "id": "First",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 2.5,
+            "position_after": 1.0,
+            "comment": "",
+            "reason": "stop",
+            "oca_name": "scale",
+            "oca_type": "reduce",
+        },
+        {
+            "time": 4,
+            "id": "Second",
+            "type": "order",
+            "side": "long",
+            "qty": 1.0,
+            "price": 3.1,
+            "position_after": 2.0,
+            "comment": "",
+            "reason": "stop",
+            "oca_name": "scale",
+            "oca_type": "reduce",
+        },
+    ]
+    assert result.values("Position") == [0.0, 0.0, 1.0, 2.0]
+
+
 def test_strategy_unused_does_not_emit_strategy_output() -> None:
     result = pn.run(
         """

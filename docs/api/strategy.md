@@ -39,9 +39,10 @@ plot(strategy.position_size, "Position")
 - `strategy.oca.cancel`
 - `strategy.oca.reduce`
 
-The current replay model implements `strategy.oca.cancel` for pending
-`strategy.entry*` and `strategy.order*` orders. `strategy.oca.reduce` is exposed
-as a constant but not yet modeled.
+The current replay model implements `strategy.oca.cancel` and
+`strategy.oca.reduce` for pending `strategy.entry*` and `strategy.order*`
+orders. In a reduce group, a filled order reduces sibling pending quantities by
+the filled quantity; siblings reduced to zero are canceled.
 
 ## Configuration
 

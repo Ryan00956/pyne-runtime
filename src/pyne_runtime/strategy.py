@@ -179,6 +179,7 @@ class StrategyModule:
                 "_base_price": float(event_price),
                 "_limit": limits[idx],
                 "_stop": stops[idx],
+                "_original_qty": qty_abs,
                 "_oca_name": str(oca_name or ""),
                 "_oca_type": _normalize_oca_type(oca_type),
                 "_submit_time": self._context.times[idx],
@@ -259,6 +260,7 @@ class StrategyModule:
                 "_base_price": float(event_price),
                 "_limit": limits[idx],
                 "_stop": stops[idx],
+                "_original_qty": qty_abs,
                 "_oca_name": str(oca_name or ""),
                 "_oca_type": _normalize_oca_type(oca_type),
                 "_submit_time": self._context.times[idx],
@@ -477,6 +479,7 @@ class StrategyModule:
             if order.get("type") in {"entry", "order"}:
                 order.pop("_canceled", None)
                 order["time"] = int(order.get("_submit_time", order.get("time", 0)))
+                order["qty"] = float(order.get("_original_qty", order.get("qty", 0.0)))
                 order["position_after"] = 0.0
                 order["price"] = round(float(order.get("_base_price", order.get("price", np.nan))), 8)
                 order.pop("commission", None)
@@ -654,7 +657,7 @@ class StrategyModule:
                     self._apply_commission(order, qty=float(order.get("qty", 0.0)), price=fill_price)
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
-                    _cancel_oca_siblings(order, pending_orders)
+                    _apply_oca_after_fill(order, pending_orders)
                 pending_orders = [item for item in remaining_pending if not item.get("_canceled")]
             self._position_size[idx] = current_size
             self._position_avg_price[idx] = current_avg
@@ -798,17 +801,24 @@ def _normalize_oca_type(value: str | None) -> str:
     return normalized
 
 
-def _cancel_oca_siblings(filled_order: dict[str, Any], pending_orders: list[dict[str, Any]]) -> None:
-    if filled_order.get("_oca_type") != StrategyOca.cancel:
-        return
+def _apply_oca_after_fill(filled_order: dict[str, Any], pending_orders: list[dict[str, Any]]) -> None:
+    oca_type = filled_order.get("_oca_type")
     oca_name = str(filled_order.get("_oca_name") or "")
-    if not oca_name:
+    if not oca_name or oca_type == StrategyOca.none:
         return
+    filled_qty = abs(float(filled_order.get("qty", 0.0)))
     for order in pending_orders:
         if order is filled_order:
             continue
-        if order.get("_oca_name") == oca_name and order.get("_oca_type") == StrategyOca.cancel:
+        if order.get("_oca_name") != oca_name or order.get("_oca_type") != oca_type:
+            continue
+        if oca_type == StrategyOca.cancel:
             order["_canceled"] = True
+        elif oca_type == StrategyOca.reduce:
+            remaining = max(float(order.get("qty", 0.0)) - filled_qty, 0.0)
+            order["qty"] = remaining
+            if remaining <= 0:
+                order["_canceled"] = True
 
 
 def _commission_amount(

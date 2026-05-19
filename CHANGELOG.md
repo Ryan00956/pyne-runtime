@@ -41,3 +41,4 @@
 - Added Pine-like `strategy.order()`, `strategy.order_when()`, and `strategy.close_all()` strategy events.
 - Added lightweight pending `strategy.entry/order` stop-limit triggers plus `strategy.cancel()` and `strategy.cancel_all()`.
 - Added lightweight `strategy.oca.cancel` handling for pending entry/order groups.
+- Added lightweight `strategy.oca.reduce` quantity reduction for pending entry/order groups.
