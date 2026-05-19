@@ -212,6 +212,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             return data.tolist()
         if isinstance(data, list):
             return data
+        if hasattr(data, "to_numpy"):
+            return np.asarray(data.to_numpy()).tolist()
         return [data] * len(collector.times)
 
     def _color_for_index(color_data: Any, idx: int, timestamp: int) -> str | None:

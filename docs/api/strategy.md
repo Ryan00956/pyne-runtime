@@ -192,11 +192,43 @@ plot(strategy.position_avg_price, "Average Price")
 plot(strategy.equity, "Equity")
 plot(strategy.netprofit, "Net Profit")
 plot(strategy.openprofit, "Open Profit")
+plot(strategy.closedtrades, "Closed Trade Count")
+plot(strategy.opentrades, "Open Trade Count")
 ```
 
 Position values are replayed from the emitted event ledger in chronological
 order. This gives batch output a Pine-like bar-by-bar mental model while staying
 Python-friendly.
+
+## Trade Namespace Access
+
+`strategy.closedtrades` and `strategy.opentrades` behave as count series when
+plotted. They also expose field accessors for the latest replayed entry-lot
+ledger:
+
+```python
+plot(strategy.closedtrades, "Closed Trades")
+plot(strategy.opentrades, "Open Trades")
+plot(strategy.closedtrades.profit(0), "First Closed Profit")
+plot(strategy.opentrades.entry_price(-1), "Latest Open Entry")
+```
+
+Supported accessors:
+
+- `size(trade_num)` / `qty(trade_num)`
+- `profit(trade_num)`
+- `net_profit(trade_num)`
+- `commission(trade_num)`
+- `entry_price(trade_num)`
+- `exit_price(trade_num)`
+- `entry_time(trade_num)`
+- `exit_time(trade_num)`
+- `entry_id(trade_num)`
+- `exit_id(trade_num)`
+- `side(trade_num)`
+
+Negative indexes count from the end of the current ledger. Missing trades return
+`na` for numeric fields and an empty string for string fields.
 
 ## Output
 

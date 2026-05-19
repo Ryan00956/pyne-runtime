@@ -28,6 +28,78 @@ class StrategyOca:
     reduce = "reduce"
 
 
+class StrategyTradesNamespace:
+    """Script-facing trade ledger namespace.
+
+    The object behaves like a count series for plotting and exposes Pine-like
+    field accessors for the current replayed ledger.
+    """
+
+    def __init__(self, strategy: "StrategyModule", kind: str) -> None:
+        self._strategy = strategy
+        self._kind = kind
+
+    @property
+    def count(self) -> PyneSeries:
+        return PyneSeries(self.to_numpy(), name=f"strategy.{self._kind}")
+
+    def to_numpy(self) -> np.ndarray:
+        if self._kind == "closedtrades":
+            return self._strategy._closedtrades_count.copy()
+        return self._strategy._opentrades_count.copy()
+
+    def size(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "qty")
+
+    def qty(self, trade_num: int = -1) -> float:
+        return self.size(trade_num)
+
+    def profit(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "profit")
+
+    def net_profit(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "net_profit")
+
+    def commission(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "commission")
+
+    def entry_price(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "entry_price")
+
+    def exit_price(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "exit_price")
+
+    def entry_time(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "entry_time")
+
+    def exit_time(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "exit_time")
+
+    def entry_id(self, trade_num: int = -1) -> str:
+        return str(self._trade(trade_num).get("entry_id", ""))
+
+    def exit_id(self, trade_num: int = -1) -> str:
+        return str(self._trade(trade_num).get("exit_id", ""))
+
+    def side(self, trade_num: int = -1) -> str:
+        return str(self._trade(trade_num).get("side", ""))
+
+    def _trade(self, trade_num: int) -> dict[str, Any]:
+        trades = (
+            self._strategy._closed_trades
+            if self._kind == "closedtrades"
+            else self._strategy._open_trades
+        )
+        if not trades:
+            return {}
+        index = int(trade_num)
+        if index < 0:
+            index = len(trades) + index
+        if index < 0 or index >= len(trades):
+            return {}
+        return trades[index]
+
+
 class StrategyModule:
     """Lightweight Pine-like ``strategy`` namespace.
 
@@ -50,6 +122,12 @@ class StrategyModule:
         self._openprofit = np.zeros(context.bar_count, dtype=np.float64)
         self._grossprofit = np.zeros(context.bar_count, dtype=np.float64)
         self._grossloss = np.zeros(context.bar_count, dtype=np.float64)
+        self._closedtrades_count = np.zeros(context.bar_count, dtype=np.float64)
+        self._opentrades_count = np.zeros(context.bar_count, dtype=np.float64)
+        self._closed_trades: list[dict[str, Any]] = []
+        self._open_trades: list[dict[str, Any]] = []
+        self._closedtrades_namespace = StrategyTradesNamespace(self, "closedtrades")
+        self._opentrades_namespace = StrategyTradesNamespace(self, "opentrades")
         self._touched = False
         self._event_seq = 0
         self._pyramiding = 0
@@ -148,6 +226,14 @@ class StrategyModule:
     @property
     def grossloss(self) -> PyneSeries:
         return PyneSeries(self._grossloss.copy(), name="strategy.grossloss")
+
+    @property
+    def closedtrades(self) -> StrategyTradesNamespace:
+        return self._closedtrades_namespace
+
+    @property
+    def opentrades(self) -> StrategyTradesNamespace:
+        return self._opentrades_namespace
 
     def entry(
         self,
@@ -780,6 +866,8 @@ class StrategyModule:
             self._netprofit[idx] = net_profit
             self._openprofit[idx] = open_profit
             self._equity[idx] = self._initial_capital + net_profit + open_profit
+            self._closedtrades_count[idx] = len(closed_trades)
+            self._opentrades_count[idx] = len([trade for trade in open_trades if float(trade.get("qty", 0.0)) > 0])
 
         self._sync_strategy_report(
             closed_trades=closed_trades,
@@ -827,6 +915,8 @@ class StrategyModule:
             for trade in open_trades
             if float(trade.get("qty", 0.0)) > 0
         ]
+        self._closed_trades = list(closed_trades)
+        self._open_trades = list(serialized_open_trades)
         self._collector.strategy_report = {
             "summary": {
                 "initial_capital": round(self._initial_capital, 8),
@@ -867,6 +957,16 @@ class StrategyModule:
 def _condition_values(value: Any, length: int) -> list[bool]:
     values = _values(value, length)
     return [False if is_na_value(item) else bool(item) for item in values]
+
+
+def _trade_float(trade: dict[str, Any], key: str) -> float:
+    value = trade.get(key)
+    if value is None or value == "":
+        return float("nan")
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float("nan")
 
 
 def _price_values(value: Any, fallback: PyneSeries, length: int) -> list[float]:

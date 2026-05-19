@@ -1050,3 +1050,35 @@ plot(strategy.position_size, "Position")
             "net_profit": 2.0,
         }
     ]
+
+
+def test_strategy_trade_namespaces_expose_count_series_and_fields() -> None:
+    result = pn.run(
+        """
+strategy("Trade Namespace", overlay=True, initial_capital=1000, pyramiding=2)
+strategy.entry_when(bar_index == 0, "A", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 1, "B", strategy.long, qty=2, price=close)
+strategy.close("A", when=bar_index == 2, price=close)
+plot(strategy.closedtrades, "Closed Count")
+plot(strategy.opentrades, "Open Count")
+plot(strategy.closedtrades.profit(0), "First Closed Profit")
+plot(strategy.opentrades.entry_price(0), "First Open Entry")
+plot(1 if strategy.closedtrades.entry_id(0) == "A" else 0, "Closed Id Match")
+plot(1 if strategy.opentrades.entry_id(0) == "B" else 0, "Open Id Match")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
+            {"time": 3, "open": 12, "high": 13, "low": 11, "close": 12, "volume": 100},
+            {"time": 4, "open": 13, "high": 14, "low": 12, "close": 13, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Closed Count") == [0.0, 0.0, 1.0, 1.0]
+    assert result.values("Open Count") == [1.0, 2.0, 1.0, 1.0]
+    assert result.values("First Closed Profit") == [2.0, 2.0, 2.0, 2.0]
+    assert result.values("First Open Entry") == [11.0, 11.0, 11.0, 11.0]
+    assert result.values("Closed Id Match") == [1.0, 1.0, 1.0, 1.0]
+    assert result.values("Open Id Match") == [1.0, 1.0, 1.0, 1.0]
