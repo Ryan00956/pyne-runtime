@@ -22,6 +22,7 @@ class PyneSettings:
     max_bars: int = 50_000
     max_output_series: int = 20
     max_output_points: int = 1_000_000
+    max_drawing_objects: int = 500
     cache_max_items: int = 32
     allowed_imports: tuple[str, ...] = DEFAULT_ALLOWED_IMPORTS
     data_provider: Any = None
@@ -40,6 +41,7 @@ class PyneSettings:
         object.__setattr__(self, "max_bars", max(int(self.max_bars), 1))
         object.__setattr__(self, "max_output_series", max(int(self.max_output_series), 1))
         object.__setattr__(self, "max_output_points", max(int(self.max_output_points), 1))
+        object.__setattr__(self, "max_drawing_objects", max(int(self.max_drawing_objects), 1))
         object.__setattr__(self, "cache_max_items", max(int(self.cache_max_items), 1))
         object.__setattr__(
             self,
@@ -63,6 +65,7 @@ class PyneSettings:
             max_bars=_int_env("PYNE_MAX_BARS", 50_000),
             max_output_series=_int_env("PYNE_MAX_OUTPUT_SERIES", 20),
             max_output_points=_int_env("PYNE_MAX_OUTPUT_POINTS", 1_000_000),
+            max_drawing_objects=_int_env("PYNE_MAX_DRAWING_OBJECTS", 500),
             cache_max_items=_int_env("PYNE_CACHE_MAX_ITEMS", 32),
             allowed_imports=allowed_imports,
         )
@@ -79,6 +82,7 @@ class PyneSettings:
             max_bars=self.max_bars,
             max_output_series=self.max_output_series,
             max_output_points=self.max_output_points,
+            max_drawing_objects=self.max_drawing_objects,
             cache_max_items=self.cache_max_items,
             allowed_imports=self.allowed_imports,
             data_provider=self.data_provider,

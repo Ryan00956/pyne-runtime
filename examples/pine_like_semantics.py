@@ -24,6 +24,11 @@ marker(barstate.islast, text="Last", color=color.red, location=location.abovebar
 trend_line = line.new(bar_index[5], close[5], bar_index, close, color=color.orange)
 line.set_width(trend_line, 2)
 label.new(bar_index, high, text="Latest", color=color.green)
+zone = box.new(bar_index[5], high[5], bar_index, low, bgcolor=color.new(color.green, 85))
+box.set_border_color(zone, color.green)
+summary = table.new(position.top_right, 2, 1, bgcolor=color.white)
+table.cell(summary, 0, 0, "Close", text_color=color.black)
+table.cell(summary, 1, 0, close, text_color=color.green)
 
 strategy.entry_when(crossover(close, fast), "Long", strategy.long, qty=1)
 strategy.close_when(crossunder(close, fast), "Long")

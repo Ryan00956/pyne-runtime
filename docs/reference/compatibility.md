@@ -24,6 +24,7 @@ Supported:
 - `bar_index`, `last_bar_index`, and `barstate.*` in batch execution.
 - `var()` / `pyne.var()` state cells.
 - `line` and `label` drawing object handles.
+- `box` and `table` drawing object handles.
 - `request.security()` for host-backed OHLCV field requests and callable expression thunks.
 - `strategy.entry_when()` and `strategy.close_when()` event output.
 

@@ -66,6 +66,48 @@ Drawing object snapshot format:
         "xloc": "bar_index",
         "pane": "main"
       }
+    ],
+    "boxes": [
+      {
+        "id": "box_3",
+        "left": 0,
+        "top": 130.0,
+        "right": 10,
+        "bottom": 123.0,
+        "bgcolor": "rgba(38,166,154,0.15)",
+        "border_color": "#26a69a",
+        "border_width": 1,
+        "border_style": "solid",
+        "xloc": "bar_index",
+        "pane": "main"
+      }
+    ],
+    "tables": [
+      {
+        "id": "table_4",
+        "position": "top_right",
+        "columns": 2,
+        "rows": 1,
+        "bgcolor": "#ffffff",
+        "frame_color": "#787b86",
+        "frame_width": 1,
+        "border_color": "#787b86",
+        "border_width": 1,
+        "pane": "main",
+        "cells": [
+          {
+            "column": 0,
+            "row": 0,
+            "text": "Close",
+            "text_color": "#000000",
+            "bgcolor": null,
+            "width": null,
+            "height": null,
+            "text_halign": "center",
+            "text_valign": "middle"
+          }
+        ]
+      }
     ]
   }
 }

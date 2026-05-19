@@ -120,7 +120,10 @@ class PyneRuntime:
             ta = TaModule(ctx)
             input_mod = InputModule(params=params, context=ctx)
             state = PyneStateNamespace()
-            collector = OutputCollector(times=ctx.times)
+            collector = OutputCollector(
+                times=ctx.times,
+                max_drawing_objects=self.settings.max_drawing_objects,
+            )
             plot_funcs = create_plot_functions(collector)
             strategy = StrategyModule(ctx, collector)
 

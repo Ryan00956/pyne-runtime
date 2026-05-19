@@ -74,8 +74,9 @@ class OutputCollector:
     the JSON response.
     """
 
-    def __init__(self, times: list[int]) -> None:
+    def __init__(self, times: list[int], max_drawing_objects: int = 500) -> None:
         self.times = times
+        self.max_drawing_objects = max(int(max_drawing_objects), 1)
         self.lines: list[dict[str, Any]] = []
         self.histograms: list[dict[str, Any]] = []
         self.hlines: list[dict[str, Any]] = []
@@ -89,6 +90,8 @@ class OutputCollector:
         self.strategy_position: dict[str, Any] = {}
         self._object_lines: dict[str, dict[str, Any]] = {}
         self._object_labels: dict[str, dict[str, Any]] = {}
+        self._object_boxes: dict[str, dict[str, Any]] = {}
+        self._object_tables: dict[str, dict[str, Any]] = {}
         self._indicator_meta: dict[str, Any] = {}
         self._plot_counter: int = 0
         self._object_counter: int = 0
@@ -98,8 +101,21 @@ class OutputCollector:
         return f"plot_{self._plot_counter}"
 
     def _next_object_id(self, kind: str) -> str:
+        self._ensure_object_capacity()
         self._object_counter += 1
         return f"{kind}_{self._object_counter}"
+
+    def _ensure_object_capacity(self) -> None:
+        total = (
+            len(self._object_lines)
+            + len(self._object_labels)
+            + len(self._object_boxes)
+            + len(self._object_tables)
+        )
+        if total >= self.max_drawing_objects:
+            raise RuntimeError(
+                f"Drawing object limit exceeded (max {self.max_drawing_objects})"
+            )
 
     def set_indicator_meta(self, title: str = "", overlay: bool = True, **kwargs: Any) -> None:
         """Set indicator metadata (from ``indicator()`` call)."""
@@ -156,6 +172,10 @@ class OutputCollector:
             objects["lines"] = list(self._object_lines.values())
         if self._object_labels:
             objects["labels"] = list(self._object_labels.values())
+        if self._object_boxes:
+            objects["boxes"] = list(self._object_boxes.values())
+        if self._object_tables:
+            objects["tables"] = list(self._object_tables.values())
         if objects:
             result["objects"] = objects
 
@@ -257,6 +277,16 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         if not isinstance(ref, ObjectRef) or ref.kind != "label":
             return None
         return collector._object_labels.get(ref.id)
+
+    def _box_entry(ref: ObjectRef) -> dict[str, Any] | None:
+        if not isinstance(ref, ObjectRef) or ref.kind != "box":
+            return None
+        return collector._object_boxes.get(ref.id)
+
+    def _table_entry(ref: ObjectRef) -> dict[str, Any] | None:
+        if not isinstance(ref, ObjectRef) or ref.kind != "table":
+            return None
+        return collector._object_tables.get(ref.id)
 
     def plot(
         data: PyneSeries | np.ndarray | list,
@@ -832,6 +862,182 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         if isinstance(ref, ObjectRef) and ref.kind == "label":
             collector._object_labels.pop(ref.id, None)
 
+    def box_new(
+        left: Any,
+        top: Any,
+        right: Any,
+        bottom: Any,
+        bgcolor: str = "rgba(0,0,0,0)",
+        border_color: str = "#787b86",
+        border_width: int = 1,
+        border_style: str = "solid",
+        xloc: str = "bar_index",
+        pane: str | None = None,
+    ) -> ObjectRef:
+        if pane is None:
+            pane = "main"
+        object_id = collector._next_object_id("box")
+        collector._object_boxes[object_id] = {
+            "id": object_id,
+            "left": _scalar_from_value(left),
+            "top": _scalar_from_value(top),
+            "right": _scalar_from_value(right),
+            "bottom": _scalar_from_value(bottom),
+            "bgcolor": bgcolor,
+            "border_color": border_color,
+            "border_width": int(border_width),
+            "border_style": border_style,
+            "xloc": xloc,
+            "pane": pane,
+        }
+        return ObjectRef(id=object_id, kind="box")
+
+    def box_set_left(ref: ObjectRef, left: Any) -> None:
+        entry = _box_entry(ref)
+        if entry is not None:
+            entry["left"] = _scalar_from_value(left)
+
+    def box_set_top(ref: ObjectRef, top: Any) -> None:
+        entry = _box_entry(ref)
+        if entry is not None:
+            entry["top"] = _scalar_from_value(top)
+
+    def box_set_right(ref: ObjectRef, right: Any) -> None:
+        entry = _box_entry(ref)
+        if entry is not None:
+            entry["right"] = _scalar_from_value(right)
+
+    def box_set_bottom(ref: ObjectRef, bottom: Any) -> None:
+        entry = _box_entry(ref)
+        if entry is not None:
+            entry["bottom"] = _scalar_from_value(bottom)
+
+    def box_set_lefttop(ref: ObjectRef, left: Any, top: Any) -> None:
+        entry = _box_entry(ref)
+        if entry is not None:
+            entry["left"] = _scalar_from_value(left)
+            entry["top"] = _scalar_from_value(top)
+
+    def box_set_rightbottom(ref: ObjectRef, right: Any, bottom: Any) -> None:
+        entry = _box_entry(ref)
+        if entry is not None:
+            entry["right"] = _scalar_from_value(right)
+            entry["bottom"] = _scalar_from_value(bottom)
+
+    def box_set_bgcolor(ref: ObjectRef, bgcolor: str) -> None:
+        entry = _box_entry(ref)
+        if entry is not None:
+            entry["bgcolor"] = bgcolor
+
+    def box_set_border_color(ref: ObjectRef, border_color: str) -> None:
+        entry = _box_entry(ref)
+        if entry is not None:
+            entry["border_color"] = border_color
+
+    def box_set_border_width(ref: ObjectRef, border_width: int) -> None:
+        entry = _box_entry(ref)
+        if entry is not None:
+            entry["border_width"] = int(border_width)
+
+    def box_delete(ref: ObjectRef) -> None:
+        if isinstance(ref, ObjectRef) and ref.kind == "box":
+            collector._object_boxes.pop(ref.id, None)
+
+    def table_new(
+        position: str = "top_right",
+        columns: int = 1,
+        rows: int = 1,
+        bgcolor: str | None = None,
+        frame_color: str = "#787b86",
+        frame_width: int = 1,
+        border_color: str = "#787b86",
+        border_width: int = 1,
+        pane: str | None = None,
+    ) -> ObjectRef:
+        if pane is None:
+            pane = "main"
+        object_id = collector._next_object_id("table")
+        collector._object_tables[object_id] = {
+            "id": object_id,
+            "position": position,
+            "columns": int(columns),
+            "rows": int(rows),
+            "bgcolor": bgcolor,
+            "frame_color": frame_color,
+            "frame_width": int(frame_width),
+            "border_color": border_color,
+            "border_width": int(border_width),
+            "pane": pane,
+            "cells": [],
+        }
+        return ObjectRef(id=object_id, kind="table")
+
+    def table_cell(
+        ref: ObjectRef,
+        column: int,
+        row: int,
+        text: Any = "",
+        text_color: str = "#000000",
+        bgcolor: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        text_halign: str = "center",
+        text_valign: str = "middle",
+    ) -> None:
+        entry = _table_entry(ref)
+        if entry is None:
+            return
+        cell = {
+            "column": int(column),
+            "row": int(row),
+            "text": str(_scalar_from_value(text)),
+            "text_color": text_color,
+            "bgcolor": bgcolor,
+            "width": width,
+            "height": height,
+            "text_halign": text_halign,
+            "text_valign": text_valign,
+        }
+        _upsert_table_cell(entry, cell)
+
+    def table_clear(ref: ObjectRef) -> None:
+        entry = _table_entry(ref)
+        if entry is not None:
+            entry["cells"] = []
+
+    def table_set_position(ref: ObjectRef, position: str) -> None:
+        entry = _table_entry(ref)
+        if entry is not None:
+            entry["position"] = position
+
+    def table_set_bgcolor(ref: ObjectRef, bgcolor: str) -> None:
+        entry = _table_entry(ref)
+        if entry is not None:
+            entry["bgcolor"] = bgcolor
+
+    def table_set_frame_color(ref: ObjectRef, frame_color: str) -> None:
+        entry = _table_entry(ref)
+        if entry is not None:
+            entry["frame_color"] = frame_color
+
+    def table_set_border_color(ref: ObjectRef, border_color: str) -> None:
+        entry = _table_entry(ref)
+        if entry is not None:
+            entry["border_color"] = border_color
+
+    def table_delete(ref: ObjectRef) -> None:
+        if isinstance(ref, ObjectRef) and ref.kind == "table":
+            collector._object_tables.pop(ref.id, None)
+
+    def _upsert_table_cell(entry: dict[str, Any], cell: dict[str, Any]) -> None:
+        cells = entry.setdefault("cells", [])
+        for idx, existing in enumerate(cells):
+            if existing.get("column") == cell["column"] and existing.get("row") == cell["row"]:
+                cells[idx] = cell
+                return
+        cells.append(cell)
+        cells.sort(key=lambda item: (item.get("row", 0), item.get("column", 0)))
+
     # ── Legacy compatibility ─────────────────────────────────
 
     def add_line(
@@ -946,6 +1152,43 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         style_label_right="label_right",
         style_label_center="label_center",
     )
+    box_namespace = _Namespace(
+        new=box_new,
+        set_left=box_set_left,
+        set_top=box_set_top,
+        set_right=box_set_right,
+        set_bottom=box_set_bottom,
+        set_lefttop=box_set_lefttop,
+        set_rightbottom=box_set_rightbottom,
+        set_bgcolor=box_set_bgcolor,
+        set_border_color=box_set_border_color,
+        set_border_width=box_set_border_width,
+        delete=box_delete,
+        border_style_solid="solid",
+        border_style_dashed="dashed",
+        border_style_dotted="dotted",
+    )
+    table_namespace = _Namespace(
+        new=table_new,
+        cell=table_cell,
+        clear=table_clear,
+        set_position=table_set_position,
+        set_bgcolor=table_set_bgcolor,
+        set_frame_color=table_set_frame_color,
+        set_border_color=table_set_border_color,
+        delete=table_delete,
+    )
+    position_namespace = _Namespace(
+        top_left="top_left",
+        top_center="top_center",
+        top_right="top_right",
+        middle_left="middle_left",
+        middle_center="middle_center",
+        middle_right="middle_right",
+        bottom_left="bottom_left",
+        bottom_center="bottom_center",
+        bottom_right="bottom_right",
+    )
 
     return {
         "indicator": indicator,
@@ -960,6 +1203,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         "alertcondition": alertcondition,
         "line": line_namespace,
         "label": label_namespace,
+        "box": box_namespace,
+        "table": table_namespace,
         "add_line": add_line,
         "shape": _Namespace(
             triangleup="triangle_up",
@@ -976,4 +1221,5 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             top="above",
             bottom="below",
         ),
+        "position": position_namespace,
     }

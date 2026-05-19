@@ -18,7 +18,7 @@ Pyne API surface, and the test/doc evidence behind each claim.
 | Core TA | `ta.sma`, `ta.ema`, `ta.rsi`, `ta.macd`, `ta.bb`, `ta.atr` | Supported | Numerical parity is best-effort unless covered by tests | `tests/test_ta_runtime.py` | `docs/api/ta.md` |
 | Expanded TA | `ta.alma`, `ta.hma`, `ta.swma`, `ta.dmi`, `ta.sar`, percentiles | Supported | Some edge behavior may differ from TradingView until goldens exist | `tests/test_ta_runtime.py` | `docs/api/ta.md` |
 | Plot output | `plot`, `hline`, `fill`, `marker`, `bgcolor`, `barcolor` | Supported | Output is a host-renderable JSON schema | `tests/test_plot_runtime.py` | `docs/api/plot.md` |
-| Drawing objects | `line.new`, `label.new`, setters, `delete()` | Partial | `box` and `table` are not implemented yet; output is final snapshot | `tests/test_plot_runtime.py` | `docs/concepts/drawing_objects.md` |
+| Drawing objects | `line.new`, `label.new`, `box.new`, `table.new`, setters, `delete()` | Supported | Output is final snapshot; richer incremental object event streams are planned | `tests/test_plot_runtime.py` | `docs/concepts/drawing_objects.md` |
 | Alerts/signals | `alertcondition`, `emit_signal` | Supported | Emits structured events; does not register TradingView alerts | `tests/test_plot_runtime.py` | `docs/api/plot.md` |
 | Multi-context data | `request.security(symbol, timeframe, lambda ctx: ctx.ta.sma(ctx.close, 20))` | Partial | Requires host provider; direct Python expression capture is impossible, so computed expressions use callable thunks | `tests/test_request_security.py` | `docs/api/request.md` |
 | Strategy events | `strategy.entry_when`, `strategy.close_when` | Partial | Event and position replay layer only; no broker simulation, slippage, commission, or bracket exits | `tests/test_strategy_runtime.py` | `docs/api/strategy.md` |
@@ -27,8 +27,7 @@ Pyne API surface, and the test/doc evidence behind each claim.
 
 ## Planned Gaps
 
-- `box` and `table` drawing namespaces.
-- Richer object limits and incremental object event streams.
+- Richer incremental drawing object event streams.
 - Tuple or multi-return `request.security()` expressions.
 - Strategy exits, stop/limit brackets, pyramiding, slippage, commission, and
   more formal fill models.

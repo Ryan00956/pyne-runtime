@@ -100,3 +100,130 @@ label.delete(note)
 
     assert result.ok
     assert "objects" not in result.output
+
+
+def test_box_and_table_objects_are_collected_and_updated() -> None:
+    result = pn.run(
+        """
+indicator("Box Table", overlay=True)
+zone = box.new(
+    bar_index[2],
+    high[2],
+    bar_index,
+    low,
+    bgcolor=color.new(color.green, 80),
+    border_color=color.green,
+)
+box.set_rightbottom(zone, bar_index, low[1])
+box.set_bgcolor(zone, color.new(color.blue, 85))
+summary = table.new(position.top_right, 2, 2, bgcolor=color.white)
+table.cell(summary, 0, 0, "Metric", text_color=color.black)
+table.cell(summary, 1, 0, "Value", text_color=color.black)
+table.cell(summary, 0, 1, "Close", text_color=color.blue)
+table.cell(summary, 1, 1, close, text_color=color.green)
+table.set_border_color(summary, color.blue)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    objects = result.output["objects"]
+    assert set(objects) == {"boxes", "tables"}
+
+    box_object = objects["boxes"][0]
+    assert box_object["id"] == "box_1"
+    assert box_object["left"] == 0
+    assert box_object["top"] == 2
+    assert box_object["right"] == 2
+    assert box_object["bottom"] == 1.5
+    assert box_object["bgcolor"] == "rgba(33,150,243,0.15)"
+    assert box_object["border_color"] == "#26a69a"
+
+    table_object = objects["tables"][0]
+    assert table_object["id"] == "table_2"
+    assert table_object["position"] == "top_right"
+    assert table_object["columns"] == 2
+    assert table_object["rows"] == 2
+    assert table_object["border_color"] == "#2196f3"
+    assert table_object["cells"] == [
+        {
+            "column": 0,
+            "row": 0,
+            "text": "Metric",
+            "text_color": "#000000",
+            "bgcolor": None,
+            "width": None,
+            "height": None,
+            "text_halign": "center",
+            "text_valign": "middle",
+        },
+        {
+            "column": 1,
+            "row": 0,
+            "text": "Value",
+            "text_color": "#000000",
+            "bgcolor": None,
+            "width": None,
+            "height": None,
+            "text_halign": "center",
+            "text_valign": "middle",
+        },
+        {
+            "column": 0,
+            "row": 1,
+            "text": "Close",
+            "text_color": "#2196f3",
+            "bgcolor": None,
+            "width": None,
+            "height": None,
+            "text_halign": "center",
+            "text_valign": "middle",
+        },
+        {
+            "column": 1,
+            "row": 1,
+            "text": "3.5",
+            "text_color": "#26a69a",
+            "bgcolor": None,
+            "width": None,
+            "height": None,
+            "text_halign": "center",
+            "text_valign": "middle",
+        },
+    ]
+
+
+def test_box_and_table_objects_can_be_deleted() -> None:
+    result = pn.run(
+        """
+indicator("Deleted Box Table", overlay=True)
+zone = box.new(bar_index[1], high[1], bar_index, low)
+summary = table.new(position.bottom_right, 1, 1)
+table.cell(summary, 0, 0, "gone")
+box.delete(zone)
+table.delete(summary)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert "objects" not in result.output
+
+
+def test_drawing_object_limit_is_enforced() -> None:
+    result = pn.run(
+        """
+indicator("Object Limit", overlay=True)
+line.new(bar_index[1], close[1], bar_index, close)
+box.new(bar_index[1], high[1], bar_index, low)
+""",
+        _bars(),
+        settings=pn.PyneSettings(max_drawing_objects=1),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "Drawing object limit exceeded" in str(result.error)
