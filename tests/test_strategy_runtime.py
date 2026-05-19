@@ -181,6 +181,93 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [2.0, 2.0, 2.0, 2.0]
 
 
+def test_strategy_entry_stop_order_fills_on_later_bar() -> None:
+    result = pn.run(
+        """
+indicator("Pending Stop", overlay=True)
+strategy.entry("Breakout", strategy.long, qty=1, when=bar_index == 0, stop=2.5)
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 3,
+            "id": "Breakout",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 2.5,
+            "position_after": 1.0,
+            "comment": "",
+            "reason": "stop",
+        },
+    ]
+    assert result.values("Position") == [0.0, 0.0, 1.0, 1.0]
+
+
+def test_strategy_cancel_prevents_pending_entry_fill() -> None:
+    result = pn.run(
+        """
+indicator("Cancel", overlay=True)
+strategy.entry("Breakout", strategy.long, qty=1, when=bar_index == 0, stop=2.5)
+strategy.cancel("Breakout", when=bar_index == 1, comment="No trade")
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 2,
+            "id": "Breakout",
+            "type": "cancel",
+            "side": "flat",
+            "qty": 0.0,
+            "price": None,
+            "position_after": 0.0,
+            "comment": "No trade",
+            "canceled": 1,
+        },
+    ]
+    assert result.values("Position") == [0.0, 0.0, 0.0, 0.0]
+
+
+def test_strategy_cancel_all_clears_multiple_pending_orders() -> None:
+    result = pn.run(
+        """
+indicator("Cancel All", overlay=True)
+strategy.entry("Breakout", strategy.long, qty=1, when=bar_index == 0, stop=2.5)
+strategy.order("Fade", strategy.short, qty=1, when=bar_index == 0, limit=2.7)
+strategy.cancel_all(when=bar_index == 1, comment="Flat")
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 2,
+            "id": "cancel_all",
+            "type": "cancel_all",
+            "side": "flat",
+            "qty": 0.0,
+            "price": None,
+            "position_after": 0.0,
+            "comment": "Flat",
+            "canceled": 2,
+        },
+    ]
+    assert result.values("Position") == [0.0, 0.0, 0.0, 0.0]
+
+
 def test_strategy_unused_does_not_emit_strategy_output() -> None:
     result = pn.run(
         """

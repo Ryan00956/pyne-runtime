@@ -39,3 +39,4 @@
 - Added Pine-like `strategy.configure(slippage=..., commission_type=..., commission_value=...)` replay costs.
 - Added callable `strategy(...)` declarations for Pine-like strategy metadata and replay configuration.
 - Added Pine-like `strategy.order()`, `strategy.order_when()`, and `strategy.close_all()` strategy events.
+- Added lightweight pending `strategy.entry/order` stop-limit triggers plus `strategy.cancel()` and `strategy.cancel_all()`.

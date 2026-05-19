@@ -22,6 +22,7 @@ slow = ta.ema(close, 26)
 strategy.entry_when(ta.cross(fast, slow), "Long", strategy.long, qty=1)
 strategy.close_when(ta.cross(slow, fast), "Long")
 strategy.exit("Long Exit", from_entry="Long", stop=close * 0.95, limit=close * 1.05)
+strategy.cancel("Long", when=barstate.islast)
 strategy.close_all(when=barstate.islast, comment="End")
 
 plot(strategy.position_size, "Position")
@@ -76,8 +77,8 @@ Commission uses Pine-like constants:
 ## Entry
 
 ```python
-strategy.entry_when(condition, id, direction=strategy.long, qty=1, price=None, comment="")
-strategy.entry(id, direction=strategy.long, qty=1, when=True, price=None, comment="")
+strategy.entry_when(condition, id, direction=strategy.long, qty=1, price=None, limit=None, stop=None, comment="")
+strategy.entry(id, direction=strategy.long, qty=1, when=True, price=None, limit=None, stop=None, comment="")
 ```
 
 `condition` / `when` may be a scalar bool or a `PyneSeries` bool expression.
@@ -89,12 +90,14 @@ Entries use lightweight target/replay semantics:
 - a short entry adds negative quantity
 - same-direction duplicate entries are limited by `strategy.configure(pyramiding=...)`
 - a later opposite-direction entry can reverse or replace the target position
+- `limit` and `stop` create lightweight pending orders that fill when later bar
+  high/low values touch the trigger price
 
 ## Order
 
 ```python
-strategy.order_when(condition, id, direction=strategy.long, qty=1, price=None, comment="")
-strategy.order(id, direction=strategy.long, qty=1, when=True, price=None, comment="")
+strategy.order_when(condition, id, direction=strategy.long, qty=1, price=None, limit=None, stop=None, comment="")
+strategy.order(id, direction=strategy.long, qty=1, when=True, price=None, limit=None, stop=None, comment="")
 ```
 
 `strategy.order*` is a lower-level net-position order. Unlike
@@ -104,6 +107,19 @@ strategy.order(id, direction=strategy.long, qty=1, when=True, price=None, commen
 - opposite-direction orders reduce the current position
 - if an opposite-direction order is larger than the current position, it reverses the position
 - slippage and commission settings apply to filled order prices
+- `limit` and `stop` create pending orders using the same high/low trigger scan
+  as `strategy.entry*`
+
+## Cancel
+
+```python
+strategy.cancel(id, when=True, comment="")
+strategy.cancel_all(when=True, comment="")
+```
+
+`cancel()` cancels pending entry/order events with the matching id.
+`cancel_all()` cancels every pending entry/order event. Cancel events are emitted
+only when at least one pending order is actually canceled.
 
 ## Close
 

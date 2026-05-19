@@ -113,6 +113,8 @@ class StrategyModule:
         qty: float = 1.0,
         when: PyneSeries | np.ndarray | list | bool = True,
         price: PyneSeries | np.ndarray | list | float | None = None,
+        limit: PyneSeries | np.ndarray | list | float | None = None,
+        stop: PyneSeries | np.ndarray | list | float | None = None,
         comment: str = "",
     ) -> None:
         """Emit entry events when ``when`` is true."""
@@ -122,6 +124,8 @@ class StrategyModule:
             direction=direction,
             qty=qty,
             price=price,
+            limit=limit,
+            stop=stop,
             comment=comment,
         )
 
@@ -133,10 +137,14 @@ class StrategyModule:
         *,
         qty: float = 1.0,
         price: PyneSeries | np.ndarray | list | float | None = None,
+        limit: PyneSeries | np.ndarray | list | float | None = None,
+        stop: PyneSeries | np.ndarray | list | float | None = None,
         comment: str = "",
     ) -> None:
         flags = _condition_values(condition, self._context.bar_count)
         prices = _price_values(price, self._context.close, self._context.bar_count)
+        limits = _optional_price_values(limit, self._context.bar_count)
+        stops = _optional_price_values(stop, self._context.bar_count)
         side = _normalize_direction(direction)
         qty_abs = abs(float(qty))
 
@@ -154,6 +162,9 @@ class StrategyModule:
                 "position_after": 0.0,
                 "comment": comment,
                 "_base_price": float(event_price),
+                "_limit": limits[idx],
+                "_stop": stops[idx],
+                "_submit_time": self._context.times[idx],
                 "_seq": self._next_event_seq(),
             })
             self._touched = True
@@ -169,6 +180,8 @@ class StrategyModule:
         qty: float = 1.0,
         when: PyneSeries | np.ndarray | list | bool = True,
         price: PyneSeries | np.ndarray | list | float | None = None,
+        limit: PyneSeries | np.ndarray | list | float | None = None,
+        stop: PyneSeries | np.ndarray | list | float | None = None,
         comment: str = "",
     ) -> None:
         """Emit lower-level strategy order events when ``when`` is true."""
@@ -178,6 +191,8 @@ class StrategyModule:
             direction=direction,
             qty=qty,
             price=price,
+            limit=limit,
+            stop=stop,
             comment=comment,
         )
 
@@ -189,6 +204,8 @@ class StrategyModule:
         *,
         qty: float = 1.0,
         price: PyneSeries | np.ndarray | list | float | None = None,
+        limit: PyneSeries | np.ndarray | list | float | None = None,
+        stop: PyneSeries | np.ndarray | list | float | None = None,
         comment: str = "",
     ) -> None:
         """Emit lower-level order events when ``condition`` is true.
@@ -198,6 +215,8 @@ class StrategyModule:
         """
         flags = _condition_values(condition, self._context.bar_count)
         prices = _price_values(price, self._context.close, self._context.bar_count)
+        limits = _optional_price_values(limit, self._context.bar_count)
+        stops = _optional_price_values(stop, self._context.bar_count)
         side = _normalize_direction(direction)
         qty_abs = abs(float(qty))
 
@@ -215,6 +234,64 @@ class StrategyModule:
                 "position_after": 0.0,
                 "comment": comment,
                 "_base_price": float(event_price),
+                "_limit": limits[idx],
+                "_stop": stops[idx],
+                "_submit_time": self._context.times[idx],
+                "_seq": self._next_event_seq(),
+            })
+            self._touched = True
+
+        self._replay_position()
+        self._sync_position_snapshot()
+
+    def cancel(
+        self,
+        id: str,
+        *,
+        when: PyneSeries | np.ndarray | list | bool = True,
+        comment: str = "",
+    ) -> None:
+        """Cancel pending orders with a matching id."""
+        flags = _condition_values(when, self._context.bar_count)
+        for idx, flag in enumerate(flags):
+            if not flag:
+                continue
+            self._collector.strategy_orders.append({
+                "time": self._context.times[idx],
+                "id": str(id),
+                "type": "cancel",
+                "side": "flat",
+                "qty": 0.0,
+                "price": None,
+                "position_after": 0.0,
+                "comment": comment,
+                "_seq": self._next_event_seq(),
+            })
+            self._touched = True
+
+        self._replay_position()
+        self._sync_position_snapshot()
+
+    def cancel_all(
+        self,
+        *,
+        when: PyneSeries | np.ndarray | list | bool = True,
+        comment: str = "",
+    ) -> None:
+        """Cancel all pending strategy entry/order events."""
+        flags = _condition_values(when, self._context.bar_count)
+        for idx, flag in enumerate(flags):
+            if not flag:
+                continue
+            self._collector.strategy_orders.append({
+                "time": self._context.times[idx],
+                "id": "cancel_all",
+                "type": "cancel_all",
+                "side": "flat",
+                "qty": 0.0,
+                "price": None,
+                "position_after": 0.0,
+                "comment": comment,
                 "_seq": self._next_event_seq(),
             })
             self._touched = True
@@ -365,17 +442,30 @@ class StrategyModule:
         current_size = 0.0
         current_avg = np.nan
         same_direction_entry_count = 0
+        pending_orders: list[dict[str, Any]] = []
         orders_by_time: dict[int, list[dict[str, Any]]] = {}
         for order in sorted(
             self._collector.strategy_orders,
             key=lambda item: (item.get("time", 0), item.get("_seq", 0)),
         ):
             order["_active"] = False
+            if order.get("type") in {"entry", "order"}:
+                order["time"] = int(order.get("_submit_time", order.get("time", 0)))
+                order["position_after"] = 0.0
+                order["price"] = round(float(order.get("_base_price", order.get("price", np.nan))), 8)
+                order.pop("commission", None)
+                if _is_pending_submission(order):
+                    order.pop("reason", None)
+            elif order.get("type") in {"cancel", "cancel_all"}:
+                order.pop("canceled", None)
             orders_by_time.setdefault(int(order.get("time", 0)), []).append(order)
 
         for idx, timestamp in enumerate(self._context.times):
             for order in orders_by_time.get(timestamp, []):
                 if order.get("type") == "entry":
+                    if _is_pending_submission(order):
+                        pending_orders.append(order)
+                        continue
                     side = _normalize_direction(str(order.get("side", self.long)))
                     if not _entry_allowed(
                         side=side,
@@ -405,6 +495,9 @@ class StrategyModule:
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
                 elif order.get("type") == "order":
+                    if _is_pending_submission(order):
+                        pending_orders.append(order)
+                        continue
                     side = _normalize_direction(str(order.get("side", self.long)))
                     fill_side = "buy" if side == self.long else "sell"
                     fill_price = self._fill_price(float(order.get("_base_price", order.get("price", np.nan))), fill_side)
@@ -448,6 +541,87 @@ class StrategyModule:
                     if current_size == 0:
                         current_avg = np.nan
                         same_direction_entry_count = 0
+                elif order.get("type") == "cancel":
+                    canceled = [item for item in pending_orders if item.get("id") == order.get("id")]
+                    if canceled:
+                        for item in canceled:
+                            item["_canceled"] = True
+                        order["canceled"] = len(canceled)
+                        order["_active"] = True
+                    pending_orders = [item for item in pending_orders if not item.get("_canceled")]
+                elif order.get("type") == "cancel_all":
+                    if pending_orders:
+                        for item in pending_orders:
+                            item["_canceled"] = True
+                        order["canceled"] = len(pending_orders)
+                        order["_active"] = True
+                    pending_orders = []
+
+            if pending_orders:
+                high = float(self._context.high.values[idx])
+                low = float(self._context.low.values[idx])
+                remaining_pending = []
+                for order in pending_orders:
+                    trigger = _pending_trigger(
+                        side=_normalize_direction(str(order.get("side", self.long))),
+                        high=high,
+                        low=low,
+                        limit=order.get("_limit"),
+                        stop=order.get("_stop"),
+                    )
+                    if trigger is None:
+                        remaining_pending.append(order)
+                        continue
+                    reason, trigger_price = trigger
+                    order["time"] = timestamp
+                    order["reason"] = reason
+                    order["_base_price"] = float(trigger_price)
+                    if order.get("type") == "entry":
+                        side = _normalize_direction(str(order.get("side", self.long)))
+                        if not _entry_allowed(
+                            side=side,
+                            previous_size=current_size,
+                            same_direction_entry_count=same_direction_entry_count,
+                            pyramiding=self._pyramiding,
+                        ):
+                            continue
+                        fill_side = "buy" if side == self.long else "sell"
+                        fill_price = self._fill_price(float(trigger_price), fill_side)
+                        position_after, avg_after = _entry_position_after(
+                            previous_size=current_size,
+                            previous_avg=current_avg,
+                            side=side,
+                            qty=float(order.get("qty", 0.0)),
+                            price=fill_price,
+                        )
+                        if current_size == 0 or (current_size > 0) != (position_after > 0):
+                            same_direction_entry_count = 1
+                        else:
+                            same_direction_entry_count += 1
+                    else:
+                        side = _normalize_direction(str(order.get("side", self.long)))
+                        fill_side = "buy" if side == self.long else "sell"
+                        fill_price = self._fill_price(float(trigger_price), fill_side)
+                        qty = float(order.get("qty", 0.0))
+                        position_after, avg_after = _order_position_after(
+                            previous_size=current_size,
+                            previous_avg=current_avg,
+                            side=side,
+                            qty=qty,
+                            price=fill_price,
+                        )
+                        if position_after == 0:
+                            same_direction_entry_count = 0
+                        elif current_size == 0 or (current_size > 0) != (position_after > 0):
+                            same_direction_entry_count = 1
+                    current_size = position_after
+                    current_avg = avg_after
+                    order["price"] = round(float(fill_price), 8)
+                    order["position_after"] = round(float(position_after), 8)
+                    self._apply_commission(order, qty=float(order.get("qty", 0.0)), price=fill_price)
+                    order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
+                    order["_active"] = True
+                pending_orders = remaining_pending
             self._position_size[idx] = current_size
             self._position_avg_price[idx] = current_avg
 
@@ -522,6 +696,31 @@ def _exit_trigger(
         return "stop", stop
     if limit is not None and low <= limit:
         return "limit", limit
+    return None
+
+
+def _is_pending_submission(order: dict[str, Any]) -> bool:
+    return order.get("_limit") is not None or order.get("_stop") is not None
+
+
+def _pending_trigger(
+    *,
+    side: str,
+    high: float,
+    low: float,
+    limit: float | None,
+    stop: float | None,
+) -> tuple[str, float] | None:
+    if side == StrategyModule.long:
+        if stop is not None and high >= stop:
+            return "stop", float(stop)
+        if limit is not None and low <= limit:
+            return "limit", float(limit)
+        return None
+    if stop is not None and low <= stop:
+        return "stop", float(stop)
+    if limit is not None and high >= limit:
+        return "limit", float(limit)
     return None
 
 
