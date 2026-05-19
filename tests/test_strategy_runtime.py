@@ -108,3 +108,100 @@ plot(close, "Close")
 
     assert result.ok
     assert "strategy" not in result.output
+
+
+def test_strategy_exit_emits_limit_exit_for_long_position() -> None:
+    result = pn.run(
+        """
+indicator("Limit Exit", overlay=True)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.exit("Take Profit", from_entry="Long", limit=2.7, stop=0.8)
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 1.5,
+            "position_after": 1.0,
+            "comment": "",
+        },
+        {
+            "time": 3,
+            "id": "Take Profit",
+            "from_entry": "Long",
+            "type": "exit",
+            "side": "flat",
+            "qty": 1.0,
+            "price": 2.7,
+            "position_after": 0.0,
+            "reason": "limit",
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [1.0, 1.0, 0.0, 0.0]
+
+
+def test_strategy_exit_emits_stop_exit_for_short_position() -> None:
+    result = pn.run(
+        """
+indicator("Short Stop", overlay=True)
+strategy.entry_when(bar_index == 0, "Short", strategy.short, qty=2, price=close)
+strategy.exit("Stop", from_entry="Short", stop=2.1)
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Short",
+            "type": "entry",
+            "side": "short",
+            "qty": 2.0,
+            "price": 1.5,
+            "position_after": -2.0,
+            "comment": "",
+        },
+        {
+            "time": 2,
+            "id": "Stop",
+            "from_entry": "Short",
+            "type": "exit",
+            "side": "flat",
+            "qty": 2.0,
+            "price": 2.1,
+            "position_after": 0.0,
+            "reason": "stop",
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [-2.0, 0.0, 0.0, 0.0]
+
+
+def test_strategy_exit_when_filters_exit_events() -> None:
+    result = pn.run(
+        """
+indicator("Exit When", overlay=True)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.exit("Later Stop", from_entry="Long", stop=1.2, when=bar_index >= 2)
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert len(result.output["strategy"]["orders"]) == 1
+    assert result.values("Position") == [1.0, 1.0, 1.0, 1.0]

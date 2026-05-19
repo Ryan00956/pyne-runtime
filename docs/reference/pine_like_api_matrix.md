@@ -21,7 +21,7 @@ Pyne API surface, and the test/doc evidence behind each claim.
 | Drawing objects | `line.new`, `label.new`, `box.new`, `table.new`, setters, `delete()` | Supported | Output is final snapshot; richer incremental object event streams are planned | `tests/test_plot_runtime.py` | `docs/concepts/drawing_objects.md` |
 | Alerts/signals | `alertcondition`, `emit_signal` | Supported | Emits structured events; does not register TradingView alerts | `tests/test_plot_runtime.py` | `docs/api/plot.md` |
 | Multi-context data | `request.security(symbol, timeframe, lambda ctx: ctx.ta.sma(ctx.close, 20))` | Partial | Requires host provider; direct Python expression capture is impossible, so computed expressions use callable thunks | `tests/test_request_security.py` | `docs/api/request.md` |
-| Strategy events | `strategy.entry_when`, `strategy.close_when` | Partial | Event and position replay layer only; no broker simulation, slippage, commission, or bracket exits | `tests/test_strategy_runtime.py` | `docs/api/strategy.md` |
+| Strategy events | `strategy.entry_when`, `strategy.close_when`, `strategy.exit` | Partial | Event and position replay layer only; no broker simulation, slippage, commission, partial fills, or intrabar path | `tests/test_strategy_runtime.py` | `docs/api/strategy.md` |
 | Public package API | `pn.run`, `pn.PyneRuntime`, `pn.PyneSettings` | Supported | Pre-1.0 minor versions may still add APIs | `tests/test_api.py` | `docs/api/public_api.md` |
 | CLI | `pyne run`, `pyne schema`, `pyne validate` | Supported | CLI executes Pyne Python scripts, not Pine source files | `tests/test_cli.py`, `tests/test_cli_contracts.py` | `docs/reference/cli.md` |
 
@@ -29,6 +29,5 @@ Pyne API surface, and the test/doc evidence behind each claim.
 
 - Richer incremental drawing object event streams.
 - Tuple or multi-return `request.security()` expressions.
-- Strategy exits, stop/limit brackets, pyramiding, slippage, commission, and
-  more formal fill models.
+- Pyramiding, slippage, commission, and more formal fill models.
 - A larger golden-test suite against known Pine outputs.

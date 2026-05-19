@@ -141,6 +141,66 @@ class StrategyModule:
 
         self._sync_position_snapshot()
 
+    def exit(
+        self,
+        id: str,
+        *,
+        from_entry: str = "",
+        qty: float | None = None,
+        stop: PyneSeries | np.ndarray | list | float | None = None,
+        limit: PyneSeries | np.ndarray | list | float | None = None,
+        when: PyneSeries | np.ndarray | list | bool = True,
+        comment: str = "",
+    ) -> None:
+        """Emit stop/limit exit events for an open position.
+
+        This is a deterministic event layer, not an intrabar fill simulator.
+        When stop and limit are both touched on the same bar, stop wins.
+        """
+        if stop is None and limit is None:
+            return
+
+        flags = _condition_values(when, self._context.bar_count)
+        stops = _optional_price_values(stop, self._context.bar_count)
+        limits = _optional_price_values(limit, self._context.bar_count)
+        high_values = _price_values(self._context.high, self._context.high, self._context.bar_count)
+        low_values = _price_values(self._context.low, self._context.low, self._context.bar_count)
+
+        for idx, flag in enumerate(flags):
+            if not flag:
+                continue
+            current_position = float(self._position_size[idx])
+            if current_position == 0:
+                continue
+            trigger = _exit_trigger(
+                current_position=current_position,
+                high=high_values[idx],
+                low=low_values[idx],
+                stop=stops[idx],
+                limit=limits[idx],
+            )
+            if trigger is None:
+                continue
+
+            reason, event_price = trigger
+            self._collector.strategy_orders.append({
+                "time": self._context.times[idx],
+                "id": str(id),
+                "from_entry": str(from_entry),
+                "type": "exit",
+                "side": "flat",
+                "qty": abs(float(qty)) if qty is not None else abs(current_position),
+                "price": round(float(event_price), 8),
+                "position_after": 0.0,
+                "reason": reason,
+                "comment": comment,
+                "_seq": self._next_event_seq(),
+            })
+            self._touched = True
+            self._replay_position()
+
+        self._sync_position_snapshot()
+
     def _replay_position(self) -> None:
         current_size = 0.0
         current_avg = np.nan
@@ -157,7 +217,7 @@ class StrategyModule:
                     qty = float(order.get("qty", 0.0))
                     current_size = qty if order.get("side") == self.long else -qty
                     current_avg = float(order.get("price", np.nan))
-                elif order.get("type") == "close" and current_size != 0:
+                elif order.get("type") in {"close", "exit"} and current_size != 0:
                     current_size = 0.0
                     current_avg = np.nan
             self._position_size[idx] = current_size
@@ -191,6 +251,34 @@ def _condition_values(value: Any, length: int) -> list[bool]:
 def _price_values(value: Any, fallback: PyneSeries, length: int) -> list[float]:
     values = _values(fallback if value is None else value, length)
     return [np.nan if is_na_value(item) else float(item) for item in values]
+
+
+def _optional_price_values(value: Any, length: int) -> list[float | None]:
+    if value is None:
+        return [None] * length
+    values = _values(value, length)
+    return [None if is_na_value(item) else float(item) for item in values]
+
+
+def _exit_trigger(
+    *,
+    current_position: float,
+    high: float,
+    low: float,
+    stop: float | None,
+    limit: float | None,
+) -> tuple[str, float] | None:
+    if current_position > 0:
+        if stop is not None and low <= stop:
+            return "stop", stop
+        if limit is not None and high >= limit:
+            return "limit", limit
+        return None
+    if stop is not None and high >= stop:
+        return "stop", stop
+    if limit is not None and low <= limit:
+        return "limit", limit
+    return None
 
 
 def _values(value: Any, length: int) -> list[Any]:

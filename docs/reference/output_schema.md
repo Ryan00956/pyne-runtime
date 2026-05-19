@@ -128,6 +128,18 @@ Strategy event format:
         "price": 123.45,
         "position_after": 1.0,
         "comment": ""
+      },
+      {
+        "time": 1710000600,
+        "id": "Long Exit",
+        "from_entry": "Long",
+        "type": "exit",
+        "side": "flat",
+        "qty": 1.0,
+        "price": 130.0,
+        "position_after": 0.0,
+        "reason": "limit",
+        "comment": ""
       }
     ],
     "position": {

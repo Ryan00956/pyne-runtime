@@ -14,6 +14,7 @@ slow = ta.ema(close, 26)
 
 strategy.entry_when(ta.cross(fast, slow), "Long", strategy.long, qty=1)
 strategy.close_when(ta.cross(slow, fast), "Long")
+strategy.exit("Long Exit", from_entry="Long", stop=close * 0.95, limit=close * 1.05)
 
 plot(strategy.position_size, "Position")
 ```
@@ -49,6 +50,23 @@ strategy.close(id="", when=True, price=None, comment="")
 `close_when()` emits close events only when there is an open position at that
 bar in the replayed event timeline.
 
+## Exit
+
+```python
+strategy.exit(id, from_entry="", qty=None, stop=None, limit=None, when=True, comment="")
+```
+
+`strategy.exit()` emits stop/limit bracket exit events while a position is open.
+The current implementation scans each bar's `high` and `low` values:
+
+- Long stop triggers when `low <= stop`.
+- Long limit triggers when `high >= limit`.
+- Short stop triggers when `high >= stop`.
+- Short limit triggers when `low <= limit`.
+
+When stop and limit are both touched on the same bar, stop wins. This is a
+deterministic event model, not an intrabar broker simulator.
+
 ## Position Series
 
 ```python
@@ -77,6 +95,18 @@ Strategy output is serialized under `output["strategy"]`:
         "price": 123.45,
         "position_after": 1.0,
         "comment": ""
+      },
+      {
+        "time": 1710000600,
+        "id": "Long Exit",
+        "from_entry": "Long",
+        "type": "exit",
+        "side": "flat",
+        "qty": 1.0,
+        "price": 130.0,
+        "position_after": 0.0,
+        "reason": "limit",
+        "comment": ""
       }
     ],
     "position": {
@@ -92,6 +122,6 @@ Known limits:
 
 - no commission or slippage model
 - no pyramiding setting yet
-- no `strategy.exit()` stop/limit bracket model yet
+- no partial fills or intrabar path model
 - Python `if` cannot branch directly on series conditions; use
   `entry_when()` and `close_when()`

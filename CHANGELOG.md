@@ -30,3 +30,4 @@
 - Added a Pine-like API compatibility matrix and broader semantics examples.
 - Added `request.security()` callable expression thunks for requested-context calculations.
 - Added Pine-like `box` and `table` drawing objects with drawing object limits.
+- Added `strategy.exit()` stop/limit exit events for lightweight strategy replay.
