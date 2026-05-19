@@ -20,6 +20,14 @@ class StrategyCommission:
     cash_per_contract = "cash_per_contract"
 
 
+class StrategyOca:
+    """Pine-like OCA group constants."""
+
+    none = "none"
+    cancel = "cancel"
+    reduce = "reduce"
+
+
 class StrategyModule:
     """Lightweight Pine-like ``strategy`` namespace.
 
@@ -30,6 +38,7 @@ class StrategyModule:
     long = "long"
     short = "short"
     commission = StrategyCommission
+    oca = StrategyOca
 
     def __init__(self, context: PyneContext, collector: OutputCollector) -> None:
         self._context = context
@@ -115,6 +124,8 @@ class StrategyModule:
         price: PyneSeries | np.ndarray | list | float | None = None,
         limit: PyneSeries | np.ndarray | list | float | None = None,
         stop: PyneSeries | np.ndarray | list | float | None = None,
+        oca_name: str = "",
+        oca_type: str | None = None,
         comment: str = "",
     ) -> None:
         """Emit entry events when ``when`` is true."""
@@ -126,6 +137,8 @@ class StrategyModule:
             price=price,
             limit=limit,
             stop=stop,
+            oca_name=oca_name,
+            oca_type=oca_type,
             comment=comment,
         )
 
@@ -139,6 +152,8 @@ class StrategyModule:
         price: PyneSeries | np.ndarray | list | float | None = None,
         limit: PyneSeries | np.ndarray | list | float | None = None,
         stop: PyneSeries | np.ndarray | list | float | None = None,
+        oca_name: str = "",
+        oca_type: str | None = None,
         comment: str = "",
     ) -> None:
         flags = _condition_values(condition, self._context.bar_count)
@@ -164,6 +179,8 @@ class StrategyModule:
                 "_base_price": float(event_price),
                 "_limit": limits[idx],
                 "_stop": stops[idx],
+                "_oca_name": str(oca_name or ""),
+                "_oca_type": _normalize_oca_type(oca_type),
                 "_submit_time": self._context.times[idx],
                 "_seq": self._next_event_seq(),
             })
@@ -182,6 +199,8 @@ class StrategyModule:
         price: PyneSeries | np.ndarray | list | float | None = None,
         limit: PyneSeries | np.ndarray | list | float | None = None,
         stop: PyneSeries | np.ndarray | list | float | None = None,
+        oca_name: str = "",
+        oca_type: str | None = None,
         comment: str = "",
     ) -> None:
         """Emit lower-level strategy order events when ``when`` is true."""
@@ -193,6 +212,8 @@ class StrategyModule:
             price=price,
             limit=limit,
             stop=stop,
+            oca_name=oca_name,
+            oca_type=oca_type,
             comment=comment,
         )
 
@@ -206,6 +227,8 @@ class StrategyModule:
         price: PyneSeries | np.ndarray | list | float | None = None,
         limit: PyneSeries | np.ndarray | list | float | None = None,
         stop: PyneSeries | np.ndarray | list | float | None = None,
+        oca_name: str = "",
+        oca_type: str | None = None,
         comment: str = "",
     ) -> None:
         """Emit lower-level order events when ``condition`` is true.
@@ -236,6 +259,8 @@ class StrategyModule:
                 "_base_price": float(event_price),
                 "_limit": limits[idx],
                 "_stop": stops[idx],
+                "_oca_name": str(oca_name or ""),
+                "_oca_type": _normalize_oca_type(oca_type),
                 "_submit_time": self._context.times[idx],
                 "_seq": self._next_event_seq(),
             })
@@ -450,10 +475,13 @@ class StrategyModule:
         ):
             order["_active"] = False
             if order.get("type") in {"entry", "order"}:
+                order.pop("_canceled", None)
                 order["time"] = int(order.get("_submit_time", order.get("time", 0)))
                 order["position_after"] = 0.0
                 order["price"] = round(float(order.get("_base_price", order.get("price", np.nan))), 8)
                 order.pop("commission", None)
+                order.pop("oca_name", None)
+                order.pop("oca_type", None)
                 if _is_pending_submission(order):
                     order.pop("reason", None)
             elif order.get("type") in {"cancel", "cancel_all"}:
@@ -561,7 +589,9 @@ class StrategyModule:
                 high = float(self._context.high.values[idx])
                 low = float(self._context.low.values[idx])
                 remaining_pending = []
-                for order in pending_orders:
+                for order in sorted(pending_orders, key=lambda item: item.get("_seq", 0)):
+                    if order.get("_canceled"):
+                        continue
                     trigger = _pending_trigger(
                         side=_normalize_direction(str(order.get("side", self.long))),
                         high=high,
@@ -618,10 +648,14 @@ class StrategyModule:
                     current_avg = avg_after
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(float(position_after), 8)
+                    if order.get("_oca_name"):
+                        order["oca_name"] = order.get("_oca_name")
+                        order["oca_type"] = order.get("_oca_type") or StrategyOca.none
                     self._apply_commission(order, qty=float(order.get("qty", 0.0)), price=fill_price)
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
-                pending_orders = remaining_pending
+                    _cancel_oca_siblings(order, pending_orders)
+                pending_orders = [item for item in remaining_pending if not item.get("_canceled")]
             self._position_size[idx] = current_size
             self._position_avg_price[idx] = current_avg
 
@@ -749,6 +783,32 @@ def _normalize_commission_type(value: str) -> str:
     if normalized in {"cash_per_contract", "cash_per_contracts", "strategy.commission.cash_per_contract"}:
         return StrategyCommission.cash_per_contract
     return normalized
+
+
+def _normalize_oca_type(value: str | None) -> str:
+    if value is None:
+        return StrategyOca.none
+    normalized = str(value or "").lower()
+    if normalized in {"cancel", "strategy.oca.cancel"}:
+        return StrategyOca.cancel
+    if normalized in {"reduce", "strategy.oca.reduce"}:
+        return StrategyOca.reduce
+    if normalized in {"none", "", "strategy.oca.none"}:
+        return StrategyOca.none
+    return normalized
+
+
+def _cancel_oca_siblings(filled_order: dict[str, Any], pending_orders: list[dict[str, Any]]) -> None:
+    if filled_order.get("_oca_type") != StrategyOca.cancel:
+        return
+    oca_name = str(filled_order.get("_oca_name") or "")
+    if not oca_name:
+        return
+    for order in pending_orders:
+        if order is filled_order:
+            continue
+        if order.get("_oca_name") == oca_name and order.get("_oca_type") == StrategyOca.cancel:
+            order["_canceled"] = True
 
 
 def _commission_amount(

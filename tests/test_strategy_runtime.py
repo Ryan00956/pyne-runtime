@@ -268,6 +268,53 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [0.0, 0.0, 0.0, 0.0]
 
 
+def test_strategy_oca_cancel_fills_first_pending_order_and_cancels_siblings() -> None:
+    result = pn.run(
+        """
+indicator("OCA", overlay=True)
+strategy.entry(
+    "Breakout",
+    strategy.long,
+    qty=1,
+    when=bar_index == 0,
+    stop=2.5,
+    oca_name="bracket",
+    oca_type=strategy.oca.cancel,
+)
+strategy.order(
+    "Fade",
+    strategy.short,
+    qty=1,
+    when=bar_index == 0,
+    limit=2.7,
+    oca_name="bracket",
+    oca_type=strategy.oca.cancel,
+)
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 3,
+            "id": "Breakout",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 2.5,
+            "position_after": 1.0,
+            "comment": "",
+            "reason": "stop",
+            "oca_name": "bracket",
+            "oca_type": "cancel",
+        },
+    ]
+    assert result.values("Position") == [0.0, 0.0, 1.0, 1.0]
+
+
 def test_strategy_unused_does_not_emit_strategy_output() -> None:
     result = pn.run(
         """

@@ -33,6 +33,16 @@ plot(strategy.position_size, "Position")
 - `strategy.long`
 - `strategy.short`
 
+## OCA Constants
+
+- `strategy.oca.none`
+- `strategy.oca.cancel`
+- `strategy.oca.reduce`
+
+The current replay model implements `strategy.oca.cancel` for pending
+`strategy.entry*` and `strategy.order*` orders. `strategy.oca.reduce` is exposed
+as a constant but not yet modeled.
+
 ## Configuration
 
 Prefer the Pine-like declaration form:
@@ -77,8 +87,8 @@ Commission uses Pine-like constants:
 ## Entry
 
 ```python
-strategy.entry_when(condition, id, direction=strategy.long, qty=1, price=None, limit=None, stop=None, comment="")
-strategy.entry(id, direction=strategy.long, qty=1, when=True, price=None, limit=None, stop=None, comment="")
+strategy.entry_when(condition, id, direction=strategy.long, qty=1, price=None, limit=None, stop=None, oca_name="", oca_type=None, comment="")
+strategy.entry(id, direction=strategy.long, qty=1, when=True, price=None, limit=None, stop=None, oca_name="", oca_type=None, comment="")
 ```
 
 `condition` / `when` may be a scalar bool or a `PyneSeries` bool expression.
@@ -92,12 +102,14 @@ Entries use lightweight target/replay semantics:
 - a later opposite-direction entry can reverse or replace the target position
 - `limit` and `stop` create lightweight pending orders that fill when later bar
   high/low values touch the trigger price
+- pending orders with the same `oca_name` and `oca_type=strategy.oca.cancel`
+  cancel their siblings when the first order fills
 
 ## Order
 
 ```python
-strategy.order_when(condition, id, direction=strategy.long, qty=1, price=None, limit=None, stop=None, comment="")
-strategy.order(id, direction=strategy.long, qty=1, when=True, price=None, limit=None, stop=None, comment="")
+strategy.order_when(condition, id, direction=strategy.long, qty=1, price=None, limit=None, stop=None, oca_name="", oca_type=None, comment="")
+strategy.order(id, direction=strategy.long, qty=1, when=True, price=None, limit=None, stop=None, oca_name="", oca_type=None, comment="")
 ```
 
 `strategy.order*` is a lower-level net-position order. Unlike

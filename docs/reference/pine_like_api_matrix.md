@@ -21,12 +21,12 @@ Pyne API surface, and the test/doc evidence behind each claim.
 | Drawing objects | `line.new`, `label.new`, `box.new`, `table.new`, setters, `delete()` | Supported | Output is final snapshot; richer incremental object event streams are planned | `tests/test_plot_runtime.py` | `docs/concepts/drawing_objects.md` |
 | Alerts/signals | `alertcondition`, `emit_signal` | Supported | Emits structured events; does not register TradingView alerts | `tests/test_plot_runtime.py` | `docs/api/plot.md` |
 | Multi-context data | `request.security(symbol, timeframe, lambda ctx: ctx.ta.sma(ctx.close, 20))`; tuple thunks such as `lambda ctx: (ctx.open, ctx.close)` | Partial | Requires host provider; direct Python expression capture is impossible, so computed expressions use callable thunks | `tests/test_request_security.py` | `docs/api/request.md` |
-| Strategy events | `strategy(...)`, `strategy.entry_when`, `strategy.order_when`, `strategy.cancel`, `strategy.cancel_all`, `strategy.close_all`, `strategy.exit(qty=...)` | Partial | Event and position replay layer only; no broker simulation, margin, OCA groups, or intrabar path | `tests/test_strategy_runtime.py` | `docs/api/strategy.md` |
+| Strategy events | `strategy(...)`, `strategy.entry_when`, `strategy.order_when`, `strategy.cancel`, `strategy.cancel_all`, `strategy.close_all`, `strategy.exit(qty=...)`, `strategy.oca.cancel` | Partial | Event and position replay layer only; no broker simulation, margin, OCA reduce, or intrabar path | `tests/test_strategy_runtime.py` | `docs/api/strategy.md` |
 | Public package API | `pn.run`, `pn.PyneRuntime`, `pn.PyneSettings` | Supported | Pre-1.0 minor versions may still add APIs | `tests/test_api.py` | `docs/api/public_api.md` |
 | CLI | `pyne run`, `pyne schema`, `pyne validate` | Supported | CLI executes Pyne Python scripts, not Pine source files | `tests/test_cli.py`, `tests/test_cli_contracts.py` | `docs/reference/cli.md` |
 
 ## Planned Gaps
 
 - Richer incremental drawing object event streams.
-- More formal fill models, margin, OCA groups, and intrabar path modeling.
+- More formal fill models, margin, OCA reduce, and intrabar path modeling.
 - A larger golden-test suite against known Pine outputs.
