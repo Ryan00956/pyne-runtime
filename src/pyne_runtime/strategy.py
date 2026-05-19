@@ -29,6 +29,17 @@ class StrategyModule:
         self._position_avg_price = np.full(context.bar_count, np.nan, dtype=np.float64)
         self._touched = False
         self._event_seq = 0
+        self._pyramiding = 0
+
+    def configure(self, *, pyramiding: int | None = None) -> None:
+        """Configure lightweight strategy replay options.
+
+        ``pyramiding`` follows Pine's mental model: ``0`` allows the first
+        same-direction entry and blocks additional same-direction entries.
+        Positive values allow that many additional same-direction entries.
+        """
+        if pyramiding is not None:
+            self._pyramiding = max(int(pyramiding), 0)
 
     @property
     def position_size(self) -> PyneSeries:
@@ -74,7 +85,7 @@ class StrategyModule:
         flags = _condition_values(condition, self._context.bar_count)
         prices = _price_values(price, self._context.close, self._context.bar_count)
         side = _normalize_direction(direction)
-        signed_qty = abs(float(qty)) if side == self.long else -abs(float(qty))
+        qty_abs = abs(float(qty))
 
         for idx, flag in enumerate(flags):
             if not flag:
@@ -85,9 +96,9 @@ class StrategyModule:
                 "id": str(id),
                 "type": "entry",
                 "side": side,
-                "qty": abs(float(qty)),
+                "qty": qty_abs,
                 "price": round(float(event_price), 8),
-                "position_after": round(float(signed_qty), 8),
+                "position_after": 0.0,
                 "comment": comment,
                 "_seq": self._next_event_seq(),
             })
@@ -204,22 +215,49 @@ class StrategyModule:
     def _replay_position(self) -> None:
         current_size = 0.0
         current_avg = np.nan
+        same_direction_entry_count = 0
         orders_by_time: dict[int, list[dict[str, Any]]] = {}
         for order in sorted(
             self._collector.strategy_orders,
             key=lambda item: (item.get("time", 0), item.get("_seq", 0)),
         ):
+            order["_active"] = False
             orders_by_time.setdefault(int(order.get("time", 0)), []).append(order)
 
         for idx, timestamp in enumerate(self._context.times):
             for order in orders_by_time.get(timestamp, []):
                 if order.get("type") == "entry":
-                    qty = float(order.get("qty", 0.0))
-                    current_size = qty if order.get("side") == self.long else -qty
-                    current_avg = float(order.get("price", np.nan))
+                    side = _normalize_direction(str(order.get("side", self.long)))
+                    if not _entry_allowed(
+                        side=side,
+                        previous_size=current_size,
+                        same_direction_entry_count=same_direction_entry_count,
+                        pyramiding=self._pyramiding,
+                    ):
+                        continue
+                    position_after, avg_after = _entry_position_after(
+                        previous_size=current_size,
+                        previous_avg=current_avg,
+                        side=side,
+                        qty=float(order.get("qty", 0.0)),
+                        price=float(order.get("price", np.nan)),
+                    )
+                    if current_size == 0 or (current_size > 0) != (position_after > 0):
+                        same_direction_entry_count = 1
+                    else:
+                        same_direction_entry_count += 1
+                    current_size = position_after
+                    current_avg = avg_after
+                    order["position_after"] = round(float(position_after), 8)
+                    order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
+                    order["_active"] = True
                 elif order.get("type") in {"close", "exit"} and current_size != 0:
+                    order["qty"] = abs(current_size)
+                    order["position_after"] = 0.0
+                    order["_active"] = True
                     current_size = 0.0
                     current_avg = np.nan
+                    same_direction_entry_count = 0
             self._position_size[idx] = current_size
             self._position_avg_price[idx] = current_avg
 
@@ -279,6 +317,43 @@ def _exit_trigger(
     if limit is not None and low <= limit:
         return "limit", limit
     return None
+
+
+def _entry_allowed(
+    *,
+    side: str,
+    previous_size: float,
+    same_direction_entry_count: int,
+    pyramiding: int,
+) -> bool:
+    if previous_size == 0:
+        return True
+    if side == StrategyModule.long and previous_size < 0:
+        return True
+    if side == StrategyModule.short and previous_size > 0:
+        return True
+    return same_direction_entry_count < pyramiding + 1
+
+
+def _entry_position_after(
+    *,
+    previous_size: float,
+    previous_avg: float,
+    side: str,
+    qty: float,
+    price: float,
+) -> tuple[float, float]:
+    signed_qty = qty if side == StrategyModule.long else -qty
+    if previous_size == 0 or (previous_size > 0) != (signed_qty > 0):
+        return signed_qty, float(price)
+
+    new_size = previous_size + signed_qty
+    if new_size == 0:
+        return 0.0, np.nan
+    if is_na_value(previous_avg):
+        return new_size, float(price)
+    weighted = (abs(previous_size) * previous_avg + qty * float(price)) / abs(new_size)
+    return new_size, weighted
 
 
 def _values(value: Any, length: int) -> list[Any]:

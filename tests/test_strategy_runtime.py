@@ -91,7 +91,7 @@ plot(strategy.position_size, "Position")
     assert result.output["strategy"]["position"] == {
         "size": -1.5,
         "side": "short",
-        "avg_price": 2.4,
+        "avg_price": 1.0,
     }
     assert result.values("Position") == [0.0, -1.5, -1.5, -1.5]
 
@@ -108,6 +108,46 @@ plot(close, "Close")
 
     assert result.ok
     assert "strategy" not in result.output
+
+
+def test_strategy_configure_pyramiding_allows_same_direction_adds() -> None:
+    result = pn.run(
+        """
+indicator("Pyramiding", overlay=True)
+strategy.configure(pyramiding=1)
+strategy.entry_when(close > open, "Long", strategy.long, qty=1, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.position_avg_price, "Average")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 1.5,
+            "position_after": 1.0,
+            "comment": "",
+        },
+        {
+            "time": 3,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 2.8,
+            "position_after": 2.0,
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [1.0, 1.0, 2.0, 2.0]
+    assert result.values("Average") == [1.5, 1.5, 2.15, 2.15]
 
 
 def test_strategy_exit_emits_limit_exit_for_long_position() -> None:

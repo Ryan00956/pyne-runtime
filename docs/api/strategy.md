@@ -24,6 +24,20 @@ plot(strategy.position_size, "Position")
 - `strategy.long`
 - `strategy.short`
 
+## Configuration
+
+```python
+strategy.configure(pyramiding=1)
+```
+
+`pyramiding` controls additional same-direction entries:
+
+- `pyramiding=0` is the default and allows one open same-direction entry.
+- `pyramiding=1` allows one additional same-direction entry.
+- same-direction entries update `strategy.position_size` and weighted
+  `strategy.position_avg_price`
+- an opposite-direction entry reverses or replaces the current position
+
 ## Entry
 
 ```python
@@ -34,11 +48,12 @@ strategy.entry(id, direction=strategy.long, qty=1, when=True, price=None, commen
 `condition` / `when` may be a scalar bool or a `PyneSeries` bool expression.
 When `price` is omitted, Pyne uses `close` for the event price.
 
-The first implementation uses target-position semantics:
+Entries use lightweight target/replay semantics:
 
-- a long entry sets the position size to `qty`
-- a short entry sets the position size to `-qty`
-- a later entry can reverse or replace the target position
+- a long entry adds positive quantity
+- a short entry adds negative quantity
+- same-direction duplicate entries are limited by `strategy.configure(pyramiding=...)`
+- a later opposite-direction entry can reverse or replace the target position
 
 ## Close
 
@@ -121,7 +136,6 @@ Strategy output is serialized under `output["strategy"]`:
 Known limits:
 
 - no commission or slippage model
-- no pyramiding setting yet
 - no partial fills or intrabar path model
 - Python `if` cannot branch directly on series conditions; use
   `entry_when()` and `close_when()`

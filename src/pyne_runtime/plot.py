@@ -156,11 +156,12 @@ class OutputCollector:
             result["signals"] = self.signals
         if self.strategy_orders or self.strategy_position:
             orders = [
-                {key: value for key, value in order.items() if key != "_seq"}
+                {key: value for key, value in order.items() if not str(key).startswith("_")}
                 for order in sorted(
                     self.strategy_orders,
                     key=lambda item: (item.get("time", 0), item.get("_seq", 0)),
                 )
+                if order.get("_active", True)
             ]
             result["strategy"] = {
                 "orders": orders,
