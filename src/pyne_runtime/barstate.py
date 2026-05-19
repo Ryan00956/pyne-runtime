@@ -46,3 +46,16 @@ class PyneBarState:
             isconfirmed=PyneSeries(confirmed, name="barstate.isconfirmed"),
             islastconfirmedhistory=PyneSeries(last.copy(), name="barstate.islastconfirmedhistory"),
         )
+
+
+@dataclass(frozen=True)
+class PyneIncrementalBarState:
+    """Scalar barstate namespace for incremental callbacks."""
+
+    isfirst: bool = False
+    islast: bool = False
+    ishistory: bool = False
+    isrealtime: bool = False
+    isnew: bool = False
+    isconfirmed: bool = False
+    islastconfirmedhistory: bool = False

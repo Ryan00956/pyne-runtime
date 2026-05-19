@@ -12,9 +12,10 @@ import math
 import re
 import threading
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
 
+from .barstate import PyneIncrementalBarState
 from .cache import pyne as pyne_cache_namespace
 from .color import color as color_singleton
 from .math_ext import pyne_math
@@ -55,6 +56,14 @@ class IncrementalBar:
     close: float
     volume: float
     is_confirmed: bool = True
+    bar_index: int = -1
+    last_bar_index: int = -1
+    is_first: bool = False
+    is_last: bool = False
+    is_history: bool = False
+    is_realtime: bool = False
+    is_new: bool = False
+    is_last_confirmed_history: bool = False
 
     @classmethod
     def from_dict(cls, item: dict[str, Any], *, is_confirmed: bool = True) -> "IncrementalBar":
@@ -423,6 +432,9 @@ class IncrementalContext:
         self._series: dict[str, dict[str, Any]] = {}
         self._markers: dict[str, dict[str, Any]] = {}
         self.current_bar: IncrementalBar | None = None
+        self.bar_index = -1
+        self.last_bar_index = -1
+        self.barstate = PyneIncrementalBarState()
 
     def clone_for_preview(self) -> "IncrementalContext":
         clone = copy.deepcopy(self)
@@ -435,8 +447,26 @@ class IncrementalContext:
         self._series = {}
         self._markers = {}
 
-    def begin_bar(self, bar: IncrementalBar) -> None:
+    def begin_bar(
+        self,
+        bar: IncrementalBar,
+        *,
+        bar_index: int,
+        last_bar_index: int,
+        barstate: PyneIncrementalBarState,
+    ) -> None:
+        bar.bar_index = bar_index
+        bar.last_bar_index = last_bar_index
+        bar.is_first = barstate.isfirst
+        bar.is_last = barstate.islast
+        bar.is_history = barstate.ishistory
+        bar.is_realtime = barstate.isrealtime
+        bar.is_new = barstate.isnew
+        bar.is_last_confirmed_history = barstate.islastconfirmedhistory
         self.current_bar = bar
+        self.bar_index = bar_index
+        self.last_bar_index = last_bar_index
+        self.barstate = barstate
 
     def state(self, name: str, default: Any = None) -> StateCell:
         key = str(name)
@@ -578,7 +608,13 @@ class IncrementalContext:
             ok=True,
             lines=lines,
             output=output,
-            meta={**self.meta, "mode": "incremental"},
+            meta={
+                **self.meta,
+                "mode": "incremental",
+                "bar_index": self.bar_index,
+                "last_bar_index": self.last_bar_index,
+                "barstate": asdict(self.barstate),
+            },
         )
 
 
@@ -608,6 +644,8 @@ class PyneIncrementalSession:
         self._ctx: IncrementalContext | None = None
         self._prepared = False
         self.last_closed_time: int | None = None
+        self._closed_count = 0
+        self._active_preview_time: int | None = None
 
     def prepare(self) -> None:
         if self._prepared:
@@ -633,10 +671,29 @@ class PyneIncrementalSession:
         self.prepare()
         self._ctx = IncrementalContext(params=self.params, meta=self._meta, limits=self._limits)
         self._call_optional(self._init_func, self._ctx)
-        for item in ohlcv:
+        self._closed_count = 0
+        self._active_preview_time = None
+        last_bar_index = len(ohlcv) - 1
+        for index, item in enumerate(ohlcv):
             bar = IncrementalBar.from_dict(item, is_confirmed=True)
-            self._run_bar(self._ctx, bar, preview=False)
+            self._run_bar(
+                self._ctx,
+                bar,
+                preview=False,
+                bar_index=index,
+                last_bar_index=last_bar_index,
+                barstate=PyneIncrementalBarState(
+                    isfirst=index == 0,
+                    islast=index == last_bar_index,
+                    ishistory=True,
+                    isrealtime=False,
+                    isnew=True,
+                    isconfirmed=True,
+                    islastconfirmedhistory=index == last_bar_index,
+                ),
+            )
             self.last_closed_time = bar.time
+            self._closed_count = index + 1
         return self._ctx.to_result(start_s=start_s, end_s=end_s)
 
     def on_bar_closed(self, item: dict[str, Any]) -> IncrementalPyneResult:
@@ -645,8 +702,28 @@ class PyneIncrementalSession:
             self._ctx = IncrementalContext(params=self.params, meta=self._meta, limits=self._limits)
             self._call_optional(self._init_func, self._ctx)
         bar = IncrementalBar.from_dict(item, is_confirmed=True)
-        self._run_bar(self._ctx, bar, preview=False)
+        bar_index = self._closed_count
+        had_preview = self._active_preview_time == bar.time
+        self._run_bar(
+            self._ctx,
+            bar,
+            preview=False,
+            bar_index=bar_index,
+            last_bar_index=bar_index,
+            barstate=PyneIncrementalBarState(
+                isfirst=bar_index == 0,
+                islast=True,
+                ishistory=False,
+                isrealtime=True,
+                isnew=not had_preview,
+                isconfirmed=True,
+                islastconfirmedhistory=False,
+            ),
+        )
         self.last_closed_time = bar.time
+        self._closed_count = bar_index + 1
+        if had_preview:
+            self._active_preview_time = None
         return self._ctx.to_result(start_s=bar.time, end_s=bar.time)
 
     def on_bar_updated(self, item: dict[str, Any]) -> IncrementalPyneResult:
@@ -656,11 +733,38 @@ class PyneIncrementalSession:
             self._call_optional(self._init_func, self._ctx)
         bar = IncrementalBar.from_dict(item, is_confirmed=False)
         preview_ctx = self._ctx.clone_for_preview()
-        self._run_bar(preview_ctx, bar, preview=True)
+        bar_index = self._closed_count
+        is_new = self._active_preview_time != bar.time
+        self._run_bar(
+            preview_ctx,
+            bar,
+            preview=True,
+            bar_index=bar_index,
+            last_bar_index=bar_index,
+            barstate=PyneIncrementalBarState(
+                isfirst=bar_index == 0,
+                islast=True,
+                ishistory=False,
+                isrealtime=True,
+                isnew=is_new,
+                isconfirmed=False,
+                islastconfirmedhistory=False,
+            ),
+        )
+        self._active_preview_time = bar.time
         return preview_ctx.to_result(start_s=bar.time, end_s=bar.time)
 
-    def _run_bar(self, ctx: IncrementalContext, bar: IncrementalBar, *, preview: bool) -> None:
-        ctx.begin_bar(bar)
+    def _run_bar(
+        self,
+        ctx: IncrementalContext,
+        bar: IncrementalBar,
+        *,
+        preview: bool,
+        bar_index: int,
+        last_bar_index: int,
+        barstate: PyneIncrementalBarState,
+    ) -> None:
+        ctx.begin_bar(bar, bar_index=bar_index, last_bar_index=last_bar_index, barstate=barstate)
         func = self._on_preview if preview and self._on_preview is not None else self._on_bar
         with execution_timeout(self.policy.timeout_seconds):
             self._call_required(func, ctx, bar)

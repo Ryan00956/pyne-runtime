@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from ._version import __version__
 from .api import from_pandas, read_ohlcv, run, schema, validate
-from .barstate import PyneBarState
+from .barstate import PyneBarState, PyneIncrementalBarState
 from .cache import pyne_cache
 from .data import PyneData
 from .executor import execute_pyne_script, execute_pyne_script_in_process
@@ -30,6 +30,7 @@ __all__ = [
     "ObjectRef",
     "PyneData",
     "PyneBarState",
+    "PyneIncrementalBarState",
     "PyneIncrementalSession",
     "PyneIncrementalSessionManager",
     "PyneResult",
