@@ -508,7 +508,7 @@ class StrategyModule:
         gross_loss = 0.0
         total_commission = 0.0
         closed_trades: list[dict[str, Any]] = []
-        open_trade: dict[str, Any] | None = None
+        open_trades: list[dict[str, Any]] = []
         pending_orders: list[dict[str, Any]] = []
         orders_by_time: dict[int, list[dict[str, Any]]] = {}
         for order in sorted(
@@ -560,7 +560,6 @@ class StrategyModule:
                     else:
                         same_direction_entry_count += 1
                     previous_size = current_size
-                    previous_avg = current_avg
                     current_size = position_after
                     current_avg = avg_after
                     order["price"] = round(float(fill_price), 8)
@@ -571,16 +570,14 @@ class StrategyModule:
                         price=fill_price,
                     )
                     signed_qty = qty if side == self.long else -qty
-                    gross_profit, gross_loss, total_commission, open_trade = _record_fill(
+                    gross_profit, gross_loss, total_commission, open_trades = _record_fill(
                         order=order,
-                        signed_qty=signed_qty,
+                        signed_qty=position_after - previous_size,
                         previous_size=previous_size,
-                        previous_avg=previous_avg,
-                        previous_trade=open_trade,
                         fill_price=fill_price,
                         next_size=position_after,
-                        next_avg=avg_after,
                         commission=commission,
+                        open_trades=open_trades,
                         closed_trades=closed_trades,
                         gross_profit=gross_profit,
                         gross_loss=gross_loss,
@@ -608,23 +605,20 @@ class StrategyModule:
                     elif current_size == 0 or (current_size > 0) != (position_after > 0):
                         same_direction_entry_count = 1
                     previous_size = current_size
-                    previous_avg = current_avg
                     current_size = position_after
                     current_avg = avg_after
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(float(position_after), 8)
                     commission = self._apply_commission(order, qty=qty, price=fill_price)
                     signed_qty = qty if side == self.long else -qty
-                    gross_profit, gross_loss, total_commission, open_trade = _record_fill(
+                    gross_profit, gross_loss, total_commission, open_trades = _record_fill(
                         order=order,
                         signed_qty=signed_qty,
                         previous_size=previous_size,
-                        previous_avg=previous_avg,
-                        previous_trade=open_trade,
                         fill_price=fill_price,
                         next_size=position_after,
-                        next_avg=avg_after,
                         commission=commission,
+                        open_trades=open_trades,
                         closed_trades=closed_trades,
                         gross_profit=gross_profit,
                         gross_loss=gross_loss,
@@ -634,7 +628,6 @@ class StrategyModule:
                     order["_active"] = True
                 elif order.get("type") in {"close", "close_all", "exit"} and current_size != 0:
                     previous_size = current_size
-                    previous_avg = current_avg
                     if order.get("type") == "exit":
                         requested_qty = abs(float(order.get("qty", abs(current_size))))
                         fill_qty = min(requested_qty, abs(current_size))
@@ -651,16 +644,14 @@ class StrategyModule:
                     order["position_after"] = round(next_size, 8)
                     commission = self._apply_commission(order, qty=fill_qty, price=fill_price)
                     signed_qty = -fill_qty if previous_size > 0 else fill_qty
-                    gross_profit, gross_loss, total_commission, open_trade = _record_fill(
+                    gross_profit, gross_loss, total_commission, open_trades = _record_fill(
                         order=order,
                         signed_qty=signed_qty,
                         previous_size=previous_size,
-                        previous_avg=previous_avg,
-                        previous_trade=open_trade,
                         fill_price=fill_price,
                         next_size=next_size,
-                        next_avg=current_avg if next_size != 0 else np.nan,
                         commission=commission,
+                        open_trades=open_trades,
                         closed_trades=closed_trades,
                         gross_profit=gross_profit,
                         gross_loss=gross_loss,
@@ -747,7 +738,6 @@ class StrategyModule:
                         elif current_size == 0 or (current_size > 0) != (position_after > 0):
                             same_direction_entry_count = 1
                     previous_size = current_size
-                    previous_avg = current_avg
                     current_size = position_after
                     current_avg = avg_after
                     order["price"] = round(float(fill_price), 8)
@@ -758,16 +748,14 @@ class StrategyModule:
                     fill_qty = float(order.get("qty", 0.0))
                     commission = self._apply_commission(order, qty=fill_qty, price=fill_price)
                     signed_qty = fill_qty if side == self.long else -fill_qty
-                    gross_profit, gross_loss, total_commission, open_trade = _record_fill(
+                    gross_profit, gross_loss, total_commission, open_trades = _record_fill(
                         order=order,
-                        signed_qty=signed_qty,
+                        signed_qty=position_after - previous_size if order.get("type") == "entry" else signed_qty,
                         previous_size=previous_size,
-                        previous_avg=previous_avg,
-                        previous_trade=open_trade,
                         fill_price=fill_price,
                         next_size=position_after,
-                        next_avg=avg_after,
                         commission=commission,
+                        open_trades=open_trades,
                         closed_trades=closed_trades,
                         gross_profit=gross_profit,
                         gross_loss=gross_loss,
@@ -789,7 +777,7 @@ class StrategyModule:
 
         self._sync_strategy_report(
             closed_trades=closed_trades,
-            open_trade=open_trade,
+            open_trades=open_trades,
             gross_profit=gross_profit,
             gross_loss=gross_loss,
             total_commission=total_commission,
@@ -814,7 +802,7 @@ class StrategyModule:
         self,
         *,
         closed_trades: list[dict[str, Any]],
-        open_trade: dict[str, Any] | None,
+        open_trades: list[dict[str, Any]],
         gross_profit: float,
         gross_loss: float,
         total_commission: float,
@@ -824,12 +812,15 @@ class StrategyModule:
         final_openprofit = float(self._openprofit[-1]) if len(self._openprofit) else 0.0
         final_netprofit = float(self._netprofit[-1]) if len(self._netprofit) else 0.0
         final_equity = float(self._equity[-1]) if len(self._equity) else self._initial_capital
-        open_trades = []
-        if open_trade is not None:
-            open_trades.append({
-                **open_trade,
-                "profit": round(final_openprofit, 8),
-            })
+        final_close = float(self._context.close.values[-1]) if self._context.bar_count else np.nan
+        serialized_open_trades = [
+            {
+                **trade,
+                "profit": round(_trade_open_profit(trade, final_close), 8),
+            }
+            for trade in open_trades
+            if float(trade.get("qty", 0.0)) > 0
+        ]
         self._collector.strategy_report = {
             "summary": {
                 "initial_capital": round(self._initial_capital, 8),
@@ -842,7 +833,7 @@ class StrategyModule:
                 "commission": round(total_commission, 8),
             },
             "closedtrades": closed_trades,
-            "opentrades": open_trades,
+            "opentrades": serialized_open_trades,
         }
 
     def _next_event_seq(self) -> int:
@@ -1013,118 +1004,104 @@ def _record_fill(
     order: dict[str, Any],
     signed_qty: float,
     previous_size: float,
-    previous_avg: float,
-    previous_trade: dict[str, Any] | None,
     fill_price: float,
     next_size: float,
-    next_avg: float,
     commission: float,
+    open_trades: list[dict[str, Any]],
     closed_trades: list[dict[str, Any]],
     gross_profit: float,
     gross_loss: float,
     total_commission: float,
-) -> tuple[float, float, float, dict[str, Any] | None]:
+) -> tuple[float, float, float, list[dict[str, Any]]]:
     total_commission += commission
-    realized = _realized_profit(
-        previous_size=previous_size,
-        previous_avg=previous_avg,
-        signed_qty=signed_qty,
-        fill_price=fill_price,
-    )
-    closed_qty = _closed_quantity(previous_size=previous_size, signed_qty=signed_qty)
+    if signed_qty == 0:
+        return gross_profit, gross_loss, total_commission, open_trades
 
-    if closed_qty > 0:
-        if realized >= 0:
-            gross_profit += realized
-        else:
-            gross_loss += realized
-        if previous_trade is not None:
+    remaining = abs(float(signed_qty))
+    fill_side = "long" if signed_qty > 0 else "short"
+    previous_side = "long" if previous_size > 0 else "short" if previous_size < 0 else ""
+    target_entry = _target_entry_id(order)
+    closes_existing = bool(previous_side and previous_side != fill_side)
+
+    if closes_existing:
+        close_qty_total = min(abs(previous_size), remaining)
+        remaining_to_close = close_qty_total
+        closed_qty_done = 0.0
+        for trade in list(open_trades):
+            if remaining_to_close <= 0:
+                break
+            if trade.get("side") != previous_side:
+                continue
+            if target_entry and trade.get("entry_id") != target_entry:
+                continue
+            close_qty = min(float(trade.get("qty", 0.0)), remaining_to_close)
+            if close_qty <= 0:
+                continue
+            profit = _trade_realized_profit(trade, close_qty, fill_price)
+            commission_share = commission * close_qty / max(close_qty_total, 1e-12)
+            if profit >= 0:
+                gross_profit += profit
+            else:
+                gross_loss += profit
             closed_trades.append(_closed_trade(
-                previous_trade=previous_trade,
+                previous_trade=trade,
                 order=order,
-                qty=closed_qty,
+                qty=close_qty,
                 exit_price=fill_price,
-                profit=realized,
-                commission=commission,
+                profit=profit,
+                commission=commission_share,
+            ))
+            trade["qty"] = round(float(trade.get("qty", 0.0)) - close_qty, 8)
+            remaining_to_close -= close_qty
+            closed_qty_done += close_qty
+
+        open_trades = [trade for trade in open_trades if float(trade.get("qty", 0.0)) > 0]
+        remaining -= closed_qty_done
+
+    opens_new = next_size != 0 and (not closes_existing or remaining > 0)
+    if opens_new and (previous_size == 0 or fill_side == ("long" if next_size > 0 else "short")):
+        if remaining <= 0 and not open_trades:
+            remaining = abs(next_size)
+        if remaining > 0:
+            open_trades.append(_open_trade_from_order(
+                order=order,
+                side=fill_side,
+                qty=remaining,
+                entry_price=fill_price,
             ))
 
-    next_trade = _next_open_trade(
-        previous_trade=previous_trade,
-        order=order,
-        signed_qty=signed_qty,
-        previous_size=previous_size,
-        fill_price=fill_price,
-        next_size=next_size,
-        next_avg=next_avg,
-    )
-    return gross_profit, gross_loss, total_commission, next_trade
+    return gross_profit, gross_loss, total_commission, open_trades
 
 
-def _realized_profit(
+def _target_entry_id(order: dict[str, Any]) -> str:
+    if order.get("type") == "exit":
+        return str(order.get("from_entry") or "")
+    if order.get("type") == "close":
+        return str(order.get("id") or "")
+    return ""
+
+
+def _open_trade_from_order(
     *,
-    previous_size: float,
-    previous_avg: float,
-    signed_qty: float,
-    fill_price: float,
-) -> float:
-    if previous_size == 0 or signed_qty == 0 or is_na_value(previous_avg):
-        return 0.0
-    if (previous_size > 0) == (signed_qty > 0):
-        return 0.0
-    qty = min(abs(previous_size), abs(signed_qty))
-    if previous_size > 0:
-        return (float(fill_price) - float(previous_avg)) * qty
-    return (float(previous_avg) - float(fill_price)) * qty
-
-
-def _closed_quantity(*, previous_size: float, signed_qty: float) -> float:
-    if previous_size == 0 or signed_qty == 0:
-        return 0.0
-    if (previous_size > 0) == (signed_qty > 0):
-        return 0.0
-    return min(abs(previous_size), abs(signed_qty))
-
-
-def _next_open_trade(
-    *,
-    previous_trade: dict[str, Any] | None,
     order: dict[str, Any],
-    signed_qty: float,
-    previous_size: float,
-    fill_price: float,
-    next_size: float,
-    next_avg: float,
-) -> dict[str, Any] | None:
-    if next_size == 0:
-        return None
-
-    side = "long" if next_size > 0 else "short"
-    next_qty = abs(next_size)
-    reversed_position = previous_size != 0 and (previous_size > 0) != (next_size > 0)
-    opened_from_flat = previous_size == 0
-
-    if previous_trade is None or opened_from_flat or reversed_position:
-        return {
-            "entry_time": int(order.get("time", 0)),
-            "entry_id": str(order.get("id", "")),
-            "side": side,
-            "qty": round(next_qty, 8),
-            "entry_price": round(float(fill_price), 8),
-        }
-
-    if (previous_size > 0) == (signed_qty > 0):
-        return {
-            **previous_trade,
-            "side": side,
-            "qty": round(next_qty, 8),
-            "entry_price": round(float(next_avg), 8) if not is_na_value(next_avg) else previous_trade["entry_price"],
-        }
-
+    side: str,
+    qty: float,
+    entry_price: float,
+) -> dict[str, Any]:
     return {
-        **previous_trade,
+        "entry_time": int(order.get("time", 0)),
+        "entry_id": str(order.get("id", "")),
         "side": side,
-        "qty": round(next_qty, 8),
+        "qty": round(float(qty), 8),
+        "entry_price": round(float(entry_price), 8),
     }
+
+
+def _trade_realized_profit(trade: dict[str, Any], qty: float, exit_price: float) -> float:
+    entry_price = float(trade.get("entry_price", 0.0))
+    if trade.get("side") == "long":
+        return (float(exit_price) - entry_price) * qty
+    return (entry_price - float(exit_price)) * qty
 
 
 def _closed_trade(
@@ -1157,6 +1134,14 @@ def _open_profit(position_size: float, position_avg: float, close_price: float) 
     if position_size > 0:
         return (float(close_price) - float(position_avg)) * abs(position_size)
     return (float(position_avg) - float(close_price)) * abs(position_size)
+
+
+def _trade_open_profit(trade: dict[str, Any], close_price: float) -> float:
+    qty = abs(float(trade.get("qty", 0.0)))
+    entry_price = float(trade.get("entry_price", 0.0))
+    if trade.get("side") == "long":
+        return (float(close_price) - entry_price) * qty
+    return (entry_price - float(close_price)) * qty
 
 
 def _entry_position_after(

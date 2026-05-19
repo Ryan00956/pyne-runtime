@@ -834,3 +834,104 @@ plot(strategy.openprofit, "Open Profit")
             "profit": 1.0,
         }
     ]
+
+
+def test_strategy_trade_ledger_tracks_entry_id_partial_exit() -> None:
+    result = pn.run(
+        """
+strategy("Lots", overlay=True, initial_capital=1000, pyramiding=2)
+strategy.entry_when(bar_index == 0, "A", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 1, "B", strategy.long, qty=2, price=close)
+strategy.exit("B Exit", from_entry="B", qty=1, limit=12, when=bar_index == 2)
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
+            {"time": 3, "open": 12, "high": 13, "low": 11, "close": 12, "volume": 100},
+            {"time": 4, "open": 13, "high": 14, "low": 12, "close": 13, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["closedtrades"] == [
+        {
+            "entry_time": 2,
+            "exit_time": 3,
+            "entry_id": "B",
+            "exit_id": "B Exit",
+            "side": "long",
+            "qty": 1.0,
+            "entry_price": 11.0,
+            "exit_price": 12.0,
+            "profit": 1.0,
+            "commission": 0.0,
+            "net_profit": 1.0,
+        }
+    ]
+    assert result.output["strategy"]["opentrades"] == [
+        {
+            "entry_time": 1,
+            "entry_id": "A",
+            "side": "long",
+            "qty": 1.0,
+            "entry_price": 10.0,
+            "profit": 3.0,
+        },
+        {
+            "entry_time": 2,
+            "entry_id": "B",
+            "side": "long",
+            "qty": 1.0,
+            "entry_price": 11.0,
+            "profit": 2.0,
+        },
+    ]
+
+
+def test_strategy_trade_ledger_splits_close_all_by_entry_lot() -> None:
+    result = pn.run(
+        """
+strategy("Close Lots", overlay=True, initial_capital=1000, pyramiding=2)
+strategy.entry_when(bar_index == 0, "A", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 1, "B", strategy.long, qty=2, price=close)
+strategy.close_all(when=bar_index == 2, price=close)
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
+            {"time": 3, "open": 12, "high": 13, "low": 11, "close": 12, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["closedtrades"] == [
+        {
+            "entry_time": 1,
+            "exit_time": 3,
+            "entry_id": "A",
+            "exit_id": "close_all",
+            "side": "long",
+            "qty": 1.0,
+            "entry_price": 10.0,
+            "exit_price": 12.0,
+            "profit": 2.0,
+            "commission": 0.0,
+            "net_profit": 2.0,
+        },
+        {
+            "entry_time": 2,
+            "exit_time": 3,
+            "entry_id": "B",
+            "exit_id": "close_all",
+            "side": "long",
+            "qty": 2.0,
+            "entry_price": 11.0,
+            "exit_price": 12.0,
+            "profit": 2.0,
+            "commission": 0.0,
+            "net_profit": 2.0,
+        },
+    ]
+    assert result.output["strategy"]["opentrades"] == []

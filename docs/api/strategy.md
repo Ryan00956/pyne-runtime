@@ -257,8 +257,16 @@ Strategy output is serialized under `output["strategy"]`:
 }
 ```
 
+`closedtrades` and `opentrades` are entry-lot ledgers. Same-direction entries
+create separate lots, `strategy.exit(..., from_entry="...")` closes matching
+lots first, and broad closes such as `strategy.close_all()` close lots FIFO.
+The position series remains a deterministic net-position replay.
+
 Known limits:
 
 - no intrabar path model
+- `strategy.close(id)` currently emits a net-position close event; entry-id
+  filtering is represented in the trade ledger and will be tightened further
+  with the strategy replay model
 - Python `if` cannot branch directly on series conditions; use
   `entry_when()` and `close_when()`
