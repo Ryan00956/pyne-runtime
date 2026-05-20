@@ -78,6 +78,9 @@ class StrategyRiskNamespace:
         self._strategy._max_intraday_loss_value = max(float(value), 0.0)
         self._strategy._max_intraday_loss_type = _normalize_risk_mode(type)
 
+    def max_position_size(self, contracts: float) -> None:
+        self._strategy._max_position_size = max(float(contracts), 0.0)
+
 
 class StrategyTradesNamespace:
     """Script-facing trade ledger namespace.
@@ -190,6 +193,7 @@ class StrategyModule:
         self._max_drawdown_type = StrategyRiskMode.percent_of_equity
         self._max_intraday_loss_value: float | None = None
         self._max_intraday_loss_type = StrategyRiskMode.percent_of_equity
+        self._max_position_size: float | None = None
         self._risk_locked = False
         self.risk = StrategyRiskNamespace(self)
         self._initial_capital = 100000.0
@@ -730,7 +734,14 @@ class StrategyModule:
                         continue
                     fill_side = "buy" if side == self.long else "sell"
                     fill_price = self._fill_price(float(order.get("_base_price", order.get("price", np.nan))), fill_side)
-                    qty = float(order.get("qty", 0.0))
+                    qty = _entry_qty_for_max_position_size(
+                        side=side,
+                        previous_size=current_size,
+                        requested_qty=float(order.get("qty", 0.0)),
+                        max_position_size=self._max_position_size,
+                    )
+                    if qty <= 0:
+                        continue
                     position_after, avg_after = _entry_position_after(
                         previous_size=current_size,
                         previous_avg=current_avg,
@@ -761,6 +772,7 @@ class StrategyModule:
                     previous_size = current_size
                     current_size = position_after
                     current_avg = avg_after
+                    order["qty"] = round(qty, 8)
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(float(position_after), 8)
                     commission = self._apply_commission(
@@ -938,11 +950,19 @@ class StrategyModule:
                             continue
                         fill_side = "buy" if side == self.long else "sell"
                         fill_price = self._fill_price(float(trigger_price), fill_side)
+                        qty = _entry_qty_for_max_position_size(
+                            side=side,
+                            previous_size=current_size,
+                            requested_qty=float(order.get("qty", 0.0)),
+                            max_position_size=self._max_position_size,
+                        )
+                        if qty <= 0:
+                            continue
                         position_after, avg_after = _entry_position_after(
                             previous_size=current_size,
                             previous_avg=current_avg,
                             side=side,
-                            qty=float(order.get("qty", 0.0)),
+                            qty=qty,
                             price=fill_price,
                         )
                         pre_fill_equity = _strategy_equity(
@@ -1002,6 +1022,8 @@ class StrategyModule:
                     previous_size = current_size
                     current_size = position_after
                     current_avg = avg_after
+                    if order.get("type") == "entry":
+                        order["qty"] = round(qty, 8)
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(float(position_after), 8)
                     if order.get("_oca_name"):
@@ -1133,6 +1155,11 @@ class StrategyModule:
                     else None
                 ),
                 "max_intraday_loss_type": self._max_intraday_loss_type,
+                "max_position_size": (
+                    round(self._max_position_size, 8)
+                    if self._max_position_size is not None
+                    else None
+                ),
             },
             "closedtrades": closed_trades,
             "opentrades": serialized_open_trades,
@@ -1280,6 +1307,24 @@ def _entry_allowed(
     if side == StrategyModule.short and previous_size > 0:
         return True
     return same_direction_entry_count < pyramiding + 1
+
+
+def _entry_qty_for_max_position_size(
+    *,
+    side: str,
+    previous_size: float,
+    requested_qty: float,
+    max_position_size: float | None,
+) -> float:
+    qty = abs(float(requested_qty))
+    if max_position_size is None:
+        return qty
+    limit = max(float(max_position_size), 0.0)
+    if side == StrategyModule.long:
+        available = limit - float(previous_size) if previous_size > 0 else limit
+    else:
+        available = limit + float(previous_size) if previous_size < 0 else limit
+    return max(min(qty, available), 0.0)
 
 
 def _normalize_commission_type(value: str) -> str:

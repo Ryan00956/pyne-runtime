@@ -258,6 +258,7 @@ plot(strategy.equity, "Equity")
         "max_drawdown_type": "percent_of_equity",
         "max_intraday_loss": None,
         "max_intraday_loss_type": "percent_of_equity",
+        "max_position_size": None,
     }
 
 
@@ -334,6 +335,7 @@ plot(strategy.position_size, "Position")
         "max_drawdown_type": "percent_of_equity",
         "max_intraday_loss": 5.0,
         "max_intraday_loss_type": "percent_of_equity",
+        "max_position_size": None,
     }
 
 
@@ -358,6 +360,101 @@ plot(strategy.position_size, "Position")
     assert [order["id"] for order in result.output["strategy"]["orders"]] == ["Long"]
     assert result.values("Position") == [1.0, 1.0, 1.0]
     assert result.output["strategy"]["risk"]["max_intraday_loss_type"] == "cash"
+
+
+def test_strategy_risk_max_position_size_caps_entry_quantity() -> None:
+    result = pn.run(
+        """
+strategy("Risk Position Size", overlay=True, initial_capital=1000, pyramiding=2)
+strategy.risk.max_position_size(3)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=5, price=close)
+strategy.entry_when(bar_index == 1, "More", strategy.long, qty=2, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 3.0,
+            "price": 10.0,
+            "position_after": 3.0,
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [3.0, 3.0]
+    assert result.output["strategy"]["risk"]["max_position_size"] == 3.0
+
+
+def test_strategy_risk_max_position_size_caps_reversal_entry_quantity() -> None:
+    result = pn.run(
+        """
+strategy("Risk Position Reversal", overlay=True, initial_capital=1000)
+strategy.risk.max_position_size(3)
+strategy.entry_when(bar_index == 0, "Short", strategy.short, qty=4, price=close)
+strategy.entry_when(bar_index == 1, "Reverse Long", strategy.long, qty=10, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Short",
+            "type": "entry",
+            "side": "short",
+            "qty": 3.0,
+            "price": 10.0,
+            "position_after": -3.0,
+            "comment": "",
+        },
+        {
+            "time": 2,
+            "id": "Reverse Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 3.0,
+            "price": 10.0,
+            "position_after": 3.0,
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [-3.0, 3.0]
+
+
+def test_strategy_risk_max_position_size_does_not_cap_order_namespace() -> None:
+    result = pn.run(
+        """
+strategy("Risk Position Order", overlay=True, initial_capital=1000)
+strategy.risk.max_position_size(1)
+strategy.order_when(bar_index == 0, "Long Order", strategy.long, qty=5, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"][0]["qty"] == 5.0
+    assert result.values("Position") == [5.0, 5.0]
 
 
 def test_strategy_order_alias_accepts_when_keyword_and_costs() -> None:

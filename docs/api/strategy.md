@@ -138,6 +138,7 @@ Capital reporting:
 strategy.risk.allow_entry_in(strategy.direction.long)
 strategy.risk.max_drawdown(20, strategy.percent_of_equity)
 strategy.risk.max_intraday_loss(5, strategy.cash)
+strategy.risk.max_position_size(10)
 ```
 
 `strategy.risk.allow_entry_in(...)` limits subsequent replay of
@@ -168,6 +169,17 @@ the same value types, but resets at the next `session.isfirstbar` boundary. Host
 applications can mark daily or trading-session starts with per-bar
 `session_isfirstbar` metadata. Without explicit metadata, Pyne's default batch
 session marks only the first input bar as a session start.
+
+`strategy.risk.max_position_size(contracts)` caps `strategy.entry*` fills so
+the resulting long or short position does not exceed the configured absolute
+size. If an entry would exceed the cap, Pyne reduces its fill quantity; if no
+quantity remains after the cap is applied, the entry is skipped. Opposite
+entries can replace the current position with a new capped position in the
+opposite direction.
+
+Like `allow_entry_in(...)`, this is an entry-level risk rule.
+`strategy.order*` remains a lower-level net-position API and is not quantity
+capped by `max_position_size(...)`.
 
 ## Entry
 
