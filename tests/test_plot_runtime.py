@@ -364,6 +364,56 @@ plotchar(
     assert [point["time"] for point in last_marker["data"]] == [2]
 
 
+def test_plotarrow_maps_signed_series_to_directional_markers() -> None:
+    result = pn.run(
+        """
+indicator("Plotarrow", overlay=True)
+plotarrow(
+    close - 2.5,
+    title="Momentum",
+    colorup=color.green,
+    colordown=color.red,
+    minheight=10,
+    maxheight=20,
+)
+plotarrow(
+    close - 1.5,
+    title="Last Arrow",
+    offset=-1,
+    show_last=1,
+    display=display.status_line,
+)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    momentum, last_arrow = result.output["markers"]
+
+    assert momentum["title"] == "Momentum"
+    assert momentum["shape"] == "arrow"
+    assert momentum["color_up"] == "#26a69a"
+    assert momentum["color_down"] == "#ef5350"
+    assert momentum["minheight"] == 10
+    assert momentum["maxheight"] == 20
+    assert [(point["time"], point["direction"]) for point in momentum["data"]] == [
+        (1, "down"),
+        (3, "up"),
+    ]
+    assert [point["shape"] for point in momentum["data"]] == ["arrow_down", "arrow_up"]
+    assert [point["position"] for point in momentum["data"]] == ["above", "below"]
+    assert [point["height"] for point in momentum["data"]] == [20, 20]
+    assert [point["value"] for point in momentum["data"]] == [-1.0, 1.0]
+
+    assert last_arrow["title"] == "Last Arrow"
+    assert last_arrow["offset"] == -1
+    assert last_arrow["display"] == "status_line"
+    assert [(point["time"], point["direction"], point["value"]) for point in last_arrow["data"]] == [
+        (2, "up", 2.0),
+    ]
+
+
 def test_box_and_table_objects_can_be_deleted() -> None:
     result = pn.run(
         """

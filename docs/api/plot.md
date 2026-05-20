@@ -11,6 +11,7 @@ p2 = plot(lower, "Lower", color=color.blue)
 fill(p1, p2, color="rgba(59,130,246,0.08)")
 plotshape(close > open, title="Up", style=shape.triangleup, location=location.abovebar)
 plotchar(close > open, title="Up Char", char="*", location=location.abovebar)
+plotarrow(close - open, title="Body Direction")
 marker(close > open, shape=shape.triangleup, location=location.abovebar, size=size.small)
 ```
 
@@ -22,6 +23,7 @@ Common outputs:
 - `fill()`
 - `plotshape()`
 - `plotchar()`
+- `plotarrow()`
 - `marker()`
 - `bgcolor()`
 - `barcolor()`
@@ -77,6 +79,25 @@ plotchar(
 
 Supported arguments include `title`, `char`, `location`, `color`, `offset`,
 `text`, `textcolor`, `size`, `show_last`, `display`, and `force_overlay`.
+
+`plotarrow()` maps a signed numeric series to directional arrow markers.
+Positive values emit upward arrows, negative values emit downward arrows, and
+zero or missing values are skipped.
+
+```python
+plotarrow(
+    close - open,
+    title="Body Direction",
+    colorup=color.green,
+    colordown=color.red,
+    minheight=10,
+    maxheight=30,
+)
+```
+
+Supported arguments include `title`, `colorup`, `colordown`, `offset`,
+`minheight`, `maxheight`, `show_last`, `display`, and `force_overlay`.
+Each emitted point includes `direction`, `value`, and a scaled `height`.
 
 ## Drawing Objects
 

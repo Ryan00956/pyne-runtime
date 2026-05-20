@@ -703,6 +703,120 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             force_overlay=force_overlay,
         )
 
+    def plotarrow(
+        series: PyneSeries | np.ndarray | list | int | float,
+        title: str = "",
+        colorup: str | PyneSeries | np.ndarray | list = "#26a69a",
+        colordown: str | PyneSeries | np.ndarray | list = "#ef5350",
+        offset: int = 0,
+        minheight: int = 5,
+        maxheight: int = 30,
+        editable: bool = True,
+        show_last: int | None = None,
+        display: str | None = None,
+        force_overlay: bool = False,
+        **_: Any,
+    ) -> None:
+        """Pine-like ``plotarrow()`` wrapper over Pyne marker output."""
+        _ = editable
+        pane = "main" if force_overlay else (
+            "separate" if not collector._indicator_meta.get("overlay", True) else "main"
+        )
+        values = _values_from_data(series)
+        offset_value = int(offset)
+        first_visible_index = 0
+        if show_last is not None:
+            first_visible_index = max(len(collector.times) - max(int(show_last), 0), 0)
+
+        visible_numbers: list[float] = []
+        for idx, item in enumerate(values):
+            if idx < first_visible_index or is_na_value(item):
+                continue
+            try:
+                number = float(item)
+            except (TypeError, ValueError):
+                continue
+            if number != 0:
+                visible_numbers.append(abs(number))
+
+        max_abs = max(visible_numbers) if visible_numbers else 0.0
+        min_height = int(minheight)
+        max_height = int(maxheight)
+        if max_height < min_height:
+            min_height, max_height = max_height, min_height
+
+        marks: list[dict[str, Any]] = []
+        for idx, (t, item) in enumerate(zip(collector.times, values)):
+            if idx < first_visible_index or is_na_value(item):
+                continue
+            try:
+                number = float(item)
+            except (TypeError, ValueError):
+                continue
+            if number == 0:
+                continue
+
+            target_index = idx + offset_value
+            if target_index < 0 or target_index >= len(collector.times):
+                continue
+
+            is_up = number > 0
+            color_data = colorup if is_up else colordown
+            fallback_color = (
+                str(color_data)
+                if not isinstance(color_data, (PyneSeries, np.ndarray, list))
+                else "#26a69a" if is_up else "#ef5350"
+            )
+            if max_abs > 0 and max_height > min_height:
+                height = min_height + int(round((max_height - min_height) * (abs(number) / max_abs)))
+            else:
+                height = min_height
+
+            marks.append({
+                "time": collector.times[target_index],
+                "shape": "arrow_up" if is_up else "arrow_down",
+                "color": _color_for_index(color_data, idx, t) or fallback_color,
+                "text": "",
+                "position": "below" if is_up else "above",
+                "size": "normal",
+                "pane": pane,
+                "direction": "up" if is_up else "down",
+                "value": round(number, 8),
+                "height": height,
+            })
+
+        if marks:
+            arrow_entry: dict[str, Any] = {
+                "shape": "arrow",
+                "color_up": (
+                    str(colorup)
+                    if not isinstance(colorup, (PyneSeries, np.ndarray, list))
+                    else "#26a69a"
+                ),
+                "color_down": (
+                    str(colordown)
+                    if not isinstance(colordown, (PyneSeries, np.ndarray, list))
+                    else "#ef5350"
+                ),
+                "text": "",
+                "position": "auto",
+                "size": "normal",
+                "pane": pane,
+                "minheight": min_height,
+                "maxheight": max_height,
+                "data": marks,
+                **_display_options(display=display, format=None, precision=None),
+            }
+            if title:
+                arrow_entry["title"] = title
+            if offset_value:
+                arrow_entry["offset"] = offset_value
+            if isinstance(colorup, (PyneSeries, np.ndarray, list)) or isinstance(
+                colordown, (PyneSeries, np.ndarray, list)
+            ):
+                arrow_entry["per_bar_color"] = True
+            collector.markers.append(arrow_entry)
+
     def barcolor(
         color_arr: PyneSeries | np.ndarray | str,
     ) -> None:
@@ -1403,6 +1517,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         "marker": marker,
         "plotshape": plotshape,
         "plotchar": plotchar,
+        "plotarrow": plotarrow,
         "barcolor": barcolor,
         "emit_signal": emit_signal,
         "alertcondition": alertcondition,
