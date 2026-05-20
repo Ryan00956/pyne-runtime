@@ -265,7 +265,7 @@ position at matching bars.
 ## Exit
 
 ```python
-strategy.exit(id, from_entry="", qty=None, stop=None, limit=None, when=True, comment="")
+strategy.exit(id, from_entry="", qty=None, qty_percent=None, stop=None, limit=None, when=True, comment="")
 ```
 
 `strategy.exit()` emits stop/limit bracket exit events while a position is open.
@@ -282,7 +282,9 @@ deterministic event model, not an intrabar broker simulator.
 When `from_entry` is provided, the exit targets matching entry-id lots. When
 `qty` is provided, the exit reduces that matched quantity by up to `qty` and
 leaves the remaining position open with the previous average entry price. When
-`qty` is omitted, the exit closes the full matched entry lot quantity.
+`qty_percent` is provided, the exit reduces that percentage of the targeted
+quantity. If both `qty` and `qty_percent` are provided, `qty` takes precedence.
+When neither is provided, the exit closes the full matched entry lot quantity.
 
 ## Position Series
 

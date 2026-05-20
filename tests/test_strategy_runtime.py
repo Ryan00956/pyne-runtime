@@ -1678,6 +1678,109 @@ plot(strategy.position_size, "Position")
     ]
 
 
+def test_strategy_exit_supports_qty_percent_for_matching_entry_lot() -> None:
+    result = pn.run(
+        """
+strategy("Exit Percent", overlay=True, initial_capital=1000, pyramiding=2)
+strategy.entry_when(bar_index == 0, "A", strategy.long, qty=2, price=close)
+strategy.entry_when(bar_index == 1, "B", strategy.long, qty=2, price=close)
+strategy.exit("Exit A Half", from_entry="A", qty_percent=50, limit=12, when=bar_index == 2)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
+            {"time": 3, "open": 12, "high": 13, "low": 11, "close": 12, "volume": 100},
+            {"time": 4, "open": 13, "high": 14, "low": 12, "close": 13, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Position") == [2.0, 4.0, 3.0, 3.0]
+    assert result.output["strategy"]["orders"][-1] == {
+        "time": 3,
+        "id": "Exit A Half",
+        "from_entry": "A",
+        "type": "exit",
+        "side": "flat",
+        "qty": 1.0,
+        "price": 12.0,
+        "position_after": 3.0,
+        "reason": "limit",
+        "comment": "",
+    }
+    assert result.output["strategy"]["closedtrades"] == [
+        {
+            "entry_time": 1,
+            "exit_time": 3,
+            "entry_id": "A",
+            "exit_id": "Exit A Half",
+            "side": "long",
+            "qty": 1.0,
+            "entry_price": 10.0,
+            "exit_price": 12.0,
+            "profit": 2.0,
+            "commission": 0.0,
+            "net_profit": 2.0,
+        }
+    ]
+    assert result.output["strategy"]["opentrades"] == [
+        {
+            "entry_time": 1,
+            "entry_id": "A",
+            "side": "long",
+            "qty": 1.0,
+            "entry_price": 10.0,
+            "profit": 3.0,
+        },
+        {
+            "entry_time": 2,
+            "entry_id": "B",
+            "side": "long",
+            "qty": 2.0,
+            "entry_price": 11.0,
+            "profit": 4.0,
+        },
+    ]
+
+
+def test_strategy_exit_qty_takes_precedence_over_qty_percent() -> None:
+    result = pn.run(
+        """
+strategy("Exit Qty Precedence", overlay=True, initial_capital=1000)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=4, price=close)
+strategy.exit("Exit Some", from_entry="Long", qty=1.5, qty_percent=75, limit=12, when=bar_index == 2)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
+            {"time": 3, "open": 12, "high": 13, "low": 11, "close": 12, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Position") == [4.0, 4.0, 2.5]
+    assert result.output["strategy"]["orders"][-1]["qty"] == 1.5
+    assert result.output["strategy"]["closedtrades"] == [
+        {
+            "entry_time": 1,
+            "exit_time": 3,
+            "entry_id": "Long",
+            "exit_id": "Exit Some",
+            "side": "long",
+            "qty": 1.5,
+            "entry_price": 10.0,
+            "exit_price": 12.0,
+            "profit": 3.0,
+            "commission": 0.0,
+            "net_profit": 3.0,
+        }
+    ]
+
+
 def test_strategy_trade_namespaces_expose_count_series_and_fields() -> None:
     result = pn.run(
         """

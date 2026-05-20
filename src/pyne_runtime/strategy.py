@@ -642,7 +642,8 @@ class StrategyModule:
         id: str,
         *,
         from_entry: str = "",
-        qty: float | None = None,
+        qty: PyneSeries | np.ndarray | list | float | None = None,
+        qty_percent: PyneSeries | np.ndarray | list | float | None = None,
         stop: PyneSeries | np.ndarray | list | float | None = None,
         limit: PyneSeries | np.ndarray | list | float | None = None,
         when: PyneSeries | np.ndarray | list | bool = True,
@@ -657,6 +658,8 @@ class StrategyModule:
             return
 
         flags = _condition_values(when, self._context.bar_count)
+        qty_values = _optional_numeric_values(qty, self._context.bar_count)
+        qty_percent_values = _optional_numeric_values(qty_percent, self._context.bar_count)
         stops = _optional_price_values(stop, self._context.bar_count)
         limits = _optional_price_values(limit, self._context.bar_count)
         high_values = _price_values(self._context.high, self._context.high, self._context.bar_count)
@@ -680,18 +683,30 @@ class StrategyModule:
                 continue
 
             reason, event_price = trigger
+            event_qty = min(
+                abs(current_position),
+                _requested_close_qty(
+                    target_qty=abs(current_position),
+                    qty=qty_values[idx],
+                    qty_percent=qty_percent_values[idx],
+                ),
+            )
+            if event_qty <= 0:
+                continue
             self._collector.strategy_orders.append({
                 "time": self._context.times[idx],
                 "id": str(id),
                 "from_entry": str(from_entry),
                 "type": "exit",
                 "side": "flat",
-                "qty": abs(float(qty)) if qty is not None else abs(current_position),
+                "qty": round(float(event_qty), 8),
                 "price": round(float(event_price), 8),
                 "position_after": 0.0,
                 "reason": reason,
                 "comment": comment,
                 "_base_price": float(event_price),
+                "_requested_qty": qty_values[idx],
+                "_qty_percent": qty_percent_values[idx],
                 "_seq": self._next_event_seq(),
             })
             self._touched = True
@@ -912,8 +927,12 @@ class StrategyModule:
                 elif order.get("type") in {"close", "close_all", "exit"} and current_size != 0:
                     previous_size = current_size
                     if order.get("type") == "exit":
-                        requested_qty = abs(float(order.get("qty", abs(current_size))))
                         target_qty = _target_open_qty(order, open_trades, current_size)
+                        requested_qty = _requested_close_qty(
+                            target_qty=target_qty,
+                            qty=order.get("_requested_qty"),
+                            qty_percent=order.get("_qty_percent"),
+                        )
                         fill_qty = min(requested_qty, target_qty)
                     elif order.get("type") == "close":
                         target_qty = _target_open_qty(order, open_trades, current_size)
