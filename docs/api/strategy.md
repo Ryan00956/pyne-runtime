@@ -379,6 +379,9 @@ Lifecycle records include:
 - order identity and replay fields such as `id`, `type`, `side`, `qty`,
   `price`, `limit`, `stop`, `position_after`, `reason`, `comment`,
   `oca_name`, and `oca_type` when those fields apply.
+- quantity details such as `target_qty`, `requested_qty`, `filled_qty`, and
+  `qty_percent` when replay needs to distinguish requested size from actual
+  filled size.
 
 Pending entry/order submissions that never fill still appear with
 `status="pending"`. Pending submissions canceled by `strategy.cancel()`,
@@ -390,6 +393,15 @@ Pending entry/order submissions that never fill still appear with
 Rejected submissions appear with `status="rejected"` and `rejected_reason`.
 Current rejection reasons include `risk_locked`, `direction_not_allowed`,
 `pyramiding_exceeded`, `max_position_size`, and `margin`.
+
+For capped or partial fills, `orders[*].qty` remains the compact filled ledger
+quantity, while lifecycle fields preserve the wider replay context:
+
+- `target_qty`: position or entry-lot quantity available to close/exit.
+- `requested_qty`: quantity requested by the script after applying
+  `qty_percent`, if any.
+- `filled_qty`: quantity actually filled by the deterministic replay.
+- `qty_percent`: original percentage request for close/exit calls when used.
 
 ## Output
 
@@ -405,6 +417,8 @@ Strategy output is serialized under `output["strategy"]`:
         "type": "entry",
         "side": "long",
         "qty": 1.0,
+        "requested_qty": 1.0,
+        "filled_qty": 1.0,
         "price": 123.45,
         "position_after": 1.0,
         "commission": 0.12,

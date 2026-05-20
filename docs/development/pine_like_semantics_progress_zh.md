@@ -104,6 +104,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   canceled、rejected、market_fill、pending_fill、pending_canceled、
   pending_rejected、exit/close/cancel/rejected 等阶段，便于宿主层和测试层
   观察 Pine-like 回放逻辑。
+- `strategy.lifecycle` 已区分 `requested_qty`、`filled_qty`、`target_qty`
+  和 `qty_percent`，用于观察 max position size 截断、partial close/exit 等
+  数量语义。
 
 ## 仍然不是 Pine 的地方
 
@@ -150,8 +153,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 - same-bar stop/limit 触发顺序策略已明确，默认 `stop_first`，可配置 `limit_first`。
 - intrabar path policy 已支持 high-before-low / low-before-high 两种确定性假设。
-- 订单生命周期报告已加入 `strategy.lifecycle`，并覆盖常见 rejected 原因；
-  后续可继续扩展 partial fill 细节和更多 broker-emulator 风格事件。
+- 订单生命周期报告已加入 `strategy.lifecycle`，并覆盖常见 rejected 原因和
+  requested/filled quantity 细节；后续可继续扩展更多 broker-emulator 风格事件。
 - 增加 strategy golden fixtures。
 
 ### P5: Golden 与兼容性证据

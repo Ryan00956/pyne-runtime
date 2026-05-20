@@ -395,6 +395,13 @@ plot(strategy.position_size, "Position")
     ]
     assert result.values("Position") == [3.0, 3.0]
     assert result.output["strategy"]["risk"]["max_position_size"] == 3.0
+    lifecycle = {event["id"]: event for event in result.output["strategy"]["lifecycle"]}
+    assert lifecycle["Long"]["requested_qty"] == 5.0
+    assert lifecycle["Long"]["filled_qty"] == 3.0
+    assert lifecycle["More"]["status"] == "rejected"
+    assert lifecycle["More"]["rejected_reason"] == "max_position_size"
+    assert lifecycle["More"]["requested_qty"] == 2.0
+    assert lifecycle["More"]["filled_qty"] == 0.0
 
 
 def test_strategy_risk_max_position_size_caps_reversal_entry_quantity() -> None:
@@ -829,6 +836,8 @@ plot(strategy.position_size, "Position")
             "reason": "stop",
             "comment": "",
             "stop": 2.5,
+            "requested_qty": 1.0,
+            "filled_qty": 1.0,
         },
         {
             "id": "Fade",
@@ -888,10 +897,14 @@ plot(strategy.position_size, "Position")
     assert result.ok
     lifecycle = {event["id"]: event for event in result.output["strategy"]["lifecycle"]}
     assert lifecycle["Long"]["status"] == "filled"
+    assert lifecycle["Long"]["requested_qty"] == 1.0
+    assert lifecycle["Long"]["filled_qty"] == 1.0
     assert lifecycle["Short"]["status"] == "rejected"
     assert lifecycle["Short"]["phase"] == "rejected"
     assert lifecycle["Short"]["rejected_reason"] == "direction_not_allowed"
     assert lifecycle["Short"]["rejected_time"] == 1
+    assert lifecycle["Short"]["requested_qty"] == 1.0
+    assert lifecycle["Short"]["filled_qty"] == 0.0
     assert lifecycle["Pyramid"]["status"] == "rejected"
     assert lifecycle["Pyramid"]["rejected_reason"] == "pyramiding_exceeded"
     assert lifecycle["Pyramid"]["rejected_time"] == 2
@@ -1537,6 +1550,11 @@ plot(strategy.position_avg_price, "Average")
     ]
     assert result.values("Position") == [2.0, 2.0, 1.5, 1.5]
     assert result.values("Average") == [1.5, 1.5, 1.5, 1.5]
+    exit_lifecycle = result.output["strategy"]["lifecycle"][-1]
+    assert exit_lifecycle["id"] == "Take Some"
+    assert exit_lifecycle["target_qty"] == 2.0
+    assert exit_lifecycle["requested_qty"] == 0.5
+    assert exit_lifecycle["filled_qty"] == 0.5
 
 
 def test_strategy_exit_emits_stop_exit_for_short_position() -> None:
@@ -2095,6 +2113,12 @@ plot(strategy.position_size, "Position")
             "profit": 4.0,
         },
     ]
+    exit_lifecycle = result.output["strategy"]["lifecycle"][-1]
+    assert exit_lifecycle["id"] == "Exit A Half"
+    assert exit_lifecycle["target_qty"] == 2.0
+    assert exit_lifecycle["requested_qty"] == 1.0
+    assert exit_lifecycle["filled_qty"] == 1.0
+    assert exit_lifecycle["qty_percent"] == 50.0
 
 
 def test_strategy_exit_qty_takes_precedence_over_qty_percent() -> None:

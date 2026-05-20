@@ -773,6 +773,9 @@ class StrategyModule:
             key=lambda item: (item.get("time", 0), item.get("_seq", 0)),
         ):
             order["_active"] = False
+            order.pop("_filled_qty", None)
+            order.pop("_requested_fill_qty", None)
+            order.pop("_target_qty", None)
             if order.get("type") in {"entry", "order"}:
                 order.pop("_canceled", None)
                 order.pop("_canceled_time", None)
@@ -833,7 +836,9 @@ class StrategyModule:
                         requested_qty=float(order.get("qty", 0.0)),
                         max_position_size=self._max_position_size,
                     )
+                    order["_requested_fill_qty"] = float(order.get("_original_qty", order.get("qty", 0.0)))
                     if qty <= 0:
+                        order["_filled_qty"] = 0.0
                         _reject_order(order, timestamp=timestamp, reason="max_position_size")
                         continue
                     position_after, avg_after = _entry_position_after(
@@ -858,6 +863,7 @@ class StrategyModule:
                         price=fill_price,
                         equity=pre_fill_equity,
                     ):
+                        order["_filled_qty"] = 0.0
                         _reject_order(order, timestamp=timestamp, reason="margin")
                         continue
                     if current_size == 0 or (current_size > 0) != (position_after > 0):
@@ -868,6 +874,7 @@ class StrategyModule:
                     current_size = position_after
                     current_avg = avg_after
                     order["qty"] = round(qty, 8)
+                    order["_filled_qty"] = round(qty, 8)
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(float(position_after), 8)
                     commission = self._apply_commission(
@@ -909,6 +916,7 @@ class StrategyModule:
                     fill_side = "buy" if side == self.long else "sell"
                     fill_price = self._fill_price(float(order.get("_base_price", order.get("price", np.nan))), fill_side)
                     qty = float(order.get("qty", 0.0))
+                    order["_requested_fill_qty"] = float(order.get("_original_qty", qty))
                     position_after, avg_after = _order_position_after(
                         previous_size=current_size,
                         previous_avg=current_avg,
@@ -931,6 +939,7 @@ class StrategyModule:
                         price=fill_price,
                         equity=pre_fill_equity,
                     ):
+                        order["_filled_qty"] = 0.0
                         _reject_order(order, timestamp=timestamp, reason="margin")
                         continue
                     if position_after == 0:
@@ -941,6 +950,7 @@ class StrategyModule:
                     current_size = position_after
                     current_avg = avg_after
                     order["price"] = round(float(fill_price), 8)
+                    order["_filled_qty"] = round(qty, 8)
                     order["position_after"] = round(float(position_after), 8)
                     commission = self._apply_commission(order, qty=qty, price=fill_price)
                     signed_qty = qty if side == self.long else -qty
@@ -985,7 +995,11 @@ class StrategyModule:
                         )
                         fill_qty = min(target_qty, abs(current_size), requested_qty)
                     else:
+                        target_qty = abs(current_size)
+                        requested_qty = target_qty
                         fill_qty = abs(current_size)
+                    order["_target_qty"] = round(float(target_qty), 8)
+                    order["_requested_fill_qty"] = round(float(requested_qty), 8)
                     if fill_qty <= 0:
                         continue
                     remaining = abs(current_size) - fill_qty
@@ -995,6 +1009,7 @@ class StrategyModule:
                     fill_side = "sell" if current_size > 0 else "buy"
                     fill_price = self._fill_price(float(order.get("_base_price", order.get("price", np.nan))), fill_side)
                     order["qty"] = round(fill_qty, 8)
+                    order["_filled_qty"] = round(fill_qty, 8)
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(next_size, 8)
                     commission = self._apply_commission(order, qty=fill_qty, price=fill_price)
@@ -1084,7 +1099,9 @@ class StrategyModule:
                             requested_qty=float(order.get("qty", 0.0)),
                             max_position_size=self._max_position_size,
                         )
+                        order["_requested_fill_qty"] = float(order.get("_original_qty", order.get("qty", 0.0)))
                         if qty <= 0:
+                            order["_filled_qty"] = 0.0
                             _reject_order(order, timestamp=timestamp, reason="max_position_size")
                             continue
                         position_after, avg_after = _entry_position_after(
@@ -1120,6 +1137,7 @@ class StrategyModule:
                         fill_side = "buy" if side == self.long else "sell"
                         fill_price = self._fill_price(float(trigger_price), fill_side)
                         qty = float(order.get("qty", 0.0))
+                        order["_requested_fill_qty"] = float(order.get("_original_qty", qty))
                         position_after, avg_after = _order_position_after(
                             previous_size=current_size,
                             previous_avg=current_avg,
@@ -1153,6 +1171,7 @@ class StrategyModule:
                     current_avg = avg_after
                     if order.get("type") == "entry":
                         order["qty"] = round(qty, 8)
+                    order["_filled_qty"] = round(float(qty), 8)
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(float(position_after), 8)
                     if order.get("_oca_name"):
@@ -1520,6 +1539,14 @@ def _strategy_lifecycle_event(order: dict[str, Any]) -> dict[str, Any] | None:
     for internal_key, public_key in (("_limit", "limit"), ("_stop", "stop")):
         if order.get(internal_key) is not None:
             event[public_key] = order.get(internal_key)
+    if order.get("_requested_fill_qty") is not None:
+        event["requested_qty"] = round(float(order.get("_requested_fill_qty", 0.0)), 8)
+    if order.get("_filled_qty") is not None:
+        event["filled_qty"] = round(float(order.get("_filled_qty", 0.0)), 8)
+    if order.get("_target_qty") is not None:
+        event["target_qty"] = round(float(order.get("_target_qty", 0.0)), 8)
+    if order.get("_qty_percent") is not None:
+        event["qty_percent"] = round(float(order.get("_qty_percent", 0.0)), 8)
     if order.get("_canceled_by"):
         event["canceled_by"] = order.get("_canceled_by")
     if order.get("_rejected_reason"):
@@ -1574,6 +1601,12 @@ def _strategy_lifecycle_phase(
 
 
 def _reject_order(order: dict[str, Any], *, timestamp: int, reason: str) -> None:
+    if order.get("type") in {"entry", "order"}:
+        order.setdefault(
+            "_requested_fill_qty",
+            float(order.get("_original_qty", order.get("qty", 0.0))),
+        )
+        order.setdefault("_filled_qty", 0.0)
     order["_rejected_reason"] = reason
     order["_rejected_time"] = timestamp
 
