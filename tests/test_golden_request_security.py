@@ -11,7 +11,7 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 
 
 class GoldenProvider:
-    def __init__(self, bars: list[dict[str, Any]]) -> None:
+    def __init__(self, bars: list[dict[str, Any]] | dict[str, list[dict[str, Any]]]) -> None:
         self.calls: list[tuple[str, str, int, int]] = []
         self._bars = bars
         self.capabilities = {
@@ -27,6 +27,8 @@ class GoldenProvider:
         end: int,
     ) -> list[dict[str, Any]]:
         self.calls.append((symbol, timeframe, start, end))
+        if isinstance(self._bars, dict):
+            return self._bars.get(f"{symbol}|{timeframe}", self._bars.get(timeframe, []))
         return self._bars
 
 
@@ -49,6 +51,23 @@ def test_golden_request_security_lower_tf_alignment() -> None:
 
 def test_golden_request_security_alignment() -> None:
     fixture = _load_fixture("request_security_alignment.json")
+    provider = GoldenProvider(fixture["provider_bars"])
+
+    result = pn.run(
+        fixture["script"],
+        fixture["chart_bars"],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
+    for name, expected in fixture["expected_series"].items():
+        assert result.get_series(name) == expected
+
+
+def test_golden_request_security_edge_cases() -> None:
+    fixture = _load_fixture("request_security_edge_cases.json")
     provider = GoldenProvider(fixture["provider_bars"])
 
     result = pn.run(

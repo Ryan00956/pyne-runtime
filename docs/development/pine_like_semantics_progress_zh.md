@@ -90,6 +90,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - `ignore_invalid_symbol` 已覆盖 invalid symbol 容错。
 - provider capability、provider metadata、requested context cache 已完成。
 - 已有 higher timeframe alignment 与 lower timeframe alignment golden fixture。
+- 已补充 request edge-case golden fixture，覆盖错位 chart/requested 时间轴下的
+  `gaps` / `lookahead`、requested context history、tuple thunk、lower timeframe
+  空桶聚合默认值，以及 capability / invalid symbol 组合口径。
 
 ### Strategy
 
@@ -222,7 +225,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 ### P5: Golden 与兼容性证据
 
 - TA golden fixtures。
-- request edge-case golden fixtures。
+- request edge-case golden fixtures 已覆盖 Pyne 定义的 gaps/lookahead、
+  lower-timeframe grouping、空桶默认值、tuple thunk 和 capability/invalid symbol
+  组合场景；后续可继续补真实 Pine 输出对照。
 - strategy fill golden fixtures 已开始覆盖 same-bar、lifecycle、risk lock、
   lot matching、intraday reset、pending risk lock、OCA lifecycle、cost model 与
   limit verification cost、bracket/stop-limit cost、risk/margin cost、entry sizing cost
@@ -232,15 +237,15 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议进入 request-context edge case 与 golden 证据扩展，优先选择
-`request.security()` 的 gaps/lookahead 边界、lower-timeframe 分组边界，以及
-invalid symbol/provider capability 的组合场景。
+下一步建议进入标准库与数学统计 helper 的长尾补齐，优先选择 Pine 用户常用但
+Python 包中仍缺口明显的 `math.*` / `ta.*` 辅助函数，或继续扩展真实 Pine 输出
+对照 golden。
 完成后应同步更新：
 
-- `src/pyne_runtime/request.py`
-- `tests/test_request_security.py`
-- `tests/test_golden_request_security.py`
-- `docs/api/request.md`
+- `src/pyne_runtime/math_ext.py`
+- `src/pyne_runtime/ta.py`
+- `tests/test_ta_runtime.py`
+- `docs/api/ta.md`
 - `docs/reference/pine_like_api_matrix.md`
 
 验证门槛保持为完整检查脚本通过。

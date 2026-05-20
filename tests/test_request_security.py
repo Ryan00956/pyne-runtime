@@ -265,6 +265,50 @@ plot(bad, "Bad")
     assert provider.calls == [("MISSING", "2", 1, 4), ("MISSING", "2", 1, 4)]
 
 
+def test_request_security_ignored_invalid_symbol_does_not_poison_valid_request_cache() -> None:
+    class MixedProvider(StaticProvider):
+        def __init__(self) -> None:
+            super().__init__([
+                {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+                {"time": 3, "open": 30, "high": 31, "low": 29, "close": 30, "volume": 3000},
+            ])
+
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            if symbol == "MISSING":
+                raise pn.PyneInvalidSymbolError(symbol)
+            return self._bars
+
+    provider = MixedProvider()
+
+    result = pn.run(
+        """
+indicator("Invalid Then Valid", overlay=True)
+ignored = request.security("MISSING", "2", close, ignore_invalid_symbol=True)
+valid = request.security("BTCUSDT", "2", close)
+valid_again = request.security("BTCUSDT", "2", high)
+plot(ignored, "Ignored")
+plot(valid, "Valid")
+plot(valid_again, "Valid High")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("MISSING", "2", 1, 4), ("BTCUSDT", "2", 1, 4)]
+    assert result.get_series("Ignored") == []
+    assert result.values("Valid") == [10, 10, 30, 30]
+    assert result.values("Valid High") == [11, 11, 31, 31]
+
+
 def test_request_security_respects_provider_capability_false() -> None:
     provider = CapabilityProvider(
         [{"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}],
@@ -276,6 +320,29 @@ def test_request_security_respects_provider_capability_false() -> None:
 indicator("Unsupported Security", overlay=True)
 higher = request.security("BTCUSDT", "2", close)
 plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert "provider capability" in str(result.error)
+    assert provider.calls == []
+
+
+def test_request_security_lower_tf_respects_provider_capability_false() -> None:
+    provider = CapabilityProvider(
+        [{"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}],
+        capabilities={"request.security_lower_tf": False},
+    )
+
+    result = pn.run(
+        """
+indicator("Unsupported Lower", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
 """,
         _bars(),
         data_provider=provider,

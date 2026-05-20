@@ -240,3 +240,15 @@ Provider capability negotiation uses the same mechanism described above. If the
 provider explicitly disables lower-timeframe requests or omits the capability
 from a list/set declaration, Pyne returns `PYNE_UNSUPPORTED_FEATURE` without
 calling `get_ohlcv(...)`.
+
+## Golden Coverage
+
+The request test suite includes deterministic fixtures for:
+
+- higher-timeframe `gaps` and `lookahead` alignment
+- history references evaluated in the requested context
+- tuple field expressions and tuple callable thunks
+- lower-timeframe `[chart_time, next_chart_time)` grouping
+- empty lower-timeframe buckets and aggregation defaults
+- invalid-symbol ignore behavior and provider capability rejection before
+  provider calls
