@@ -1119,6 +1119,8 @@ class TaModule:
     crossunder = staticmethod(utils.crossunder)
     highest = staticmethod(utils.highest)
     lowest = staticmethod(utils.lowest)
+    highestbars = staticmethod(utils.highestbars)
+    lowestbars = staticmethod(utils.lowestbars)
     change = staticmethod(utils.change)
     roc = staticmethod(utils.roc)
     barssince = staticmethod(utils.barssince)

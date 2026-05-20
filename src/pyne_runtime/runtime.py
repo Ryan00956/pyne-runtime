@@ -302,7 +302,9 @@ class PyneRuntime:
         ns["switch"] = series_switch
         ns["ref"] = utils.shift
         ns["highest"] = utils.highest
+        ns["highestbars"] = utils.highestbars
         ns["lowest"] = utils.lowest
+        ns["lowestbars"] = utils.lowestbars
         ns["change"] = utils.change
         ns["roc"] = utils.roc
         ns["barssince"] = utils.barssince

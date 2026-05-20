@@ -46,6 +46,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 - 常用 `ta.*` 已覆盖：`sma`、`ema`、`rsi`、`macd`、`bb`、`atr` 等。
 - 扩展 TA 已覆盖：`alma`、`hma`、`swma`、`dmi`、`sar`、percentiles 等。
+- TA 状态查询 helper 已覆盖：`highestbars`、`lowestbars`、`barssince`、
+  `valuewhen`。
 - 输出使用稳定 JSON schema，适合宿主图表层渲染。
 
 ### 标准库宽度
@@ -239,13 +241,12 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议进入 TA 统计 helper 与真实 Pine 输出对照 golden，优先选择
-`ta.highestbars()` / `ta.lowestbars()`、`ta.barssince()`、`ta.valuewhen()` 这类
-Pine 用户高频调用且可由现有 utils 语义支撑的函数。
+下一步建议进入真实 Pine 输出对照 golden，优先选择 TA 与 strategy 中已经实现
+但仍只有 Pyne-defined 测试的高频函数，逐步把“可用”升级成“有外部对照证据”。
 完成后应同步更新：
 
-- `src/pyne_runtime/ta.py`
-- `tests/test_ta_runtime.py`
+- `tests/golden/`
+- `tests/test_golden_*.py`
 - `docs/api/ta.md`
 - `docs/reference/pine_like_api_matrix.md`
 

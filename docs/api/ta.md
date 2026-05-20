@@ -29,12 +29,25 @@ ta.percentile_linear_interpolation(close, 20, 50)
 ta.atr(14)
 ta.highest(close, 20)
 ta.lowest(close, 20)
+ta.highestbars(close, 20)
+ta.lowestbars(close, 20)
+ta.barssince(close > open)
+ta.valuewhen(close > open, close, 0)
 ta.cross(a, b)
 ta.crossover(a, b)
 ta.crossunder(a, b)
 ```
 
 Several helpers are also exposed as top-level script functions, such as `cross()`, `crossover()`, `crossunder()`, `highest()`, and `lowest()`.
+
+`ta.highestbars(source, length)` and `ta.lowestbars(source, length)` return the
+number of bars back to the most recent highest or lowest value in the rolling
+window. A return value of `0` means the current bar is the extreme.
+
+`ta.barssince(condition)` returns the number of bars since the condition was
+last true. `ta.valuewhen(condition, source, occurrence)` returns the source
+value from the most recent matching condition, or an older match when
+`occurrence` is greater than zero.
 
 TA helpers are series-aware, so history references compose naturally:
 

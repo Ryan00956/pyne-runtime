@@ -161,3 +161,36 @@ plot(ta.cmo(close[1], 5), "Shifted CMO")
     assert _series_values(result, "ADX")[-1] > 0.0
     assert _series_values(result, "SAR")
     assert _series_values(result, "Shifted CMO")[-1] == 100.0
+
+
+def test_state_lookup_ta_helpers_match_pine_like_offsets() -> None:
+    bars = [
+        {"time": 1, "open": 3, "high": 3, "low": 3, "close": 3, "volume": 100},
+        {"time": 2, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 100},
+        {"time": 3, "open": 5, "high": 5, "low": 5, "close": 5, "volume": 100},
+        {"time": 4, "open": 5, "high": 5, "low": 5, "close": 5, "volume": 100},
+        {"time": 5, "open": 2, "high": 2, "low": 2, "close": 2, "volume": 100},
+        {"time": 6, "open": 4, "high": 4, "low": 4, "close": 4, "volume": 100},
+        {"time": 7, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 100},
+    ]
+    result = pn.run(
+        """
+condition = close >= 4
+plot(ta.highestbars(close, 3), "Highest Bars")
+plot(ta.lowestbars(close, 3), "Lowest Bars")
+plot(ta.barssince(condition), "Bars Since")
+plot(ta.valuewhen(condition, close, 0), "Last Condition Close")
+plot(ta.valuewhen(condition, close, 1), "Previous Condition Close")
+plot(highestbars(close, 3), "Top Level Highest Bars")
+""",
+        bars,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert _series_values(result, "Highest Bars") == [0.0, 0.0, 1.0, 2.0, 1.0]
+    assert _series_values(result, "Lowest Bars") == [1.0, 2.0, 0.0, 1.0, 0.0]
+    assert _series_values(result, "Bars Since") == [0.0, 0.0, 1.0, 0.0, 1.0]
+    assert _series_values(result, "Last Condition Close") == [5.0, 5.0, 5.0, 4.0, 4.0]
+    assert _series_values(result, "Previous Condition Close") == [5.0, 5.0, 5.0, 5.0]
+    assert _series_values(result, "Top Level Highest Bars") == [0.0, 0.0, 1.0, 2.0, 1.0]

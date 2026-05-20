@@ -216,6 +216,45 @@ def lowest(src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray
     return wrap_like(result, src)
 
 
+def highestbars(src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray:
+    """Bars back to the highest value in the last ``period`` bars.
+
+    Pine equivalent: ``ta.highestbars(source, length)``.
+    Returns ``0`` when the current bar is the highest value. If the highest
+    value appears more than once in the window, the most recent occurrence wins.
+    """
+    return _extreme_bars(src, period, highest=True)
+
+
+def lowestbars(src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray:
+    """Bars back to the lowest value in the last ``period`` bars.
+
+    Pine equivalent: ``ta.lowestbars(source, length)``.
+    Returns ``0`` when the current bar is the lowest value. If the lowest value
+    appears more than once in the window, the most recent occurrence wins.
+    """
+    return _extreme_bars(src, period, highest=False)
+
+
+def _extreme_bars(src: PyneSeries | np.ndarray, period: int, *, highest: bool) -> PyneSeries | np.ndarray:
+    source = to_numpy(src, dtype=np.float64)
+    n = len(source)
+    result = np.full(n, np.nan)
+    if period <= 0:
+        return wrap_like(result, src)
+
+    for idx in range(period - 1, n):
+        window = source[idx - period + 1: idx + 1]
+        valid = ~np.isnan(window)
+        if not np.any(valid):
+            continue
+        target = np.nanmax(window) if highest else np.nanmin(window)
+        matches = np.where(window == target)[0]
+        if len(matches):
+            result[idx] = float(period - 1 - matches[-1])
+    return wrap_like(result, src)
+
+
 # ═══════════════════════════════════════════════════════════════
 #  Price Change Functions
 # ═══════════════════════════════════════════════════════════════
