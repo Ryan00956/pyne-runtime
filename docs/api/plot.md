@@ -41,11 +41,11 @@ serializes the final object snapshot under `output["objects"]`.
 ```python
 indicator("Objects", overlay=True)
 
-trend = line.new(bar_index[2], close[2], bar_index, close, color=color.orange)
+trend = line.new(bar_index[2], close[2], bar_index, close, color=color.orange, xloc=xloc.bar_index)
 line.set_color(trend, color.blue)
 line.set_width(trend, 3)
 
-note = label.new(bar_index, high, text="Breakout", color=color.green)
+note = label.new(bar_index, high, text="Breakout", color=color.green, yloc=yloc.abovebar)
 label.set_text(note, "Confirmed")
 
 zone = box.new(bar_index[2], high[2], bar_index, low)
@@ -136,6 +136,8 @@ Common plotting and drawing constants:
   `display.status_line`
 - `format.inherit`, `format.price`, `format.volume`, `format.percent`
 - `scale.left`, `scale.right`, `scale.none`
+- `xloc.bar_index`, `xloc.bar_time`
+- `yloc.price`, `yloc.abovebar`, `yloc.belowbar`
 - `text.align_left`, `text.align_center`, `text.align_right`,
   `text.align_top`, `text.align_middle`, `text.align_bottom`
 - `line.style_solid`, `line.style_dashed`, `line.style_dotted`

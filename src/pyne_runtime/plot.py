@@ -812,6 +812,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         style: str = "label_down",
         size: str = "normal",
         xloc: str = "bar_index",
+        yloc: str = "price",
         pane: str | None = None,
     ) -> ObjectRef:
         if pane is None:
@@ -827,6 +828,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             "style": style,
             "size": size,
             "xloc": xloc,
+            "yloc": yloc,
             "pane": pane,
         }
         return ObjectRef(id=object_id, kind="label")
@@ -871,6 +873,16 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         entry = _label_entry(ref)
         if entry is not None:
             entry["size"] = size
+
+    def label_set_xloc(ref: ObjectRef, xloc: str) -> None:
+        entry = _label_entry(ref)
+        if entry is not None:
+            entry["xloc"] = xloc
+
+    def label_set_yloc(ref: ObjectRef, yloc: str) -> None:
+        entry = _label_entry(ref)
+        if entry is not None:
+            entry["yloc"] = yloc
 
     def label_delete(ref: ObjectRef) -> None:
         if isinstance(ref, ObjectRef) and ref.kind == "label":
@@ -1159,6 +1171,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         set_textcolor=label_set_textcolor,
         set_style=label_set_style,
         set_size=label_set_size,
+        set_xloc=label_set_xloc,
+        set_yloc=label_set_yloc,
         delete=label_delete,
         style_label_up="label_up",
         style_label_down="label_down",
@@ -1249,6 +1263,15 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         right="right",
         none="none",
     )
+    xloc_namespace = _Namespace(
+        bar_index="bar_index",
+        bar_time="bar_time",
+    )
+    yloc_namespace = _Namespace(
+        price="price",
+        abovebar="abovebar",
+        belowbar="belowbar",
+    )
     text_namespace = _Namespace(
         align_left="left",
         align_center="center",
@@ -1281,6 +1304,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         "display": display_namespace,
         "format": format_namespace,
         "scale": scale_namespace,
+        "xloc": xloc_namespace,
+        "yloc": yloc_namespace,
         "text": text_namespace,
     }
 

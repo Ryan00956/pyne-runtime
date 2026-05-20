@@ -250,6 +250,27 @@ plot(volume, "Volume Columns", style=plot.style_columns, display=display.data_wi
     assert result.output["histograms"][0]["display"] == "data_window"
 
 
+def test_xloc_and_yloc_namespaces_are_injected_for_drawing_objects() -> None:
+    result = pn.run(
+        """
+indicator("Location Enums", overlay=True)
+trend = line.new(time[1], close[1], time, close, xloc=xloc.bar_time)
+zone = box.new(time[1], high[1], time, low, xloc=xloc.bar_time)
+note = label.new(time, high, text="Here", xloc=xloc.bar_time, yloc=yloc.abovebar)
+label.set_yloc(note, yloc.belowbar)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    objects = result.output["objects"]
+    assert objects["lines"][0]["xloc"] == "bar_time"
+    assert objects["boxes"][0]["xloc"] == "bar_time"
+    assert objects["labels"][0]["xloc"] == "bar_time"
+    assert objects["labels"][0]["yloc"] == "belowbar"
+
+
 def test_box_and_table_objects_can_be_deleted() -> None:
     result = pn.run(
         """
