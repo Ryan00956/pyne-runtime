@@ -38,6 +38,28 @@ When using the process executor, the provider must be pickleable. For local host
 adapters with open sockets, database handles, or closures, prefer
 `executor_mode="inline"`.
 
+Providers may optionally declare request capabilities with either a
+`capabilities` attribute or a `capabilities()` method:
+
+```python
+class MyProvider:
+    capabilities = {"request.security": True, "request.security_lower_tf": True}
+
+    def get_ohlcv(self, symbol, timeframe, start, end):
+        ...
+```
+
+Accepted aliases:
+
+- `request.security`, `security`, or `ohlcv` for `request.security()`
+- `request.security_lower_tf`, `security_lower_tf`, or `lower_tf` for
+  `request.security_lower_tf()`
+
+If no capabilities are declared, Pyne assumes the provider can answer both
+request types. For dict capabilities, missing keys default to supported and
+explicit `False` disables a capability. For list/set/tuple capabilities, the
+capability must be present.
+
 ## `request.security`
 
 ```python
@@ -153,8 +175,7 @@ The returned object exposes:
 - `.sum(default=na)`, `.min(default=na)`, `.max(default=na)`, `.avg(default=na)`:
   numeric aggregations for each group
 
-For provider capability negotiation, a provider may expose either a
-`capabilities` attribute or `capabilities()` method. When present,
-`security_lower_tf` or `request.security_lower_tf` must be truthy/supported. If
-no capabilities are declared, Pyne assumes the provider can answer the request
-and relies on `get_ohlcv(...)`.
+Provider capability negotiation uses the same mechanism described above. If the
+provider explicitly disables lower-timeframe requests or omits the capability
+from a list/set declaration, Pyne returns `PYNE_UNSUPPORTED_FEATURE` without
+calling `get_ohlcv(...)`.

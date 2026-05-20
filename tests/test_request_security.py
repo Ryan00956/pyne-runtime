@@ -118,6 +118,58 @@ plot(request.security("BTCUSDT", "1h", close), "Higher")
     assert "host data provider" in str(result.error)
 
 
+def test_request_security_respects_provider_capability_false() -> None:
+    provider = CapabilityProvider(
+        [{"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}],
+        capabilities={"request.security": False},
+    )
+
+    result = pn.run(
+        """
+indicator("Unsupported Security", overlay=True)
+higher = request.security("BTCUSDT", "2", close)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert "provider capability" in str(result.error)
+    assert provider.calls == []
+
+
+def test_request_security_accepts_provider_capability_method_aliases() -> None:
+    class MethodCapabilityProvider(StaticProvider):
+        def capabilities(self) -> set[str]:
+            return {"request.security", "request.security_lower_tf"}
+
+    provider = MethodCapabilityProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+        {"time": 3, "open": 30, "high": 31, "low": 29, "close": 30, "volume": 3000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Capability Method", overlay=True)
+higher = request.security("BTCUSDT", "2", close)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(higher, "Higher")
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert provider.calls == [("BTCUSDT", "2", 1, 4), ("BTCUSDT", "1", 1, 4)]
+    assert result.values("Higher") == [10, 10, 30, 30]
+    assert result.values("Lower Count") == [1.0, 0.0, 1.0, 0.0]
+
+
 def test_request_security_accepts_basic_expression_thunk() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 12, "low": 8, "close": 10, "volume": 1000},
@@ -482,3 +534,26 @@ plot(lower.size(), "Lower Count")
     assert not result.ok
     assert result.code == "PYNE_UNSUPPORTED_FEATURE"
     assert "provider capability" in str(result.error)
+
+
+def test_request_security_lower_tf_rejects_missing_list_capability() -> None:
+    provider = CapabilityProvider(
+        [{"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}],
+        capabilities={"request.security"},
+    )
+
+    result = pn.run(
+        """
+indicator("Lower Missing Capability", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert "provider capability" in str(result.error)
+    assert provider.calls == []

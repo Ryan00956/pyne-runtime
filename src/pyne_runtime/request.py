@@ -17,6 +17,9 @@ from .values import is_na_value
 
 RequestValues = list[Any] | tuple[list[Any], ...]
 
+_REQUEST_SECURITY_CAPABILITIES = ("request.security", "security", "ohlcv")
+_REQUEST_LOWER_TF_CAPABILITIES = ("request.security_lower_tf", "security_lower_tf", "lower_tf")
+
 
 class DataProvider(Protocol):
     """Host interface used by ``request.security()``.
@@ -258,6 +261,11 @@ class RequestModule:
                 "request.security() requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
             )
+        if not _provider_supports(self._provider, _REQUEST_SECURITY_CAPABILITIES):
+            raise PyneRequestError(
+                "request.security() requires provider capability 'request.security'",
+                code="PYNE_UNSUPPORTED_FEATURE",
+            )
         if self._evaluating:
             raise PyneRequestError(
                 "Nested request.security() expressions are not supported",
@@ -321,9 +329,9 @@ class RequestModule:
                 "request.security_lower_tf() requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
             )
-        if not _provider_supports(self._provider, "security_lower_tf"):
+        if not _provider_supports(self._provider, _REQUEST_LOWER_TF_CAPABILITIES):
             raise PyneRequestError(
-                "request.security_lower_tf() requires provider capability 'security_lower_tf'",
+                "request.security_lower_tf() requires provider capability 'request.security_lower_tf'",
                 code="PYNE_UNSUPPORTED_FEATURE",
             )
         if self._evaluating:
@@ -718,14 +726,18 @@ def _aligned_value(
     return np.nan if is_na_value(value) else float(value)
 
 
-def _provider_supports(provider: DataProvider, capability: str) -> bool:
-    capabilities = getattr(provider, "capabilities", None)
-    if callable(capabilities):
-        capabilities = capabilities()
-    if capabilities is None:
+def _provider_supports(provider: DataProvider, capability_names: tuple[str, ...]) -> bool:
+    declared_capabilities = getattr(provider, "capabilities", None)
+    if callable(declared_capabilities):
+        declared_capabilities = declared_capabilities()
+    if declared_capabilities is None:
         return True
-    if isinstance(capabilities, dict):
-        return bool(capabilities.get(capability, capabilities.get("request.security_lower_tf", False)))
-    if isinstance(capabilities, (set, list, tuple)):
-        return capability in capabilities or "request.security_lower_tf" in capabilities
-    return bool(capabilities)
+    if isinstance(declared_capabilities, dict):
+        for capability in capability_names:
+            if capability in declared_capabilities:
+                return bool(declared_capabilities[capability])
+        return True
+    if isinstance(declared_capabilities, (set, list, tuple)):
+        declared = set(declared_capabilities)
+        return any(capability in declared for capability in capability_names)
+    return bool(declared_capabilities)
