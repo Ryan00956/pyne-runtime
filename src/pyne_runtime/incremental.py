@@ -642,6 +642,48 @@ class IncrementalStrategyNamespace:
         if self._orders:
             self._orders[-1]["type"] = "close_all"
 
+    def cancel(self, id: str, *, when: bool = True, comment: str = "") -> None:
+        if not when:
+            return
+        canceled = self._cancel_pending(lambda order: str(order.get("id", "")) == str(id), canceled_by=str(id))
+        if canceled <= 0:
+            return
+        self._touched = True
+        self._orders.append({
+            "time": self._current_time(),
+            "id": str(id),
+            "type": "cancel",
+            "side": "flat",
+            "qty": 0.0,
+            "price": None,
+            "position_after": self.position_size,
+            "comment": comment,
+            "canceled": canceled,
+            "_seq": self._next_seq(),
+            "_submit_time": self._current_time(),
+        })
+
+    def cancel_all(self, *, when: bool = True, comment: str = "") -> None:
+        if not when:
+            return
+        canceled = self._cancel_pending(lambda order: True, canceled_by="cancel_all")
+        if canceled <= 0:
+            return
+        self._touched = True
+        self._orders.append({
+            "time": self._current_time(),
+            "id": "cancel_all",
+            "type": "cancel_all",
+            "side": "flat",
+            "qty": 0.0,
+            "price": None,
+            "position_after": self.position_size,
+            "comment": comment,
+            "canceled": canceled,
+            "_seq": self._next_seq(),
+            "_submit_time": self._current_time(),
+        })
+
     def to_report(self) -> dict[str, Any]:
         final_size = self.position_size
         final_avg = self.position_avg_price
@@ -695,6 +737,20 @@ class IncrementalStrategyNamespace:
         if qty_percent is not None:
             return min(position_qty, position_qty * max(float(qty_percent), 0.0) / 100.0)
         return position_qty
+
+    def _cancel_pending(self, predicate: Callable[[dict[str, Any]], bool], *, canceled_by: str) -> int:
+        canceled = 0
+        still_pending = []
+        for order in self._pending_orders:
+            if predicate(order):
+                order["_canceled"] = True
+                order["_canceled_time"] = self._current_time()
+                order["_canceled_by"] = canceled_by
+                canceled += 1
+            else:
+                still_pending.append(order)
+        self._pending_orders = still_pending
+        return canceled
 
     def _close_lots(self, *, id: str, exit_id: str, target_qty: float, fill_price: float) -> float:
         remaining = abs(float(target_qty))
@@ -1491,7 +1547,11 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
         order_type = str(order.get("type", ""))
         pending = bool(order.get("_pending_submission"))
         active = bool(order.get("_active", True))
-        if active:
+        canceled = bool(order.get("_canceled")) or order_type in {"cancel", "cancel_all"}
+        if canceled:
+            status = "canceled"
+            phase = "pending_canceled" if pending else "cancel"
+        elif active:
             status = "filled"
             phase = "pending_fill" if pending else "close_fill" if order_type == "close" else "close_all_fill" if order_type == "close_all" else "market_fill"
         elif pending:
@@ -1506,8 +1566,8 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
             "status": status,
             "phase": phase,
             "submitted_time": order.get("_submit_time", order.get("time")),
-            "filled_time": order.get("time") if active else None,
-            "canceled_time": None,
+            "filled_time": order.get("time") if active and not canceled else None,
+            "canceled_time": order.get("_canceled_time", order.get("time")) if canceled else None,
             "rejected_time": None,
             "side": order.get("side"),
             "qty": order.get("qty"),
@@ -1526,7 +1586,15 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
             event["requested_qty"] = _round8(float(order.get("_requested_fill_qty", 0.0)))
         if order.get("_filled_qty") is not None and active:
             event["filled_qty"] = _round8(float(order.get("_filled_qty", 0.0)))
-        returnable = {key: value for key, value in event.items() if value is not None or key in {"filled_time", "canceled_time", "rejected_time"}}
+        if order.get("_canceled_by") is not None:
+            event["canceled_by"] = order.get("_canceled_by")
+        if order.get("canceled") is not None:
+            event["canceled"] = order.get("canceled")
+        returnable = {
+            key: value
+            for key, value in event.items()
+            if value is not None or key in {"price", "filled_time", "canceled_time", "rejected_time"}
+        }
         events.append(returnable)
     return events
 
