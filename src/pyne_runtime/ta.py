@@ -17,7 +17,7 @@ Usage::
     # In user scripts — ta is already available
     plot(ta.sma(close, 20), title="SMA 20")
     dif, dea, hist = ta.macd(close)
-    upper, mid, lower = ta.bb(close, 20, 2)
+    mid, upper, lower = ta.bb(close, 20, 2)
 """
 from __future__ import annotations
 
@@ -824,13 +824,13 @@ class TaModule:
         Pine equivalent: ``ta.bb(close, 20, 2)``
 
         Returns:
-            Tuple of (upper, middle, lower) arrays.
+            Tuple of (middle, upper, lower) arrays.
         """
         middle = self.sma(src, period)
         sd = self.stdev(src, period)
         upper = middle + mult * sd
         lower = middle - mult * sd
-        return upper, middle, lower
+        return middle, upper, lower
 
     def stdev(self, src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray:
         """Rolling Standard Deviation (O(n) optimized).

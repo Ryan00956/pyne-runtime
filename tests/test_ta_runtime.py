@@ -49,7 +49,7 @@ def test_macd_and_bollinger_outputs_are_structured() -> None:
     result = pn.run(
         """
 dif, dea, hist = ta.macd(close, 12, 26, 9)
-upper, mid, lower = ta.bb(close, 20, 2)
+mid, upper, lower = ta.bb(close, 20, 2)
 plot(dif, "DIF")
 plot(dea, "DEA")
 bar(hist, "HIST")

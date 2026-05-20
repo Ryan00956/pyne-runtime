@@ -1,0 +1,115 @@
+{
+  "name": "ta_remaining_indicators",
+  "source": "Pyne-defined TA golden fixture; replace or extend expected_series with exported Pine output when an external TradingView capture is available.",
+  "chart_bars": [
+    {"time": 1, "open": 20.0, "high": 22.0, "low": 19.0, "close": 21.0, "volume": 1000.0},
+    {"time": 2, "open": 21.0, "high": 23.0, "low": 20.0, "close": 22.0, "volume": 1010.0},
+    {"time": 3, "open": 22.0, "high": 24.0, "low": 21.0, "close": 23.0, "volume": 1020.0},
+    {"time": 4, "open": 23.0, "high": 23.5, "low": 20.5, "close": 21.0, "volume": 1030.0},
+    {"time": 5, "open": 21.0, "high": 22.0, "low": 18.5, "close": 19.0, "volume": 1040.0},
+    {"time": 6, "open": 19.0, "high": 21.5, "low": 18.0, "close": 20.5, "volume": 1050.0},
+    {"time": 7, "open": 20.5, "high": 25.0, "low": 20.0, "close": 24.0, "volume": 1060.0},
+    {"time": 8, "open": 24.0, "high": 26.0, "low": 23.0, "close": 25.0, "volume": 1070.0},
+    {"time": 9, "open": 25.0, "high": 25.5, "low": 21.5, "close": 22.0, "volume": 1080.0},
+    {"time": 10, "open": 22.0, "high": 23.0, "low": 19.5, "close": 20.0, "volume": 1090.0},
+    {"time": 11, "open": 20.0, "high": 24.5, "low": 19.0, "close": 24.0, "volume": 1100.0},
+    {"time": 12, "open": 24.0, "high": 27.0, "low": 23.5, "close": 26.0, "volume": 1110.0}
+  ],
+  "script": "plot(ta.hma(close, 5), \"HMA 5\")\nplot(ta.swma(close), \"SWMA\")\nplot(ta.cmo(close, 4), \"CMO 4\")\nplot(ta.wpr(4), \"WPR 4\")\nplot(ta.tsi(close, 4, 3), \"TSI 4 3\")\nplot(ta.percentile_nearest_rank(close, 4, 75), \"PNR 75\")\nplot(ta.percentile_linear_interpolation(close, 4, 75), \"PLI 75\")\nplot(ta.dev(close, 4), \"DEV 4\")\nplot(ta.variance(close, 4), \"VAR 4\")\n",
+  "pine_equivalent": "//@version=5\nindicator(\"TA Remaining Indicators Golden\")\nplot(ta.hma(close, 5), \"HMA 5\")\nplot(ta.swma(close), \"SWMA\")\nplot(ta.cmo(close, 4), \"CMO 4\")\nplot(ta.wpr(4), \"WPR 4\")\nplot(ta.tsi(close, 4, 3), \"TSI 4 3\")\nplot(ta.percentile_nearest_rank(close, 4, 75), \"PNR 75\")\nplot(ta.percentile_linear_interpolation(close, 4, 75), \"PLI 75\")\nplot(ta.dev(close, 4), \"DEV 4\")\nplot(ta.variance(close, 4), \"VAR 4\")\n",
+  "expected_series": {
+    "HMA 5": [
+      {"time": 6, "value": 19.06666667},
+      {"time": 7, "value": 22.5},
+      {"time": 8, "value": 25.73333333},
+      {"time": 9, "value": 24.32222222},
+      {"time": 10, "value": 20.55555556},
+      {"time": 11, "value": 21.52222222},
+      {"time": 12, "value": 25.55555556}
+    ],
+    "SWMA": [
+      {"time": 4, "value": 22.0},
+      {"time": 5, "value": 21.5},
+      {"time": 6, "value": 20.58333333},
+      {"time": 7, "value": 20.66666667},
+      {"time": 8, "value": 22.16666667},
+      {"time": 9, "value": 23.41666667},
+      {"time": 10, "value": 23.0},
+      {"time": 11, "value": 22.16666667},
+      {"time": 12, "value": 22.66666667}
+    ],
+    "CMO 4": [
+      {"time": 5, "value": -33.33333333},
+      {"time": 6, "value": -23.07692308},
+      {"time": 7, "value": 11.11111111},
+      {"time": 8, "value": 50.0},
+      {"time": 9, "value": 33.33333333},
+      {"time": 10, "value": -5.26315789},
+      {"time": 11, "value": 0.0},
+      {"time": 12, "value": 9.09090909}
+    ],
+    "WPR 4": [
+      {"time": 4, "value": -60.0},
+      {"time": 5, "value": -90.90909091},
+      {"time": 6, "value": -58.33333333},
+      {"time": 7, "value": -14.28571429},
+      {"time": 8, "value": -12.5},
+      {"time": 9, "value": -50.0},
+      {"time": 10, "value": -92.30769231},
+      {"time": 11, "value": -28.57142857},
+      {"time": 12, "value": -12.5}
+    ],
+    "TSI 4 3": [
+      {"time": 7, "value": 26.03773585},
+      {"time": 8, "value": 50.97744361},
+      {"time": 9, "value": 12.68888156},
+      {"time": 10, "value": -18.61356462},
+      {"time": 11, "value": 11.83041431},
+      {"time": 12, "value": 33.43946305}
+    ],
+    "PNR 75": [
+      {"time": 4, "value": 22.0},
+      {"time": 5, "value": 22.0},
+      {"time": 6, "value": 21.0},
+      {"time": 7, "value": 21.0},
+      {"time": 8, "value": 24.0},
+      {"time": 9, "value": 24.0},
+      {"time": 10, "value": 24.0},
+      {"time": 11, "value": 24.0},
+      {"time": 12, "value": 24.0}
+    ],
+    "PLI 75": [
+      {"time": 4, "value": 22.25},
+      {"time": 5, "value": 22.25},
+      {"time": 6, "value": 21.5},
+      {"time": 7, "value": 21.75},
+      {"time": 8, "value": 24.25},
+      {"time": 9, "value": 24.25},
+      {"time": 10, "value": 24.25},
+      {"time": 11, "value": 24.25},
+      {"time": 12, "value": 24.5}
+    ],
+    "DEV 4": [
+      {"time": 4, "value": 0.75},
+      {"time": 5, "value": 1.25},
+      {"time": 6, "value": 1.125},
+      {"time": 7, "value": 1.4375},
+      {"time": 8, "value": 2.375},
+      {"time": 9, "value": 1.625},
+      {"time": 10, "value": 1.75},
+      {"time": 11, "value": 1.75},
+      {"time": 12, "value": 2.0}
+    ],
+    "VAR 4": [
+      {"time": 4, "value": 0.6875},
+      {"time": 5, "value": 2.1875},
+      {"time": 6, "value": 2.046875},
+      {"time": 7, "value": 3.296875},
+      {"time": 8, "value": 6.046875},
+      {"time": 9, "value": 3.046875},
+      {"time": 10, "value": 3.6875},
+      {"time": 11, "value": 3.6875},
+      {"time": 12, "value": 5.0}
+    ]
+  }
+}

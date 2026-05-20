@@ -40,6 +40,9 @@ ta.crossunder(a, b)
 
 Several helpers are also exposed as top-level script functions, such as `cross()`, `crossover()`, `crossunder()`, `highest()`, and `lowest()`.
 
+`ta.bb(source, length, mult)` follows Pine's tuple order:
+`middle, upper, lower = ta.bb(close, 20, 2)`.
+
 `ta.highestbars(source, length)` and `ta.lowestbars(source, length)` return the
 number of bars back to the most recent highest or lowest value in the rolling
 window. A return value of `0` means the current bar is the extreme.
@@ -61,7 +64,8 @@ marker(ta.cross(close, ta.sma(close, 20)), text="Cross")
 The TA golden suite includes deterministic fixtures for core moving averages,
 Wilder smoothing, RSI, rolling extremes, bars-back extreme offsets,
 `barssince()`, `valuewhen()`, MACD, Bollinger Bands, ATR, ALMA, DMI, and
-Parabolic SAR.
+Parabolic SAR, HMA, SWMA, CMO, Williams %R, TSI, rolling percentiles, mean
+absolute deviation, and variance.
 
 `ta.macd()` follows Pine's tuple shape: MACD line, signal line, and histogram,
 where histogram is `macd_line - signal_line`. The signal line starts after the
