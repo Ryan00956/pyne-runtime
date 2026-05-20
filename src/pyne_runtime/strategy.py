@@ -1961,6 +1961,8 @@ def _record_fill(
         return gross_profit, gross_loss, total_commission, open_trades
 
     remaining = abs(float(signed_qty))
+    fill_qty_total = remaining
+    remaining_order_commission = float(commission)
     fill_side = "long" if signed_qty > 0 else "short"
     previous_side = "long" if previous_size > 0 else "short" if previous_size < 0 else ""
     target_entry = _target_entry_id(order)
@@ -1981,7 +1983,17 @@ def _record_fill(
             if close_qty <= 0:
                 continue
             profit = _trade_realized_profit(trade, close_qty, fill_price)
-            commission_share = commission * close_qty / max(close_qty_total, 1e-12)
+            trade_qty_before = float(trade.get("qty", 0.0))
+            entry_commission = float(trade.get("commission", 0.0))
+            entry_commission_share = (
+                entry_commission * close_qty / max(trade_qty_before, 1e-12)
+            )
+            exit_commission_share = (
+                commission
+                * close_qty
+                / max(fill_qty_total, 1e-12)
+            )
+            remaining_order_commission -= exit_commission_share
             if profit >= 0:
                 gross_profit += profit
             else:
@@ -1992,9 +2004,14 @@ def _record_fill(
                 qty=close_qty,
                 exit_price=fill_price,
                 profit=profit,
-                commission=commission_share,
+                commission=entry_commission_share + exit_commission_share,
             ))
-            trade["qty"] = round(float(trade.get("qty", 0.0)) - close_qty, 8)
+            trade["qty"] = round(trade_qty_before - close_qty, 8)
+            remaining_entry_commission = entry_commission - entry_commission_share
+            if remaining_entry_commission > 0:
+                trade["commission"] = round(remaining_entry_commission, 8)
+            else:
+                trade.pop("commission", None)
             remaining_to_close -= close_qty
             closed_qty_done += close_qty
 
@@ -2011,6 +2028,7 @@ def _record_fill(
                 side=fill_side,
                 qty=remaining,
                 entry_price=fill_price,
+                commission=remaining_order_commission,
             ))
 
     return gross_profit, gross_loss, total_commission, open_trades
@@ -2046,14 +2064,18 @@ def _open_trade_from_order(
     side: str,
     qty: float,
     entry_price: float,
+    commission: float = 0.0,
 ) -> dict[str, Any]:
-    return {
+    trade = {
         "entry_time": int(order.get("time", 0)),
         "entry_id": str(order.get("id", "")),
         "side": side,
         "qty": round(float(qty), 8),
         "entry_price": round(float(entry_price), 8),
     }
+    if commission > 0:
+        trade["commission"] = round(float(commission), 8)
+    return trade
 
 
 def _trade_realized_profit(trade: dict[str, Any], qty: float, exit_price: float) -> float:

@@ -1673,8 +1673,8 @@ plot(strategy.grossloss, "Gross Loss")
             "entry_price": 10.0,
             "exit_price": 11.0,
             "profit": 2.0,
-            "commission": 1.0,
-            "net_profit": 1.0,
+            "commission": 2.0,
+            "net_profit": 0.0,
         }
     ]
     assert result.output["strategy"]["opentrades"] == []

@@ -101,6 +101,14 @@ Commission uses Pine-like constants:
 - `strategy.commission.cash_per_order`: `commission_value` is charged once per filled order.
 - `strategy.commission.cash_per_contract`: `commission_value` is charged per filled unit.
 
+Filled entry lots retain their entry commission. When a lot is partially or
+fully closed, `closedtrades[*].commission` and
+`strategy.closedtrades.commission(trade_num)` include the proportional entry
+commission plus the proportional commission from the closing order. This keeps
+closed-trade net profit aligned with Pine's "commission paid by the closed
+trade" mental model while `summary["commission"]` continues to report total
+accumulated commission.
+
 `backtest_fill_limits_assumption` follows Pine's limit-order verification
 mental model:
 
@@ -360,6 +368,11 @@ Supported accessors:
 
 Negative indexes count from the end of the current ledger. Missing trades return
 `na` for numeric fields and an empty string for string fields.
+
+For closed trades, `commission(trade_num)` includes both the matched entry-lot
+commission share and the exit/close order commission share. For open trades, it
+reports the commission still attached to that open entry lot when commission is
+non-zero.
 
 ## Lifecycle Report
 
