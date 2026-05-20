@@ -181,3 +181,106 @@ map.from_values("fast", 1, "slow")
     assert not result.ok
     assert result.code == "PYNE_RUNTIME_ERROR"
     assert "map.from_values() expects key/value pairs" in str(result.error)
+
+
+def test_matrix_namespace_core_accessors_and_mutations() -> None:
+    result = pn.run(
+        """
+m = matrix.new_float(2, 3, 1.0)
+matrix.set(m, 0, 1, 2.0)
+matrix.set(m, 1, 2, 6.0)
+row = matrix.row(m, 1)
+col = matrix.col(m, 1)
+
+plot(matrix.rows(m), "Rows")
+plot(matrix.columns(m), "Columns")
+plot(matrix.elements_count(m), "Elements")
+plot(matrix.get(m, 0, 1), "Cell")
+plot(array.sum(row), "Row Sum")
+plot(array.sum(col), "Col Sum")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Rows") == [2.0, 2.0, 2.0]
+    assert result.values("Columns") == [3.0, 3.0, 3.0]
+    assert result.values("Elements") == [6.0, 6.0, 6.0]
+    assert result.values("Cell") == [2.0, 2.0, 2.0]
+    assert result.values("Row Sum") == [8.0, 8.0, 8.0]
+    assert result.values("Col Sum") == [3.0, 3.0, 3.0]
+
+
+def test_matrix_methods_copy_transpose_reshape_and_reducers() -> None:
+    result = pn.run(
+        """
+m = matrix.from_rows([[1, 2, 3], [4, 5, 6]])
+copy = m.copy()
+copy.set(0, 0, 9)
+t = m.transpose()
+r = m.reshape(3, 2)
+
+plot(m.get(0, 0), "Original")
+plot(copy.get(0, 0), "Copy")
+plot(t.get(2, 1), "Transpose Cell")
+plot(r.get(2, 1), "Reshape Cell")
+plot(m.sum(), "Sum")
+plot(m.avg(), "Avg")
+plot(m.min(), "Min")
+plot(m.max(), "Max")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Original") == [1.0, 1.0, 1.0]
+    assert result.values("Copy") == [9.0, 9.0, 9.0]
+    assert result.values("Transpose Cell") == [6.0, 6.0, 6.0]
+    assert result.values("Reshape Cell") == [6.0, 6.0, 6.0]
+    assert result.values("Sum") == [21.0, 21.0, 21.0]
+    assert result.values("Avg") == [3.5, 3.5, 3.5]
+    assert result.values("Min") == [1.0, 1.0, 1.0]
+    assert result.values("Max") == [6.0, 6.0, 6.0]
+
+
+def test_matrix_add_sub_and_mult_support_scalars_and_matrices() -> None:
+    result = pn.run(
+        """
+a = matrix.from_rows([[1, 2], [3, 4]])
+b = matrix.from_rows([[5, 6], [7, 8]])
+added = matrix.add(a, b)
+scaled = matrix.mult(a, 2)
+product = matrix.mult(a, b)
+diff = matrix.sub(b, a)
+
+plot(added.get(1, 1), "Added")
+plot(scaled.get(1, 0), "Scaled")
+plot(product.get(0, 1), "Product")
+plot(diff.get(0, 0), "Diff")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Added") == [12.0, 12.0, 12.0]
+    assert result.values("Scaled") == [6.0, 6.0, 6.0]
+    assert result.values("Product") == [22.0, 22.0, 22.0]
+    assert result.values("Diff") == [4.0, 4.0, 4.0]
+
+
+def test_matrix_dimension_errors_are_actionable() -> None:
+    result = pn.run(
+        """
+m = matrix.from_rows([[1, 2], [3, 4]])
+matrix.reshape(m, 3, 3)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "matrix.reshape() cannot change element count" in str(result.error)

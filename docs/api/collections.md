@@ -1,7 +1,7 @@
 # Collections API
 
 Pyne exposes Pine-like mutable collections as script globals. The currently
-supported namespaces are `array.*` and `map.*`.
+supported namespaces are `array.*`, `map.*`, and `matrix.*`.
 
 Pyne arrays are Python objects created by `array.new_*()` or `array.from_*()`.
 They can be used with Pine-style namespace functions:
@@ -110,3 +110,51 @@ Supported map helpers:
 `map.keys()` and `map.values()` return `PyneArray` instances, so they can be
 used directly with `array.*` helpers such as `array.join(map.keys(m), ",")` or
 `array.sum(map.values(m))`.
+
+## Matrices
+
+Pyne matrices are mutable two-dimensional containers created by `matrix.new_*()`
+or `matrix.from_rows()`.
+
+```python
+m = matrix.new_float(2, 3, 0.0)
+matrix.set(m, 0, 1, 2.0)
+cell = matrix.get(m, 0, 1)
+```
+
+Python-style object methods are also available:
+
+```python
+m = matrix.from_rows([[1, 2], [3, 4]])
+t = m.transpose()
+total = m.sum()
+```
+
+Supported matrix helpers:
+
+- `matrix.new(rows=0, columns=0, initial_value=None)`
+- `matrix.new_float(rows=0, columns=0, initial_value=None)`
+- `matrix.new_int(rows=0, columns=0, initial_value=None)`
+- `matrix.from_rows(rows)`
+- `matrix.copy(m)`
+- `matrix.rows(m)`
+- `matrix.columns(m)`
+- `matrix.elements_count(m)`
+- `matrix.get(m, row, column)`
+- `matrix.set(m, row, column, value)`
+- `matrix.fill(m, value)`
+- `matrix.row(m, row)`
+- `matrix.col(m, column)`
+- `matrix.transpose(m)`
+- `matrix.reshape(m, rows, columns)`
+- `matrix.add(left, right)`
+- `matrix.sub(left, right)`
+- `matrix.mult(left, right)`
+- `matrix.sum(m)`
+- `matrix.avg(m)`
+- `matrix.min(m)`
+- `matrix.max(m)`
+
+`matrix.row()` and `matrix.col()` return `PyneArray` instances. `matrix.add()`
+and `matrix.sub()` support matching matrix dimensions. `matrix.mult()` supports
+scalar multiplication and matrix multiplication.
