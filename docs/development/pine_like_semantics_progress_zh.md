@@ -152,6 +152,11 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - Strategy cancel risk cost golden fixture 已覆盖 risk lock 下 `strategy.cancel()`
   与 `strategy.cancel_all()` 仍可清理 pending entry/order，取消动作不产生
   commission，且被取消的 pending order 在后续触价或 intraday reset 后不会复活。
+- Strategy trade accessor golden fixture 已覆盖 `strategy.closedtrades.*` 与
+  `strategy.opentrades.*` 的 size/qty/profit/net_profit/commission/entry_price/
+  exit_price/entry_time/exit_time/entry_id/exit_id/side 字段，包含负索引、
+  missing numeric 为 `na`、missing string 为空字符串，以及 closed/open ledger
+  同时存在时的读取口径。
 
 ## 仍然不是 Pine 的地方
 
@@ -203,7 +208,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - 已增加 strategy same-bar、lifecycle、risk lock、lot matching 与 intraday
   reset、pending risk lock、OCA lifecycle、cost model、limit verification cost、
   bracket/stop-limit cost、risk/margin cost、entry sizing cost、reversal lot cost
-  与 OCA cost、pending risk recovery cost、cancel risk cost golden fixtures；
+  与 OCA cost、pending risk recovery cost、cancel risk cost、trade accessor
+  golden fixtures；
   后续继续扩大覆盖面。
 
 ### P5: Golden 与兼容性证据
@@ -214,14 +220,14 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   lot matching、intraday reset、pending risk lock、OCA lifecycle、cost model 与
   limit verification cost、bracket/stop-limit cost、risk/margin cost、entry sizing cost
   和 reversal lot cost、OCA cost、pending risk recovery cost、cancel risk cost
-  场景，后续继续扩大。
+  与 trade accessor 场景，后续继续扩大。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续扩大 Strategy golden 与 broker-emulator 风格回放语义，优先覆盖
-更多 `strategy.closedtrades` / `strategy.opentrades` 字段访问口径，以及
-cancel/OCA/risk 混合时 lifecycle 顺序的更复杂组合。
+cancel/OCA/risk 混合时 lifecycle 顺序的更复杂组合，以及 batch/incremental
+在 strategy 输出上的 parity 证据。
 完成后应同步更新：
 
 - `src/pyne_runtime/strategy.py`

@@ -378,7 +378,9 @@ Supported accessors:
 - `side(trade_num)`
 
 Negative indexes count from the end of the current ledger. Missing trades return
-`na` for numeric fields and an empty string for string fields.
+`na` for numeric fields and an empty string for string fields. The count objects
+(`strategy.closedtrades` and `strategy.opentrades`) are bar-by-bar series, while
+field accessors read from the latest replayed ledger snapshot.
 
 For closed trades, `commission(trade_num)` includes both the matched entry-lot
 commission share and the exit/close order commission share. For open trades, it
