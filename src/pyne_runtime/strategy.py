@@ -776,6 +776,7 @@ class StrategyModule:
             order.pop("_filled_qty", None)
             order.pop("_requested_fill_qty", None)
             order.pop("_target_qty", None)
+            order.pop("_transaction_qty", None)
             if order.get("type") in {"entry", "order"}:
                 order.pop("_canceled", None)
                 order.pop("_canceled_time", None)
@@ -877,12 +878,14 @@ class StrategyModule:
                     order["_filled_qty"] = round(qty, 8)
                     order["price"] = round(float(fill_price), 8)
                     order["position_after"] = round(float(position_after), 8)
+                    transaction_qty = abs(position_after - previous_size)
+                    if abs(transaction_qty - qty) > 1e-9:
+                        order["_transaction_qty"] = round(transaction_qty, 8)
                     commission = self._apply_commission(
                         order,
-                        qty=qty,
+                        qty=transaction_qty,
                         price=fill_price,
                     )
-                    signed_qty = qty if side == self.long else -qty
                     gross_profit, gross_loss, total_commission, open_trades = _record_fill(
                         order=order,
                         signed_qty=position_after - previous_size,
@@ -1178,8 +1181,16 @@ class StrategyModule:
                         order["oca_name"] = order.get("_oca_name")
                         order["oca_type"] = order.get("_oca_type") or StrategyOca.none
                     fill_qty = float(order.get("qty", 0.0))
-                    commission = self._apply_commission(order, qty=fill_qty, price=fill_price)
                     signed_qty = fill_qty if side == self.long else -fill_qty
+                    transaction_qty = abs(position_after - previous_size)
+                    commission_qty = transaction_qty if order.get("type") == "entry" else fill_qty
+                    if order.get("type") == "entry" and abs(transaction_qty - fill_qty) > 1e-9:
+                        order["_transaction_qty"] = round(transaction_qty, 8)
+                    commission = self._apply_commission(
+                        order,
+                        qty=commission_qty,
+                        price=fill_price,
+                    )
                     gross_profit, gross_loss, total_commission, open_trades = _record_fill(
                         order=order,
                         signed_qty=position_after - previous_size if order.get("type") == "entry" else signed_qty,
@@ -1547,6 +1558,8 @@ def _strategy_lifecycle_event(order: dict[str, Any]) -> dict[str, Any] | None:
         event["target_qty"] = round(float(order.get("_target_qty", 0.0)), 8)
     if order.get("_qty_percent") is not None:
         event["qty_percent"] = round(float(order.get("_qty_percent", 0.0)), 8)
+    if order.get("_transaction_qty") is not None:
+        event["transaction_qty"] = round(float(order.get("_transaction_qty", 0.0)), 8)
     if order.get("_canceled_by"):
         event["canceled_by"] = order.get("_canceled_by")
     if order.get("_rejected_reason"):

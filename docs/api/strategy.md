@@ -415,6 +415,10 @@ quantity, while lifecycle fields preserve the wider replay context:
   `qty_percent`, if any.
 - `filled_qty`: quantity actually filled by the deterministic replay.
 - `qty_percent`: original percentage request for close/exit calls when used.
+- `transaction_qty`: actual broker-style transaction quantity when it differs
+  from the compact entry quantity, such as an opposite-direction
+  `strategy.entry*` reversal where closing the old position and opening the new
+  target position happen in one replayed fill.
 
 ## Output
 

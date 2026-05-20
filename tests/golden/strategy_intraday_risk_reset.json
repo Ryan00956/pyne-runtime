@@ -179,7 +179,8 @@
           "position_after": -1.0,
           "comment": "",
           "requested_qty": 1.0,
-          "filled_qty": 1.0
+          "filled_qty": 1.0,
+          "transaction_qty": 2.0
         }
       ],
       "position": [1.0, 1.0, -1.0],
