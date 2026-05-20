@@ -771,6 +771,20 @@ class IncrementalStrategyNamespace:
                 return
             order["qty"] = _round8(qty_abs)
             order["_requested_fill_qty"] = _round8(requested_qty)
+        next_size = self._position_after_fill(
+            order_type=order_type,
+            side=side,
+            qty=qty_abs,
+            previous_size=self.position_size,
+        )
+        if not self._margin_allows_position(
+            previous_size=self.position_size,
+            next_size=next_size,
+            price=self._fill_price(base_price, "buy" if side == self.long else "sell"),
+            equity=self.equity,
+        ):
+            self._reject_order(order, reason="margin")
+            return
         self._fill_entry_order(order, fill_price=base_price, reason=None)
 
     def _fill_entry_order(self, order: dict[str, Any], *, fill_price: float, reason: str | None) -> None:
@@ -780,32 +794,45 @@ class IncrementalStrategyNamespace:
         previous_size = self.position_size
         qty_abs = abs(float(order.get("qty", 0.0)))
         signed_qty = qty_abs if side == self.long else -qty_abs
-        transaction_qty = abs(previous_size) + qty_abs if previous_size and (previous_size > 0) != (signed_qty > 0) else qty_abs
+        if order.get("type") == "entry":
+            next_size = signed_qty if previous_size == 0 or (previous_size > 0) != (signed_qty > 0) else previous_size + signed_qty
+            transaction_qty = abs(next_size - previous_size)
+            close_qty = abs(previous_size) if previous_size and (previous_size > 0) != (signed_qty > 0) else 0.0
+            open_qty = qty_abs
+        else:
+            next_size = previous_size + signed_qty
+            transaction_qty = qty_abs
+            close_qty = (
+                min(abs(previous_size), qty_abs)
+                if previous_size and (previous_size > 0) != (signed_qty > 0)
+                else 0.0
+            )
+            open_qty = max(qty_abs - close_qty, 0.0)
         commission_qty = transaction_qty if order.get("type") == "entry" else qty_abs
         commission = self._apply_commission(order, qty=commission_qty, price=fill_price)
         used_commission = 0.0
-        if previous_size and (previous_size > 0) != (signed_qty > 0):
+        if close_qty > 0:
             _, used_commission = self._close_lots(
                 id="",
                 exit_id=str(order.get("id", "")),
-                target_qty=abs(previous_size),
+                target_qty=close_qty,
                 fill_price=fill_price,
                 order_commission=commission,
                 order_fill_qty=transaction_qty,
             )
         remaining_commission = max(commission - used_commission, 0.0)
-        open_trade = {
-            "entry_id": str(order.get("id", "")),
-            "entry_time": self._current_time(),
-            "side": side,
-            "qty": _round8(qty_abs),
-            "entry_price": _round8(fill_price),
-        }
-        if remaining_commission > 0:
-            open_trade["commission"] = _round8(remaining_commission)
-        self._open_trades.append({
-            **open_trade,
-        })
+        if open_qty > 0 and next_size != 0:
+            open_side = self.long if next_size > 0 else self.short
+            open_trade = {
+                "entry_id": str(order.get("id", "")),
+                "entry_time": self._current_time(),
+                "side": open_side,
+                "qty": _round8(open_qty),
+                "entry_price": _round8(fill_price),
+            }
+            if remaining_commission > 0:
+                open_trade["commission"] = _round8(remaining_commission)
+            self._open_trades.append(open_trade)
         order["time"] = self._current_time()
         order["price"] = _round8(fill_price)
         order["position_after"] = self.position_size
@@ -862,6 +889,7 @@ class IncrementalStrategyNamespace:
         if trigger is None:
             return False
         reason, fill_price = trigger
+        order["reason"] = reason
         if order.get("type") == "entry":
             side = self._normalize_direction(str(order.get("side", self.long)))
             rejection_reason = _entry_rejection_reason(
@@ -886,6 +914,24 @@ class IncrementalStrategyNamespace:
                 self._reject_order(order, reason="max_position_size")
                 return True
             order["qty"] = _round8(qty_abs)
+        else:
+            side = self._normalize_direction(str(order.get("side", self.long)))
+            qty_abs = abs(float(order.get("qty", 0.0)))
+        next_size = self._position_after_fill(
+            order_type=str(order.get("type", "")),
+            side=side,
+            qty=qty_abs,
+            previous_size=self.position_size,
+        )
+        fill_side = "buy" if side == self.long else "sell"
+        margin_fill_price = self._fill_price(fill_price, fill_side)
+        if not self._margin_allows_position(
+            previous_size=self.position_size,
+            next_size=next_size,
+            price=margin_fill_price,
+            equity=self.equity,
+        ):
+            return False
         self._fill_entry_order(order, fill_price=fill_price, reason=reason)
         return True
 
@@ -1171,6 +1217,40 @@ class IncrementalStrategyNamespace:
 
     def _sync_risk_locked(self) -> None:
         self._risk_locked = self._drawdown_locked or self._intraday_locked or self._filled_orders_locked
+
+    def _position_after_fill(
+        self,
+        *,
+        order_type: str,
+        side: str,
+        qty: float,
+        previous_size: float,
+    ) -> float:
+        signed_qty = abs(float(qty)) if side == self.long else -abs(float(qty))
+        if order_type == "entry" and (previous_size == 0 or (previous_size > 0) != (signed_qty > 0)):
+            return _round8(signed_qty)
+        return _round8(previous_size + signed_qty)
+
+    def _margin_allows_position(
+        self,
+        *,
+        previous_size: float,
+        next_size: float,
+        price: float,
+        equity: float,
+    ) -> bool:
+        if next_size == 0:
+            return True
+        if _is_exposure_reduction(previous_size, next_size):
+            return True
+        margin_percent = self._margin_long if next_size > 0 else self._margin_short
+        required = _margin_required(
+            position_size=next_size,
+            price=price,
+            margin_percent=margin_percent,
+            pointvalue=float(getattr(self._context.syminfo, "pointvalue", 1.0)),
+        )
+        return required <= max(float(equity), 0.0)
 
     def _apply_oca_after_fill(self, filled_order: dict[str, Any]) -> None:
         oca_name = str(filled_order.get("_oca_name") or "")
@@ -2230,6 +2310,26 @@ def _intraday_filled_orders_hit(*, filled_orders: int, threshold: int | None) ->
     return int(filled_orders) >= max(int(threshold), 0)
 
 
+def _margin_required(
+    *,
+    position_size: float,
+    price: float,
+    margin_percent: float,
+    pointvalue: float,
+) -> float:
+    if position_size == 0 or margin_percent <= 0:
+        return 0.0
+    return abs(float(position_size) * float(price) * float(pointvalue)) * margin_percent / 100.0
+
+
+def _is_exposure_reduction(previous_size: float, next_size: float) -> bool:
+    if previous_size == 0:
+        return False
+    if (previous_size > 0) != (next_size > 0):
+        return False
+    return abs(next_size) <= abs(previous_size)
+
+
 def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list[dict[str, Any]]:
     events = []
     for order in sorted(orders, key=lambda item: (item.get("_submit_time", item.get("time", 0)), item.get("_seq", 0))):
@@ -2292,7 +2392,7 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
             event["limit"] = order.get("_limit")
         if order.get("_stop") is not None:
             event["stop"] = order.get("_stop")
-        if order.get("_requested_fill_qty") is not None and (active or rejected):
+        if order.get("_requested_fill_qty") is not None and (active or rejected or (pending and order.get("reason"))):
             event["requested_qty"] = _round8(float(order.get("_requested_fill_qty", 0.0)))
         if order.get("_filled_qty") is not None and (active or rejected):
             event["filled_qty"] = _round8(float(order.get("_filled_qty", 0.0)))
