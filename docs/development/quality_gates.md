@@ -19,6 +19,12 @@ python -m ruff check .
 python -m pytest
 ```
 
+Golden-style semantic fixtures live under `tests/golden/` and are exercised by
+the normal pytest suite. Add or update a fixture when a Pine-like compatibility
+claim depends on exact alignment or replay output, especially for
+`request.security`, lower-timeframe grouping, strategy fills, and barstate
+flags.
+
 From the package root, the full package check also verifies build metadata:
 
 ```bash

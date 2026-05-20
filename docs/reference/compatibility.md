@@ -26,6 +26,7 @@ Supported:
 - `line` and `label` drawing object handles.
 - `box` and `table` drawing object handles.
 - `request.security()` for host-backed OHLCV field requests and callable expression thunks.
+- `request.security_lower_tf()` for host-backed lower-timeframe grouping.
 - `strategy.entry_when()` and `strategy.close_when()` event output.
 - `strategy.exit()` stop/limit event output.
 
@@ -35,6 +36,9 @@ Known differences:
 - Python `if` cannot branch directly on a series; use `when()` or `switch()`.
 - `request.security()` cannot capture already evaluated Python expressions such
   as `ta.ema(close, 20)`; use `lambda ctx: ctx.ta.ema(ctx.close, 20)`.
+- `request.security_lower_tf()` returns grouped Python/Pyne objects rather than
+  Pine native arrays. Alignment behavior is covered by golden-style fixtures in
+  `tests/golden/`.
 - Strategy support emits deterministic events and a lightweight position
-  timeline; it is not a full broker simulator and does not model intrabar path,
-  slippage, commission, or partial fills.
+  timeline; it is not a full broker simulator and does not model a complete
+  intrabar path or broker liquidation.
