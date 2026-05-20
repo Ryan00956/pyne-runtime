@@ -13,11 +13,6 @@
   ],
   "script": "indicator(\"Security Golden\", overlay=True)\nhigher = request.security(\"BTCUSDT\", \"2\", \"close\")\ngapped = request.security(\"BTCUSDT\", \"2\", \"close\", gaps=\"on\")\nahead = request.security(\"BTCUSDT\", \"2\", \"close\", lookahead=\"on\")\nprevious = request.security(\"BTCUSDT\", \"2\", close[1])\nhigher_high, higher_low = request.security(\"BTCUSDT\", \"2\", (\"high\", \"low\"), gaps=\"on\")\nhigher_sma = request.security(\"BTCUSDT\", \"2\", lambda ctx: ctx.ta.sma(ctx.close, 2))\nplot(higher, \"Higher\")\nplot(gapped, \"Gapped\")\nplot(ahead, \"Ahead\")\nplot(previous, \"Previous\")\nplot(higher_high, \"Higher High\")\nplot(higher_low, \"Higher Low\")\nplot(higher_sma, \"Higher SMA\")\n",
   "expected_provider_calls": [
-    ["BTCUSDT", "2", 10, 40],
-    ["BTCUSDT", "2", 10, 40],
-    ["BTCUSDT", "2", 10, 40],
-    ["BTCUSDT", "2", 10, 40],
-    ["BTCUSDT", "2", 10, 40],
     ["BTCUSDT", "2", 10, 40]
   ],
   "expected_series": {

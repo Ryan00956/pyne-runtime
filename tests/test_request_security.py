@@ -170,6 +170,76 @@ plot(lower.size(), "Lower Count")
     assert result.values("Lower Count") == [1.0, 0.0, 1.0, 0.0]
 
 
+def test_request_security_reuses_requested_context_for_repeated_requests() -> None:
+    class MetadataProvider(StaticProvider):
+        def __init__(self, bars: list[dict[str, Any]]) -> None:
+            super().__init__(bars)
+            self.metadata_calls: list[tuple[str, str]] = []
+
+        def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
+            self.metadata_calls.append((symbol, timeframe))
+            return {"syminfo": {"tickerid": f"TEST:{symbol}", "mintick": 0.5}}
+
+    provider = MetadataProvider([
+        {"time": 1, "open": 9, "high": 12, "low": 8, "close": 10, "volume": 1000},
+        {"time": 3, "open": 29, "high": 34, "low": 28, "close": 30, "volume": 3000},
+    ])
+
+    result = pn.run(
+        """
+indicator("MTF Reuse", overlay=True)
+higher_close = request.security("BTCUSDT", "2", "close")
+higher_high = request.security("BTCUSDT", "2", lambda ctx: ctx.high)
+higher_low, higher_open = request.security("BTCUSDT", "2", ("low", "open"))
+plot(higher_close, "Higher Close")
+plot(higher_high, "Higher High")
+plot(higher_low, "Higher Low")
+plot(higher_open, "Higher Open")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert provider.metadata_calls == [("BTCUSDT", "2")]
+    assert result.values("Higher Close") == [10, 10, 30, 30]
+    assert result.values("Higher High") == [12, 12, 34, 34]
+    assert result.values("Higher Low") == [8, 8, 28, 28]
+    assert result.values("Higher Open") == [9, 9, 29, 29]
+
+
+def test_request_security_reuses_provider_data_across_request_shapes() -> None:
+    class BothCapabilitiesProvider(StaticProvider):
+        capabilities = {"request.security": True, "request.security_lower_tf": True}
+
+    provider = BothCapabilitiesProvider([
+        {"time": 1, "open": 9, "high": 12, "low": 8, "close": 10, "volume": 1000},
+        {"time": 2, "open": 19, "high": 22, "low": 18, "close": 20, "volume": 2000},
+        {"time": 3, "open": 29, "high": 32, "low": 28, "close": 30, "volume": 3000},
+        {"time": 4, "open": 39, "high": 42, "low": 38, "close": 40, "volume": 4000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Request Shape Reuse", overlay=True)
+higher = request.security("BTCUSDT", "1", "close")
+lower = request.security_lower_tf("BTCUSDT", "1", "close")
+plot(higher, "Higher")
+plot(lower.last(), "Lower Last")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert result.values("Higher") == [10, 20, 30, 40]
+    assert result.values("Lower Last") == [10.0, 20.0, 30.0, 40.0]
+
+
 def test_request_security_accepts_basic_expression_thunk() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 12, "low": 8, "close": 10, "volume": 1000},

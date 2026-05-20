@@ -38,6 +38,13 @@ When using the process executor, the provider must be pickleable. For local host
 adapters with open sockets, database handles, or closures, prefer
 `executor_mode="inline"`.
 
+Within one script run, Pyne caches requested contexts by
+`(symbol, timeframe, start, end)`. Repeated `request.security()` or
+`request.security_lower_tf()` calls for the same requested context reuse the
+same provider OHLCV response and requested metadata, while each expression is
+still evaluated independently. Pyne does not cache provider data across
+separate `pn.run()` executions.
+
 Providers may optionally declare request capabilities with either a
 `capabilities` attribute or a `capabilities()` method:
 

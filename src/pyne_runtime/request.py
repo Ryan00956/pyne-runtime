@@ -241,6 +241,10 @@ class RequestModule:
         self._context = context
         self._provider = provider
         self._evaluating = False
+        self._requested_context_cache: dict[
+            tuple[str, str, int, int],
+            tuple[list[dict[str, Any]], PyneContext],
+        ] = {}
 
     def security(
         self,
@@ -274,21 +278,13 @@ class RequestModule:
             )
 
         start, end = self._context.times[0], self._context.times[-1]
-        requested = self._provider.get_ohlcv(str(symbol), str(timeframe), start, end)
+        requested, requested_ctx = self._requested_context(str(symbol), str(timeframe), start, end)
         if not requested:
             return PyneSeries(
                 np.full(self._context.bar_count, np.nan, dtype=np.float64),
                 name=f"request.security({symbol},{timeframe})",
             )
 
-        requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
-        request_metadata = _request_metadata(self._provider, str(symbol), str(timeframe))
-        requested_ctx = PyneContext.from_ohlcv(
-            requested,
-            syminfo=request_metadata["syminfo"],
-            timeframe=request_metadata["timeframe"],
-            session=request_metadata["session"],
-        )
         requested_times = requested_ctx.times
         if callable(expression):
             requested_values, expression_name = self._evaluate_expression_thunk(
@@ -344,15 +340,7 @@ class RequestModule:
             )
 
         start, end = self._context.times[0], self._context.times[-1]
-        requested = self._provider.get_ohlcv(str(symbol), str(timeframe), start, end)
-        requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
-        request_metadata = _request_metadata(self._provider, str(symbol), str(timeframe))
-        requested_ctx = PyneContext.from_ohlcv(
-            requested,
-            syminfo=request_metadata["syminfo"],
-            timeframe=request_metadata["timeframe"],
-            session=request_metadata["session"],
-        )
+        requested, requested_ctx = self._requested_context(str(symbol), str(timeframe), start, end)
         if callable(expression):
             requested_values, expression_name = self._evaluate_expression_thunk(
                 expression,
@@ -375,6 +363,37 @@ class RequestModule:
             requested_times=requested_ctx.times,
             requested_values=requested_values,
         )
+
+    def _requested_context(
+        self,
+        symbol: str,
+        timeframe: str,
+        start: int,
+        end: int,
+    ) -> tuple[list[dict[str, Any]], PyneContext]:
+        if self._provider is None:
+            raise PyneRequestError(
+                "request context requires a host data provider",
+                code="PYNE_UNSUPPORTED_FEATURE",
+            )
+
+        key = (symbol, timeframe, int(start), int(end))
+        cached = self._requested_context_cache.get(key)
+        if cached is not None:
+            return cached
+
+        requested = self._provider.get_ohlcv(symbol, timeframe, start, end)
+        requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
+        request_metadata = _request_metadata(self._provider, symbol, timeframe)
+        requested_ctx = PyneContext.from_ohlcv(
+            requested,
+            syminfo=request_metadata["syminfo"],
+            timeframe=request_metadata["timeframe"],
+            session=request_metadata["session"],
+        )
+        cached = (requested, requested_ctx)
+        self._requested_context_cache[key] = cached
+        return cached
 
     def _evaluate_expression_thunk(
         self,
