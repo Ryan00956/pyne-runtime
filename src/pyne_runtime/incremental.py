@@ -390,6 +390,84 @@ class IncrementalStrategyRiskNamespace:
         self._strategy._max_intraday_filled_orders = max(int(count), 0)
 
 
+class IncrementalStrategyTradesNamespace:
+    """Scalar trade-ledger accessor namespace for incremental callbacks."""
+
+    def __init__(self, strategy: "IncrementalStrategyNamespace", kind: str) -> None:
+        self._strategy = strategy
+        self._kind = kind
+
+    @property
+    def count(self) -> int:
+        return len(self._trades())
+
+    def __int__(self) -> int:
+        return self.count
+
+    def __float__(self) -> float:
+        return float(self.count)
+
+    def __bool__(self) -> bool:
+        return self.count > 0
+
+    def size(self, trade_num: int = -1) -> float:
+        return self.qty(trade_num)
+
+    def qty(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "qty")
+
+    def profit(self, trade_num: int = -1) -> float:
+        trade = self._trade(trade_num)
+        if self._kind == "opentrades" and trade:
+            return _round8(_trade_open_profit(trade, self._strategy._current_price()))
+        return _trade_float(trade, "profit")
+
+    def net_profit(self, trade_num: int = -1) -> float:
+        trade = self._trade(trade_num)
+        if self._kind == "opentrades" and trade:
+            profit = _trade_open_profit(trade, self._strategy._current_price())
+            return _round8(profit - float(trade.get("commission", 0.0)))
+        return _trade_float(trade, "net_profit")
+
+    def commission(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "commission")
+
+    def entry_price(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "entry_price")
+
+    def exit_price(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "exit_price")
+
+    def entry_time(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "entry_time")
+
+    def exit_time(self, trade_num: int = -1) -> float:
+        return _trade_float(self._trade(trade_num), "exit_time")
+
+    def entry_id(self, trade_num: int = -1) -> str:
+        return str(self._trade(trade_num).get("entry_id", ""))
+
+    def exit_id(self, trade_num: int = -1) -> str:
+        return str(self._trade(trade_num).get("exit_id", ""))
+
+    def side(self, trade_num: int = -1) -> str:
+        return str(self._trade(trade_num).get("side", ""))
+
+    def _trades(self) -> list[dict[str, Any]]:
+        return self._strategy._closed_trades if self._kind == "closedtrades" else self._strategy._open_trades
+
+    def _trade(self, trade_num: int) -> dict[str, Any]:
+        trades = self._trades()
+        if not trades:
+            return {}
+        index = int(trade_num)
+        if index < 0:
+            index = len(trades) + index
+        if index < 0 or index >= len(trades):
+            return {}
+        return trades[index]
+
+
 class IncrementalTaNamespace:
     """Stateful TA helper namespace available as ``ctx.ta``."""
 
@@ -505,6 +583,8 @@ class IncrementalStrategyNamespace:
         self._pending_exit_orders: list[dict[str, Any]] = []
         self._open_trades: list[dict[str, Any]] = []
         self._closed_trades: list[dict[str, Any]] = []
+        self._closedtrades_namespace = IncrementalStrategyTradesNamespace(self, "closedtrades")
+        self._opentrades_namespace = IncrementalStrategyTradesNamespace(self, "opentrades")
         self._grossprofit = 0.0
         self._grossloss = 0.0
         self._commission = 0.0
@@ -602,6 +682,14 @@ class IncrementalStrategyNamespace:
     @property
     def equity(self) -> float:
         return _round8(self._initial_capital + self.netprofit + self.openprofit)
+
+    @property
+    def closedtrades(self) -> IncrementalStrategyTradesNamespace:
+        return self._closedtrades_namespace
+
+    @property
+    def opentrades(self) -> IncrementalStrategyTradesNamespace:
+        return self._opentrades_namespace
 
     def begin_bar(self) -> None:
         if getattr(self._context.session, "isfirstbar", False):
@@ -2030,6 +2118,16 @@ def _filter_points(points: list[dict[str, Any]], start_s: int | None, end_s: int
 
 def _round8(value: float) -> float:
     return round(float(value), 8)
+
+
+def _trade_float(trade: dict[str, Any], key: str) -> float:
+    value = trade.get(key)
+    if value is None or value == "":
+        return math.nan
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return math.nan
 
 
 def _signed_trade_qty(trade: dict[str, Any]) -> float:

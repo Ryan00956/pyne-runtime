@@ -1096,6 +1096,49 @@ def on_bar(ctx, bar):
     _assert_full_strategy_matches_batch(incremental, batch)
 
 
+def test_incremental_strategy_trade_accessors_expose_scalar_ledgers() -> None:
+    script = """
+indicator("Incremental Trade Accessors", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(
+        initial_capital=1000,
+        pyramiding=2,
+        commission_type=ctx.strategy.commission.cash_per_contract,
+        commission_value=0.25,
+    )
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("A", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.entry("B", ctx.strategy.long, qty=2, price=bar.close, when=ctx.bar_index == 1)
+    ctx.strategy.close("A", price=bar.close, when=ctx.bar_index == 2)
+    ctx.plot("Closed Count", ctx.strategy.closedtrades)
+    ctx.plot("Open Count", ctx.strategy.opentrades.count)
+    ctx.plot("Closed Profit", ctx.strategy.closedtrades.profit(0))
+    ctx.plot("Closed Commission", ctx.strategy.closedtrades.commission(0))
+    ctx.plot("Closed Net", ctx.strategy.closedtrades.net_profit(0))
+    ctx.plot("Open Entry", ctx.strategy.opentrades.entry_price(0))
+    ctx.plot("Open Profit", ctx.strategy.opentrades.profit(0))
+    ctx.plot("Closed Id Match", 1 if ctx.strategy.closedtrades.entry_id(0) == "A" else 0)
+    ctx.plot("Open Id Match", 1 if ctx.strategy.opentrades.entry_id(0) == "B" else 0)
+    ctx.plot("Latest Open Size", ctx.strategy.opentrades.size(-1))
+"""
+
+    result = pn.run(script, _bars(), executor_mode="inline")
+
+    assert result.ok
+    assert _line_values(result, "closed_count") == [0.0, 0.0, 1.0]
+    assert _line_values(result, "open_count") == [1.0, 2.0, 1.0]
+    assert _line_values(result, "closed_profit") == [2.0]
+    assert _line_values(result, "closed_commission") == [0.5]
+    assert _line_values(result, "closed_net") == [1.5]
+    assert _line_values(result, "open_entry") == [1.0, 1.0, 2.0]
+    assert _line_values(result, "open_profit") == [0.0, 1.0, 2.0]
+    assert _line_values(result, "closed_id_match") == [0.0, 0.0, 1.0]
+    assert _line_values(result, "open_id_match") == [0.0, 0.0, 1.0]
+    assert _line_values(result, "latest_open_size") == [1.0, 2.0, 2.0]
+
+
 def test_incremental_strategy_margin_reject_costs_match_batch_report() -> None:
     bars = [
         {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},

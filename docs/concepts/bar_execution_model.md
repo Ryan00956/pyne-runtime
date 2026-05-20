@@ -126,6 +126,7 @@ Current incremental strategy scope:
 - `ctx.strategy.risk.allow_entry_in()`, `max_drawdown()`, `max_intraday_loss()`, `max_position_size()`, and `max_intraday_filled_orders()` apply the same deterministic entry gating, position-size capping, risk-lock, rejection lifecycle, and `session.isfirstbar` reset model as batch strategy for committed bars.
 - Long and short positions, `qty`/`qty_percent` partial closes, and reverse entries update the same order/trade report shape as batch strategy for basic market-like fills.
 - `ctx.strategy.position_size`, `position_avg_price`, `equity`, `netprofit`, `openprofit`, `grossprofit`, and `grossloss` expose scalar values for the current bar.
+- `ctx.strategy.closedtrades` and `ctx.strategy.opentrades` expose scalar trade-ledger accessors such as `count`, `profit()`, `net_profit()`, `commission()`, `entry_price()`, `exit_price()`, `entry_id()`, `exit_id()`, and `size()`, with negative trade indexes counting from the latest ledger tail.
 - `result.output["strategy"]` includes `orders`, `position`, `summary`, `closedtrades`, `opentrades`, and lifecycle fill events.
 
 The first parity contract is basic entry/close ledger equivalence: a seeded
@@ -142,4 +143,6 @@ committed bars and emit the same public filled exit report once triggered.
 Pending fill policy parity covers limit verification, same-bar stop/limit
 priority, and deterministic intrabar path selection. Unfilled persistent exit
 orders are kept as internal strategy state rather than exposed as public pending
-lifecycle rows.
+lifecycle rows. Incremental scripts can inspect current closed/open trade
+ledgers during each callback through `ctx.strategy.closedtrades` and
+`ctx.strategy.opentrades`.
