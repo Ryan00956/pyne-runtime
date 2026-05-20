@@ -133,6 +133,7 @@ into chart-bar buckets using `[chart_time, next_chart_time)`.
 lower = request.security_lower_tf("BTCUSDT", "1", lambda ctx: ctx.close)
 plot(lower.size(), "Lower TF Count")
 plot(lower.last(), "Lower TF Last Close")
+plot(lower.max(), "Lower TF High")
 ```
 
 Supported now:
@@ -148,6 +149,9 @@ The returned object exposes:
 - `.size()`: number of lower-timeframe bars per chart bar
 - `.first(default=na)`: first grouped value per chart bar
 - `.last(default=na)`: last grouped value per chart bar
+- `.get(index, default=na)`: value at a zero-based index in each group
+- `.sum(default=na)`, `.min(default=na)`, `.max(default=na)`, `.avg(default=na)`:
+  numeric aggregations for each group
 
 For provider capability negotiation, a provider may expose either a
 `capabilities` attribute or `capabilities()` method. When present,

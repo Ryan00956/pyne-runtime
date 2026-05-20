@@ -403,6 +403,65 @@ plot(lower_low.last(), "Lower Low Last")
     assert result.values("Lower Low Last") == [9.0, 19.0, 29.0, 39.0]
 
 
+def test_request_security_lower_tf_exposes_array_like_numeric_helpers() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 100},
+        {"time": 1, "open": 2, "high": 2, "low": 2, "close": 2, "volume": 200},
+        {"time": 1, "open": 3, "high": 3, "low": 3, "close": 3, "volume": 300},
+        {"time": 3, "open": 4, "high": 4, "low": 4, "close": 4, "volume": 400},
+        {"time": 3, "open": 5, "high": 5, "low": 5, "close": 5, "volume": 500},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Helpers", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", lambda ctx: ctx.close)
+plot(lower.get(1), "Second")
+plot(lower.sum(), "Sum")
+plot(lower.min(), "Min")
+plot(lower.max(), "Max")
+plot(lower.avg(), "Average")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Second") == [2.0, 5.0]
+    assert result.values("Sum") == [6.0, 9.0]
+    assert result.values("Min") == [1.0, 4.0]
+    assert result.values("Max") == [3.0, 5.0]
+    assert result.values("Average") == [2.0, 4.5]
+
+
+def test_request_security_lower_tf_helpers_use_default_for_empty_groups() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 100},
+        {"time": 4, "open": 4, "high": 4, "low": 4, "close": 4, "volume": 400},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Empty", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", "close")
+plot(lower.get(1, default=0), "Second")
+plot(lower.sum(default=0), "Sum")
+plot(lower.min(default=-1), "Min")
+plot(lower.avg(default=0), "Average")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Second") == [0.0, 0.0, 0.0, 0.0]
+    assert result.values("Sum") == [1.0, 0.0, 0.0, 4.0]
+    assert result.values("Min") == [1.0, -1.0, -1.0, 4.0]
+    assert result.values("Average") == [1.0, 0.0, 0.0, 4.0]
+
+
 def test_request_security_lower_tf_respects_provider_capabilities() -> None:
     provider = CapabilityProvider(
         [{"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}],

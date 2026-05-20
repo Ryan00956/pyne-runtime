@@ -78,8 +78,8 @@ class LowerTimeframeSeries:
         return LowerTimeframeSeries(tuple(groups), name=f"{self.name}[{periods}]" if self.name else None)
 
     def size(self) -> PyneSeries:
-        return PyneSeries(
-            np.asarray([len(group) for group in self.groups], dtype=np.float64),
+        return _lower_tf_numeric_series(
+            [len(group) for group in self.groups],
             name=f"{self.name}.size" if self.name else None,
         )
 
@@ -89,10 +89,52 @@ class LowerTimeframeSeries:
     def last(self, default: Any = np.nan) -> PyneSeries:
         return self._edge(-1, default=default, label="last")
 
+    def get(self, index: int, default: Any = np.nan) -> PyneSeries:
+        """Return the value at ``index`` from each chart bar's lower-TF group."""
+        index = int(index)
+        if index < 0:
+            raise IndexError("LowerTimeframeSeries.get() requires a non-negative index")
+        values = [group[index] if index < len(group) else default for group in self.groups]
+        return _lower_tf_numeric_series(
+            values,
+            name=f"{self.name}.get" if self.name else None,
+        )
+
+    def sum(self, default: Any = np.nan) -> PyneSeries:
+        return self._aggregate(np.sum, default=default, label="sum")
+
+    def min(self, default: Any = np.nan) -> PyneSeries:
+        return self._aggregate(np.min, default=default, label="min")
+
+    def max(self, default: Any = np.nan) -> PyneSeries:
+        return self._aggregate(np.max, default=default, label="max")
+
+    def avg(self, default: Any = np.nan) -> PyneSeries:
+        return self._aggregate(np.mean, default=default, label="avg")
+
     def _edge(self, index: int, *, default: Any, label: str) -> PyneSeries:
         values = [group[index] if group else default for group in self.groups]
-        return PyneSeries(
-            np.asarray(values, dtype=np.float64),
+        return _lower_tf_numeric_series(
+            values,
+            name=f"{self.name}.{label}" if self.name else None,
+        )
+
+    def _aggregate(
+        self,
+        op: Callable[[np.ndarray], Any],
+        *,
+        default: Any,
+        label: str,
+    ) -> PyneSeries:
+        values: list[Any] = []
+        for group in self.groups:
+            clean = np.asarray(
+                [float(value) for value in group if not is_na_value(value)],
+                dtype=np.float64,
+            )
+            values.append(default if len(clean) == 0 else op(clean))
+        return _lower_tf_numeric_series(
+            values,
             name=f"{self.name}.{label}" if self.name else None,
         )
 
@@ -561,6 +603,16 @@ def _group_single_lower_timeframe_values(
     return LowerTimeframeSeries(
         tuple(groups),
         name=f"request.security_lower_tf({symbol},{timeframe},{expression_name})",
+    )
+
+
+def _lower_tf_numeric_series(values: list[Any], *, name: str | None = None) -> PyneSeries:
+    return PyneSeries(
+        np.asarray(
+            [np.nan if is_na_value(value) else float(value) for value in values],
+            dtype=np.float64,
+        ),
+        name=name,
     )
 
 
