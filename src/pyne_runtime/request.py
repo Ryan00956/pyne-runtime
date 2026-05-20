@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
@@ -281,10 +282,12 @@ class RequestModule:
             )
 
         requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
+        request_metadata = _request_metadata(self._provider, str(symbol), str(timeframe))
         requested_ctx = PyneContext.from_ohlcv(
             requested,
-            syminfo={"tickerid": str(symbol), "ticker": str(symbol)},
-            timeframe=str(timeframe),
+            syminfo=request_metadata["syminfo"],
+            timeframe=request_metadata["timeframe"],
+            session=request_metadata["session"],
         )
         requested_times = requested_ctx.times
         if callable(expression):
@@ -343,10 +346,12 @@ class RequestModule:
         start, end = self._context.times[0], self._context.times[-1]
         requested = self._provider.get_ohlcv(str(symbol), str(timeframe), start, end)
         requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
+        request_metadata = _request_metadata(self._provider, str(symbol), str(timeframe))
         requested_ctx = PyneContext.from_ohlcv(
             requested,
-            syminfo={"tickerid": str(symbol), "ticker": str(symbol)},
-            timeframe=str(timeframe),
+            syminfo=request_metadata["syminfo"],
+            timeframe=request_metadata["timeframe"],
+            session=request_metadata["session"],
         )
         if callable(expression):
             requested_values, expression_name = self._evaluate_expression_thunk(
@@ -741,3 +746,39 @@ def _provider_supports(provider: DataProvider, capability_names: tuple[str, ...]
         declared = set(declared_capabilities)
         return any(capability in declared for capability in capability_names)
     return bool(declared_capabilities)
+
+
+def _request_metadata(provider: DataProvider, symbol: str, timeframe: str) -> dict[str, Any]:
+    declared_metadata = getattr(provider, "get_request_metadata", None)
+    if callable(declared_metadata):
+        declared_metadata = declared_metadata(symbol, timeframe)
+    else:
+        declared_metadata = getattr(provider, "request_metadata", None)
+        if callable(declared_metadata):
+            declared_metadata = declared_metadata(symbol, timeframe)
+
+    if declared_metadata is None:
+        declared_metadata = {}
+    if not isinstance(declared_metadata, Mapping):
+        raise PyneRequestError(
+            "request metadata must be a mapping with optional syminfo, timeframe, and session keys",
+            code="PYNE_RUNTIME_ERROR",
+        )
+
+    syminfo = declared_metadata.get("syminfo", declared_metadata.get("symbol_info"))
+    timeframe_info = declared_metadata.get("timeframe", declared_metadata.get("timeframe_info", timeframe))
+    session = declared_metadata.get("session", declared_metadata.get("session_info"))
+    return {
+        "syminfo": _symbol_metadata_with_defaults(symbol, syminfo),
+        "timeframe": timeframe_info,
+        "session": session,
+    }
+
+
+def _symbol_metadata_with_defaults(symbol: str, syminfo: Any) -> Any:
+    defaults = {"tickerid": symbol, "ticker": symbol}
+    if syminfo is None:
+        return defaults
+    if isinstance(syminfo, Mapping):
+        return {**defaults, **syminfo}
+    return syminfo

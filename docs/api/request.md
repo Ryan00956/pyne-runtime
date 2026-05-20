@@ -60,6 +60,32 @@ request types. For dict capabilities, missing keys default to supported and
 explicit `False` disables a capability. For list/set/tuple capabilities, the
 capability must be present.
 
+Providers may also supply metadata for requested contexts. This is optional;
+without it, Pyne uses the requested `symbol` as `syminfo.ticker` /
+`syminfo.tickerid`, uses the requested `timeframe` as `timeframe.period`, and
+derives session flags from requested bars.
+
+```python
+class MyProvider:
+    def get_request_metadata(self, symbol, timeframe):
+        return {
+            "syminfo": {
+                "tickerid": "BINANCE:BTCUSDT",
+                "mintick": 0.01,
+                "currency": "USDT",
+                "type": "crypto",
+            },
+            "timeframe": timeframe,
+            "session": {"ismarket": True},
+        }
+```
+
+The same metadata can be exposed as a `request_metadata` mapping or
+`request_metadata(symbol, timeframe)` method. Accepted keys are `syminfo` or
+`symbol_info`, `timeframe` or `timeframe_info`, and `session` or
+`session_info`. Bar-level session flags in requested OHLCV rows still override
+the provider-level session default.
+
 ## `request.security`
 
 ```python
@@ -103,6 +129,7 @@ The `ctx` object is a calculation-only requested context. It exposes:
 - `ctx.open`, `ctx.high`, `ctx.low`, `ctx.close`, `ctx.volume`
 - `ctx.time`, `ctx.time_close`, `ctx.bar_index`, `ctx.last_bar_index`, `ctx.barstate`
 - `ctx.hl2`, `ctx.hlc3`, `ctx.ohlc4`, `ctx.hlcc4`
+- `ctx.syminfo`, `ctx.timeframe_info`, `ctx.session`
 - `ctx.ta`
 - `ctx.when()`, `ctx.where()`, `ctx.switch()`
 

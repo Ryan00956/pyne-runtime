@@ -32,5 +32,5 @@ Pyne API surface, and the test/doc evidence behind each claim.
 
 - Richer incremental drawing object event streams.
 - More formal fill models, margin, and intrabar path modeling.
-- More request-context metadata coverage and broader golden alignment fixtures.
+- Broader request-context edge-case goldens.
 - A larger golden-test suite against known Pine outputs.

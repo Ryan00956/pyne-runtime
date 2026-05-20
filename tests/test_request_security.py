@@ -254,6 +254,57 @@ plot(higher_mid, "Higher Mid")
     assert result.values("Higher Mid") == [10, 10, 31, 31]
 
 
+def test_request_security_injects_provider_metadata_into_requested_context() -> None:
+    class MetadataProvider(StaticProvider):
+        def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
+            assert symbol == "BTCUSDT"
+            assert timeframe == "1D"
+            return {
+                "syminfo": {
+                    "tickerid": "BINANCE:BTCUSDT",
+                    "mintick": 0.5,
+                    "currency": "USDT",
+                    "type": "crypto",
+                },
+                "timeframe": "1D",
+                "session": {"ismarket": False},
+            }
+
+    provider = MetadataProvider([
+        {"time": 1, "open": 10, "high": 12, "low": 8, "close": 10, "volume": 1000},
+        {"time": 3, "open": 30, "high": 34, "low": 28, "close": 30, "volume": 3000},
+    ])
+
+    result = pn.run(
+        """
+indicator("MTF Metadata", overlay=True)
+mintick, prefix_match, daily, market = request.security(
+    "BTCUSDT",
+    "1D",
+    lambda ctx: (
+        ctx.syminfo.mintick,
+        1 if ctx.syminfo.prefix == "BINANCE" else 0,
+        1 if ctx.timeframe_info.isdaily else 0,
+        ctx.session.ismarket,
+    ),
+)
+plot(mintick, "Requested Mintick")
+plot(prefix_match, "Requested Prefix")
+plot(daily, "Requested Daily")
+plot(market, "Requested Market")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Requested Mintick") == [0.5, 0.5, 0.5, 0.5]
+    assert result.values("Requested Prefix") == [1.0, 1.0, 1.0, 1.0]
+    assert result.values("Requested Daily") == [1.0, 1.0, 1.0, 1.0]
+    assert result.values("Requested Market") == [0.0, 0.0, 0.0, 0.0]
+
+
 def test_request_security_accepts_tuple_thunk_expression() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 9, "high": 12, "low": 8, "close": 10, "volume": 1000},
@@ -453,6 +504,40 @@ plot(lower_low.last(), "Lower Low Last")
     assert result.ok
     assert result.values("Lower High First") == [12.0, 22.0, 32.0, 42.0]
     assert result.values("Lower Low Last") == [9.0, 19.0, 29.0, 39.0]
+
+
+def test_request_security_lower_tf_injects_provider_metadata_into_requested_context() -> None:
+    class MetadataProvider(StaticProvider):
+        request_metadata = {
+            "syminfo": {"tickerid": "COINBASE:ETHUSD", "mintick": 0.25},
+            "timeframe": "5",
+            "session": {"ismarket": False},
+        }
+
+    provider = MetadataProvider([
+        {"time": 1, "open": 10, "high": 12, "low": 9, "close": 11, "volume": 1000},
+        {"time": 2, "open": 20, "high": 22, "low": 19, "close": 21, "volume": 2000},
+        {"time": 3, "open": 30, "high": 32, "low": 29, "close": 31, "volume": 3000},
+        {"time": 4, "open": 40, "high": 42, "low": 39, "close": 41, "volume": 4000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Metadata", overlay=True)
+lower = request.security_lower_tf(
+    "ETHUSD",
+    "5",
+    lambda ctx: ctx.syminfo.mintick + ctx.timeframe_info.multiplier + ctx.session.ismarket,
+)
+plot(lower.last(), "Lower Metadata")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Lower Metadata") == [5.25, 5.25, 5.25, 5.25]
 
 
 def test_request_security_lower_tf_exposes_array_like_numeric_helpers() -> None:
