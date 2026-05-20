@@ -54,6 +54,11 @@ The current replay model implements `strategy.oca.cancel` and
 orders. In a reduce group, a filled order reduces sibling pending quantities by
 the filled quantity; siblings reduced to zero are canceled.
 
+OCA state changes do not charge commission by themselves. A canceled sibling
+keeps a lifecycle record with no `commission` field. A reduced sibling charges
+commission only if it later fills, and cash-per-contract commission uses the
+reduced filled quantity rather than the original requested quantity.
+
 ## Configuration
 
 Prefer the Pine-like declaration form:

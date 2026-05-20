@@ -142,6 +142,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   小目标反转和 pending stop entry reversal 的 lot/cost 分摊，确保 entry 反转同时
   关闭旧 lot 并打开新 lot 时，closed/open trade commission 都按 transaction quantity
   正确分摊。
+- Strategy OCA cost golden fixture 已覆盖 `strategy.oca.cancel` 取消 sibling
+  pending order 不产生 commission，以及 `strategy.oca.reduce` 缩量后的 sibling
+  pending order 按实际 reduced filled quantity 计 cash-per-contract commission。
 
 ## 仍然不是 Pine 的地方
 
@@ -191,8 +194,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - 订单生命周期报告已加入 `strategy.lifecycle`，并覆盖常见 rejected 原因和
   requested/filled quantity 细节；后续可继续扩展更多 broker-emulator 风格事件。
 - 已增加 strategy same-bar、lifecycle、risk lock、lot matching 与 intraday
-  reset、pending risk lock、OCA lifecycle、cost model、limit verification cost
-  bracket/stop-limit cost、risk/margin cost 与 entry sizing cost golden fixtures；
+  reset、pending risk lock、OCA lifecycle、cost model、limit verification cost、
+  bracket/stop-limit cost、risk/margin cost、entry sizing cost、reversal lot cost
+  与 OCA cost golden fixtures；
   后续继续扩大覆盖面。
 
 ### P5: Golden 与兼容性证据
@@ -202,13 +206,14 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy fill golden fixtures 已开始覆盖 same-bar、lifecycle、risk lock、
   lot matching、intraday reset、pending risk lock、OCA lifecycle、cost model 与
   limit verification cost、bracket/stop-limit cost、risk/margin cost、entry sizing cost
-  和 reversal lot cost 场景，后续继续扩大。
+  和 reversal lot cost、OCA cost 场景，后续继续扩大。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续扩大 Strategy golden 与 broker-emulator 风格回放语义，优先覆盖
-OCA reduce/cancel 与成本模型交叉，以及更多 pending/risk 组合边界。
+pending order、risk lock 与已有持仓回收之间的组合边界，以及更多
+`strategy.closedtrades` / `strategy.opentrades` 字段访问口径。
 完成后应同步更新：
 
 - `src/pyne_runtime/strategy.py`
