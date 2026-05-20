@@ -9,6 +9,7 @@ p1 = plot(upper, "Upper", color=color.blue)
 plot(mid, "Middle", color=color.orange)
 p2 = plot(lower, "Lower", color=color.blue)
 fill(p1, p2, color="rgba(59,130,246,0.08)")
+marker(close > open, shape=shape.triangleup, location=location.abovebar, size=size.small)
 ```
 
 Common outputs:
@@ -114,4 +115,33 @@ Supported `table` methods:
 
 Table placement constants are available under `position.*`, including
 `position.top_right`, `position.middle_center`, and `position.bottom_left`.
+
+## Enum Namespaces
+
+Pyne exposes Pine-like enum namespaces as script globals. They resolve to plain
+strings in the serialized output, so host renderers can keep their existing
+contracts.
+
+Common plotting and drawing constants:
+
+- `plot.style_line`, `plot.style_histogram`, `plot.style_columns`
+- `hline.style_solid`, `hline.style_dashed`, `hline.style_dotted`
+- `shape.xcross`, `shape.cross`, `shape.circle`, `shape.triangleup`,
+  `shape.triangledown`, `shape.flag`, `shape.arrowup`, `shape.arrowdown`,
+  `shape.labelup`, `shape.labeldown`, `shape.square`, `shape.diamond`
+- `location.abovebar`, `location.belowbar`, `location.top`,
+  `location.bottom`, `location.absolute`
+- `size.tiny`, `size.small`, `size.normal`, `size.large`, `size.huge`
+- `text.align_left`, `text.align_center`, `text.align_right`,
+  `text.align_top`, `text.align_middle`, `text.align_bottom`
+- `line.style_solid`, `line.style_dashed`, `line.style_dotted`
+- `line.extend_none`, `line.extend_left`, `line.extend_right`,
+  `line.extend_both`
+- `label.style_label_up`, `label.style_label_down`, `label.style_label_left`,
+  `label.style_label_right`, `label.style_label_center`
+- `box.border_style_solid`, `box.border_style_dashed`,
+  `box.border_style_dotted`
+- `position.top_left`, `position.top_center`, `position.top_right`,
+  `position.middle_left`, `position.middle_center`, `position.middle_right`,
+  `position.bottom_left`, `position.bottom_center`, `position.bottom_right`
 

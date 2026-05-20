@@ -1195,6 +1195,42 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         bottom_center="bottom_center",
         bottom_right="bottom_right",
     )
+    shape_namespace = _Namespace(
+        xcross="xcross",
+        cross="cross",
+        circle="circle",
+        triangleup="triangle_up",
+        triangledown="triangle_down",
+        flag="flag",
+        arrowup="arrow_up",
+        arrowdown="arrow_down",
+        labelup="label_up",
+        labeldown="label_down",
+        square="square",
+        diamond="diamond",
+    )
+    location_namespace = _Namespace(
+        abovebar="above",
+        belowbar="below",
+        top="above",
+        bottom="below",
+        absolute="absolute",
+    )
+    size_namespace = _Namespace(
+        tiny="tiny",
+        small="small",
+        normal="normal",
+        large="large",
+        huge="huge",
+    )
+    text_namespace = _Namespace(
+        align_left="left",
+        align_center="center",
+        align_right="right",
+        align_top="top",
+        align_middle="middle",
+        align_bottom="bottom",
+    )
 
     return {
         "indicator": indicator,
@@ -1212,20 +1248,9 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         "box": box_namespace,
         "table": table_namespace,
         "add_line": add_line,
-        "shape": _Namespace(
-            triangleup="triangle_up",
-            triangledown="triangle_down",
-            circle="circle",
-            cross="cross",
-            diamond="diamond",
-            arrowup="arrow_up",
-            arrowdown="arrow_down",
-        ),
-        "location": _Namespace(
-            abovebar="above",
-            belowbar="below",
-            top="above",
-            bottom="below",
-        ),
+        "shape": shape_namespace,
+        "location": location_namespace,
         "position": position_namespace,
+        "size": size_namespace,
+        "text": text_namespace,
     }

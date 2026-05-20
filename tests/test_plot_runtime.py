@@ -194,6 +194,37 @@ table.set_border_color(summary, color.blue)
     ]
 
 
+def test_pine_like_plot_enum_namespaces_are_injected() -> None:
+    result = pn.run(
+        """
+indicator("Enums", overlay=True)
+marker(close > open, shape=shape.square, location=location.absolute, size=size.large)
+note = label.new(bar_index, high, text="Enum", style=label.style_label_down, size=size.small)
+zone = box.new(bar_index[1], high[1], bar_index, low, border_style=box.border_style_dotted)
+trend = line.new(bar_index[1], close[1], bar_index, close, style=line.style_dashed)
+summary = table.new(position.bottom_center, 1, 1)
+table.cell(summary, 0, 0, "Aligned", text_halign=text.align_left, text_valign=text.align_top)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    marker = result.output["markers"][0]
+    assert marker["shape"] == "square"
+    assert marker["position"] == "absolute"
+    assert marker["size"] == "large"
+
+    objects = result.output["objects"]
+    assert objects["labels"][0]["style"] == "label_down"
+    assert objects["labels"][0]["size"] == "small"
+    assert objects["boxes"][0]["border_style"] == "dotted"
+    assert objects["lines"][0]["style"] == "dashed"
+    assert objects["tables"][0]["position"] == "bottom_center"
+    assert objects["tables"][0]["cells"][0]["text_halign"] == "left"
+    assert objects["tables"][0]["cells"][0]["text_valign"] == "top"
+
+
 def test_box_and_table_objects_can_be_deleted() -> None:
     result = pn.run(
         """
