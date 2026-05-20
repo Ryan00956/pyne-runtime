@@ -534,12 +534,18 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
     def marker(
         condition: PyneSeries | np.ndarray,
         shape: str = "circle",
-        color: str = "#f59e0b",
+        color: str | PyneSeries | np.ndarray | list = "#f59e0b",
         text: str = "",
+        textcolor: str | None = None,
         position: str = "above",
         location: str | None = None,
         size: str = "normal",
         pane: str | None = None,
+        title: str = "",
+        offset: int = 0,
+        show_last: int | None = None,
+        display: str | None = None,
+        force_overlay: bool = False,
     ) -> None:
         """Plot markers/shapes at specific bars.
 
@@ -551,45 +557,110 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                    "diamond", "arrow_up", "arrow_down".
             color: Marker color.
             text: Text to display with the marker.
+            textcolor: Optional marker text color.
             position: "above" or "below" the bar.
             size: "tiny", "small", "normal", "large".
             pane: "main" or "separate".
         """
         if location is not None:
             position = location
+        if force_overlay:
+            pane = "main"
         if pane is None:
             pane = "separate" if not collector._indicator_meta.get("overlay", True) else "main"
 
-        if isinstance(condition, PyneSeries):
-            condition_values = condition.to_numpy()
-        elif isinstance(condition, np.ndarray):
-            condition_values = condition
-        else:
-            condition_values = [condition] * len(collector.times)
+        condition_values = _values_from_data(condition)
+        offset_value = int(offset)
+        first_visible_index = 0
+        if show_last is not None:
+            first_visible_index = max(len(collector.times) - max(int(show_last), 0), 0)
+        entry_color = (
+            str(color)
+            if not isinstance(color, (PyneSeries, np.ndarray, list))
+            else "#f59e0b"
+        )
 
         marks = []
         for i, (t, c) in enumerate(zip(collector.times, condition_values)):
+            if i < first_visible_index:
+                continue
             if _condition_is_true(c):
-                marks.append({
-                    "time": t,
+                target_index = i + offset_value
+                if target_index < 0 or target_index >= len(collector.times):
+                    continue
+                target_time = collector.times[target_index]
+                point_color = _color_for_index(color, i, t) or entry_color
+                mark: dict[str, Any] = {
+                    "time": target_time,
                     "shape": shape,
-                    "color": color,
+                    "color": point_color,
                     "text": text,
                     "position": position,
                     "size": size,
                     "pane": pane,
-                })
+                }
+                if textcolor is not None:
+                    mark["textcolor"] = textcolor
+                if position == "absolute" and not isinstance(c, (bool, np.bool_)):
+                    try:
+                        mark["value"] = round(float(c), 8)
+                    except (TypeError, ValueError):
+                        pass
+                marks.append(mark)
 
         if marks:
-            collector.markers.append({
+            marker_entry: dict[str, Any] = {
                 "shape": shape,
-                "color": color,
+                "color": entry_color,
                 "text": text,
                 "position": position,
                 "size": size,
                 "pane": pane,
                 "data": marks,
-            })
+                **_display_options(display=display, format=None, precision=None),
+            }
+            if title:
+                marker_entry["title"] = title
+            if textcolor is not None:
+                marker_entry["textcolor"] = textcolor
+            if offset_value:
+                marker_entry["offset"] = offset_value
+            if isinstance(color, (PyneSeries, np.ndarray, list)):
+                marker_entry["per_bar_color"] = True
+            collector.markers.append(marker_entry)
+
+    def plotshape(
+        series: PyneSeries | np.ndarray | list | bool,
+        title: str = "",
+        style: str = "circle",
+        location: str = "above",
+        color: str | PyneSeries | np.ndarray | list = "#f59e0b",
+        offset: int = 0,
+        text: str = "",
+        textcolor: str | None = None,
+        editable: bool = True,
+        size: str = "normal",
+        show_last: int | None = None,
+        display: str | None = None,
+        force_overlay: bool = False,
+        **_: Any,
+    ) -> None:
+        """Pine-like ``plotshape()`` wrapper over Pyne marker output."""
+        _ = editable
+        marker(
+            series,
+            shape=style,
+            color=color,
+            text=text,
+            textcolor=textcolor,
+            location=location,
+            size=size,
+            title=title,
+            offset=offset,
+            show_last=show_last,
+            display=display,
+            force_overlay=force_overlay,
+        )
 
     def barcolor(
         color_arr: PyneSeries | np.ndarray | str,
@@ -1289,6 +1360,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         "fill": fill,
         "bgcolor": bgcolor,
         "marker": marker,
+        "plotshape": plotshape,
         "barcolor": barcolor,
         "emit_signal": emit_signal,
         "alertcondition": alertcondition,

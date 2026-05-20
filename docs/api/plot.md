@@ -9,6 +9,7 @@ p1 = plot(upper, "Upper", color=color.blue)
 plot(mid, "Middle", color=color.orange, display=display.all)
 p2 = plot(lower, "Lower", color=color.blue)
 fill(p1, p2, color="rgba(59,130,246,0.08)")
+plotshape(close > open, title="Up", style=shape.triangleup, location=location.abovebar)
 marker(close > open, shape=shape.triangleup, location=location.abovebar, size=size.small)
 ```
 
@@ -18,6 +19,7 @@ Common outputs:
 - `bar()`
 - `hline()`
 - `fill()`
+- `plotshape()`
 - `marker()`
 - `bgcolor()`
 - `barcolor()`
@@ -31,6 +33,30 @@ Common outputs:
 `label("text")` remains available as a compact legacy helper for fixed-position
 layout labels. Use `label.new()` when you need a Pine-like mutable label object
 anchored to a bar or price.
+
+## Shape Plots
+
+`plotshape()` is the Pine-like wrapper for marker output. It accepts Pine-style
+argument names while serializing to the same `output["markers"]` schema used by
+`marker()`.
+
+```python
+plotshape(
+    close > open,
+    title="Close Up",
+    style=shape.triangleup,
+    location=location.belowbar,
+    color=color.green,
+    text="BUY",
+    textcolor=color.white,
+    size=size.small,
+)
+```
+
+Supported arguments include `title`, `style`, `location`, `color`, `offset`,
+`text`, `textcolor`, `size`, `show_last`, `display`, and `force_overlay`.
+When `location=location.absolute`, numeric series values are emitted as marker
+`value` fields so the host can place the marker at a price-like coordinate.
 
 ## Drawing Objects
 

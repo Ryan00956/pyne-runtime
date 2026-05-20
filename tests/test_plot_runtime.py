@@ -271,6 +271,53 @@ label.set_yloc(note, yloc.belowbar)
     assert objects["labels"][0]["yloc"] == "belowbar"
 
 
+def test_plotshape_wraps_marker_output_with_pine_like_arguments() -> None:
+    result = pn.run(
+        """
+indicator("Plotshape", overlay=True)
+plotshape(
+    close > open,
+    title="Up",
+    style=shape.triangleup,
+    location=location.belowbar,
+    color=color.green,
+    text="B",
+    textcolor=color.white,
+    size=size.small,
+)
+plotshape(
+    close,
+    title="Absolute",
+    style=shape.circle,
+    location=location.absolute,
+    offset=-1,
+    show_last=2,
+    display=display.all,
+)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    shape_marker, absolute_marker = result.output["markers"]
+
+    assert shape_marker["title"] == "Up"
+    assert shape_marker["shape"] == "triangle_up"
+    assert shape_marker["position"] == "below"
+    assert shape_marker["textcolor"] == "#ffffff"
+    assert len(shape_marker["data"]) == 3
+    assert shape_marker["data"][0]["text"] == "B"
+    assert shape_marker["data"][0]["size"] == "small"
+
+    assert absolute_marker["title"] == "Absolute"
+    assert absolute_marker["position"] == "absolute"
+    assert absolute_marker["offset"] == -1
+    assert absolute_marker["display"] == "all"
+    assert [point["time"] for point in absolute_marker["data"]] == [1, 2]
+    assert [point["value"] for point in absolute_marker["data"]] == [2.5, 3.5]
+
+
 def test_box_and_table_objects_can_be_deleted() -> None:
     result = pn.run(
         """
