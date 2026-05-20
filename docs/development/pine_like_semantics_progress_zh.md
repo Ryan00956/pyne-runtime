@@ -126,6 +126,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   same-bar stop/limit priority 与 intrabar path 对成本回放的影响；
   `closedtrades.commission` 已包含 entry lot 手续费分摊和 exit/close/reversal
   成交手续费分摊。
+- Strategy limit verification cost golden fixture 已覆盖
+  `backtest_fill_limits_assumption` 下未满足验证时 pending entry 保持挂起、不产生
+  commission，以及满足验证后仍按 limit price 加 slippage 成交的 entry/exit 成本回放。
 
 ## 仍然不是 Pine 的地方
 
@@ -175,21 +178,23 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - 订单生命周期报告已加入 `strategy.lifecycle`，并覆盖常见 rejected 原因和
   requested/filled quantity 细节；后续可继续扩展更多 broker-emulator 风格事件。
 - 已增加 strategy same-bar、lifecycle、risk lock、lot matching 与 intraday
-  reset、pending risk lock、OCA lifecycle、cost model golden fixtures；后续继续扩大覆盖面。
+  reset、pending risk lock、OCA lifecycle、cost model、limit verification cost
+  golden fixtures；后续继续扩大覆盖面。
 
 ### P5: Golden 与兼容性证据
 
 - TA golden fixtures。
 - request edge-case golden fixtures。
 - strategy fill golden fixtures 已开始覆盖 same-bar、lifecycle、risk lock、
-  lot matching、intraday reset、pending risk lock、OCA lifecycle 与 cost model 场景，后续继续扩大。
+  lot matching、intraday reset、pending risk lock、OCA lifecycle、cost model 与
+  limit verification cost 场景，后续继续扩大。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续扩大 Strategy golden 与 broker-emulator 风格回放语义，优先覆盖
-limit verification assumption、short bracket exit 和 pending stop-limit entry 在成本模型下的
-lifecycle 细节。完成后应同步更新：
+short bracket exit 和 pending stop-limit entry 在成本模型下的 lifecycle 细节。
+完成后应同步更新：
 
 - `src/pyne_runtime/strategy.py`
 - `tests/test_strategy_runtime.py`
