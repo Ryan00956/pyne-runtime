@@ -30,6 +30,9 @@ ERROR_HINTS: dict[str, str] = {
     "PYNE_INVALID_OHLCV": (
         "Provide at least one OHLCV bar with time, open, high, low, close, and volume."
     ),
+    "PYNE_INVALID_SYMBOL": (
+        "Check the requested symbol or use ignore_invalid_symbol=True when missing symbols are expected."
+    ),
     "PYNE_INVALID_PARAM": "Check script input declarations and provided params.",
     "PYNE_LENGTH_MISMATCH": "Make sure custom arrays have the same length as the OHLCV input.",
     "PYNE_UNSUPPORTED_FEATURE": "This Pyne feature is not supported by the current runtime.",

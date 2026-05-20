@@ -26,6 +26,11 @@ The script emitted too many output series or points.
 
 The input data is empty or does not satisfy the OHLCV contract.
 
+## PYNE_INVALID_SYMBOL
+
+The host data provider reported an invalid requested symbol. Use a supported
+symbol or pass `ignore_invalid_symbol=True` when missing symbols are expected.
+
 ## PYNE_INVALID_PARAM
 
 The provided parameter values are invalid.

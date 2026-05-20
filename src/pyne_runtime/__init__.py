@@ -21,6 +21,7 @@ from .request import (
     LowerTimeframeSeries,
     RequestEvalContext,
     RequestModule,
+    PyneInvalidSymbolError,
     barmerge,
 )
 from .result import PyneResult
@@ -42,6 +43,7 @@ __all__ = [
     "PyneIncrementalBarState",
     "PyneIncrementalSession",
     "PyneIncrementalSessionManager",
+    "PyneInvalidSymbolError",
     "PyneResult",
     "PyneRuntime",
     "PyneSettings",

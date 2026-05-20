@@ -45,3 +45,7 @@ def test_barmerge_namespace_is_public_api() -> None:
     assert pn.barmerge.gaps_off == "barmerge.gaps_off"
     assert pn.barmerge.lookahead_on == "barmerge.lookahead_on"
     assert pn.barmerge.lookahead_off == "barmerge.lookahead_off"
+
+
+def test_invalid_symbol_error_is_public_api() -> None:
+    assert issubclass(pn.PyneInvalidSymbolError, Exception)

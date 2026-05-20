@@ -75,6 +75,10 @@ class PyneRequestError(Exception):
         self.code = code
 
 
+class PyneInvalidSymbolError(Exception):
+    """Provider-side signal for Pine-like invalid symbol handling."""
+
+
 @dataclass(frozen=True)
 class LowerTimeframeSeries:
     """Array-per-chart-bar result returned by ``request.security_lower_tf()``."""
@@ -283,6 +287,7 @@ class RequestModule:
         *,
         gaps: str = "off",
         lookahead: str = "off",
+        ignore_invalid_symbol: bool = False,
     ) -> PyneSeries | tuple[PyneSeries, ...]:
         """Return a requested symbol/timeframe field aligned to chart bars.
 
@@ -317,7 +322,13 @@ class RequestModule:
         )
 
         start, end = self._context.times[0], self._context.times[-1]
-        requested, requested_ctx = self._requested_context(str(symbol), str(timeframe), start, end)
+        requested, requested_ctx = self._requested_context(
+            str(symbol),
+            str(timeframe),
+            start,
+            end,
+            ignore_invalid_symbol=ignore_invalid_symbol,
+        )
         if not requested:
             return PyneSeries(
                 np.full(self._context.bar_count, np.nan, dtype=np.float64),
@@ -355,6 +366,8 @@ class RequestModule:
         symbol: str,
         timeframe: str,
         expression: PyneSeries | str | tuple[Any, ...] | list[Any] | Callable[[RequestEvalContext], Any],
+        *,
+        ignore_invalid_symbol: bool = False,
     ) -> LowerTimeframeSeries | tuple[LowerTimeframeSeries, ...]:
         """Return lower-timeframe arrays grouped by chart bar.
 
@@ -379,7 +392,13 @@ class RequestModule:
             )
 
         start, end = self._context.times[0], self._context.times[-1]
-        requested, requested_ctx = self._requested_context(str(symbol), str(timeframe), start, end)
+        requested, requested_ctx = self._requested_context(
+            str(symbol),
+            str(timeframe),
+            start,
+            end,
+            ignore_invalid_symbol=ignore_invalid_symbol,
+        )
         if callable(expression):
             requested_values, expression_name = self._evaluate_expression_thunk(
                 expression,
@@ -409,6 +428,8 @@ class RequestModule:
         timeframe: str,
         start: int,
         end: int,
+        *,
+        ignore_invalid_symbol: bool,
     ) -> tuple[list[dict[str, Any]], PyneContext]:
         if self._provider is None:
             raise PyneRequestError(
@@ -421,9 +442,31 @@ class RequestModule:
         if cached is not None:
             return cached
 
-        requested = self._provider.get_ohlcv(symbol, timeframe, start, end)
+        ignored_invalid_symbol = False
+        try:
+            requested = self._provider.get_ohlcv(symbol, timeframe, start, end)
+        except PyneInvalidSymbolError as exc:
+            if not ignore_invalid_symbol:
+                raise PyneRequestError(
+                    f"Invalid symbol for request.security(): {symbol}",
+                    code="PYNE_INVALID_SYMBOL",
+                ) from exc
+            requested = []
+            ignored_invalid_symbol = True
+        if requested is None:
+            if not ignore_invalid_symbol:
+                raise PyneRequestError(
+                    "request data provider must return a list of OHLCV bars",
+                    code="PYNE_RUNTIME_ERROR",
+                )
+            requested = []
+            ignored_invalid_symbol = True
         requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
-        request_metadata = _request_metadata(self._provider, symbol, timeframe)
+        request_metadata = (
+            _default_request_metadata(symbol, timeframe)
+            if ignored_invalid_symbol
+            else _request_metadata(self._provider, symbol, timeframe)
+        )
         requested_ctx = PyneContext.from_ohlcv(
             requested,
             syminfo=request_metadata["syminfo"],
@@ -431,7 +474,8 @@ class RequestModule:
             session=request_metadata["session"],
         )
         cached = (requested, requested_ctx)
-        self._requested_context_cache[key] = cached
+        if not ignored_invalid_symbol:
+            self._requested_context_cache[key] = cached
         return cached
 
     def _evaluate_expression_thunk(
@@ -839,6 +883,14 @@ def _request_metadata(provider: DataProvider, symbol: str, timeframe: str) -> di
         "syminfo": _symbol_metadata_with_defaults(symbol, syminfo),
         "timeframe": timeframe_info,
         "session": session,
+    }
+
+
+def _default_request_metadata(symbol: str, timeframe: str) -> dict[str, Any]:
+    return {
+        "syminfo": _symbol_metadata_with_defaults(symbol, None),
+        "timeframe": timeframe,
+        "session": None,
     }
 
 

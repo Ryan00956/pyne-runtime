@@ -11,8 +11,13 @@ chart bars.
 A provider implements `get_ohlcv(symbol, timeframe, start, end)`:
 
 ```python
+import pyne_runtime as pn
+
+
 class MyProvider:
     def get_ohlcv(self, symbol, timeframe, start, end):
+        if symbol not in self.supported_symbols:
+            raise pn.PyneInvalidSymbolError(symbol)
         return [
             {"time": 1710000000, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100},
         ]
@@ -96,7 +101,14 @@ the provider-level session default.
 ## `request.security`
 
 ```python
-request.security(symbol, timeframe, expression, gaps="off", lookahead="off")
+request.security(
+    symbol,
+    timeframe,
+    expression,
+    gaps="off",
+    lookahead="off",
+    ignore_invalid_symbol=False,
+)
 ```
 
 Supported now:
@@ -110,6 +122,8 @@ Supported now:
 - `gaps="on"` or `gaps=barmerge.gaps_on`: only emit values on exact requested bar timestamps
 - `lookahead="off"` or `lookahead=barmerge.lookahead_off`: use the latest requested bar at or before each chart bar
 - `lookahead="on"` or `lookahead=barmerge.lookahead_on`: use the next requested bar at or after each chart bar
+- `ignore_invalid_symbol=True`: return `na` values when the provider raises
+  `pn.PyneInvalidSymbolError`
 
 Pyne also accepts the string aliases `"gaps_on"`, `"gaps_off"`,
 `"lookahead_on"`, `"lookahead_off"`, `"barmerge.gaps_on"`,
@@ -180,10 +194,15 @@ Unsupported for now:
 If no data provider is configured, `request.security()` returns a
 `PYNE_UNSUPPORTED_FEATURE` error.
 
+If a provider raises `pn.PyneInvalidSymbolError`, the default behavior is a
+`PYNE_INVALID_SYMBOL` error. With `ignore_invalid_symbol=True`, Pyne returns
+`na` values for that request. Other provider exceptions are not treated as
+invalid symbols.
+
 ## `request.security_lower_tf`
 
 ```python
-request.security_lower_tf(symbol, timeframe, expression)
+request.security_lower_tf(symbol, timeframe, expression, ignore_invalid_symbol=False)
 ```
 
 `request.security_lower_tf()` requests lower-timeframe OHLCV from the same host
@@ -204,6 +223,8 @@ Supported now:
 - callable thunks such as `lambda ctx: ctx.ta.sma(ctx.close, 3)`
 - tuple/multi-return expressions
 - bars-back on the grouped result, such as `lower[1].last()`
+- `ignore_invalid_symbol=True`: return empty lower-timeframe groups when the
+  provider raises `pn.PyneInvalidSymbolError`
 
 The returned object exposes:
 

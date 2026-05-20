@@ -36,6 +36,21 @@ class CapabilityProvider(StaticProvider):
         self.capabilities = capabilities
 
 
+class InvalidSymbolProvider(StaticProvider):
+    def __init__(self) -> None:
+        super().__init__([])
+
+    def get_ohlcv(
+        self,
+        symbol: str,
+        timeframe: str,
+        start: int,
+        end: int,
+    ) -> list[dict[str, Any]]:
+        self.calls.append((symbol, timeframe, start, end))
+        raise pn.PyneInvalidSymbolError(symbol)
+
+
 def test_request_security_aligns_host_data_to_chart_bars() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
@@ -188,6 +203,66 @@ plot(request.security("BTCUSDT", "1h", close), "Higher")
     assert not result.ok
     assert result.code == "PYNE_UNSUPPORTED_FEATURE"
     assert "host data provider" in str(result.error)
+
+
+def test_request_security_reports_invalid_symbol_by_default() -> None:
+    provider = InvalidSymbolProvider()
+
+    result = pn.run(
+        """
+indicator("Invalid Symbol", overlay=True)
+higher = request.security("MISSING", "2", close)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_INVALID_SYMBOL"
+    assert "MISSING" in str(result.error)
+    assert provider.calls == [("MISSING", "2", 1, 4)]
+
+
+def test_request_security_ignore_invalid_symbol_returns_na() -> None:
+    provider = InvalidSymbolProvider()
+
+    result = pn.run(
+        """
+indicator("Ignored Invalid Symbol", overlay=True)
+higher = request.security("MISSING", "2", close, ignore_invalid_symbol=True)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("MISSING", "2", 1, 4)]
+    assert result.get_series("Higher") == []
+
+
+def test_request_security_ignored_invalid_symbol_does_not_poison_cache() -> None:
+    provider = InvalidSymbolProvider()
+
+    result = pn.run(
+        """
+indicator("Invalid Symbol Cache", overlay=True)
+ignored = request.security("MISSING", "2", close, ignore_invalid_symbol=True)
+bad = request.security("MISSING", "2", close)
+plot(ignored, "Ignored")
+plot(bad, "Bad")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_INVALID_SYMBOL"
+    assert provider.calls == [("MISSING", "2", 1, 4), ("MISSING", "2", 1, 4)]
 
 
 def test_request_security_respects_provider_capability_false() -> None:
@@ -621,6 +696,27 @@ plot(lower[1].last(), "Previous Lower Last")
     assert result.values("Lower Count") == [2.0, 1.0, 2.0, 1.0]
     assert result.values("Lower Last") == [11.0, 20.0, 31.0, 40.0]
     assert result.values("Previous Lower Last") == [11.0, 20.0, 31.0]
+
+
+def test_request_security_lower_tf_ignore_invalid_symbol_returns_empty_groups() -> None:
+    provider = InvalidSymbolProvider()
+
+    result = pn.run(
+        """
+indicator("Lower Invalid Symbol", overlay=True)
+lower = request.security_lower_tf("MISSING", "1", close, ignore_invalid_symbol=True)
+plot(lower.size(), "Lower Count")
+plot(lower.last(), "Lower Last")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("MISSING", "1", 1, 4)]
+    assert result.values("Lower Count") == [0.0, 0.0, 0.0, 0.0]
+    assert result.get_series("Lower Last") == []
 
 
 def test_request_security_lower_tf_accepts_field_tuple_expression() -> None:
