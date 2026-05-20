@@ -333,6 +333,57 @@ class _StepMonotonic:
         return self.window[0][1]
 
 
+class IncrementalStrategyDirection:
+    all = "all"
+    both = "all"
+    long = "long"
+    short = "short"
+    none = "none"
+
+
+class IncrementalStrategyRiskMode:
+    percent_of_equity = "percent_of_equity"
+    cash = "cash"
+
+
+class IncrementalStrategyRiskNamespace:
+    all = IncrementalStrategyDirection.all
+    both = IncrementalStrategyDirection.both
+    long = IncrementalStrategyDirection.long
+    short = IncrementalStrategyDirection.short
+    none = IncrementalStrategyDirection.none
+    percent_of_equity = IncrementalStrategyRiskMode.percent_of_equity
+    cash = IncrementalStrategyRiskMode.cash
+
+    def __init__(self, strategy: "IncrementalStrategyNamespace") -> None:
+        self._strategy = strategy
+
+    def allow_entry_in(self, direction: str = IncrementalStrategyDirection.all) -> None:
+        self._strategy._allow_entry_in = _normalize_allowed_entry_direction(direction)
+
+    def max_drawdown(
+        self,
+        value: float,
+        type: str = IncrementalStrategyRiskMode.percent_of_equity,
+    ) -> None:
+        self._strategy._max_drawdown_value = max(float(value), 0.0)
+        self._strategy._max_drawdown_type = _normalize_risk_mode(type)
+
+    def max_intraday_loss(
+        self,
+        value: float,
+        type: str = IncrementalStrategyRiskMode.percent_of_equity,
+    ) -> None:
+        self._strategy._max_intraday_loss_value = max(float(value), 0.0)
+        self._strategy._max_intraday_loss_type = _normalize_risk_mode(type)
+
+    def max_position_size(self, contracts: float) -> None:
+        self._strategy._max_position_size = max(float(contracts), 0.0)
+
+    def max_intraday_filled_orders(self, count: int) -> None:
+        self._strategy._max_intraday_filled_orders = max(int(count), 0)
+
+
 class IncrementalTaNamespace:
     """Stateful TA helper namespace available as ``ctx.ta``."""
 
@@ -420,6 +471,9 @@ class IncrementalStrategyNamespace:
 
     long = "long"
     short = "short"
+    direction = IncrementalStrategyDirection
+    percent_of_equity = IncrementalStrategyRiskMode.percent_of_equity
+    cash = IncrementalStrategyRiskMode.cash
     oca = type("IncrementalStrategyOca", (), {
         "none": "none",
         "cancel": "cancel",
@@ -448,6 +502,23 @@ class IncrementalStrategyNamespace:
         self._commission = 0.0
         self._event_seq = 0
         self._touched = False
+        self._pyramiding = 0
+        self._same_direction_entry_count = 0
+        self._allow_entry_in = IncrementalStrategyDirection.all
+        self._max_drawdown_value: float | None = None
+        self._max_drawdown_type = IncrementalStrategyRiskMode.percent_of_equity
+        self._max_intraday_loss_value: float | None = None
+        self._max_intraday_loss_type = IncrementalStrategyRiskMode.percent_of_equity
+        self._max_position_size: float | None = None
+        self._max_intraday_filled_orders: int | None = None
+        self._risk_locked = False
+        self._drawdown_locked = False
+        self._intraday_locked = False
+        self._filled_orders_locked = False
+        self._peak_equity = self._initial_capital
+        self._intraday_peak_equity = self._initial_capital
+        self._intraday_filled_orders = 0
+        self.risk = IncrementalStrategyRiskNamespace(self)
         self._mintick = max(float(getattr(context.syminfo, "mintick", 0.0)), 0.0)
         self._backtest_fill_limits_assumption = 0
         self._same_bar_fill_priority = self.same_bar.stop_first
@@ -456,8 +527,12 @@ class IncrementalStrategyNamespace:
         self._margin_short = 100.0
 
     def configure(self, **kwargs: Any) -> None:
+        if "pyramiding" in kwargs:
+            self._pyramiding = max(int(kwargs["pyramiding"]), 0)
         if "initial_capital" in kwargs:
             self._initial_capital = float(kwargs["initial_capital"])
+            self._peak_equity = max(self._peak_equity, self._initial_capital)
+            self._intraday_peak_equity = max(self._intraday_peak_equity, self._initial_capital)
         if "currency" in kwargs:
             self._currency = str(kwargs["currency"] or "")
         if "mintick" in kwargs or "min_tick" in kwargs:
@@ -512,6 +587,15 @@ class IncrementalStrategyNamespace:
         return _round8(self._initial_capital + self.netprofit + self.openprofit)
 
     def begin_bar(self) -> None:
+        if getattr(self._context.session, "isfirstbar", False):
+            self._intraday_locked = False
+            self._intraday_filled_orders = 0
+            self._filled_orders_locked = _intraday_filled_orders_hit(
+                filled_orders=self._intraday_filled_orders,
+                threshold=self._max_intraday_filled_orders,
+            )
+            self._intraday_peak_equity = self.equity
+            self._sync_risk_locked()
         if not self._pending_orders:
             return
         still_pending = []
@@ -519,6 +603,26 @@ class IncrementalStrategyNamespace:
             if not self._try_fill_pending_order(order):
                 still_pending.append(order)
         self._pending_orders = still_pending
+
+    def end_bar(self) -> None:
+        equity = self.equity
+        self._peak_equity = max(self._peak_equity, equity)
+        self._intraday_peak_equity = max(self._intraday_peak_equity, equity)
+        if self._max_drawdown_value is not None and _max_drawdown_hit(
+            equity=equity,
+            peak_equity=self._peak_equity,
+            threshold=self._max_drawdown_value,
+            risk_type=self._max_drawdown_type,
+        ):
+            self._drawdown_locked = True
+        if self._max_intraday_loss_value is not None and _max_drawdown_hit(
+            equity=equity,
+            peak_equity=self._intraday_peak_equity,
+            threshold=self._max_intraday_loss_value,
+            risk_type=self._max_intraday_loss_type,
+        ):
+            self._intraday_locked = True
+        self._sync_risk_locked()
 
     def entry(
         self,
@@ -618,20 +722,48 @@ class IncrementalStrategyNamespace:
         }
         self._orders.append(order)
         self._touched = True
+        if self._risk_locked:
+            self._reject_order(order, reason="risk_locked")
+            return
         if limit is not None or stop is not None:
             order["_pending_submission"] = True
             order["_active"] = False
             if not self._try_fill_pending_order(order):
                 self._pending_orders.append(order)
             return
+        if order_type == "entry":
+            rejection_reason = _entry_rejection_reason(
+                side=side,
+                previous_size=self.position_size,
+                same_direction_entry_count=self._same_direction_entry_count,
+                pyramiding=self._pyramiding,
+                allow_entry_in=self._allow_entry_in,
+            )
+            if rejection_reason is not None:
+                self._reject_order(order, reason=rejection_reason)
+                return
+            requested_qty = qty_abs
+            qty_abs = _entry_qty_for_max_position_size(
+                side=side,
+                previous_size=self.position_size,
+                requested_qty=requested_qty,
+                max_position_size=self._max_position_size,
+            )
+            order["_requested_fill_qty"] = _round8(requested_qty)
+            if qty_abs <= 0:
+                self._reject_order(order, reason="max_position_size")
+                return
+            order["qty"] = _round8(qty_abs)
+            order["_requested_fill_qty"] = _round8(requested_qty)
         self._fill_entry_order(order, fill_price=base_price, reason=None)
 
     def _fill_entry_order(self, order: dict[str, Any], *, fill_price: float, reason: str | None) -> None:
         side = self._normalize_direction(str(order.get("side", self.long)))
+        previous_size = self.position_size
         qty_abs = abs(float(order.get("qty", 0.0)))
         signed_qty = qty_abs if side == self.long else -qty_abs
-        if self.position_size and (self.position_size > 0) != (signed_qty > 0):
-            self._close_lots(id="", exit_id=str(order.get("id", "")), target_qty=abs(self.position_size), fill_price=fill_price)
+        if previous_size and (previous_size > 0) != (signed_qty > 0):
+            self._close_lots(id="", exit_id=str(order.get("id", "")), target_qty=abs(previous_size), fill_price=fill_price)
         self._open_trades.append({
             "entry_id": str(order.get("id", "")),
             "entry_time": self._current_time(),
@@ -644,18 +776,42 @@ class IncrementalStrategyNamespace:
         order["position_after"] = self.position_size
         order["_active"] = True
         order["_filled_qty"] = qty_abs
+        transaction_qty = abs(self.position_size - previous_size)
+        if order.get("type") == "entry" and abs(transaction_qty - qty_abs) > 1e-9:
+            order["_transaction_qty"] = _round8(transaction_qty)
         if order.get("_oca_name"):
             order["oca_name"] = order.get("_oca_name")
             order["oca_type"] = order.get("_oca_type") or self.oca.none
         if reason is not None:
             order["reason"] = reason
         self._apply_oca_after_fill(order)
+        next_size = self.position_size
+        if order.get("type") == "entry":
+            if previous_size == 0 or (previous_size > 0) != (next_size > 0):
+                self._same_direction_entry_count = 1
+            else:
+                self._same_direction_entry_count += 1
+        elif order.get("type") == "order":
+            if next_size == 0:
+                self._same_direction_entry_count = 0
+            elif previous_size == 0 or (previous_size > 0) != (next_size > 0):
+                self._same_direction_entry_count = 1
+        if order.get("type") in {"entry", "order"}:
+            self._intraday_filled_orders += 1
+            if _intraday_filled_orders_hit(
+                filled_orders=self._intraday_filled_orders,
+                threshold=self._max_intraday_filled_orders,
+            ):
+                self._filled_orders_locked = True
+                self._sync_risk_locked()
 
     def _try_fill_pending_order(self, order: dict[str, Any]) -> bool:
         if order.get("_active"):
             return True
         if order.get("_canceled"):
             return True
+        if self._risk_locked and order.get("type") in {"entry", "order"}:
+            return False
         bar = self._context.current_bar
         if bar is None:
             return False
@@ -672,6 +828,30 @@ class IncrementalStrategyNamespace:
         if trigger is None:
             return False
         reason, fill_price = trigger
+        if order.get("type") == "entry":
+            side = self._normalize_direction(str(order.get("side", self.long)))
+            rejection_reason = _entry_rejection_reason(
+                side=side,
+                previous_size=self.position_size,
+                same_direction_entry_count=self._same_direction_entry_count,
+                pyramiding=self._pyramiding,
+                allow_entry_in=self._allow_entry_in,
+            )
+            if rejection_reason is not None:
+                self._reject_order(order, reason=rejection_reason)
+                return True
+            requested_qty = float(order.get("_requested_fill_qty", order.get("qty", 0.0)))
+            qty_abs = _entry_qty_for_max_position_size(
+                side=side,
+                previous_size=self.position_size,
+                requested_qty=requested_qty,
+                max_position_size=self._max_position_size,
+            )
+            order["_requested_fill_qty"] = _round8(requested_qty)
+            if qty_abs <= 0:
+                self._reject_order(order, reason="max_position_size")
+                return True
+            order["qty"] = _round8(qty_abs)
         self._fill_entry_order(order, fill_price=fill_price, reason=reason)
         return True
 
@@ -713,6 +893,13 @@ class IncrementalStrategyNamespace:
         self.close("", qty=abs(self.position_size), price=price, when=True, comment=comment)
         if self._orders:
             self._orders[-1]["type"] = "close_all"
+            self._orders[-1]["id"] = "close_all"
+            self._orders[-1]["_target_qty"] = self._orders[-1]["qty"]
+            self._orders[-1]["_requested_fill_qty"] = self._orders[-1]["qty"]
+            self._orders[-1]["_filled_qty"] = self._orders[-1]["qty"]
+            for trade in self._closed_trades:
+                if trade.get("exit_id") == "" and trade.get("exit_time") == self._current_time():
+                    trade["exit_id"] = "close_all"
 
     def exit(
         self,
@@ -854,13 +1041,25 @@ class IncrementalStrategyNamespace:
                 "margin_short": _round8(self._margin_short),
             },
             "risk": {
-                "locked": False,
-                "max_drawdown": None,
-                "max_drawdown_type": "percent_of_equity",
-                "max_intraday_loss": None,
-                "max_intraday_loss_type": "percent_of_equity",
-                "max_position_size": None,
-                "max_intraday_filled_orders": None,
+                "locked": self._risk_locked,
+                "max_drawdown": (
+                    _round8(self._max_drawdown_value)
+                    if self._max_drawdown_value is not None
+                    else None
+                ),
+                "max_drawdown_type": self._max_drawdown_type,
+                "max_intraday_loss": (
+                    _round8(self._max_intraday_loss_value)
+                    if self._max_intraday_loss_value is not None
+                    else None
+                ),
+                "max_intraday_loss_type": self._max_intraday_loss_type,
+                "max_position_size": (
+                    _round8(self._max_position_size)
+                    if self._max_position_size is not None
+                    else None
+                ),
+                "max_intraday_filled_orders": self._max_intraday_filled_orders,
             },
             "closedtrades": list(self._closed_trades),
             "opentrades": [
@@ -898,6 +1097,17 @@ class IncrementalStrategyNamespace:
                 still_pending.append(order)
         self._pending_orders = still_pending
         return canceled
+
+    def _reject_order(self, order: dict[str, Any], *, reason: str) -> None:
+        order["_active"] = False
+        order["position_after"] = 0.0
+        order["_rejected_reason"] = reason
+        order["_rejected_time"] = self._current_time()
+        order.setdefault("_requested_fill_qty", float(order.get("_requested_fill_qty", order.get("qty", 0.0))))
+        order["_filled_qty"] = 0.0
+
+    def _sync_risk_locked(self) -> None:
+        self._risk_locked = self._drawdown_locked or self._intraday_locked or self._filled_orders_locked
 
     def _apply_oca_after_fill(self, filled_order: dict[str, Any]) -> None:
         oca_name = str(filled_order.get("_oca_name") or "")
@@ -958,6 +1168,8 @@ class IncrementalStrategyNamespace:
             if leftover_qty > 1e-9:
                 kept.append({**trade, "qty": _round8(leftover_qty)})
         self._open_trades = kept
+        if self.position_size == 0:
+            self._same_direction_entry_count = 0
         return _round8(closed_signed_qty)
 
     def _normalize_direction(self, direction: str) -> str:
@@ -1376,6 +1588,7 @@ class PyneIncrementalSession:
         func = self._on_preview if preview and self._on_preview is not None else self._on_bar
         with execution_timeout(self.policy.timeout_seconds):
             self._call_required(func, ctx, bar)
+        ctx.strategy.end_bar()
 
     def _build_namespace(self) -> dict[str, Any]:
         def indicator(title: str = "", overlay: bool = True, **kwargs: Any) -> None:
@@ -1782,6 +1995,107 @@ def _normalize_oca_type(value: str | None) -> str:
     raise ValueError("oca_type must be strategy.oca.none, strategy.oca.cancel, or strategy.oca.reduce")
 
 
+def _normalize_allowed_entry_direction(value: str) -> str:
+    normalized = str(value or IncrementalStrategyDirection.all).strip().lower()
+    aliases = {
+        "all": IncrementalStrategyDirection.all,
+        "both": IncrementalStrategyDirection.all,
+        "strategy.direction.all": IncrementalStrategyDirection.all,
+        "strategy.direction.both": IncrementalStrategyDirection.all,
+        "long": IncrementalStrategyDirection.long,
+        "strategy.long": IncrementalStrategyDirection.long,
+        "strategy.direction.long": IncrementalStrategyDirection.long,
+        "short": IncrementalStrategyDirection.short,
+        "strategy.short": IncrementalStrategyDirection.short,
+        "strategy.direction.short": IncrementalStrategyDirection.short,
+        "none": IncrementalStrategyDirection.none,
+        "false": IncrementalStrategyDirection.none,
+        "off": IncrementalStrategyDirection.none,
+        "strategy.direction.none": IncrementalStrategyDirection.none,
+    }
+    return aliases.get(normalized, IncrementalStrategyDirection.all)
+
+
+def _normalize_risk_mode(value: str) -> str:
+    normalized = str(value or IncrementalStrategyRiskMode.percent_of_equity).strip().lower()
+    if normalized in {
+        "percent",
+        "percent_of_equity",
+        "strategy.percent_of_equity",
+        "strategy.risk.percent_of_equity",
+    }:
+        return IncrementalStrategyRiskMode.percent_of_equity
+    if normalized in {"cash", "money", "strategy.cash", "strategy.risk.cash"}:
+        return IncrementalStrategyRiskMode.cash
+    return IncrementalStrategyRiskMode.percent_of_equity
+
+
+def _entry_rejection_reason(
+    *,
+    side: str,
+    previous_size: float,
+    same_direction_entry_count: int,
+    pyramiding: int,
+    allow_entry_in: str = IncrementalStrategyDirection.all,
+) -> str | None:
+    if allow_entry_in == IncrementalStrategyDirection.none:
+        return "direction_not_allowed"
+    if allow_entry_in == IncrementalStrategyDirection.long and side != IncrementalStrategyNamespace.long:
+        return "direction_not_allowed"
+    if allow_entry_in == IncrementalStrategyDirection.short and side != IncrementalStrategyNamespace.short:
+        return "direction_not_allowed"
+    if previous_size == 0:
+        return None
+    if side == IncrementalStrategyNamespace.long and previous_size < 0:
+        return None
+    if side == IncrementalStrategyNamespace.short and previous_size > 0:
+        return None
+    if same_direction_entry_count >= pyramiding + 1:
+        return "pyramiding_exceeded"
+    return None
+
+
+def _entry_qty_for_max_position_size(
+    *,
+    side: str,
+    previous_size: float,
+    requested_qty: float,
+    max_position_size: float | None,
+) -> float:
+    qty = abs(float(requested_qty))
+    if max_position_size is None:
+        return qty
+    limit = max(float(max_position_size), 0.0)
+    if side == IncrementalStrategyNamespace.long:
+        available = limit - float(previous_size) if previous_size > 0 else limit
+    else:
+        available = limit + float(previous_size) if previous_size < 0 else limit
+    return max(min(qty, available), 0.0)
+
+
+def _max_drawdown_hit(
+    *,
+    equity: float,
+    peak_equity: float,
+    threshold: float,
+    risk_type: str,
+) -> bool:
+    if threshold <= 0:
+        return False
+    drawdown = max(float(peak_equity) - float(equity), 0.0)
+    if risk_type == IncrementalStrategyRiskMode.cash:
+        return drawdown >= threshold
+    if peak_equity <= 0:
+        return False
+    return drawdown / peak_equity * 100.0 >= threshold
+
+
+def _intraday_filled_orders_hit(*, filled_orders: int, threshold: int | None) -> bool:
+    if threshold is None:
+        return False
+    return int(filled_orders) >= max(int(threshold), 0)
+
+
 def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list[dict[str, Any]]:
     events = []
     for order in sorted(orders, key=lambda item: (item.get("_submit_time", item.get("time", 0)), item.get("_seq", 0))):
@@ -1789,9 +2103,13 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
         pending = bool(order.get("_pending_submission"))
         active = bool(order.get("_active", True))
         canceled = bool(order.get("_canceled")) or order_type in {"cancel", "cancel_all"}
+        rejected = bool(order.get("_rejected_reason"))
         if canceled:
             status = "canceled"
             phase = "pending_canceled" if pending else "cancel"
+        elif rejected:
+            status = "rejected"
+            phase = "pending_rejected" if pending else "rejected"
         elif active:
             status = "filled"
             phase = (
@@ -1820,7 +2138,7 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
             "submitted_time": order.get("_submit_time", order.get("time")),
             "filled_time": order.get("time") if active and not canceled else None,
             "canceled_time": order.get("_canceled_time", order.get("time")) if canceled else None,
-            "rejected_time": None,
+            "rejected_time": order.get("_rejected_time") if rejected else None,
             "side": order.get("side"),
             "qty": order.get("qty"),
             "price": order.get("price"),
@@ -1838,16 +2156,20 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
             event["limit"] = order.get("_limit")
         if order.get("_stop") is not None:
             event["stop"] = order.get("_stop")
-        if order.get("_requested_fill_qty") is not None and active:
+        if order.get("_requested_fill_qty") is not None and (active or rejected):
             event["requested_qty"] = _round8(float(order.get("_requested_fill_qty", 0.0)))
-        if order.get("_filled_qty") is not None and active:
+        if order.get("_filled_qty") is not None and (active or rejected):
             event["filled_qty"] = _round8(float(order.get("_filled_qty", 0.0)))
         if order.get("_target_qty") is not None:
             event["target_qty"] = _round8(float(order.get("_target_qty", 0.0)))
         if order.get("_qty_percent") is not None:
             event["qty_percent"] = _round8(float(order.get("_qty_percent", 0.0)))
+        if order.get("_transaction_qty") is not None:
+            event["transaction_qty"] = _round8(float(order.get("_transaction_qty", 0.0)))
         if order.get("_canceled_by") is not None:
             event["canceled_by"] = order.get("_canceled_by")
+        if order.get("_rejected_reason") is not None:
+            event["rejected_reason"] = order.get("_rejected_reason")
         if order.get("canceled") is not None:
             event["canceled"] = order.get("canceled")
         returnable = {

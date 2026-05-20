@@ -892,6 +892,176 @@ def on_bar(ctx, bar):
     _assert_full_strategy_matches_batch(incremental, batch)
 
 
+def test_incremental_strategy_risk_allow_entry_in_matches_batch_report() -> None:
+    batch_script = """
+strategy("Risk Direction", overlay=True)
+strategy.risk.allow_entry_in(strategy.direction.long)
+strategy.entry_when(bar_index == 0, "Short", strategy.short, qty=1, price=close)
+strategy.entry_when(bar_index == 1, "Long", strategy.long, qty=1, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental Risk Direction", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.risk.allow_entry_in(ctx.strategy.direction.long)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("Short", ctx.strategy.short, qty=1, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.entry("Long", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 1)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, _bars(), executor_mode="inline")
+    incremental = pn.run(incremental_script, _bars(), executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_full_strategy_matches_batch(incremental, batch)
+
+
+def test_incremental_strategy_risk_max_position_size_matches_batch_report() -> None:
+    bars = [
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        {"time": 2, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+    ]
+    batch_script = """
+strategy("Risk Position Size", overlay=True, initial_capital=1000, pyramiding=2)
+strategy.risk.max_position_size(3)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=5, price=close)
+strategy.entry_when(bar_index == 1, "More", strategy.long, qty=2, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental Risk Position Size", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000, pyramiding=2)
+    ctx.strategy.risk.max_position_size(3)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("Long", ctx.strategy.long, qty=5, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.entry("More", ctx.strategy.long, qty=2, price=bar.close, when=ctx.bar_index == 1)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_full_strategy_matches_batch(incremental, batch)
+
+
+def test_incremental_strategy_risk_max_drawdown_matches_batch_report() -> None:
+    bars = [
+        {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+        {"time": 2, "open": 100, "high": 100, "low": 89, "close": 90, "volume": 100},
+        {"time": 3, "open": 90, "high": 92, "low": 88, "close": 90, "volume": 100},
+        {"time": 4, "open": 90, "high": 95, "low": 90, "close": 94, "volume": 100},
+    ]
+    batch_script = """
+strategy("Risk Drawdown", overlay=True, initial_capital=1000)
+strategy.risk.max_drawdown(5, strategy.percent_of_equity)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=10, price=close)
+strategy.entry_when(bar_index == 2, "Blocked Entry", strategy.long, qty=1, price=close)
+strategy.order_when(bar_index == 2, "Blocked Order", strategy.long, qty=1, price=close)
+strategy.close_all(when=bar_index == 2, price=close)
+strategy.order_when(bar_index == 3, "Still Blocked", strategy.long, qty=1, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental Risk Drawdown", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+    ctx.strategy.risk.max_drawdown(5, ctx.strategy.percent_of_equity)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("Long", ctx.strategy.long, qty=10, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.entry("Blocked Entry", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 2)
+    ctx.strategy.order("Blocked Order", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 2)
+    ctx.strategy.close_all(price=bar.close, when=ctx.bar_index == 2)
+    ctx.strategy.order("Still Blocked", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 3)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_full_strategy_matches_batch(incremental, batch)
+
+
+def test_incremental_strategy_risk_intraday_filled_orders_reset_matches_batch_report() -> None:
+    bars = [
+        {
+            "time": 1,
+            "open": 10,
+            "high": 11,
+            "low": 9,
+            "close": 10,
+            "volume": 100,
+            "session_isfirstbar": True,
+        },
+        {"time": 2, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        {
+            "time": 3,
+            "open": 10,
+            "high": 11,
+            "low": 9,
+            "close": 10,
+            "volume": 100,
+            "session_isfirstbar": True,
+        },
+    ]
+    batch_script = """
+strategy("Risk Filled Reset", overlay=True, initial_capital=1000)
+strategy.risk.max_intraday_filled_orders(1)
+strategy.entry_when(bar_index == 0, "First", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 1, "Blocked", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 2, "Reset Entry", strategy.short, qty=1, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental Risk Filled Reset", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+    ctx.strategy.risk.max_intraday_filled_orders(1)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("First", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.entry("Blocked", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 1)
+    ctx.strategy.entry("Reset Entry", ctx.strategy.short, qty=1, price=bar.close, when=ctx.bar_index == 2)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_full_strategy_matches_batch(incremental, batch)
+
+
 def test_incremental_strategy_pending_seed_matches_closed_bar_session_snapshot() -> None:
     bars = [
         {"time": 1, "open": 1, "high": 1.5, "low": 0.9, "close": 1.0, "volume": 100},
