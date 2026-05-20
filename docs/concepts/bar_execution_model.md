@@ -116,6 +116,7 @@ Current incremental strategy scope:
 - `ctx.strategy.entry()` fills a market-like entry on the current callback bar.
 - `ctx.strategy.entry(..., limit=...)` and `ctx.strategy.entry(..., stop=...)` create Pine-like pending entries that fill when the current or later callback bar touches the trigger price.
 - `ctx.strategy.order()` supports the same market-like and pending entry surface for lower-level order-style submissions.
+- `ctx.strategy.configure(backtest_fill_limits_assumption=...)`, `ctx.strategy.same_bar.*`, and `ctx.strategy.intrabar.*` control pending stop/limit fill policy.
 - `ctx.strategy.cancel(id)` and `ctx.strategy.cancel_all()` cancel matching pending entries and report the same public cancel orders and lifecycle statuses as batch strategy.
 - `ctx.strategy.oca.cancel` and `ctx.strategy.oca.reduce` are supported for pending entry/order groups.
 - `ctx.strategy.close()` and `ctx.strategy.close_all()` realize all or part of the current open lots.
@@ -131,4 +132,6 @@ entries, short entries, partial closes, reverse entries, filled pending
 stop/limit entries, unfilled pending lifecycle reports, and explicit pending
 cancel/cancel_all reports, plus OCA cancel/reduce pending groups. Risk locks,
 commissions, margin enforcement, and exit/bracket orders remain batch strategy
-features until they are promoted into the incremental strategy layer.
+features until they are promoted into the incremental strategy layer. Pending
+fill policy parity covers limit verification, same-bar stop/limit priority, and
+deterministic intrabar path selection.
