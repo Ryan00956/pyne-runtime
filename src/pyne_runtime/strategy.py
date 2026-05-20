@@ -70,6 +70,14 @@ class StrategyRiskNamespace:
         self._strategy._max_drawdown_value = max(float(value), 0.0)
         self._strategy._max_drawdown_type = _normalize_risk_mode(type)
 
+    def max_intraday_loss(
+        self,
+        value: float,
+        type: str = StrategyRiskMode.percent_of_equity,
+    ) -> None:
+        self._strategy._max_intraday_loss_value = max(float(value), 0.0)
+        self._strategy._max_intraday_loss_type = _normalize_risk_mode(type)
+
 
 class StrategyTradesNamespace:
     """Script-facing trade ledger namespace.
@@ -180,6 +188,8 @@ class StrategyModule:
         self._allow_entry_in = StrategyDirection.all
         self._max_drawdown_value: float | None = None
         self._max_drawdown_type = StrategyRiskMode.percent_of_equity
+        self._max_intraday_loss_value: float | None = None
+        self._max_intraday_loss_type = StrategyRiskMode.percent_of_equity
         self._risk_locked = False
         self.risk = StrategyRiskNamespace(self)
         self._initial_capital = 100000.0
@@ -648,8 +658,12 @@ class StrategyModule:
         open_trades: list[dict[str, Any]] = []
         pending_orders: list[dict[str, Any]] = []
         orders_by_time: dict[int, list[dict[str, Any]]] = {}
+        drawdown_locked = False
+        intraday_locked = False
         risk_locked = False
         peak_equity = self._initial_capital
+        intraday_peak_equity = self._initial_capital
+        session_first = _condition_values(self._context.session.isfirstbar, self._context.bar_count)
         for order in sorted(
             self._collector.strategy_orders,
             key=lambda item: (item.get("time", 0), item.get("_seq", 0)),
@@ -671,6 +685,14 @@ class StrategyModule:
             orders_by_time.setdefault(int(order.get("time", 0)), []).append(order)
 
         for idx, timestamp in enumerate(self._context.times):
+            if session_first[idx]:
+                intraday_locked = False
+                intraday_peak_equity = (
+                    float(self._equity[idx - 1])
+                    if idx > 0
+                    else self._initial_capital
+                )
+            risk_locked = drawdown_locked or intraday_locked
             for order in orders_by_time.get(timestamp, []):
                 if order.get("type") == "entry":
                     if risk_locked:
@@ -931,13 +953,22 @@ class StrategyModule:
             self._closedtrades_count[idx] = len(closed_trades)
             self._opentrades_count[idx] = len([trade for trade in open_trades if float(trade.get("qty", 0.0)) > 0])
             peak_equity = max(peak_equity, float(self._equity[idx]))
+            intraday_peak_equity = max(intraday_peak_equity, float(self._equity[idx]))
             if self._max_drawdown_value is not None and _max_drawdown_hit(
                 equity=float(self._equity[idx]),
                 peak_equity=peak_equity,
                 threshold=self._max_drawdown_value,
                 risk_type=self._max_drawdown_type,
             ):
-                risk_locked = True
+                drawdown_locked = True
+            if self._max_intraday_loss_value is not None and _max_drawdown_hit(
+                equity=float(self._equity[idx]),
+                peak_equity=intraday_peak_equity,
+                threshold=self._max_intraday_loss_value,
+                risk_type=self._max_intraday_loss_type,
+            ):
+                intraday_locked = True
+            risk_locked = drawdown_locked or intraday_locked
         self._risk_locked = risk_locked
 
         self._sync_strategy_report(
@@ -1007,6 +1038,12 @@ class StrategyModule:
                     else None
                 ),
                 "max_drawdown_type": self._max_drawdown_type,
+                "max_intraday_loss": (
+                    round(self._max_intraday_loss_value, 8)
+                    if self._max_intraday_loss_value is not None
+                    else None
+                ),
+                "max_intraday_loss_type": self._max_intraday_loss_type,
             },
             "closedtrades": closed_trades,
             "opentrades": serialized_open_trades,

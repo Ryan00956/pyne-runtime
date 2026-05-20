@@ -106,6 +106,7 @@ Capital reporting:
 ```python
 strategy.risk.allow_entry_in(strategy.direction.long)
 strategy.risk.max_drawdown(20, strategy.percent_of_equity)
+strategy.risk.max_intraday_loss(5, strategy.cash)
 ```
 
 `strategy.risk.allow_entry_in(...)` limits subsequent replay of
@@ -130,6 +131,12 @@ Once locked, future `strategy.entry*` and `strategy.order*` submissions and
 pending fills are blocked. Close, exit, and cancel events remain available so a
 script can flatten or clean up existing exposure. This is deterministic replay
 logic, not a broker-side liquidation model.
+
+`strategy.risk.max_intraday_loss(value, type=strategy.percent_of_equity)` uses
+the same value types, but resets at the next `session.isfirstbar` boundary. Host
+applications can mark daily or trading-session starts with per-bar
+`session_isfirstbar` metadata. Without explicit metadata, Pyne's default batch
+session marks only the first input bar as a session start.
 
 ## Entry
 

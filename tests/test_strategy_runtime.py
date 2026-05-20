@@ -256,6 +256,8 @@ plot(strategy.equity, "Equity")
         "locked": True,
         "max_drawdown": 5.0,
         "max_drawdown_type": "percent_of_equity",
+        "max_intraday_loss": None,
+        "max_intraday_loss_type": "percent_of_equity",
     }
 
 
@@ -280,6 +282,82 @@ plot(strategy.position_size, "Position")
     assert [order["id"] for order in result.output["strategy"]["orders"]] == ["Long"]
     assert result.values("Position") == [1.0, 1.0, 1.0]
     assert result.output["strategy"]["risk"]["max_drawdown_type"] == "cash"
+
+
+def test_strategy_risk_max_intraday_loss_resets_on_session_first_bar() -> None:
+    result = pn.run(
+        """
+strategy("Risk Intraday", overlay=True, initial_capital=1000)
+strategy.risk.max_intraday_loss(5, strategy.percent_of_equity)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=10, price=close)
+strategy.entry_when(bar_index == 2, "Blocked", strategy.long, qty=1, price=close)
+strategy.close_all(when=bar_index == 2, price=close)
+strategy.entry_when(bar_index == 3, "Reset Long", strategy.long, qty=1, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {
+                "time": 1,
+                "open": 100,
+                "high": 101,
+                "low": 99,
+                "close": 100,
+                "volume": 100,
+                "session_isfirstbar": True,
+            },
+            {"time": 2, "open": 100, "high": 100, "low": 89, "close": 90, "volume": 100},
+            {"time": 3, "open": 90, "high": 91, "low": 89, "close": 90, "volume": 100},
+            {
+                "time": 4,
+                "open": 90,
+                "high": 91,
+                "low": 89,
+                "close": 90,
+                "volume": 100,
+                "session_isfirstbar": True,
+            },
+            {"time": 5, "open": 90, "high": 92, "low": 89, "close": 90, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == [
+        "Long",
+        "close_all",
+        "Reset Long",
+    ]
+    assert result.values("Position") == [10.0, 10.0, 0.0, 1.0, 1.0]
+    assert result.output["strategy"]["risk"] == {
+        "locked": False,
+        "max_drawdown": None,
+        "max_drawdown_type": "percent_of_equity",
+        "max_intraday_loss": 5.0,
+        "max_intraday_loss_type": "percent_of_equity",
+    }
+
+
+def test_strategy_risk_max_intraday_loss_accepts_cash_threshold() -> None:
+    result = pn.run(
+        """
+strategy("Risk Intraday Cash", overlay=True, initial_capital=1000)
+strategy.risk.max_intraday_loss(50, strategy.cash)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 2, "Blocked", strategy.long, qty=1, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+            {"time": 2, "open": 100, "high": 100, "low": 39, "close": 40, "volume": 100},
+            {"time": 3, "open": 40, "high": 41, "low": 39, "close": 40, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == ["Long"]
+    assert result.values("Position") == [1.0, 1.0, 1.0]
+    assert result.output["strategy"]["risk"]["max_intraday_loss_type"] == "cash"
 
 
 def test_strategy_order_alias_accepts_when_keyword_and_costs() -> None:
