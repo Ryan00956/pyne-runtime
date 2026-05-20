@@ -5,6 +5,7 @@ from ._version import __version__
 from .api import from_pandas, read_ohlcv, run, schema, validate
 from .barstate import PyneBarState, PyneIncrementalBarState
 from .cache import pyne_cache
+from .collections import ArrayNamespace, PyneArray, array_namespace
 from .data import PyneData
 from .executor import execute_pyne_script, execute_pyne_script_in_process
 from .incremental import (
@@ -35,9 +36,11 @@ from .values import na
 
 __all__ = [
     "__version__",
+    "ArrayNamespace",
     "BarMergeNamespace",
     "DataProvider",
     "ObjectRef",
+    "PyneArray",
     "PyneData",
     "PyneBarState",
     "PyneIncrementalBarState",
@@ -65,6 +68,7 @@ __all__ = [
     "execute_pyne_script_in_process",
     "from_pandas",
     "is_incremental_pyne_script",
+    "array_namespace",
     "barmerge",
     "na",
     "pyne_cache",

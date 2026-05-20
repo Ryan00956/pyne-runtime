@@ -30,6 +30,14 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - `when()`、`switch()` 覆盖 Python 语法无法表达的 series 条件选择。
 - 顶层内置与运行时上下文已支持 batch 和 incremental 两种口径。
 
+### 集合类型
+
+- `array.*` 核心可变数组语义已可用。
+- 支持 `array.new_*()`、`array.from_values()`、`get/set/push/pop/shift/unshift`、
+  `insert/remove/clear/copy/slice/fill/reverse/sort`、搜索和数值聚合。
+- Python 关键字限制下，Pine 的 `array.from(...)` 对应为
+  `array.from_values(...)` / `array.from_list(...)`。
+
 ### TA 与数据输出
 
 - 常用 `ta.*` 已覆盖：`sma`、`ema`、`rsi`、`macd`、`bb`、`atr` 等。
@@ -98,7 +106,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 面向 Python 包的 Pine-like 集合 API：
 
-- `array.*`
+- `array.*` 核心语义已完成；后续可以补历史快照和更细的 Pine 边界行为。
 - `map.*`
 - `matrix.*`
 
@@ -130,7 +138,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议进入集合类型，先实现 `array.*` 的核心可变集合语义。完成后应同步更新：
+下一步建议继续集合类型，进入 `map.*` 的核心 key/value 语义。完成后应同步更新：
 
 - `src/pyne_runtime/collections.py`
 - `src/pyne_runtime/runtime.py`

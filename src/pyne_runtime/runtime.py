@@ -32,6 +32,7 @@ from .request import PyneRequestError, RequestModule, barmerge
 from .incremental import IncrementalPyneResult, PyneIncrementalSession, is_incremental_pyne_script
 from . import utils
 from .cache import pyne_cache
+from .collections import array_namespace
 from .errors import classify_security_error, error_hint
 from .result import PyneResult
 from .security import (
@@ -255,6 +256,7 @@ class PyneRuntime:
 
         # strategy.* — lightweight strategy event semantics
         ns["strategy"] = strategy
+        ns["array"] = array_namespace
 
         # Drawing functions
         ns.update(plot_funcs)  # plot, hline, fill, bar, marker, etc.
