@@ -81,6 +81,9 @@ class StrategyRiskNamespace:
     def max_position_size(self, contracts: float) -> None:
         self._strategy._max_position_size = max(float(contracts), 0.0)
 
+    def max_intraday_filled_orders(self, count: int) -> None:
+        self._strategy._max_intraday_filled_orders = max(int(count), 0)
+
 
 class StrategyTradesNamespace:
     """Script-facing trade ledger namespace.
@@ -194,6 +197,7 @@ class StrategyModule:
         self._max_intraday_loss_value: float | None = None
         self._max_intraday_loss_type = StrategyRiskMode.percent_of_equity
         self._max_position_size: float | None = None
+        self._max_intraday_filled_orders: int | None = None
         self._risk_locked = False
         self.risk = StrategyRiskNamespace(self)
         self._initial_capital = 100000.0
@@ -683,9 +687,15 @@ class StrategyModule:
         orders_by_time: dict[int, list[dict[str, Any]]] = {}
         drawdown_locked = False
         intraday_locked = False
+        filled_orders_locked = False
         risk_locked = False
         peak_equity = self._initial_capital
         intraday_peak_equity = self._initial_capital
+        intraday_filled_orders = 0
+        filled_orders_locked = _intraday_filled_orders_hit(
+            filled_orders=intraday_filled_orders,
+            threshold=self._max_intraday_filled_orders,
+        )
         session_first = _condition_values(self._context.session.isfirstbar, self._context.bar_count)
         for order in sorted(
             self._collector.strategy_orders,
@@ -710,12 +720,17 @@ class StrategyModule:
         for idx, timestamp in enumerate(self._context.times):
             if session_first[idx]:
                 intraday_locked = False
+                intraday_filled_orders = 0
+                filled_orders_locked = _intraday_filled_orders_hit(
+                    filled_orders=intraday_filled_orders,
+                    threshold=self._max_intraday_filled_orders,
+                )
                 intraday_peak_equity = (
                     float(self._equity[idx - 1])
                     if idx > 0
                     else self._initial_capital
                 )
-            risk_locked = drawdown_locked or intraday_locked
+            risk_locked = drawdown_locked or intraday_locked or filled_orders_locked
             for order in orders_by_time.get(timestamp, []):
                 if order.get("type") == "entry":
                     if risk_locked:
@@ -796,6 +811,13 @@ class StrategyModule:
                     )
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
+                    intraday_filled_orders += 1
+                    if _intraday_filled_orders_hit(
+                        filled_orders=intraday_filled_orders,
+                        threshold=self._max_intraday_filled_orders,
+                    ):
+                        filled_orders_locked = True
+                        risk_locked = True
                 elif order.get("type") == "order":
                     if risk_locked:
                         continue
@@ -855,6 +877,13 @@ class StrategyModule:
                     )
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
+                    intraday_filled_orders += 1
+                    if _intraday_filled_orders_hit(
+                        filled_orders=intraday_filled_orders,
+                        threshold=self._max_intraday_filled_orders,
+                    ):
+                        filled_orders_locked = True
+                        risk_locked = True
                 elif order.get("type") in {"close", "close_all", "exit"} and current_size != 0:
                     previous_size = current_size
                     if order.get("type") == "exit":
@@ -1047,6 +1076,14 @@ class StrategyModule:
                     )
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
+                    if order.get("type") in {"entry", "order"}:
+                        intraday_filled_orders += 1
+                        if _intraday_filled_orders_hit(
+                            filled_orders=intraday_filled_orders,
+                            threshold=self._max_intraday_filled_orders,
+                        ):
+                            filled_orders_locked = True
+                            risk_locked = True
                     _apply_oca_after_fill(order, pending_orders)
                 pending_orders = [item for item in remaining_pending if not item.get("_canceled")]
             net_profit = gross_profit + gross_loss - total_commission
@@ -1076,7 +1113,7 @@ class StrategyModule:
                 risk_type=self._max_intraday_loss_type,
             ):
                 intraday_locked = True
-            risk_locked = drawdown_locked or intraday_locked
+            risk_locked = drawdown_locked or intraday_locked or filled_orders_locked
         self._risk_locked = risk_locked
 
         self._sync_strategy_report(
@@ -1160,6 +1197,7 @@ class StrategyModule:
                     if self._max_position_size is not None
                     else None
                 ),
+                "max_intraday_filled_orders": self._max_intraday_filled_orders,
             },
             "closedtrades": closed_trades,
             "opentrades": serialized_open_trades,
@@ -1465,6 +1503,16 @@ def _max_drawdown_hit(
     if peak_equity <= 0:
         return False
     return drawdown / peak_equity * 100.0 >= threshold
+
+
+def _intraday_filled_orders_hit(
+    *,
+    filled_orders: int,
+    threshold: int | None,
+) -> bool:
+    if threshold is None:
+        return False
+    return int(filled_orders) >= max(int(threshold), 0)
 
 
 def _record_fill(

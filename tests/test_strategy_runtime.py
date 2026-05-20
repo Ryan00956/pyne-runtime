@@ -259,6 +259,7 @@ plot(strategy.equity, "Equity")
         "max_intraday_loss": None,
         "max_intraday_loss_type": "percent_of_equity",
         "max_position_size": None,
+        "max_intraday_filled_orders": None,
     }
 
 
@@ -336,6 +337,7 @@ plot(strategy.position_size, "Position")
         "max_intraday_loss": 5.0,
         "max_intraday_loss_type": "percent_of_equity",
         "max_position_size": None,
+        "max_intraday_filled_orders": None,
     }
 
 
@@ -455,6 +457,77 @@ plot(strategy.position_size, "Position")
     assert result.ok
     assert result.output["strategy"]["orders"][0]["qty"] == 5.0
     assert result.values("Position") == [5.0, 5.0]
+
+
+def test_strategy_risk_max_intraday_filled_orders_blocks_future_entries_and_orders() -> None:
+    result = pn.run(
+        """
+strategy("Risk Filled Orders", overlay=True, initial_capital=1000, pyramiding=2)
+strategy.risk.max_intraday_filled_orders(2)
+strategy.entry_when(bar_index == 0, "First", strategy.long, qty=1, price=close)
+strategy.order_when(bar_index == 1, "Second", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 2, "Blocked", strategy.long, qty=1, price=close)
+strategy.close_all(when=bar_index == 2, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 3, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == [
+        "First",
+        "Second",
+        "close_all",
+    ]
+    assert result.values("Position") == [1.0, 2.0, 0.0]
+    assert result.output["strategy"]["risk"]["max_intraday_filled_orders"] == 2
+
+
+def test_strategy_risk_max_intraday_filled_orders_resets_on_session_first_bar() -> None:
+    result = pn.run(
+        """
+strategy("Risk Filled Reset", overlay=True, initial_capital=1000)
+strategy.risk.max_intraday_filled_orders(1)
+strategy.entry_when(bar_index == 0, "First", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 1, "Blocked", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 2, "Reset Entry", strategy.short, qty=1, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {
+                "time": 1,
+                "open": 10,
+                "high": 11,
+                "low": 9,
+                "close": 10,
+                "volume": 100,
+                "session_isfirstbar": True,
+            },
+            {"time": 2, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {
+                "time": 3,
+                "open": 10,
+                "high": 11,
+                "low": 9,
+                "close": 10,
+                "volume": 100,
+                "session_isfirstbar": True,
+            },
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == [
+        "First",
+        "Reset Entry",
+    ]
+    assert result.values("Position") == [1.0, 1.0, -1.0]
 
 
 def test_strategy_order_alias_accepts_when_keyword_and_costs() -> None:

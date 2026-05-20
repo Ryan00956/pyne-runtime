@@ -139,6 +139,7 @@ strategy.risk.allow_entry_in(strategy.direction.long)
 strategy.risk.max_drawdown(20, strategy.percent_of_equity)
 strategy.risk.max_intraday_loss(5, strategy.cash)
 strategy.risk.max_position_size(10)
+strategy.risk.max_intraday_filled_orders(3)
 ```
 
 `strategy.risk.allow_entry_in(...)` limits subsequent replay of
@@ -180,6 +181,12 @@ opposite direction.
 Like `allow_entry_in(...)`, this is an entry-level risk rule.
 `strategy.order*` remains a lower-level net-position API and is not quantity
 capped by `max_position_size(...)`.
+
+`strategy.risk.max_intraday_filled_orders(count)` caps filled `strategy.entry*`
+and `strategy.order*` events in the current session segment. Once the limit is
+reached, future entry/order submissions and pending fills are blocked until the
+next `session.isfirstbar` boundary. Close, exit, and cancel events remain
+available so scripts can flatten or clean up existing exposure.
 
 ## Entry
 
