@@ -355,3 +355,29 @@ def test_strategy_pending_risk_recovery_costs_golden(case: dict) -> None:
         assert result.values("Second Open Size") == case["second_open_size"]
     assert result.output["strategy"]["summary"] == case["summary"]
     assert result.output["strategy"]["risk"] == case["risk"]
+
+
+@pytest.mark.parametrize(
+    "case",
+    json.loads((GOLDEN_DIR / "strategy_cancel_risk_costs.json").read_text())[
+        "cases"
+    ],
+    ids=lambda case: case["name"],
+)
+def test_strategy_cancel_risk_costs_golden(case: dict) -> None:
+    result = pn.run(case["script"], case["bars"], executor_mode="inline")
+
+    assert result.ok, result.error
+    assert result.output["strategy"]["orders"] == case["orders"]
+    assert result.output["strategy"]["lifecycle"] == case["lifecycle"]
+    assert result.output["strategy"]["closedtrades"] == case["closedtrades"]
+    assert result.output["strategy"]["opentrades"] == case["opentrades"]
+    assert result.values("Position") == case["position"]
+    assert result.values("Equity") == case["equity"]
+    assert result.values("Net Profit") == case["netprofit"]
+    if "open_commission" in case:
+        assert result.values("Open Commission") == case["open_commission"]
+    if "closed_commission" in case:
+        assert result.values("Closed Commission") == case["closed_commission"]
+    assert result.output["strategy"]["summary"] == case["summary"]
+    assert result.output["strategy"]["risk"] == case["risk"]

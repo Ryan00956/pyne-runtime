@@ -281,6 +281,10 @@ strategy.cancel_all(when=True, comment="")
 `cancel_all()` cancels every pending entry/order event. Cancel events are emitted
 only when at least one pending order is actually canceled.
 
+Cancel events are cleanup events, so they remain available while risk rules are
+locked and do not charge commission. Canceled pending orders stay canceled across
+later bars and later intraday risk resets.
+
 ## Close
 
 ```python
