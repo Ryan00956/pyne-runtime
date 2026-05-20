@@ -52,6 +52,14 @@ class StrategySameBarPriority:
     limit_first = "limit_first"
 
 
+class StrategyIntrabarPath:
+    """Deterministic intrabar path policy constants."""
+
+    same_bar_priority = "same_bar_priority"
+    open_high_low_close = "open_high_low_close"
+    open_low_high_close = "open_low_high_close"
+
+
 class StrategyRiskNamespace:
     """Pine-like ``strategy.risk`` configuration namespace."""
 
@@ -177,6 +185,7 @@ class StrategyModule:
     oca = StrategyOca
     direction = StrategyDirection
     same_bar = StrategySameBarPriority
+    intrabar = StrategyIntrabarPath
     percent_of_equity = StrategyRiskMode.percent_of_equity
     cash = StrategyRiskMode.cash
 
@@ -216,6 +225,7 @@ class StrategyModule:
         self._commission_value = 0.0
         self._backtest_fill_limits_assumption = 0
         self._same_bar_fill_priority = StrategySameBarPriority.stop_first
+        self._intrabar_path = StrategyIntrabarPath.same_bar_priority
         self._margin_long = 100.0
         self._margin_short = 100.0
 
@@ -234,6 +244,7 @@ class StrategyModule:
                 "currency",
                 "backtest_fill_limits_assumption",
                 "same_bar_fill_priority",
+                "intrabar_path",
                 "margin_long",
                 "margin_short",
             )
@@ -260,6 +271,7 @@ class StrategyModule:
         currency: str | None = None,
         backtest_fill_limits_assumption: int | None = None,
         same_bar_fill_priority: str | None = None,
+        intrabar_path: str | None = None,
         margin_long: float | None = None,
         margin_short: float | None = None,
     ) -> None:
@@ -293,6 +305,8 @@ class StrategyModule:
             self._same_bar_fill_priority = _normalize_same_bar_fill_priority(
                 same_bar_fill_priority
             )
+        if intrabar_path is not None:
+            self._intrabar_path = _normalize_intrabar_path(intrabar_path)
         if margin_long is not None:
             self._margin_long = max(float(margin_long), 0.0)
         if margin_short is not None:
@@ -694,6 +708,7 @@ class StrategyModule:
                 limit=limits[idx],
                 tick_verify=self._limit_fill_verification_amount(),
                 same_bar_fill_priority=self._same_bar_fill_priority,
+                intrabar_path=self._intrabar_path,
             )
             if trigger is None:
                 continue
@@ -1025,6 +1040,7 @@ class StrategyModule:
                         stop=order.get("_stop"),
                         tick_verify=self._limit_fill_verification_amount(),
                         same_bar_fill_priority=self._same_bar_fill_priority,
+                        intrabar_path=self._intrabar_path,
                     )
                     if trigger is None:
                         remaining_pending.append(order)
@@ -1242,6 +1258,7 @@ class StrategyModule:
                 "commission": round(total_commission, 8),
                 "backtest_fill_limits_assumption": self._backtest_fill_limits_assumption,
                 "same_bar_fill_priority": self._same_bar_fill_priority,
+                "intrabar_path": self._intrabar_path,
                 "margin_long": round(self._margin_long, 8),
                 "margin_short": round(self._margin_short, 8),
             },
@@ -1373,6 +1390,7 @@ def _exit_trigger(
     limit: float | None,
     tick_verify: float = 0.0,
     same_bar_fill_priority: str = StrategySameBarPriority.stop_first,
+    intrabar_path: str = StrategyIntrabarPath.same_bar_priority,
 ) -> tuple[str, float] | None:
     if current_position > 0:
         stop_hit = stop is not None and low <= stop
@@ -1381,7 +1399,10 @@ def _exit_trigger(
             return _same_bar_trigger(
                 stop=stop,
                 limit=limit,
+                stop_path="low",
+                limit_path="high",
                 same_bar_fill_priority=same_bar_fill_priority,
+                intrabar_path=intrabar_path,
             )
         if stop_hit:
             return "stop", stop
@@ -1394,7 +1415,10 @@ def _exit_trigger(
         return _same_bar_trigger(
             stop=stop,
             limit=limit,
+            stop_path="high",
+            limit_path="low",
             same_bar_fill_priority=same_bar_fill_priority,
+            intrabar_path=intrabar_path,
         )
     if stop_hit:
         return "stop", stop
@@ -1416,6 +1440,7 @@ def _pending_trigger(
     stop: float | None,
     tick_verify: float = 0.0,
     same_bar_fill_priority: str = StrategySameBarPriority.stop_first,
+    intrabar_path: str = StrategyIntrabarPath.same_bar_priority,
 ) -> tuple[str, float] | None:
     if side == StrategyModule.long:
         stop_hit = stop is not None and high >= stop
@@ -1424,7 +1449,10 @@ def _pending_trigger(
             return _same_bar_trigger(
                 stop=stop,
                 limit=limit,
+                stop_path="high",
+                limit_path="low",
                 same_bar_fill_priority=same_bar_fill_priority,
+                intrabar_path=intrabar_path,
             )
         if stop_hit:
             return "stop", float(stop)
@@ -1437,7 +1465,10 @@ def _pending_trigger(
         return _same_bar_trigger(
             stop=stop,
             limit=limit,
+            stop_path="low",
+            limit_path="high",
             same_bar_fill_priority=same_bar_fill_priority,
+            intrabar_path=intrabar_path,
         )
     if stop_hit:
         return "stop", float(stop)
@@ -1450,8 +1481,21 @@ def _same_bar_trigger(
     *,
     stop: float | None,
     limit: float | None,
+    stop_path: str,
+    limit_path: str,
     same_bar_fill_priority: str,
+    intrabar_path: str,
 ) -> tuple[str, float]:
+    if intrabar_path == StrategyIntrabarPath.open_high_low_close:
+        if stop_path == "high" and limit_path == "low":
+            return "stop", float(stop)
+        if limit_path == "high" and stop_path == "low":
+            return "limit", float(limit)
+    if intrabar_path == StrategyIntrabarPath.open_low_high_close:
+        if stop_path == "low" and limit_path == "high":
+            return "stop", float(stop)
+        if limit_path == "low" and stop_path == "high":
+            return "limit", float(limit)
     if same_bar_fill_priority == StrategySameBarPriority.limit_first:
         return "limit", float(limit)
     return "stop", float(stop)
@@ -1472,6 +1516,29 @@ def _normalize_same_bar_fill_priority(value: str) -> str:
     raise ValueError(
         "same_bar_fill_priority must be strategy.same_bar.stop_first or "
         "strategy.same_bar.limit_first"
+    )
+
+
+def _normalize_intrabar_path(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    aliases = {
+        "same_bar_priority": StrategyIntrabarPath.same_bar_priority,
+        "priority": StrategyIntrabarPath.same_bar_priority,
+        "open_high_low_close": StrategyIntrabarPath.open_high_low_close,
+        "ohlc": StrategyIntrabarPath.open_high_low_close,
+        "high_low": StrategyIntrabarPath.open_high_low_close,
+        "open-high-low-close": StrategyIntrabarPath.open_high_low_close,
+        "open_low_high_close": StrategyIntrabarPath.open_low_high_close,
+        "open-low-high-close": StrategyIntrabarPath.open_low_high_close,
+        "olhc": StrategyIntrabarPath.open_low_high_close,
+        "low_high": StrategyIntrabarPath.open_low_high_close,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    raise ValueError(
+        "intrabar_path must be strategy.intrabar.same_bar_priority, "
+        "strategy.intrabar.open_high_low_close, or "
+        "strategy.intrabar.open_low_high_close"
     )
 
 

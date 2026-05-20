@@ -94,6 +94,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   `strategy.close_all()`、`strategy.cancel()`、`strategy.cancel_all()` 已可用。
 - `same_bar_fill_priority` 已支持，用于显式控制同一根 bar 同时触及 stop/limit
   时选择 `strategy.same_bar.stop_first` 还是 `strategy.same_bar.limit_first`。
+- `intrabar_path` 已支持，用于选择 `strategy.intrabar.same_bar_priority`、
+  `strategy.intrabar.open_high_low_close` 或 `strategy.intrabar.open_low_high_close`。
 - `strategy.close()` / `strategy.close_when()` 支持 `qty` 和 `qty_percent`。
 - `strategy.exit()` 支持 `qty` 和 `qty_percent`，并保持 `qty` 优先。
 - 已有 OCA、pyramiding、commission、slippage、limit verification、margin、
@@ -143,7 +145,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 ### P4: Strategy 回放语义深化
 
 - same-bar stop/limit 触发顺序策略已明确，默认 `stop_first`，可配置 `limit_first`。
-- 扩展 intrabar path policy。
+- intrabar path policy 已支持 high-before-low / low-before-high 两种确定性假设。
 - 增加更细的 fill reason、fill phase 和订单生命周期事件。
 - 增加 strategy golden fixtures。
 

@@ -16,6 +16,7 @@ strategy(
     commission_value=0.1,
     backtest_fill_limits_assumption=1,
     same_bar_fill_priority=strategy.same_bar.stop_first,
+    intrabar_path=strategy.intrabar.same_bar_priority,
     margin_long=100,
     margin_short=100,
 )
@@ -68,6 +69,7 @@ strategy(
     commission_value=0.1,
     backtest_fill_limits_assumption=1,
     same_bar_fill_priority=strategy.same_bar.stop_first,
+    intrabar_path=strategy.intrabar.same_bar_priority,
     margin_long=100,
     margin_short=100,
 )
@@ -121,6 +123,19 @@ The rule applies to pending `strategy.entry*` / `strategy.order*` stop-limit
 submissions and to `strategy.exit(...)` brackets. Pyne still does not infer the
 true intrabar path; this setting only makes the ambiguous same-bar outcome
 explicit and repeatable.
+
+`intrabar_path` can make that ambiguity follow a deterministic high/low path:
+
+- `strategy.intrabar.same_bar_priority`: use `same_bar_fill_priority`. This is
+  the default.
+- `strategy.intrabar.open_high_low_close`: assume the bar visits `high` before
+  `low`.
+- `strategy.intrabar.open_low_high_close`: assume the bar visits `low` before
+  `high`.
+
+The path policy is only used when both stop and limit are hit by the same bar.
+It does not model tick-level movement, order queueing, partial intrabar fills,
+or exchange-specific matching.
 
 Margin settings are accepted in the Pine-like declaration:
 

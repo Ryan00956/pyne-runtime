@@ -687,6 +687,46 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [1.0]
 
 
+def test_strategy_pending_intrabar_path_can_choose_high_before_low() -> None:
+    result = pn.run(
+        """
+strategy("Path Pending", overlay=True, intrabar_path=strategy.intrabar.open_high_low_close)
+strategy.entry("Breakout", strategy.long, qty=1, when=bar_index == 0, stop=12, limit=8)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 13, "low": 7, "close": 10, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"][0]["reason"] == "stop"
+    assert result.output["strategy"]["orders"][0]["price"] == 12.0
+    assert result.output["strategy"]["summary"]["intrabar_path"] == "open_high_low_close"
+    assert result.values("Position") == [1.0]
+
+
+def test_strategy_pending_intrabar_path_can_choose_low_before_high() -> None:
+    result = pn.run(
+        """
+strategy("Path Pending", overlay=True, intrabar_path=strategy.intrabar.open_low_high_close)
+strategy.entry("Breakout", strategy.long, qty=1, when=bar_index == 0, stop=12, limit=8)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 13, "low": 7, "close": 10, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"][0]["reason"] == "limit"
+    assert result.output["strategy"]["orders"][0]["price"] == 8.0
+    assert result.output["strategy"]["summary"]["intrabar_path"] == "open_low_high_close"
+    assert result.values("Position") == [1.0]
+
+
 def test_strategy_margin_blocks_entry_when_required_margin_exceeds_equity() -> None:
     result = pn.run(
         """
@@ -1297,6 +1337,50 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [1.0, 0.0]
 
 
+def test_strategy_exit_intrabar_path_can_choose_high_before_low() -> None:
+    result = pn.run(
+        """
+strategy("Path Exit", overlay=True, intrabar_path=strategy.intrabar.open_high_low_close)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.exit("Bracket", from_entry="Long", stop=9, limit=12)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"][1]["reason"] == "limit"
+    assert result.output["strategy"]["orders"][1]["price"] == 12.0
+    assert result.output["strategy"]["summary"]["intrabar_path"] == "open_high_low_close"
+    assert result.values("Position") == [1.0, 0.0]
+
+
+def test_strategy_exit_intrabar_path_can_choose_low_before_high() -> None:
+    result = pn.run(
+        """
+strategy("Path Exit", overlay=True, intrabar_path=strategy.intrabar.open_low_high_close)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.exit("Bracket", from_entry="Long", stop=9, limit=12)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"][1]["reason"] == "stop"
+    assert result.output["strategy"]["orders"][1]["price"] == 9.0
+    assert result.output["strategy"]["summary"]["intrabar_path"] == "open_low_high_close"
+    assert result.values("Position") == [1.0, 0.0]
+
+
 def test_strategy_exit_qty_partially_reduces_long_position() -> None:
     result = pn.run(
         """
@@ -1440,6 +1524,7 @@ plot(strategy.grossloss, "Gross Loss")
         "commission": 2.0,
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
+        "intrabar_path": "same_bar_priority",
         "margin_long": 100.0,
         "margin_short": 100.0,
     }

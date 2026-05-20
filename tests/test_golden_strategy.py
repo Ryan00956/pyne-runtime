@@ -25,3 +25,4 @@ def test_strategy_same_bar_priority_golden(case: dict) -> None:
         result.output["strategy"]["summary"]["same_bar_fill_priority"]
         == case["same_bar_fill_priority"]
     )
+    assert result.output["strategy"]["summary"]["intrabar_path"] == case["intrabar_path"]
