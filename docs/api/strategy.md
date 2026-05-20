@@ -15,6 +15,7 @@ strategy(
     commission_type=strategy.commission.percent,
     commission_value=0.1,
     backtest_fill_limits_assumption=1,
+    same_bar_fill_priority=strategy.same_bar.stop_first,
     margin_long=100,
     margin_short=100,
 )
@@ -66,6 +67,7 @@ strategy(
     commission_type=strategy.commission.percent,
     commission_value=0.1,
     backtest_fill_limits_assumption=1,
+    same_bar_fill_priority=strategy.same_bar.stop_first,
     margin_long=100,
     margin_short=100,
 )
@@ -107,6 +109,18 @@ mental model:
 - the filled price remains the requested limit price plus normal slippage rules
 
 The default is `0`, which preserves the simpler touch-to-fill behavior.
+
+`same_bar_fill_priority` controls deterministic replay when both stop and limit
+prices are touched by the same bar:
+
+- `strategy.same_bar.stop_first`: stop wins. This is the default and preserves
+  Pyne's earlier conservative behavior.
+- `strategy.same_bar.limit_first`: limit wins.
+
+The rule applies to pending `strategy.entry*` / `strategy.order*` stop-limit
+submissions and to `strategy.exit(...)` brackets. Pyne still does not infer the
+true intrabar path; this setting only makes the ambiguous same-bar outcome
+explicit and repeatable.
 
 Margin settings are accepted in the Pine-like declaration:
 

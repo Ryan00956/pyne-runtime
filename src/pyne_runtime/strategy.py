@@ -45,6 +45,13 @@ class StrategyRiskMode:
     cash = "cash"
 
 
+class StrategySameBarPriority:
+    """Deterministic same-bar stop/limit priority constants."""
+
+    stop_first = "stop_first"
+    limit_first = "limit_first"
+
+
 class StrategyRiskNamespace:
     """Pine-like ``strategy.risk`` configuration namespace."""
 
@@ -169,6 +176,7 @@ class StrategyModule:
     commission = StrategyCommission
     oca = StrategyOca
     direction = StrategyDirection
+    same_bar = StrategySameBarPriority
     percent_of_equity = StrategyRiskMode.percent_of_equity
     cash = StrategyRiskMode.cash
 
@@ -207,6 +215,7 @@ class StrategyModule:
         self._commission_type: str | None = None
         self._commission_value = 0.0
         self._backtest_fill_limits_assumption = 0
+        self._same_bar_fill_priority = StrategySameBarPriority.stop_first
         self._margin_long = 100.0
         self._margin_short = 100.0
 
@@ -224,6 +233,7 @@ class StrategyModule:
                 "initial_capital",
                 "currency",
                 "backtest_fill_limits_assumption",
+                "same_bar_fill_priority",
                 "margin_long",
                 "margin_short",
             )
@@ -249,6 +259,7 @@ class StrategyModule:
         initial_capital: float | None = None,
         currency: str | None = None,
         backtest_fill_limits_assumption: int | None = None,
+        same_bar_fill_priority: str | None = None,
         margin_long: float | None = None,
         margin_short: float | None = None,
     ) -> None:
@@ -277,6 +288,10 @@ class StrategyModule:
             self._backtest_fill_limits_assumption = max(
                 int(backtest_fill_limits_assumption),
                 0,
+            )
+        if same_bar_fill_priority is not None:
+            self._same_bar_fill_priority = _normalize_same_bar_fill_priority(
+                same_bar_fill_priority
             )
         if margin_long is not None:
             self._margin_long = max(float(margin_long), 0.0)
@@ -678,6 +693,7 @@ class StrategyModule:
                 stop=stops[idx],
                 limit=limits[idx],
                 tick_verify=self._limit_fill_verification_amount(),
+                same_bar_fill_priority=self._same_bar_fill_priority,
             )
             if trigger is None:
                 continue
@@ -1008,6 +1024,7 @@ class StrategyModule:
                         limit=order.get("_limit"),
                         stop=order.get("_stop"),
                         tick_verify=self._limit_fill_verification_amount(),
+                        same_bar_fill_priority=self._same_bar_fill_priority,
                     )
                     if trigger is None:
                         remaining_pending.append(order)
@@ -1224,6 +1241,7 @@ class StrategyModule:
                 "grossloss": round(gross_loss, 8),
                 "commission": round(total_commission, 8),
                 "backtest_fill_limits_assumption": self._backtest_fill_limits_assumption,
+                "same_bar_fill_priority": self._same_bar_fill_priority,
                 "margin_long": round(self._margin_long, 8),
                 "margin_short": round(self._margin_short, 8),
             },
@@ -1354,16 +1372,33 @@ def _exit_trigger(
     stop: float | None,
     limit: float | None,
     tick_verify: float = 0.0,
+    same_bar_fill_priority: str = StrategySameBarPriority.stop_first,
 ) -> tuple[str, float] | None:
     if current_position > 0:
-        if stop is not None and low <= stop:
+        stop_hit = stop is not None and low <= stop
+        limit_hit = limit is not None and high >= limit + tick_verify
+        if stop_hit and limit_hit:
+            return _same_bar_trigger(
+                stop=stop,
+                limit=limit,
+                same_bar_fill_priority=same_bar_fill_priority,
+            )
+        if stop_hit:
             return "stop", stop
-        if limit is not None and high >= limit + tick_verify:
+        if limit_hit:
             return "limit", limit
         return None
-    if stop is not None and high >= stop:
+    stop_hit = stop is not None and high >= stop
+    limit_hit = limit is not None and low <= limit - tick_verify
+    if stop_hit and limit_hit:
+        return _same_bar_trigger(
+            stop=stop,
+            limit=limit,
+            same_bar_fill_priority=same_bar_fill_priority,
+        )
+    if stop_hit:
         return "stop", stop
-    if limit is not None and low <= limit - tick_verify:
+    if limit_hit:
         return "limit", limit
     return None
 
@@ -1380,18 +1415,64 @@ def _pending_trigger(
     limit: float | None,
     stop: float | None,
     tick_verify: float = 0.0,
+    same_bar_fill_priority: str = StrategySameBarPriority.stop_first,
 ) -> tuple[str, float] | None:
     if side == StrategyModule.long:
-        if stop is not None and high >= stop:
+        stop_hit = stop is not None and high >= stop
+        limit_hit = limit is not None and low <= limit - tick_verify
+        if stop_hit and limit_hit:
+            return _same_bar_trigger(
+                stop=stop,
+                limit=limit,
+                same_bar_fill_priority=same_bar_fill_priority,
+            )
+        if stop_hit:
             return "stop", float(stop)
-        if limit is not None and low <= limit - tick_verify:
+        if limit_hit:
             return "limit", float(limit)
         return None
-    if stop is not None and low <= stop:
+    stop_hit = stop is not None and low <= stop
+    limit_hit = limit is not None and high >= limit + tick_verify
+    if stop_hit and limit_hit:
+        return _same_bar_trigger(
+            stop=stop,
+            limit=limit,
+            same_bar_fill_priority=same_bar_fill_priority,
+        )
+    if stop_hit:
         return "stop", float(stop)
-    if limit is not None and high >= limit + tick_verify:
+    if limit_hit:
         return "limit", float(limit)
     return None
+
+
+def _same_bar_trigger(
+    *,
+    stop: float | None,
+    limit: float | None,
+    same_bar_fill_priority: str,
+) -> tuple[str, float]:
+    if same_bar_fill_priority == StrategySameBarPriority.limit_first:
+        return "limit", float(limit)
+    return "stop", float(stop)
+
+
+def _normalize_same_bar_fill_priority(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    aliases = {
+        "stop": StrategySameBarPriority.stop_first,
+        "stop_first": StrategySameBarPriority.stop_first,
+        "stop-first": StrategySameBarPriority.stop_first,
+        "limit": StrategySameBarPriority.limit_first,
+        "limit_first": StrategySameBarPriority.limit_first,
+        "limit-first": StrategySameBarPriority.limit_first,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    raise ValueError(
+        "same_bar_fill_priority must be strategy.same_bar.stop_first or "
+        "strategy.same_bar.limit_first"
+    )
 
 
 def _entry_allowed(

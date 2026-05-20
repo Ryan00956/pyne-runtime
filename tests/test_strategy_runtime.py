@@ -625,6 +625,68 @@ plot(strategy.position_size, "Position")
     assert result.output["strategy"]["summary"]["backtest_fill_limits_assumption"] == 1
 
 
+def test_strategy_pending_same_bar_stop_limit_priority_defaults_to_stop_first() -> None:
+    result = pn.run(
+        """
+strategy("Same Bar Pending", overlay=True)
+strategy.entry("Breakout", strategy.long, qty=1, when=bar_index == 0, stop=12, limit=8)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 13, "low": 7, "close": 10, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Breakout",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 12.0,
+            "position_after": 1.0,
+            "comment": "",
+            "reason": "stop",
+        },
+    ]
+    assert result.output["strategy"]["summary"]["same_bar_fill_priority"] == "stop_first"
+    assert result.values("Position") == [1.0]
+
+
+def test_strategy_pending_same_bar_stop_limit_can_prefer_limit_first() -> None:
+    result = pn.run(
+        """
+strategy("Same Bar Pending", overlay=True, same_bar_fill_priority=strategy.same_bar.limit_first)
+strategy.entry("Breakout", strategy.long, qty=1, when=bar_index == 0, stop=12, limit=8)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 13, "low": 7, "close": 10, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Breakout",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 8.0,
+            "position_after": 1.0,
+            "comment": "",
+            "reason": "limit",
+        },
+    ]
+    assert result.output["strategy"]["summary"]["same_bar_fill_priority"] == "limit_first"
+    assert result.values("Position") == [1.0]
+
+
 def test_strategy_margin_blocks_entry_when_required_margin_exceeds_equity() -> None:
     result = pn.run(
         """
@@ -1147,6 +1209,94 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [1.0, 1.0, 0.0]
 
 
+def test_strategy_exit_same_bar_stop_limit_defaults_to_stop_first() -> None:
+    result = pn.run(
+        """
+strategy("Same Bar Exit", overlay=True)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.exit("Bracket", from_entry="Long", stop=9, limit=12)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 10.0,
+            "position_after": 1.0,
+            "comment": "",
+        },
+        {
+            "time": 2,
+            "id": "Bracket",
+            "from_entry": "Long",
+            "type": "exit",
+            "side": "flat",
+            "qty": 1.0,
+            "price": 9.0,
+            "position_after": 0.0,
+            "reason": "stop",
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [1.0, 0.0]
+
+
+def test_strategy_exit_same_bar_stop_limit_can_prefer_limit_first() -> None:
+    result = pn.run(
+        """
+strategy("Same Bar Exit", overlay=True)
+strategy.configure(same_bar_fill_priority=strategy.same_bar.limit_first)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.exit("Bracket", from_entry="Long", stop=9, limit=12)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 10.0,
+            "position_after": 1.0,
+            "comment": "",
+        },
+        {
+            "time": 2,
+            "id": "Bracket",
+            "from_entry": "Long",
+            "type": "exit",
+            "side": "flat",
+            "qty": 1.0,
+            "price": 12.0,
+            "position_after": 0.0,
+            "reason": "limit",
+            "comment": "",
+        },
+    ]
+    assert result.output["strategy"]["summary"]["same_bar_fill_priority"] == "limit_first"
+    assert result.values("Position") == [1.0, 0.0]
+
+
 def test_strategy_exit_qty_partially_reduces_long_position() -> None:
     result = pn.run(
         """
@@ -1289,6 +1439,7 @@ plot(strategy.grossloss, "Gross Loss")
         "grossloss": 0.0,
         "commission": 2.0,
         "backtest_fill_limits_assumption": 0,
+        "same_bar_fill_priority": "stop_first",
         "margin_long": 100.0,
         "margin_short": 100.0,
     }
