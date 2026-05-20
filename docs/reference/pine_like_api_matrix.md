@@ -4,6 +4,9 @@ Pyne is a Python runtime with Pine-like semantics. It does not run TradingView
 Pine source code directly. This matrix tracks the supported mental model, the
 Pyne API surface, and the test/doc evidence behind each claim.
 
+Current phase status and the next implementation order are tracked in
+`docs/development/pine_like_semantics_progress_zh.md`.
+
 | Feature | Pyne API | Status | Known Differences | Tests | Docs |
 | --- | --- | --- | --- | --- | --- |
 | OHLCV sources | `open`, `high`, `low`, `close`, `volume` | Supported | Values are `PyneSeries`, not Pine native series | `tests/test_series.py` | `docs/concepts/data_model.md` |
