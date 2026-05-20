@@ -532,10 +532,11 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             })
 
     def marker(
-        condition: PyneSeries | np.ndarray,
+        condition: PyneSeries | np.ndarray | list | bool,
         shape: str = "circle",
         color: str | PyneSeries | np.ndarray | list = "#f59e0b",
         text: str = "",
+        char: str | None = None,
         textcolor: str | None = None,
         position: str = "above",
         location: str | None = None,
@@ -557,6 +558,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                    "diamond", "arrow_up", "arrow_down".
             color: Marker color.
             text: Text to display with the marker.
+            char: Optional character marker payload for ``plotchar()``.
             textcolor: Optional marker text color.
             position: "above" or "below" the bar.
             size: "tiny", "small", "normal", "large".
@@ -599,6 +601,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                     "size": size,
                     "pane": pane,
                 }
+                if char is not None:
+                    mark["char"] = str(char)
                 if textcolor is not None:
                     mark["textcolor"] = textcolor
                 if position == "absolute" and not isinstance(c, (bool, np.bool_)):
@@ -621,6 +625,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             }
             if title:
                 marker_entry["title"] = title
+            if char is not None:
+                marker_entry["char"] = str(char)
             if textcolor is not None:
                 marker_entry["textcolor"] = textcolor
             if offset_value:
@@ -652,6 +658,41 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             shape=style,
             color=color,
             text=text,
+            textcolor=textcolor,
+            location=location,
+            size=size,
+            title=title,
+            offset=offset,
+            show_last=show_last,
+            display=display,
+            force_overlay=force_overlay,
+        )
+
+    def plotchar(
+        series: PyneSeries | np.ndarray | list | bool,
+        title: str = "",
+        char: str = "",
+        location: str = "above",
+        color: str | PyneSeries | np.ndarray | list = "#f59e0b",
+        offset: int = 0,
+        text: str = "",
+        textcolor: str | None = None,
+        editable: bool = True,
+        size: str = "normal",
+        show_last: int | None = None,
+        display: str | None = None,
+        force_overlay: bool = False,
+        **_: Any,
+    ) -> None:
+        """Pine-like ``plotchar()`` wrapper over Pyne marker output."""
+        _ = editable
+        glyph = str(char or text or "")
+        marker(
+            series,
+            shape="char",
+            color=color,
+            text=str(text or glyph),
+            char=glyph,
             textcolor=textcolor,
             location=location,
             size=size,
@@ -1361,6 +1402,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         "bgcolor": bgcolor,
         "marker": marker,
         "plotshape": plotshape,
+        "plotchar": plotchar,
         "barcolor": barcolor,
         "emit_signal": emit_signal,
         "alertcondition": alertcondition,

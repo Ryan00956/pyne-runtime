@@ -10,6 +10,7 @@ plot(mid, "Middle", color=color.orange, display=display.all)
 p2 = plot(lower, "Lower", color=color.blue)
 fill(p1, p2, color="rgba(59,130,246,0.08)")
 plotshape(close > open, title="Up", style=shape.triangleup, location=location.abovebar)
+plotchar(close > open, title="Up Char", char="*", location=location.abovebar)
 marker(close > open, shape=shape.triangleup, location=location.abovebar, size=size.small)
 ```
 
@@ -20,6 +21,7 @@ Common outputs:
 - `hline()`
 - `fill()`
 - `plotshape()`
+- `plotchar()`
 - `marker()`
 - `bgcolor()`
 - `barcolor()`
@@ -57,6 +59,24 @@ Supported arguments include `title`, `style`, `location`, `color`, `offset`,
 `text`, `textcolor`, `size`, `show_last`, `display`, and `force_overlay`.
 When `location=location.absolute`, numeric series values are emitted as marker
 `value` fields so the host can place the marker at a price-like coordinate.
+
+`plotchar()` follows the same output path, but uses `shape="char"` and carries
+the requested character in both the marker `char` field and the marker text.
+
+```python
+plotchar(
+    close > open,
+    title="Close Up",
+    char="*",
+    location=location.abovebar,
+    color=color.blue,
+    textcolor=color.white,
+    size=size.tiny,
+)
+```
+
+Supported arguments include `title`, `char`, `location`, `color`, `offset`,
+`text`, `textcolor`, `size`, `show_last`, `display`, and `force_overlay`.
 
 ## Drawing Objects
 

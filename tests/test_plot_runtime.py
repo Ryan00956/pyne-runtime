@@ -318,6 +318,52 @@ plotshape(
     assert [point["value"] for point in absolute_marker["data"]] == [2.5, 3.5]
 
 
+def test_plotchar_wraps_marker_output_with_character_payload() -> None:
+    result = pn.run(
+        """
+indicator("Plotchar", overlay=True)
+plotchar(
+    close > open,
+    title="Up Char",
+    char="*",
+    location=location.abovebar,
+    color=color.blue,
+    textcolor=color.white,
+    size=size.tiny,
+)
+plotchar(
+    close > open,
+    title="Last",
+    char="L",
+    location=location.belowbar,
+    offset=-1,
+    show_last=1,
+    display=display.data_window,
+)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    char_marker, last_marker = result.output["markers"]
+
+    assert char_marker["title"] == "Up Char"
+    assert char_marker["shape"] == "char"
+    assert char_marker["char"] == "*"
+    assert char_marker["text"] == "*"
+    assert char_marker["position"] == "above"
+    assert char_marker["textcolor"] == "#ffffff"
+    assert char_marker["data"][0]["char"] == "*"
+    assert char_marker["data"][0]["size"] == "tiny"
+
+    assert last_marker["title"] == "Last"
+    assert last_marker["char"] == "L"
+    assert last_marker["offset"] == -1
+    assert last_marker["display"] == "data_window"
+    assert [point["time"] for point in last_marker["data"]] == [2]
+
+
 def test_box_and_table_objects_can_be_deleted() -> None:
     result = pn.run(
         """

@@ -39,7 +39,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 ### Plot 与绘图对象
 
 - `plot()`、`hline()`、`fill()`、`marker()`、`bgcolor()`、`barcolor()` 已可用。
-- `plotshape()` 已可用，并映射到现有 marker 输出协议。
+- `plotshape()`、`plotchar()` 已可用，并映射到现有 marker 输出协议。
 - 已加入 Pine-like enum namespace：
   - `shape.*`
   - `location.*`
@@ -89,9 +89,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ### P1: Plot wrapper 补齐
 
-视觉 enum 基础已经完成，`plotshape()` 已完成。接下来继续补齐 Pine 迁移时常见的 wrapper：
+视觉 enum 基础已经完成，`plotshape()` 和 `plotchar()` 已完成。
+接下来继续补齐 Pine 迁移时常见的 wrapper：
 
-- `plotchar(condition, title="", char="*", location=location.abovebar, ...)`
 - `plotarrow(series, title="", colorup=..., colordown=..., ...)`
 
 它们可以先映射到现有 `marker()` / plot output schema，不需要改变宿主渲染协议。
@@ -132,8 +132,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议实现 `plotchar()`，因为它可以复用 `plotshape()` 与 `marker()`
-已经建立的参数和输出路径。完成后应同步更新：
+下一步建议实现 `plotarrow()`，因为它可以复用 `plotshape()` / `plotchar()`
+已经建立的 marker 输出路径，用正负 series 值映射上下箭头。完成后应同步更新：
 
 - `src/pyne_runtime/plot.py`
 - `tests/test_plot_runtime.py`
