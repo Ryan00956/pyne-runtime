@@ -539,22 +539,35 @@ class StrategyModule:
         id: str = "",
         *,
         when: PyneSeries | np.ndarray | list | bool = True,
+        qty: PyneSeries | np.ndarray | list | float | None = None,
+        qty_percent: PyneSeries | np.ndarray | list | float | None = None,
         price: PyneSeries | np.ndarray | list | float | None = None,
         comment: str = "",
     ) -> None:
         """Emit close events when ``when`` is true."""
-        self.close_when(when, id=id, price=price, comment=comment)
+        self.close_when(
+            when,
+            id=id,
+            qty=qty,
+            qty_percent=qty_percent,
+            price=price,
+            comment=comment,
+        )
 
     def close_when(
         self,
         condition: PyneSeries | np.ndarray | list | bool,
         id: str = "",
         *,
+        qty: PyneSeries | np.ndarray | list | float | None = None,
+        qty_percent: PyneSeries | np.ndarray | list | float | None = None,
         price: PyneSeries | np.ndarray | list | float | None = None,
         comment: str = "",
     ) -> None:
         flags = _condition_values(condition, self._context.bar_count)
         prices = _price_values(price, self._context.close, self._context.bar_count)
+        qty_values = _optional_numeric_values(qty, self._context.bar_count)
+        qty_percent_values = _optional_numeric_values(qty_percent, self._context.bar_count)
 
         for idx, flag in enumerate(flags):
             if not flag:
@@ -563,16 +576,28 @@ class StrategyModule:
             if current_position == 0:
                 continue
             event_price = prices[idx]
+            target_qty = min(
+                abs(current_position),
+                _requested_close_qty(
+                    target_qty=abs(current_position),
+                    qty=qty_values[idx],
+                    qty_percent=qty_percent_values[idx],
+                ),
+            )
+            if target_qty <= 0:
+                continue
             self._collector.strategy_orders.append({
                 "time": self._context.times[idx],
                 "id": str(id),
                 "type": "close",
                 "side": "flat",
-                "qty": abs(current_position),
+                "qty": round(float(target_qty), 8),
                 "price": round(float(event_price), 8),
                 "position_after": 0.0,
                 "comment": comment,
                 "_base_price": float(event_price),
+                "_requested_qty": qty_values[idx],
+                "_qty_percent": qty_percent_values[idx],
                 "_seq": self._next_event_seq(),
             })
             self._touched = True
@@ -892,7 +917,12 @@ class StrategyModule:
                         fill_qty = min(requested_qty, target_qty)
                     elif order.get("type") == "close":
                         target_qty = _target_open_qty(order, open_trades, current_size)
-                        fill_qty = min(target_qty, abs(current_size))
+                        requested_qty = _requested_close_qty(
+                            target_qty=target_qty,
+                            qty=order.get("_requested_qty"),
+                            qty_percent=order.get("_qty_percent"),
+                        )
+                        fill_qty = min(target_qty, abs(current_size), requested_qty)
                     else:
                         fill_qty = abs(current_size)
                     if fill_qty <= 0:
@@ -1274,6 +1304,27 @@ def _optional_price_values(value: Any, length: int) -> list[float | None]:
         return [None] * length
     values = _values(value, length)
     return [None if is_na_value(item) else float(item) for item in values]
+
+
+def _optional_numeric_values(value: Any, length: int) -> list[float | None]:
+    if value is None:
+        return [None] * length
+    values = _values(value, length)
+    return [None if is_na_value(item) else float(item) for item in values]
+
+
+def _requested_close_qty(
+    *,
+    target_qty: float,
+    qty: Any,
+    qty_percent: Any,
+) -> float:
+    target = max(float(target_qty), 0.0)
+    if qty is not None and not is_na_value(qty):
+        return max(float(qty), 0.0)
+    if qty_percent is not None and not is_na_value(qty_percent):
+        return target * max(float(qty_percent), 0.0) / 100.0
+    return target
 
 
 def _exit_trigger(

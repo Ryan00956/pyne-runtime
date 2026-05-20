@@ -240,8 +240,8 @@ only when at least one pending order is actually canceled.
 ## Close
 
 ```python
-strategy.close_when(condition, id="", price=None, comment="")
-strategy.close(id="", when=True, price=None, comment="")
+strategy.close_when(condition, id="", qty=None, qty_percent=None, price=None, comment="")
+strategy.close(id="", when=True, qty=None, qty_percent=None, price=None, comment="")
 strategy.close_all(when=True, price=None, comment="")
 ```
 
@@ -249,6 +249,15 @@ strategy.close_all(when=True, price=None, comment="")
 bar in the replayed event timeline. When `id` is provided, replay closes the
 matching entry-id lot quantity instead of blindly closing the whole net
 position.
+
+`qty` and `qty_percent` allow partial closes:
+
+- `qty` closes up to that absolute quantity.
+- `qty_percent` closes that percentage of the targeted quantity.
+- if both are provided, `qty` takes precedence.
+- if `id` is provided, `qty_percent` is calculated against the matching entry
+  lot quantity; otherwise it is calculated against the whole current position.
+- if neither is provided, the close targets the full matching quantity.
 
 `close_all()` emits a close-all event that closes any open long or short
 position at matching bars.
