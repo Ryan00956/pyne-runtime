@@ -495,7 +495,7 @@ class IncrementalStrategyNamespace:
         fill_price = self._price_or_current(price)
         signed_qty = qty_abs if side == self.long else -qty_abs
         if self.position_size and (self.position_size > 0) != (signed_qty > 0):
-            self.close_all(price=fill_price, comment=comment)
+            self._close_lots(id="", exit_id=str(id), target_qty=abs(self.position_size), fill_price=fill_price)
         self._touched = True
         self._open_trades.append({
             "entry_id": str(id),
@@ -533,8 +533,8 @@ class IncrementalStrategyNamespace:
         target_qty = self._requested_close_qty(qty=qty, qty_percent=qty_percent)
         if target_qty <= 0:
             return
-        closed_qty = self._close_lots(id=str(id), target_qty=target_qty, fill_price=fill_price)
-        if closed_qty <= 0:
+        closed_qty = self._close_lots(id=str(id), exit_id=str(id), target_qty=target_qty, fill_price=fill_price)
+        if abs(closed_qty) <= 0:
             return
         self._touched = True
         self._orders.append({
@@ -607,7 +607,7 @@ class IncrementalStrategyNamespace:
             return min(position_qty, position_qty * max(float(qty_percent), 0.0) / 100.0)
         return position_qty
 
-    def _close_lots(self, *, id: str, target_qty: float, fill_price: float) -> float:
+    def _close_lots(self, *, id: str, exit_id: str, target_qty: float, fill_price: float) -> float:
         remaining = abs(float(target_qty))
         closed_signed_qty = 0.0
         kept: list[dict[str, Any]] = []
@@ -627,7 +627,7 @@ class IncrementalStrategyNamespace:
                 self._grossloss += profit
             self._closed_trades.append({
                 "entry_id": trade.get("entry_id", ""),
-                "exit_id": id,
+                "exit_id": exit_id,
                 "side": side,
                 "qty": _round8(closing_qty),
                 "entry_price": trade.get("entry_price"),

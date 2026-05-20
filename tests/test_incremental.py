@@ -47,6 +47,18 @@ def _marker_times(result: object, marker_id: str) -> list[int]:
     return []
 
 
+def _assert_strategy_matches_batch(incremental: object, batch: object) -> None:
+    assert _line_values(incremental, "position") == _line_values_by_name(batch, "Position")
+    assert _line_values(incremental, "equity") == _line_values_by_name(batch, "Equity")
+    assert _line_values(incremental, "net_profit") == _line_values_by_name(batch, "Net Profit")
+    assert incremental.output["strategy"]["position"] == batch.output["strategy"]["position"]
+    for key in ("initial_capital", "equity", "netprofit", "openprofit", "grossprofit", "grossloss", "commission"):
+        assert incremental.output["strategy"]["summary"][key] == batch.output["strategy"]["summary"][key]
+    assert incremental.output["strategy"]["orders"] == batch.output["strategy"]["orders"]
+    assert incremental.output["strategy"]["closedtrades"] == batch.output["strategy"]["closedtrades"]
+    assert incremental.output["strategy"]["opentrades"] == batch.output["strategy"]["opentrades"]
+
+
 def test_incremental_seed_exposes_bar_clock_and_barstate() -> None:
     script = """
 indicator("Incremental Clock", mode="incremental", overlay=True)
@@ -212,15 +224,77 @@ def on_bar(ctx, bar):
 
     assert batch.ok
     assert incremental.ok
-    assert _line_values(incremental, "position") == _line_values_by_name(batch, "Position")
-    assert _line_values(incremental, "equity") == _line_values_by_name(batch, "Equity")
-    assert _line_values(incremental, "net_profit") == _line_values_by_name(batch, "Net Profit")
-    assert incremental.output["strategy"]["position"] == batch.output["strategy"]["position"]
-    for key in ("initial_capital", "equity", "netprofit", "openprofit", "grossprofit", "grossloss", "commission"):
-        assert incremental.output["strategy"]["summary"][key] == batch.output["strategy"]["summary"][key]
-    assert incremental.output["strategy"]["orders"] == batch.output["strategy"]["orders"]
-    assert incremental.output["strategy"]["closedtrades"] == batch.output["strategy"]["closedtrades"]
-    assert incremental.output["strategy"]["opentrades"] == batch.output["strategy"]["opentrades"]
+    _assert_strategy_matches_batch(incremental, batch)
+
+
+def test_incremental_strategy_short_partial_close_matches_batch_report() -> None:
+    bars = [
+        *_bars(),
+        {"time": 4, "open": 1, "high": 4, "low": 1, "close": 4.0, "volume": 100},
+    ]
+    batch_script = """
+strategy("Short Partial", overlay=True, initial_capital=1000)
+strategy.entry_when(bar_index == 0, "S", strategy.short, qty=3, price=close)
+strategy.close("S", when=bar_index == 2, qty_percent=50, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental Short Partial", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("S", ctx.strategy.short, qty=3, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.close("S", qty_percent=50, price=bar.close, when=ctx.bar_index == 2)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_strategy_matches_batch(incremental, batch)
+
+
+def test_incremental_strategy_reverse_entry_matches_batch_report() -> None:
+    bars = [
+        *_bars(),
+        {"time": 4, "open": 1, "high": 4, "low": 1, "close": 4.0, "volume": 100},
+    ]
+    batch_script = """
+strategy("Reverse", overlay=True, initial_capital=1000)
+strategy.entry_when(bar_index == 0, "L", strategy.long, qty=2, price=close)
+strategy.entry_when(bar_index == 2, "S", strategy.short, qty=3, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental Reverse", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("L", ctx.strategy.long, qty=2, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.entry("S", ctx.strategy.short, qty=3, price=bar.close, when=ctx.bar_index == 2)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_strategy_matches_batch(incremental, batch)
 
 
 def test_incremental_strategy_seed_matches_closed_bar_session_snapshot() -> None:

@@ -115,12 +115,15 @@ Current incremental strategy scope:
 
 - `ctx.strategy.entry()` fills a market-like entry on the current callback bar.
 - `ctx.strategy.close()` and `ctx.strategy.close_all()` realize all or part of the current open lots.
+- Long and short positions, `qty`/`qty_percent` partial closes, and reverse entries update the same order/trade report shape as batch strategy for basic market-like fills.
 - `ctx.strategy.position_size`, `position_avg_price`, `equity`, `netprofit`, `openprofit`, `grossprofit`, and `grossloss` expose scalar values for the current bar.
 - `result.output["strategy"]` includes `orders`, `position`, `summary`, `closedtrades`, `opentrades`, and lifecycle fill events.
 
 The first parity contract is basic entry/close ledger equivalence: a seeded
 incremental run and an `on_bar_closed()` session snapshot must produce identical
 strategy output, and simple entry/close scripts match batch strategy position,
-equity, net profit, orders, and trade ledgers. Pending stop/limit orders, OCA,
-risk locks, commissions, margin, and intrabar fill path policies remain batch
-strategy features until they are promoted into the incremental strategy layer.
+equity, net profit, orders, and trade ledgers. This contract now includes long
+entries, short entries, partial closes, and reverse entries. Pending stop/limit
+orders, OCA, risk locks, commissions, margin, and intrabar fill path policies
+remain batch strategy features until they are promoted into the incremental
+strategy layer.
