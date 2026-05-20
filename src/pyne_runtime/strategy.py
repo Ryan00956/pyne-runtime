@@ -198,6 +198,7 @@ class StrategyModule:
         self._mintick = max(float(context.syminfo.mintick), 0.0)
         self._commission_type: str | None = None
         self._commission_value = 0.0
+        self._backtest_fill_limits_assumption = 0
 
     def __call__(self, title: str = "", overlay: bool = True, **kwargs: Any) -> None:
         """Declare strategy metadata and Pine-like replay settings."""
@@ -212,6 +213,7 @@ class StrategyModule:
                 "commission_value",
                 "initial_capital",
                 "currency",
+                "backtest_fill_limits_assumption",
             )
             if key in kwargs
         }
@@ -234,6 +236,7 @@ class StrategyModule:
         commission_value: float | None = None,
         initial_capital: float | None = None,
         currency: str | None = None,
+        backtest_fill_limits_assumption: int | None = None,
     ) -> None:
         """Configure lightweight strategy replay options.
 
@@ -256,6 +259,11 @@ class StrategyModule:
             self._initial_capital = max(float(initial_capital), 0.0)
         if currency is not None:
             self._currency = str(currency)
+        if backtest_fill_limits_assumption is not None:
+            self._backtest_fill_limits_assumption = max(
+                int(backtest_fill_limits_assumption),
+                0,
+            )
 
     @property
     def position_size(self) -> PyneSeries:
@@ -623,6 +631,7 @@ class StrategyModule:
                 low=low_values[idx],
                 stop=stops[idx],
                 limit=limits[idx],
+                tick_verify=self._limit_fill_verification_amount(),
             )
             if trigger is None:
                 continue
@@ -866,6 +875,7 @@ class StrategyModule:
                         low=low,
                         limit=order.get("_limit"),
                         stop=order.get("_stop"),
+                        tick_verify=self._limit_fill_verification_amount(),
                     )
                     if trigger is None:
                         remaining_pending.append(order)
@@ -1029,6 +1039,7 @@ class StrategyModule:
                 "grossprofit": round(gross_profit, 8),
                 "grossloss": round(gross_loss, 8),
                 "commission": round(total_commission, 8),
+                "backtest_fill_limits_assumption": self._backtest_fill_limits_assumption,
             },
             "risk": {
                 "locked": self._risk_locked,
@@ -1070,6 +1081,9 @@ class StrategyModule:
             order["commission"] = round(commission, 8)
         return commission
 
+    def _limit_fill_verification_amount(self) -> float:
+        return self._backtest_fill_limits_assumption * self._mintick
+
 
 def _condition_values(value: Any, length: int) -> list[bool]:
     values = _values(value, length)
@@ -1105,16 +1119,17 @@ def _exit_trigger(
     low: float,
     stop: float | None,
     limit: float | None,
+    tick_verify: float = 0.0,
 ) -> tuple[str, float] | None:
     if current_position > 0:
         if stop is not None and low <= stop:
             return "stop", stop
-        if limit is not None and high >= limit:
+        if limit is not None and high >= limit + tick_verify:
             return "limit", limit
         return None
     if stop is not None and high >= stop:
         return "stop", stop
-    if limit is not None and low <= limit:
+    if limit is not None and low <= limit - tick_verify:
         return "limit", limit
     return None
 
@@ -1130,16 +1145,17 @@ def _pending_trigger(
     low: float,
     limit: float | None,
     stop: float | None,
+    tick_verify: float = 0.0,
 ) -> tuple[str, float] | None:
     if side == StrategyModule.long:
         if stop is not None and high >= stop:
             return "stop", float(stop)
-        if limit is not None and low <= limit:
+        if limit is not None and low <= limit - tick_verify:
             return "limit", float(limit)
         return None
     if stop is not None and low <= stop:
         return "stop", float(stop)
-    if limit is not None and high >= limit:
+    if limit is not None and high >= limit + tick_verify:
         return "limit", float(limit)
     return None
 

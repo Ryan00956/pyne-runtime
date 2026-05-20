@@ -422,6 +422,39 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [0.0, 0.0, 1.0, 1.0]
 
 
+def test_strategy_limit_fill_assumption_requires_price_to_exceed_limit() -> None:
+    result = pn.run(
+        """
+strategy("Limit Verify", overlay=True, mintick=0.1, backtest_fill_limits_assumption=1)
+strategy.entry("Pullback", strategy.long, qty=1, when=bar_index == 0, limit=2.7)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 3, "high": 3.1, "low": 2.8, "close": 3, "volume": 100},
+            {"time": 2, "open": 3, "high": 3.1, "low": 2.65, "close": 2.9, "volume": 100},
+            {"time": 3, "open": 2.9, "high": 3, "low": 2.59, "close": 2.8, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 3,
+            "id": "Pullback",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 2.7,
+            "position_after": 1.0,
+            "comment": "",
+            "reason": "limit",
+        },
+    ]
+    assert result.values("Position") == [0.0, 0.0, 1.0]
+    assert result.output["strategy"]["summary"]["backtest_fill_limits_assumption"] == 1
+
+
 def test_strategy_cancel_prevents_pending_entry_fill() -> None:
     result = pn.run(
         """
@@ -859,6 +892,50 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [1.0, 1.0, 0.0, 0.0]
 
 
+def test_strategy_limit_fill_assumption_applies_to_exits() -> None:
+    result = pn.run(
+        """
+strategy("Exit Verify", overlay=True, mintick=0.1, backtest_fill_limits_assumption=2)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.exit("Take Profit", from_entry="Long", limit=11)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 10, "high": 10.2, "low": 9.8, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 11.1, "low": 10, "close": 10.5, "volume": 100},
+            {"time": 3, "open": 10.5, "high": 11.25, "low": 10.2, "close": 11, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 10.0,
+            "position_after": 1.0,
+            "comment": "",
+        },
+        {
+            "time": 3,
+            "id": "Take Profit",
+            "from_entry": "Long",
+            "type": "exit",
+            "side": "flat",
+            "qty": 1.0,
+            "price": 11.0,
+            "position_after": 0.0,
+            "reason": "limit",
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [1.0, 1.0, 0.0]
+
+
 def test_strategy_exit_qty_partially_reduces_long_position() -> None:
     result = pn.run(
         """
@@ -1000,6 +1077,7 @@ plot(strategy.grossloss, "Gross Loss")
         "grossprofit": 2.0,
         "grossloss": 0.0,
         "commission": 2.0,
+        "backtest_fill_limits_assumption": 0,
     }
     assert result.output["strategy"]["closedtrades"] == [
         {

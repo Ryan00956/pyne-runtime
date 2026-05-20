@@ -14,6 +14,7 @@ strategy(
     mintick=0.01,
     commission_type=strategy.commission.percent,
     commission_value=0.1,
+    backtest_fill_limits_assumption=1,
 )
 
 fast = ta.ema(close, 12)
@@ -62,6 +63,7 @@ strategy(
     mintick=0.01,
     commission_type=strategy.commission.percent,
     commission_value=0.1,
+    backtest_fill_limits_assumption=1,
 )
 ```
 
@@ -90,6 +92,17 @@ Commission uses Pine-like constants:
 - `strategy.commission.percent`: `commission_value` is a percent of traded notional.
 - `strategy.commission.cash_per_order`: `commission_value` is charged once per filled order.
 - `strategy.commission.cash_per_contract`: `commission_value` is charged per filled unit.
+
+`backtest_fill_limits_assumption` follows Pine's limit-order verification
+mental model:
+
+- the value is a number of ticks
+- the tick size is `mintick` / `min_tick`, or `syminfo.mintick` when omitted
+- a long/buy limit fills only when bar `low <= limit - value * mintick`
+- a short/sell limit fills only when bar `high >= limit + value * mintick`
+- the filled price remains the requested limit price plus normal slippage rules
+
+The default is `0`, which preserves the simpler touch-to-fill behavior.
 
 Capital reporting:
 
@@ -316,7 +329,8 @@ Strategy output is serialized under `output["strategy"]`:
       "openprofit": 125.0,
       "grossprofit": 250.0,
       "grossloss": 0.0,
-      "commission": 0.0
+      "commission": 0.0,
+      "backtest_fill_limits_assumption": 0
     },
     "closedtrades": [],
     "opentrades": [
