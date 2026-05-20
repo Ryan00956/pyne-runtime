@@ -138,6 +138,10 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - Strategy entry sizing cost golden fixture 已覆盖 `strategy.entry` 反转按真实
   transaction quantity 计手续费、lifecycle 暴露 `transaction_qty`，以及
   max position size 截断、pyramiding 拒绝与成本模型交叉时的手续费边界。
+- Strategy reversal lot cost golden fixture 已覆盖 multi-lot FIFO reversal、
+  小目标反转和 pending stop entry reversal 的 lot/cost 分摊，确保 entry 反转同时
+  关闭旧 lot 并打开新 lot 时，closed/open trade commission 都按 transaction quantity
+  正确分摊。
 
 ## 仍然不是 Pine 的地方
 
@@ -198,13 +202,13 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy fill golden fixtures 已开始覆盖 same-bar、lifecycle、risk lock、
   lot matching、intraday reset、pending risk lock、OCA lifecycle、cost model 与
   limit verification cost、bracket/stop-limit cost、risk/margin cost、entry sizing cost
-  场景，后续继续扩大。
+  和 reversal lot cost 场景，后续继续扩大。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续扩大 Strategy golden 与 broker-emulator 风格回放语义，优先覆盖
-partial reversal、multi-lot reversal 与 OCA reduce/cancel 成本模型交叉。
+OCA reduce/cancel 与成本模型交叉，以及更多 pending/risk 组合边界。
 完成后应同步更新：
 
 - `src/pyne_runtime/strategy.py`
