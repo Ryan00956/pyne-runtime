@@ -341,6 +341,12 @@ class IncrementalStrategyDirection:
     none = "none"
 
 
+class IncrementalStrategyCommission:
+    percent = "percent"
+    cash_per_order = "cash_per_order"
+    cash_per_contract = "cash_per_contract"
+
+
 class IncrementalStrategyRiskMode:
     percent_of_equity = "percent_of_equity"
     cash = "cash"
@@ -471,6 +477,7 @@ class IncrementalStrategyNamespace:
 
     long = "long"
     short = "short"
+    commission = IncrementalStrategyCommission
     direction = IncrementalStrategyDirection
     percent_of_equity = IncrementalStrategyRiskMode.percent_of_equity
     cash = IncrementalStrategyRiskMode.cash
@@ -500,6 +507,9 @@ class IncrementalStrategyNamespace:
         self._grossprofit = 0.0
         self._grossloss = 0.0
         self._commission = 0.0
+        self._commission_type: str | None = None
+        self._commission_value = 0.0
+        self._slippage_ticks = 0
         self._event_seq = 0
         self._touched = False
         self._pyramiding = 0
@@ -535,6 +545,12 @@ class IncrementalStrategyNamespace:
             self._intraday_peak_equity = max(self._intraday_peak_equity, self._initial_capital)
         if "currency" in kwargs:
             self._currency = str(kwargs["currency"] or "")
+        if "slippage" in kwargs:
+            self._slippage_ticks = max(int(kwargs["slippage"]), 0)
+        if "commission_type" in kwargs:
+            self._commission_type = _normalize_commission_type(str(kwargs["commission_type"]))
+        if "commission_value" in kwargs:
+            self._commission_value = max(float(kwargs["commission_value"]), 0.0)
         if "mintick" in kwargs or "min_tick" in kwargs:
             self._mintick = max(float(kwargs.get("mintick", kwargs.get("min_tick", 0.0))), 0.0)
         if "backtest_fill_limits_assumption" in kwargs:
@@ -759,24 +775,42 @@ class IncrementalStrategyNamespace:
 
     def _fill_entry_order(self, order: dict[str, Any], *, fill_price: float, reason: str | None) -> None:
         side = self._normalize_direction(str(order.get("side", self.long)))
+        fill_side = "buy" if side == self.long else "sell"
+        fill_price = self._fill_price(fill_price, fill_side)
         previous_size = self.position_size
         qty_abs = abs(float(order.get("qty", 0.0)))
         signed_qty = qty_abs if side == self.long else -qty_abs
+        transaction_qty = abs(previous_size) + qty_abs if previous_size and (previous_size > 0) != (signed_qty > 0) else qty_abs
+        commission_qty = transaction_qty if order.get("type") == "entry" else qty_abs
+        commission = self._apply_commission(order, qty=commission_qty, price=fill_price)
+        used_commission = 0.0
         if previous_size and (previous_size > 0) != (signed_qty > 0):
-            self._close_lots(id="", exit_id=str(order.get("id", "")), target_qty=abs(previous_size), fill_price=fill_price)
-        self._open_trades.append({
+            _, used_commission = self._close_lots(
+                id="",
+                exit_id=str(order.get("id", "")),
+                target_qty=abs(previous_size),
+                fill_price=fill_price,
+                order_commission=commission,
+                order_fill_qty=transaction_qty,
+            )
+        remaining_commission = max(commission - used_commission, 0.0)
+        open_trade = {
             "entry_id": str(order.get("id", "")),
             "entry_time": self._current_time(),
             "side": side,
             "qty": _round8(qty_abs),
             "entry_price": _round8(fill_price),
+        }
+        if remaining_commission > 0:
+            open_trade["commission"] = _round8(remaining_commission)
+        self._open_trades.append({
+            **open_trade,
         })
         order["time"] = self._current_time()
         order["price"] = _round8(fill_price)
         order["position_after"] = self.position_size
         order["_active"] = True
         order["_filled_qty"] = qty_abs
-        transaction_qty = abs(self.position_size - previous_size)
         if order.get("type") == "entry" and abs(transaction_qty - qty_abs) > 1e-9:
             order["_transaction_qty"] = _round8(transaction_qty)
         if order.get("_oca_name"):
@@ -867,15 +901,29 @@ class IncrementalStrategyNamespace:
     ) -> None:
         if not when or not self._open_trades:
             return
-        fill_price = self._price_or_current(price)
-        target_qty = self._requested_close_qty(qty=qty, qty_percent=qty_percent)
-        if target_qty <= 0:
+        base_price = self._price_or_current(price)
+        target_qty = self._target_open_qty(str(id))
+        requested_qty = _requested_exit_qty(target_qty=target_qty, qty=qty, qty_percent=qty_percent)
+        fill_qty = min(target_qty, abs(self.position_size), requested_qty)
+        if fill_qty <= 0:
             return
-        closed_qty = self._close_lots(id=str(id), exit_id=str(id), target_qty=target_qty, fill_price=fill_price)
+        fill_side = "sell" if self.position_size > 0 else "buy"
+        fill_price = self._fill_price(base_price, fill_side)
+        order_commission = self._commission_amount(qty=fill_qty, price=fill_price)
+        if order_commission > 0:
+            self._commission += order_commission
+        closed_qty, _ = self._close_lots(
+            id=str(id),
+            exit_id=str(id),
+            target_qty=fill_qty,
+            fill_price=fill_price,
+            order_commission=order_commission,
+            order_fill_qty=fill_qty,
+        )
         if abs(closed_qty) <= 0:
             return
         self._touched = True
-        self._orders.append({
+        order = {
             "time": self._current_time(),
             "id": str(id),
             "type": "close",
@@ -885,7 +933,13 @@ class IncrementalStrategyNamespace:
             "position_after": self.position_size,
             "comment": comment,
             "_seq": self._next_seq(),
-        })
+            "_target_qty": _round8(target_qty),
+            "_requested_fill_qty": _round8(requested_qty),
+            "_filled_qty": _round8(abs(closed_qty)),
+        }
+        if order_commission > 0:
+            order["commission"] = _round8(order_commission)
+        self._orders.append(order)
 
     def close_all(self, *, price: float | None = None, when: bool = True, comment: str = "") -> None:
         if not when or not self._open_trades:
@@ -939,11 +993,18 @@ class IncrementalStrategyNamespace:
         fill_qty = min(target_qty, abs(current_position), requested_qty)
         if fill_qty <= 0:
             return
-        closed_qty = self._close_lots(
+        fill_side = "sell" if current_position > 0 else "buy"
+        fill_price = self._fill_price(event_price, fill_side)
+        order_commission = self._commission_amount(qty=fill_qty, price=fill_price)
+        if order_commission > 0:
+            self._commission += order_commission
+        closed_qty, _ = self._close_lots(
             id=str(from_entry),
             exit_id=str(id),
             target_qty=fill_qty,
-            fill_price=event_price,
+            fill_price=fill_price,
+            order_commission=order_commission,
+            order_fill_qty=fill_qty,
         )
         if abs(closed_qty) <= 0:
             return
@@ -955,11 +1016,11 @@ class IncrementalStrategyNamespace:
             "type": "exit",
             "side": "flat",
             "qty": _round8(abs(closed_qty)),
-            "price": _round8(event_price),
+            "price": _round8(fill_price),
             "position_after": self.position_size,
             "reason": reason,
             "comment": comment,
-            "_base_price": float(event_price),
+            "_base_price": float(fill_price),
             "_target_qty": _round8(target_qty),
             "_requested_fill_qty": _round8(requested_qty),
             "_filled_qty": _round8(abs(closed_qty)),
@@ -968,6 +1029,8 @@ class IncrementalStrategyNamespace:
             "_seq": self._next_seq(),
             "_submit_time": self._current_time(),
         })
+        if order_commission > 0:
+            self._orders[-1]["commission"] = _round8(order_commission)
 
     def cancel(self, id: str, *, when: bool = True, comment: str = "") -> None:
         if not when:
@@ -1132,9 +1195,20 @@ class IncrementalStrategyNamespace:
                     order["_canceled_time"] = self._current_time()
                     order["_canceled_by"] = filled_order.get("id")
 
-    def _close_lots(self, *, id: str, exit_id: str, target_qty: float, fill_price: float) -> float:
+    def _close_lots(
+        self,
+        *,
+        id: str,
+        exit_id: str,
+        target_qty: float,
+        fill_price: float,
+        order_commission: float = 0.0,
+        order_fill_qty: float | None = None,
+    ) -> tuple[float, float]:
         remaining = abs(float(target_qty))
         closed_signed_qty = 0.0
+        used_order_commission = 0.0
+        fill_qty_total = max(float(order_fill_qty if order_fill_qty is not None else target_qty), 1e-12)
         kept: list[dict[str, Any]] = []
         for trade in self._open_trades:
             matches_id = not id or str(trade.get("entry_id", "")) == id
@@ -1146,6 +1220,10 @@ class IncrementalStrategyNamespace:
             remaining -= closing_qty
             side = str(trade["side"])
             profit = _realized_profit(side=side, qty=closing_qty, entry_price=float(trade["entry_price"]), exit_price=fill_price)
+            entry_commission = float(trade.get("commission", 0.0))
+            entry_commission_share = entry_commission * closing_qty / max(trade_qty, 1e-12)
+            exit_commission_share = float(order_commission) * closing_qty / fill_qty_total
+            used_order_commission += exit_commission_share
             if profit >= 0:
                 self._grossprofit += profit
             else:
@@ -1160,17 +1238,23 @@ class IncrementalStrategyNamespace:
                 "entry_time": trade.get("entry_time"),
                 "exit_time": self._current_time(),
                 "profit": _round8(profit),
-                "net_profit": _round8(profit),
-                "commission": 0.0,
+                "commission": _round8(entry_commission_share + exit_commission_share),
+                "net_profit": _round8(profit - entry_commission_share - exit_commission_share),
             })
             closed_signed_qty += closing_qty if side == self.long else -closing_qty
             leftover_qty = trade_qty - closing_qty
             if leftover_qty > 1e-9:
-                kept.append({**trade, "qty": _round8(leftover_qty)})
+                kept_trade = {**trade, "qty": _round8(leftover_qty)}
+                remaining_entry_commission = entry_commission - entry_commission_share
+                if remaining_entry_commission > 0:
+                    kept_trade["commission"] = _round8(remaining_entry_commission)
+                else:
+                    kept_trade.pop("commission", None)
+                kept.append(kept_trade)
         self._open_trades = kept
         if self.position_size == 0:
             self._same_direction_entry_count = 0
-        return _round8(closed_signed_qty)
+        return _round8(closed_signed_qty), _round8(used_order_commission)
 
     def _normalize_direction(self, direction: str) -> str:
         normalized = str(direction or "").lower()
@@ -1194,6 +1278,27 @@ class IncrementalStrategyNamespace:
     def _next_seq(self) -> int:
         self._event_seq += 1
         return self._event_seq
+
+    def _fill_price(self, price: float, side: str) -> float:
+        slippage = self._slippage_ticks * self._mintick
+        if side == "buy":
+            return float(price) + slippage
+        return float(price) - slippage
+
+    def _commission_amount(self, *, qty: float, price: float) -> float:
+        return _commission_amount(
+            commission_type=self._commission_type,
+            commission_value=self._commission_value,
+            qty=qty,
+            price=price,
+        )
+
+    def _apply_commission(self, order: dict[str, Any], *, qty: float, price: float) -> float:
+        commission = self._commission_amount(qty=qty, price=price)
+        if commission > 0:
+            order["commission"] = _round8(commission)
+            self._commission += commission
+        return commission
 
     def _limit_fill_verification_amount(self) -> float:
         return self._backtest_fill_limits_assumption * self._mintick
@@ -2030,6 +2135,35 @@ def _normalize_risk_mode(value: str) -> str:
     return IncrementalStrategyRiskMode.percent_of_equity
 
 
+def _normalize_commission_type(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"percent", "strategy.commission.percent"}:
+        return IncrementalStrategyCommission.percent
+    if normalized in {"cash_per_order", "cash_per_order_contract", "strategy.commission.cash_per_order"}:
+        return IncrementalStrategyCommission.cash_per_order
+    if normalized in {"cash_per_contract", "cash_per_contracts", "strategy.commission.cash_per_contract"}:
+        return IncrementalStrategyCommission.cash_per_contract
+    return normalized
+
+
+def _commission_amount(
+    *,
+    commission_type: str | None,
+    commission_value: float,
+    qty: float,
+    price: float,
+) -> float:
+    if commission_type is None or commission_value <= 0:
+        return 0.0
+    if commission_type == IncrementalStrategyCommission.percent:
+        return abs(float(qty) * float(price)) * commission_value / 100.0
+    if commission_type == IncrementalStrategyCommission.cash_per_order:
+        return commission_value
+    if commission_type == IncrementalStrategyCommission.cash_per_contract:
+        return abs(float(qty)) * commission_value
+    return 0.0
+
+
 def _entry_rejection_reason(
     *,
     side: str,
@@ -2148,6 +2282,8 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
             event["reason"] = order.get("reason")
         if order.get("comment") is not None:
             event["comment"] = order.get("comment")
+        if order.get("commission") is not None:
+            event["commission"] = order.get("commission")
         if order.get("oca_name") is not None:
             event["oca_name"] = order.get("oca_name")
         if order.get("oca_type") is not None:

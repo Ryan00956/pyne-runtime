@@ -116,6 +116,7 @@ Current incremental strategy scope:
 - `ctx.strategy.entry()` fills a market-like entry on the current callback bar.
 - `ctx.strategy.entry(..., limit=...)` and `ctx.strategy.entry(..., stop=...)` create Pine-like pending entries that fill when the current or later callback bar touches the trigger price.
 - `ctx.strategy.order()` supports the same market-like and pending entry surface for lower-level order-style submissions.
+- `ctx.strategy.configure(slippage=..., commission_type=..., commission_value=...)` applies Pine-like slippage and commission accounting to market-like, pending, close, and exit fills.
 - `ctx.strategy.configure(backtest_fill_limits_assumption=...)`, `ctx.strategy.same_bar.*`, and `ctx.strategy.intrabar.*` control pending stop/limit fill policy.
 - `ctx.strategy.cancel(id)` and `ctx.strategy.cancel_all()` cancel matching pending entries and report the same public cancel orders and lifecycle statuses as batch strategy.
 - `ctx.strategy.oca.cancel` and `ctx.strategy.oca.reduce` are supported for pending entry/order groups.
@@ -133,10 +134,10 @@ equity, net profit, orders, and trade ledgers. This contract now includes long
 entries, short entries, partial closes, reverse entries, filled pending
 stop/limit entries, unfilled pending lifecycle reports, and explicit pending
 cancel/cancel_all reports, plus OCA cancel/reduce pending groups, immediate
-per-bar exit calls, and core risk rules. Commission charging, margin
-enforcement, and persistent exit order lifecycle remain batch strategy features
-until they are promoted into the incremental strategy layer. Pending fill policy
-parity covers limit verification, same-bar stop/limit priority, and
+per-bar exit calls, core risk rules, and slippage/commission cost accounting.
+Margin enforcement and persistent exit order lifecycle remain batch strategy
+features until they are promoted into the incremental strategy layer. Pending
+fill policy parity covers limit verification, same-bar stop/limit priority, and
 deterministic intrabar path selection. Exit parity currently covers immediate
 per-bar stop/limit exit calls; persistent exit order lifecycle is still a
 separate batch-only behavior.
