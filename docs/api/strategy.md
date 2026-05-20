@@ -416,6 +416,11 @@ Pending entry/order submissions that never fill still appear with
 `phase="pending_fill"`, while immediate market-style entry/order fills use
 `phase="market_fill"`.
 
+Pending submissions that survive a risk lock keep their original
+`submitted_time`. If they later fill after an intraday reset, later OCA or
+cancel cleanup records preserve the same lifecycle identity and report the final
+`filled_time` or `canceled_time`.
+
 Rejected submissions appear with `status="rejected"` and `rejected_reason`.
 Current rejection reasons include `risk_locked`, `direction_not_allowed`,
 `pyramiding_exceeded`, `max_position_size`, and `margin`.
