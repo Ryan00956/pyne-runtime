@@ -455,6 +455,47 @@ plot(strategy.position_size, "Position")
     assert result.output["strategy"]["summary"]["backtest_fill_limits_assumption"] == 1
 
 
+def test_strategy_margin_blocks_entry_when_required_margin_exceeds_equity() -> None:
+    result = pn.run(
+        """
+strategy("Margin Long", overlay=True, initial_capital=1000, margin_long=100)
+strategy.entry_when(bar_index == 0, "Too Big", strategy.long, qty=11, price=close)
+strategy.entry_when(bar_index == 1, "Allowed", strategy.long, qty=5, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+            {"time": 2, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == ["Allowed"]
+    assert result.values("Position") == [0.0, 5.0]
+    assert result.output["strategy"]["summary"]["margin_long"] == 100.0
+
+
+def test_strategy_margin_allows_leveraged_short_when_margin_percent_is_lower() -> None:
+    result = pn.run(
+        """
+strategy("Margin Short", overlay=True, initial_capital=1000, margin_short=25)
+strategy.order_when(bar_index == 0, "Short", strategy.short, qty=20, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+            {"time": 2, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == ["Short"]
+    assert result.values("Position") == [-20.0, -20.0]
+    assert result.output["strategy"]["summary"]["margin_short"] == 25.0
+
+
 def test_strategy_cancel_prevents_pending_entry_fill() -> None:
     result = pn.run(
         """
@@ -1078,6 +1119,8 @@ plot(strategy.grossloss, "Gross Loss")
         "grossloss": 0.0,
         "commission": 2.0,
         "backtest_fill_limits_assumption": 0,
+        "margin_long": 100.0,
+        "margin_short": 100.0,
     }
     assert result.output["strategy"]["closedtrades"] == [
         {

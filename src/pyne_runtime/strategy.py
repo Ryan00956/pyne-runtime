@@ -199,6 +199,8 @@ class StrategyModule:
         self._commission_type: str | None = None
         self._commission_value = 0.0
         self._backtest_fill_limits_assumption = 0
+        self._margin_long = 100.0
+        self._margin_short = 100.0
 
     def __call__(self, title: str = "", overlay: bool = True, **kwargs: Any) -> None:
         """Declare strategy metadata and Pine-like replay settings."""
@@ -214,6 +216,8 @@ class StrategyModule:
                 "initial_capital",
                 "currency",
                 "backtest_fill_limits_assumption",
+                "margin_long",
+                "margin_short",
             )
             if key in kwargs
         }
@@ -237,6 +241,8 @@ class StrategyModule:
         initial_capital: float | None = None,
         currency: str | None = None,
         backtest_fill_limits_assumption: int | None = None,
+        margin_long: float | None = None,
+        margin_short: float | None = None,
     ) -> None:
         """Configure lightweight strategy replay options.
 
@@ -264,6 +270,10 @@ class StrategyModule:
                 int(backtest_fill_limits_assumption),
                 0,
             )
+        if margin_long is not None:
+            self._margin_long = max(float(margin_long), 0.0)
+        if margin_short is not None:
+            self._margin_short = max(float(margin_short), 0.0)
 
     @property
     def position_size(self) -> PyneSeries:
@@ -728,6 +738,22 @@ class StrategyModule:
                         qty=qty,
                         price=fill_price,
                     )
+                    pre_fill_equity = _strategy_equity(
+                        initial_capital=self._initial_capital,
+                        gross_profit=gross_profit,
+                        gross_loss=gross_loss,
+                        total_commission=total_commission,
+                        position_size=current_size,
+                        position_avg=current_avg,
+                        close_price=float(self._context.close.values[idx]),
+                    )
+                    if not self._margin_allows_position(
+                        previous_size=current_size,
+                        next_size=position_after,
+                        price=fill_price,
+                        equity=pre_fill_equity,
+                    ):
+                        continue
                     if current_size == 0 or (current_size > 0) != (position_after > 0):
                         same_direction_entry_count = 1
                     else:
@@ -775,6 +801,22 @@ class StrategyModule:
                         qty=qty,
                         price=fill_price,
                     )
+                    pre_fill_equity = _strategy_equity(
+                        initial_capital=self._initial_capital,
+                        gross_profit=gross_profit,
+                        gross_loss=gross_loss,
+                        total_commission=total_commission,
+                        position_size=current_size,
+                        position_avg=current_avg,
+                        close_price=float(self._context.close.values[idx]),
+                    )
+                    if not self._margin_allows_position(
+                        previous_size=current_size,
+                        next_size=position_after,
+                        price=fill_price,
+                        equity=pre_fill_equity,
+                    ):
+                        continue
                     if position_after == 0:
                         same_direction_entry_count = 0
                     elif current_size == 0 or (current_size > 0) != (position_after > 0):
@@ -903,6 +945,23 @@ class StrategyModule:
                             qty=float(order.get("qty", 0.0)),
                             price=fill_price,
                         )
+                        pre_fill_equity = _strategy_equity(
+                            initial_capital=self._initial_capital,
+                            gross_profit=gross_profit,
+                            gross_loss=gross_loss,
+                            total_commission=total_commission,
+                            position_size=current_size,
+                            position_avg=current_avg,
+                            close_price=float(self._context.close.values[idx]),
+                        )
+                        if not self._margin_allows_position(
+                            previous_size=current_size,
+                            next_size=position_after,
+                            price=fill_price,
+                            equity=pre_fill_equity,
+                        ):
+                            remaining_pending.append(order)
+                            continue
                         if current_size == 0 or (current_size > 0) != (position_after > 0):
                             same_direction_entry_count = 1
                         else:
@@ -919,6 +978,23 @@ class StrategyModule:
                             qty=qty,
                             price=fill_price,
                         )
+                        pre_fill_equity = _strategy_equity(
+                            initial_capital=self._initial_capital,
+                            gross_profit=gross_profit,
+                            gross_loss=gross_loss,
+                            total_commission=total_commission,
+                            position_size=current_size,
+                            position_avg=current_avg,
+                            close_price=float(self._context.close.values[idx]),
+                        )
+                        if not self._margin_allows_position(
+                            previous_size=current_size,
+                            next_size=position_after,
+                            price=fill_price,
+                            equity=pre_fill_equity,
+                        ):
+                            remaining_pending.append(order)
+                            continue
                         if position_after == 0:
                             same_direction_entry_count = 0
                         elif current_size == 0 or (current_size > 0) != (position_after > 0):
@@ -1040,6 +1116,8 @@ class StrategyModule:
                 "grossloss": round(gross_loss, 8),
                 "commission": round(total_commission, 8),
                 "backtest_fill_limits_assumption": self._backtest_fill_limits_assumption,
+                "margin_long": round(self._margin_long, 8),
+                "margin_short": round(self._margin_short, 8),
             },
             "risk": {
                 "locked": self._risk_locked,
@@ -1083,6 +1161,27 @@ class StrategyModule:
 
     def _limit_fill_verification_amount(self) -> float:
         return self._backtest_fill_limits_assumption * self._mintick
+
+    def _margin_allows_position(
+        self,
+        *,
+        previous_size: float,
+        next_size: float,
+        price: float,
+        equity: float,
+    ) -> bool:
+        if next_size == 0:
+            return True
+        if _is_exposure_reduction(previous_size, next_size):
+            return True
+        margin_percent = self._margin_long if next_size > 0 else self._margin_short
+        required = _margin_required(
+            position_size=next_size,
+            price=price,
+            margin_percent=margin_percent,
+            pointvalue=self._context.syminfo.pointvalue,
+        )
+        return required <= max(float(equity), 0.0)
 
 
 def _condition_values(value: Any, length: int) -> list[bool]:
@@ -1270,6 +1369,40 @@ def _commission_amount(
     if commission_type == StrategyCommission.cash_per_contract:
         return abs(float(qty)) * commission_value
     return 0.0
+
+
+def _strategy_equity(
+    *,
+    initial_capital: float,
+    gross_profit: float,
+    gross_loss: float,
+    total_commission: float,
+    position_size: float,
+    position_avg: float,
+    close_price: float,
+) -> float:
+    net_profit = gross_profit + gross_loss - total_commission
+    return initial_capital + net_profit + _open_profit(position_size, position_avg, close_price)
+
+
+def _margin_required(
+    *,
+    position_size: float,
+    price: float,
+    margin_percent: float,
+    pointvalue: float,
+) -> float:
+    if position_size == 0 or margin_percent <= 0:
+        return 0.0
+    return abs(float(position_size) * float(price) * float(pointvalue)) * margin_percent / 100.0
+
+
+def _is_exposure_reduction(previous_size: float, next_size: float) -> bool:
+    if previous_size == 0:
+        return False
+    if (previous_size > 0) != (next_size > 0):
+        return False
+    return abs(next_size) <= abs(previous_size)
 
 
 def _max_drawdown_hit(

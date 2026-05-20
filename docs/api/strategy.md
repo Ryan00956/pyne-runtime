@@ -15,6 +15,8 @@ strategy(
     commission_type=strategy.commission.percent,
     commission_value=0.1,
     backtest_fill_limits_assumption=1,
+    margin_long=100,
+    margin_short=100,
 )
 
 fast = ta.ema(close, 12)
@@ -64,6 +66,8 @@ strategy(
     commission_type=strategy.commission.percent,
     commission_value=0.1,
     backtest_fill_limits_assumption=1,
+    margin_long=100,
+    margin_short=100,
 )
 ```
 
@@ -103,6 +107,20 @@ mental model:
 - the filled price remains the requested limit price plus normal slippage rules
 
 The default is `0`, which preserves the simpler touch-to-fill behavior.
+
+Margin settings are accepted in the Pine-like declaration:
+
+- `margin_long` is the percent margin required for long exposure.
+- `margin_short` is the percent margin required for short exposure.
+- both default to `100`, meaning no leverage
+- lower values allow larger notional exposure for the same equity
+- `syminfo.pointvalue` participates in the notional calculation
+
+Pyne uses margin settings as deterministic entry/order admission rules. If the
+resulting position would require more margin than the current replayed equity,
+the new `strategy.entry*` or `strategy.order*` fill is skipped. Reducing,
+closing, exiting, and canceling exposure remains allowed. Pyne does not model
+broker margin calls, forced liquidation, interest, or cash settlement.
 
 Capital reporting:
 
@@ -330,7 +348,9 @@ Strategy output is serialized under `output["strategy"]`:
       "grossprofit": 250.0,
       "grossloss": 0.0,
       "commission": 0.0,
-      "backtest_fill_limits_assumption": 0
+      "backtest_fill_limits_assumption": 0,
+      "margin_long": 100.0,
+      "margin_short": 100.0
     },
     "closedtrades": [],
     "opentrades": [
