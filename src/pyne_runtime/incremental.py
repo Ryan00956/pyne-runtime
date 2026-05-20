@@ -19,7 +19,7 @@ from typing import Any, Callable
 from .barstate import PyneIncrementalBarState
 from .cache import pyne as pyne_cache_namespace
 from .color import color as color_singleton
-from .math_ext import pyne_math
+from .math_ext import PyneMath
 from .metadata import SessionInfo, SymbolInfo, TimeframeInfo, normalize_session_info
 from .security import (
     PyneSecurityError,
@@ -2295,7 +2295,7 @@ class PyneIncrementalSession:
             "true": True,
             "false": False,
             "color": color_singleton,
-            "math": pyne_math,
+            "math": PyneMath(mintick=getattr(self.settings.syminfo, "mintick", 0.01)),
             "pyne": pyne_cache_namespace,
             "cache": pyne_cache_namespace.cache,
             "cache_clear": pyne_cache_namespace.cache_clear,

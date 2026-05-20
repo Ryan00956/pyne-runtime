@@ -25,6 +25,7 @@ from .incremental import (
     SharedPyneIncrementalSession,
     is_incremental_pyne_script,
 )
+from .math_ext import PyneMath
 from .metadata import SessionInfo, SessionNamespace, SymbolInfo, TimeframeInfo
 from .plot import ObjectRef
 from .request import (
@@ -65,6 +66,7 @@ __all__ = [
     "PyneIncrementalBarState",
     "PyneIncrementalSession",
     "PyneIncrementalSessionManager",
+    "PyneMath",
     "PyneInvalidSymbolError",
     "PyneResult",
     "PyneRuntime",

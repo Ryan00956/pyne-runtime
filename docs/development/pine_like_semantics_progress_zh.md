@@ -59,6 +59,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - `time.*` helper 已可用，同时保留 `time` 的 series 行为，覆盖
   `year/month/dayofmonth/dayofweek/hour/minute/second/timestamp/format`。
 - `color.*` helper 已扩展，覆盖 `rgb/new/r/g/b/t/when/from_gradient` 和常用颜色常量。
+- `math.*` 常用 helper 已扩展，覆盖 variadic `max/min/avg`、rolling `sum`、
+  `round_to_mintick`、`random(seed=...)`、三角函数、幂函数和常量。
 
 ### Plot 与绘图对象
 
@@ -207,7 +209,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - `ticker.*` 核心 helper 已完成。
 - 更多 `time.*` 核心 helper 已完成。
 - 更完整的 `color.*` 核心 helper 已完成。
-- 更多数学与统计 helper
+- 更多真实 Pine 输出对照 golden
 
 ### P4: Strategy 回放语义深化
 
@@ -237,12 +239,11 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议进入标准库与数学统计 helper 的长尾补齐，优先选择 Pine 用户常用但
-Python 包中仍缺口明显的 `math.*` / `ta.*` 辅助函数，或继续扩展真实 Pine 输出
-对照 golden。
+下一步建议进入 TA 统计 helper 与真实 Pine 输出对照 golden，优先选择
+`ta.highestbars()` / `ta.lowestbars()`、`ta.barssince()`、`ta.valuewhen()` 这类
+Pine 用户高频调用且可由现有 utils 语义支撑的函数。
 完成后应同步更新：
 
-- `src/pyne_runtime/math_ext.py`
 - `src/pyne_runtime/ta.py`
 - `tests/test_ta_runtime.py`
 - `docs/api/ta.md`

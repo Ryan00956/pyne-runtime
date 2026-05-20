@@ -26,7 +26,7 @@ from .context import PyneContext
 from .ta import TaModule
 from .input import InputModule
 from .color import color as color_singleton
-from .math_ext import pyne_math
+from .math_ext import PyneMath
 from .plot import OutputCollector, create_plot_functions
 from .request import PyneRequestError, RequestModule, barmerge
 from .incremental import IncrementalPyneResult, PyneIncrementalSession, is_incremental_pyne_script
@@ -272,7 +272,7 @@ class PyneRuntime:
         ns["color"] = color_singleton
 
         # math.* — array-aware math (overrides Python's math)
-        ns["math"] = pyne_math
+        ns["math"] = PyneMath(mintick=getattr(ctx.syminfo, "mintick", 0.01))
 
         # pyne.* — local helper namespace for cache and future runtime helpers.
         pyne_namespace = SimpleNamespace(
