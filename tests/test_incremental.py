@@ -481,6 +481,80 @@ def on_bar(ctx, bar):
     _assert_full_strategy_matches_batch(incremental, batch)
 
 
+def test_incremental_strategy_oca_cancel_matches_batch_report() -> None:
+    bars = [
+        {"time": 1, "open": 1, "high": 2.0, "low": 1.0, "close": 1.5, "volume": 100},
+        {"time": 2, "open": 2, "high": 2.2, "low": 1.0, "close": 1.0, "volume": 120},
+        {"time": 3, "open": 2, "high": 3.0, "low": 1.8, "close": 2.8, "volume": 140},
+        {"time": 4, "open": 3, "high": 3.2, "low": 2.0, "close": 2.4, "volume": 160},
+    ]
+    batch_script = """
+strategy("OCA", overlay=True, initial_capital=1000)
+strategy.entry("Breakout", strategy.long, qty=1, when=bar_index == 0, stop=2.5, oca_name="bracket", oca_type=strategy.oca.cancel)
+strategy.order("Fade", strategy.short, qty=1, when=bar_index == 0, limit=2.7, oca_name="bracket", oca_type=strategy.oca.cancel)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental OCA", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("Breakout", ctx.strategy.long, qty=1, when=ctx.bar_index == 0, stop=2.5, oca_name="bracket", oca_type=ctx.strategy.oca.cancel)
+    ctx.strategy.order("Fade", ctx.strategy.short, qty=1, when=ctx.bar_index == 0, limit=2.7, oca_name="bracket", oca_type=ctx.strategy.oca.cancel)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_full_strategy_matches_batch(incremental, batch)
+
+
+def test_incremental_strategy_oca_reduce_matches_batch_report() -> None:
+    bars = [
+        {"time": 1, "open": 1, "high": 2.0, "low": 1.0, "close": 1.5, "volume": 100},
+        {"time": 2, "open": 2, "high": 2.2, "low": 1.0, "close": 1.0, "volume": 120},
+        {"time": 3, "open": 2, "high": 3.0, "low": 1.8, "close": 2.8, "volume": 140},
+        {"time": 4, "open": 3, "high": 3.2, "low": 2.0, "close": 2.4, "volume": 160},
+    ]
+    batch_script = """
+strategy("OCA Reduce", overlay=True, initial_capital=1000)
+strategy.entry("First", strategy.long, qty=1, when=bar_index == 0, stop=2.5, oca_name="scale", oca_type=strategy.oca.reduce)
+strategy.order("Second", strategy.long, qty=2, when=bar_index == 0, stop=3.1, oca_name="scale", oca_type=strategy.oca.reduce)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental OCA Reduce", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("First", ctx.strategy.long, qty=1, when=ctx.bar_index == 0, stop=2.5, oca_name="scale", oca_type=ctx.strategy.oca.reduce)
+    ctx.strategy.order("Second", ctx.strategy.long, qty=2, when=ctx.bar_index == 0, stop=3.1, oca_name="scale", oca_type=ctx.strategy.oca.reduce)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_full_strategy_matches_batch(incremental, batch)
+
+
 def test_incremental_strategy_pending_seed_matches_closed_bar_session_snapshot() -> None:
     bars = [
         {"time": 1, "open": 1, "high": 1.5, "low": 0.9, "close": 1.0, "volume": 100},

@@ -420,6 +420,11 @@ class IncrementalStrategyNamespace:
 
     long = "long"
     short = "short"
+    oca = type("IncrementalStrategyOca", (), {
+        "none": "none",
+        "cancel": "cancel",
+        "reduce": "reduce",
+    })
     same_bar = type("IncrementalStrategySameBarPriority", (), {
         "stop_first": "stop_first",
         "limit_first": "limit_first",
@@ -524,8 +529,67 @@ class IncrementalStrategyNamespace:
         price: float | None = None,
         limit: float | None = None,
         stop: float | None = None,
+        oca_name: str = "",
+        oca_type: str | None = None,
         when: bool = True,
         comment: str = "",
+    ) -> None:
+        self._submit_position_order(
+            "entry",
+            id,
+            direction,
+            qty=qty,
+            price=price,
+            limit=limit,
+            stop=stop,
+            oca_name=oca_name,
+            oca_type=oca_type,
+            when=when,
+            comment=comment,
+        )
+
+    def order(
+        self,
+        id: str,
+        direction: str = long,
+        *,
+        qty: float = 1.0,
+        price: float | None = None,
+        limit: float | None = None,
+        stop: float | None = None,
+        oca_name: str = "",
+        oca_type: str | None = None,
+        when: bool = True,
+        comment: str = "",
+    ) -> None:
+        self._submit_position_order(
+            "order",
+            id,
+            direction,
+            qty=qty,
+            price=price,
+            limit=limit,
+            stop=stop,
+            oca_name=oca_name,
+            oca_type=oca_type,
+            when=when,
+            comment=comment,
+        )
+
+    def _submit_position_order(
+        self,
+        order_type: str,
+        id: str,
+        direction: str,
+        *,
+        qty: float,
+        price: float | None,
+        limit: float | None,
+        stop: float | None,
+        oca_name: str,
+        oca_type: str | None,
+        when: bool,
+        comment: str,
     ) -> None:
         if not when:
             return
@@ -537,7 +601,7 @@ class IncrementalStrategyNamespace:
         order = {
             "time": self._current_time(),
             "id": str(id),
-            "type": "entry",
+            "type": order_type,
             "side": side,
             "qty": _round8(qty_abs),
             "price": _round8(base_price),
@@ -549,6 +613,8 @@ class IncrementalStrategyNamespace:
             "_stop": _optional_float(stop),
             "_submit_time": self._current_time(),
             "_requested_fill_qty": qty_abs,
+            "_oca_name": str(oca_name or ""),
+            "_oca_type": _normalize_oca_type(oca_type),
         }
         self._orders.append(order)
         self._touched = True
@@ -578,11 +644,17 @@ class IncrementalStrategyNamespace:
         order["position_after"] = self.position_size
         order["_active"] = True
         order["_filled_qty"] = qty_abs
+        if order.get("_oca_name"):
+            order["oca_name"] = order.get("_oca_name")
+            order["oca_type"] = order.get("_oca_type") or self.oca.none
         if reason is not None:
             order["reason"] = reason
+        self._apply_oca_after_fill(order)
 
     def _try_fill_pending_order(self, order: dict[str, Any]) -> bool:
         if order.get("_active"):
+            return True
+        if order.get("_canceled"):
             return True
         bar = self._context.current_bar
         if bar is None:
@@ -751,6 +823,29 @@ class IncrementalStrategyNamespace:
                 still_pending.append(order)
         self._pending_orders = still_pending
         return canceled
+
+    def _apply_oca_after_fill(self, filled_order: dict[str, Any]) -> None:
+        oca_name = str(filled_order.get("_oca_name") or "")
+        oca_type = str(filled_order.get("_oca_type") or self.oca.none)
+        if not oca_name or oca_type == self.oca.none:
+            return
+        filled_qty = abs(float(filled_order.get("qty", 0.0)))
+        for order in self._pending_orders:
+            if order is filled_order:
+                continue
+            if order.get("_oca_name") != oca_name or order.get("_oca_type") != oca_type:
+                continue
+            if oca_type == self.oca.cancel:
+                order["_canceled"] = True
+                order["_canceled_time"] = self._current_time()
+                order["_canceled_by"] = filled_order.get("id")
+            elif oca_type == self.oca.reduce:
+                remaining = max(float(order.get("qty", 0.0)) - filled_qty, 0.0)
+                order["qty"] = _round8(remaining)
+                if remaining <= 0:
+                    order["_canceled"] = True
+                    order["_canceled_time"] = self._current_time()
+                    order["_canceled_by"] = filled_order.get("id")
 
     def _close_lots(self, *, id: str, exit_id: str, target_qty: float, fill_price: float) -> float:
         remaining = abs(float(target_qty))
@@ -1541,6 +1636,22 @@ def _normalize_intrabar_path(value: str) -> str:
     raise ValueError("intrabar_path must be same_bar_priority, open_high_low_close, or open_low_high_close")
 
 
+def _normalize_oca_type(value: str | None) -> str:
+    normalized = str(value or "").strip().lower()
+    aliases = {
+        "": IncrementalStrategyNamespace.oca.none,
+        "none": IncrementalStrategyNamespace.oca.none,
+        "strategy.oca.none": IncrementalStrategyNamespace.oca.none,
+        "cancel": IncrementalStrategyNamespace.oca.cancel,
+        "strategy.oca.cancel": IncrementalStrategyNamespace.oca.cancel,
+        "reduce": IncrementalStrategyNamespace.oca.reduce,
+        "strategy.oca.reduce": IncrementalStrategyNamespace.oca.reduce,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    raise ValueError("oca_type must be strategy.oca.none, strategy.oca.cancel, or strategy.oca.reduce")
+
+
 def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list[dict[str, Any]]:
     events = []
     for order in sorted(orders, key=lambda item: (item.get("_submit_time", item.get("time", 0)), item.get("_seq", 0))):
@@ -1578,6 +1689,10 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
             event["reason"] = order.get("reason")
         if order.get("comment") is not None:
             event["comment"] = order.get("comment")
+        if order.get("oca_name") is not None:
+            event["oca_name"] = order.get("oca_name")
+        if order.get("oca_type") is not None:
+            event["oca_type"] = order.get("oca_type")
         if order.get("_limit") is not None:
             event["limit"] = order.get("_limit")
         if order.get("_stop") is not None:
