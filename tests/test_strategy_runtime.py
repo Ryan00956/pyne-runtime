@@ -205,6 +205,83 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [0.0, 1.0, 1.0, 1.0]
 
 
+def test_strategy_risk_max_drawdown_locks_future_entries_and_orders() -> None:
+    result = pn.run(
+        """
+strategy("Risk Drawdown", overlay=True, initial_capital=1000)
+strategy.risk.max_drawdown(5, strategy.percent_of_equity)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=10, price=close)
+strategy.entry_when(bar_index == 2, "Blocked Entry", strategy.long, qty=1, price=close)
+strategy.order_when(bar_index == 2, "Blocked Order", strategy.long, qty=1, price=close)
+strategy.close_all(when=bar_index == 2, price=close)
+strategy.order_when(bar_index == 3, "Still Blocked", strategy.long, qty=1, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+""",
+        [
+            {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+            {"time": 2, "open": 100, "high": 100, "low": 89, "close": 90, "volume": 100},
+            {"time": 3, "open": 90, "high": 92, "low": 88, "close": 90, "volume": 100},
+            {"time": 4, "open": 90, "high": 95, "low": 90, "close": 94, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 10.0,
+            "price": 100.0,
+            "position_after": 10.0,
+            "comment": "",
+        },
+        {
+            "time": 3,
+            "id": "close_all",
+            "type": "close_all",
+            "side": "flat",
+            "qty": 10.0,
+            "price": 90.0,
+            "position_after": 0.0,
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [10.0, 10.0, 0.0, 0.0]
+    assert result.values("Equity") == [1000.0, 900.0, 900.0, 900.0]
+    assert result.output["strategy"]["risk"] == {
+        "locked": True,
+        "max_drawdown": 5.0,
+        "max_drawdown_type": "percent_of_equity",
+    }
+
+
+def test_strategy_risk_max_drawdown_accepts_cash_threshold() -> None:
+    result = pn.run(
+        """
+strategy("Risk Cash", overlay=True, initial_capital=1000)
+strategy.risk.max_drawdown(50, strategy.cash)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 2, "Blocked", strategy.long, qty=1, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+            {"time": 2, "open": 100, "high": 100, "low": 39, "close": 40, "volume": 100},
+            {"time": 3, "open": 40, "high": 41, "low": 39, "close": 40, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == ["Long"]
+    assert result.values("Position") == [1.0, 1.0, 1.0]
+    assert result.output["strategy"]["risk"]["max_drawdown_type"] == "cash"
+
+
 def test_strategy_order_alias_accepts_when_keyword_and_costs() -> None:
     result = pn.run(
         """

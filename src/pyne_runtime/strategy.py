@@ -38,6 +38,13 @@ class StrategyDirection:
     none = "none"
 
 
+class StrategyRiskMode:
+    """Pine-like risk value type constants."""
+
+    percent_of_equity = "percent_of_equity"
+    cash = "cash"
+
+
 class StrategyRiskNamespace:
     """Pine-like ``strategy.risk`` configuration namespace."""
 
@@ -46,12 +53,22 @@ class StrategyRiskNamespace:
     long = StrategyDirection.long
     short = StrategyDirection.short
     none = StrategyDirection.none
+    percent_of_equity = StrategyRiskMode.percent_of_equity
+    cash = StrategyRiskMode.cash
 
     def __init__(self, strategy: "StrategyModule") -> None:
         self._strategy = strategy
 
     def allow_entry_in(self, direction: str = StrategyDirection.all) -> None:
         self._strategy._allow_entry_in = _normalize_allowed_entry_direction(direction)
+
+    def max_drawdown(
+        self,
+        value: float,
+        type: str = StrategyRiskMode.percent_of_equity,
+    ) -> None:
+        self._strategy._max_drawdown_value = max(float(value), 0.0)
+        self._strategy._max_drawdown_type = _normalize_risk_mode(type)
 
 
 class StrategyTradesNamespace:
@@ -138,6 +155,8 @@ class StrategyModule:
     commission = StrategyCommission
     oca = StrategyOca
     direction = StrategyDirection
+    percent_of_equity = StrategyRiskMode.percent_of_equity
+    cash = StrategyRiskMode.cash
 
     def __init__(self, context: PyneContext, collector: OutputCollector) -> None:
         self._context = context
@@ -159,6 +178,9 @@ class StrategyModule:
         self._event_seq = 0
         self._pyramiding = 0
         self._allow_entry_in = StrategyDirection.all
+        self._max_drawdown_value: float | None = None
+        self._max_drawdown_type = StrategyRiskMode.percent_of_equity
+        self._risk_locked = False
         self.risk = StrategyRiskNamespace(self)
         self._initial_capital = 100000.0
         self._currency = str(context.syminfo.currency or "")
@@ -626,6 +648,8 @@ class StrategyModule:
         open_trades: list[dict[str, Any]] = []
         pending_orders: list[dict[str, Any]] = []
         orders_by_time: dict[int, list[dict[str, Any]]] = {}
+        risk_locked = False
+        peak_equity = self._initial_capital
         for order in sorted(
             self._collector.strategy_orders,
             key=lambda item: (item.get("time", 0), item.get("_seq", 0)),
@@ -649,6 +673,8 @@ class StrategyModule:
         for idx, timestamp in enumerate(self._context.times):
             for order in orders_by_time.get(timestamp, []):
                 if order.get("type") == "entry":
+                    if risk_locked:
+                        continue
                     if _is_pending_submission(order):
                         pending_orders.append(order)
                         continue
@@ -702,6 +728,8 @@ class StrategyModule:
                     order["_avg_price_after"] = round(float(avg_after), 8) if not is_na_value(avg_after) else None
                     order["_active"] = True
                 elif order.get("type") == "order":
+                    if risk_locked:
+                        continue
                     if _is_pending_submission(order):
                         pending_orders.append(order)
                         continue
@@ -807,6 +835,9 @@ class StrategyModule:
                 for order in sorted(pending_orders, key=lambda item: item.get("_seq", 0)):
                     if order.get("_canceled"):
                         continue
+                    if risk_locked and order.get("type") in {"entry", "order"}:
+                        remaining_pending.append(order)
+                        continue
                     trigger = _pending_trigger(
                         side=_normalize_direction(str(order.get("side", self.long))),
                         high=high,
@@ -899,6 +930,15 @@ class StrategyModule:
             self._equity[idx] = self._initial_capital + net_profit + open_profit
             self._closedtrades_count[idx] = len(closed_trades)
             self._opentrades_count[idx] = len([trade for trade in open_trades if float(trade.get("qty", 0.0)) > 0])
+            peak_equity = max(peak_equity, float(self._equity[idx]))
+            if self._max_drawdown_value is not None and _max_drawdown_hit(
+                equity=float(self._equity[idx]),
+                peak_equity=peak_equity,
+                threshold=self._max_drawdown_value,
+                risk_type=self._max_drawdown_type,
+            ):
+                risk_locked = True
+        self._risk_locked = risk_locked
 
         self._sync_strategy_report(
             closed_trades=closed_trades,
@@ -958,6 +998,15 @@ class StrategyModule:
                 "grossprofit": round(gross_profit, 8),
                 "grossloss": round(gross_loss, 8),
                 "commission": round(total_commission, 8),
+            },
+            "risk": {
+                "locked": self._risk_locked,
+                "max_drawdown": (
+                    round(self._max_drawdown_value, 8)
+                    if self._max_drawdown_value is not None
+                    else None
+                ),
+                "max_drawdown_type": self._max_drawdown_type,
             },
             "closedtrades": closed_trades,
             "opentrades": serialized_open_trades,
@@ -1105,6 +1154,20 @@ def _normalize_allowed_entry_direction(value: str) -> str:
     return StrategyDirection.all
 
 
+def _normalize_risk_mode(value: str) -> str:
+    normalized = str(value or StrategyRiskMode.percent_of_equity).lower()
+    if normalized in {
+        "percent",
+        "percent_of_equity",
+        "strategy.percent_of_equity",
+        "strategy.risk.percent_of_equity",
+    }:
+        return StrategyRiskMode.percent_of_equity
+    if normalized in {"cash", "money", "strategy.cash", "strategy.risk.cash"}:
+        return StrategyRiskMode.cash
+    return StrategyRiskMode.percent_of_equity
+
+
 def _normalize_oca_type(value: str | None) -> str:
     if value is None:
         return StrategyOca.none
@@ -1154,6 +1217,23 @@ def _commission_amount(
     if commission_type == StrategyCommission.cash_per_contract:
         return abs(float(qty)) * commission_value
     return 0.0
+
+
+def _max_drawdown_hit(
+    *,
+    equity: float,
+    peak_equity: float,
+    threshold: float,
+    risk_type: str,
+) -> bool:
+    if threshold <= 0:
+        return False
+    drawdown = max(float(peak_equity) - float(equity), 0.0)
+    if risk_type == StrategyRiskMode.cash:
+        return drawdown >= threshold
+    if peak_equity <= 0:
+        return False
+    return drawdown / peak_equity * 100.0 >= threshold
 
 
 def _record_fill(

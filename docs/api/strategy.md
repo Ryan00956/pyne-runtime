@@ -105,6 +105,7 @@ Capital reporting:
 
 ```python
 strategy.risk.allow_entry_in(strategy.direction.long)
+strategy.risk.max_drawdown(20, strategy.percent_of_equity)
 ```
 
 `strategy.risk.allow_entry_in(...)` limits subsequent replay of
@@ -118,6 +119,17 @@ strategy.risk.allow_entry_in(strategy.direction.long)
 This is a replay configuration for `strategy.entry*`. Lower-level
 `strategy.order*` calls are not blocked by this setting because they represent
 net-position order events rather than Pine-style entries.
+
+`strategy.risk.max_drawdown(value, type=strategy.percent_of_equity)` locks the
+strategy after equity falls far enough from the replayed equity peak:
+
+- `strategy.percent_of_equity`: `value` is a percentage drawdown from peak equity.
+- `strategy.cash`: `value` is an absolute cash drawdown from peak equity.
+
+Once locked, future `strategy.entry*` and `strategy.order*` submissions and
+pending fills are blocked. Close, exit, and cancel events remain available so a
+script can flatten or clean up existing exposure. This is deterministic replay
+logic, not a broker-side liquidation model.
 
 ## Entry
 
