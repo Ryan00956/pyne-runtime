@@ -111,3 +111,73 @@ array.get(values, 3)
     assert not result.ok
     assert result.code == "PYNE_RUNTIME_ERROR"
     assert "array index 3 is out of bounds" in str(result.error)
+
+
+def test_map_namespace_core_key_value_semantics() -> None:
+    result = pn.run(
+        """
+levels = map.new()
+map.put(levels, "fast", 10)
+map.put(levels, "slow", 20)
+removed = map.remove(levels, "fast")
+map.put(levels, "signal", 9)
+
+plot(map.size(levels), "Map Size")
+plot(map.get(levels, "slow"), "Slow")
+plot(map.get(levels, "missing", 42), "Default")
+plot(map.contains(levels, "signal"), "Contains")
+plot(removed, "Removed")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Map Size") == [2.0, 2.0, 2.0]
+    assert result.values("Slow") == [20.0, 20.0, 20.0]
+    assert result.values("Default") == [42.0, 42.0, 42.0]
+    assert result.values("Contains") == [1.0, 1.0, 1.0]
+    assert result.values("Removed") == [10.0, 10.0, 10.0]
+
+
+def test_map_methods_copy_keys_and_values_interoperate_with_arrays() -> None:
+    result = pn.run(
+        """
+weights = map.from_values("fast", 2, "slow", 4)
+copy = weights.copy()
+copy.put("signal", 8)
+map.clear(weights)
+
+keys = copy.keys()
+vals = map.values(copy)
+
+label(array.join(keys, "|"))
+plot(weights.size(), "Original Size")
+plot(copy.size(), "Copy Size")
+plot(vals.sum(), "Value Sum")
+plot(copy.get("signal"), "Signal")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.output["labels"][0]["text"] == "fast|slow|signal"
+    assert result.values("Original Size") == [0.0, 0.0, 0.0]
+    assert result.values("Copy Size") == [3.0, 3.0, 3.0]
+    assert result.values("Value Sum") == [14.0, 14.0, 14.0]
+    assert result.values("Signal") == [8.0, 8.0, 8.0]
+
+
+def test_map_from_values_requires_key_value_pairs() -> None:
+    result = pn.run(
+        """
+map.from_values("fast", 1, "slow")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "map.from_values() expects key/value pairs" in str(result.error)

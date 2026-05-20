@@ -37,6 +37,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   `insert/remove/clear/copy/slice/fill/reverse/sort`、搜索和数值聚合。
 - Python 关键字限制下，Pine 的 `array.from(...)` 对应为
   `array.from_values(...)` / `array.from_list(...)`。
+- `map.*` 核心 key/value 语义已可用，包含 `new/from_values/get/put/remove`、
+  `contains/keys/values/copy/clear/size`。
 
 ### TA 与数据输出
 
@@ -107,7 +109,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 面向 Python 包的 Pine-like 集合 API：
 
 - `array.*` 核心语义已完成；后续可以补历史快照和更细的 Pine 边界行为。
-- `map.*`
+- `map.*` 核心语义已完成。
 - `matrix.*`
 
 重点不是模仿 Pine 语法，而是保留 Pine 的可变集合语义、历史引用边界和运行时错误口径。
@@ -138,7 +140,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议继续集合类型，进入 `map.*` 的核心 key/value 语义。完成后应同步更新：
+下一步建议继续集合类型，进入 `matrix.*` 的核心二维数值容器语义。完成后应同步更新：
 
 - `src/pyne_runtime/collections.py`
 - `src/pyne_runtime/runtime.py`

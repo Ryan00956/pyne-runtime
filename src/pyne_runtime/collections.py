@@ -116,6 +116,52 @@ class PyneArray:
         return float(max(numbers)) if numbers else None
 
 
+class PyneMap:
+    """Mutable Pine-like key/value map."""
+
+    def __init__(self, values: dict[Any, Any] | None = None) -> None:
+        self._values = dict(values or {})
+
+    def __len__(self) -> int:
+        return len(self._values)
+
+    def __iter__(self):
+        return iter(self._values)
+
+    def __repr__(self) -> str:
+        return f"PyneMap({self._values!r})"
+
+    def to_dict(self) -> dict[Any, Any]:
+        return dict(self._values)
+
+    def copy(self) -> PyneMap:
+        return PyneMap(self._values)
+
+    def size(self) -> int:
+        return len(self._values)
+
+    def put(self, key: Any, value: Any) -> None:
+        self._values[key] = value
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        return self._values.get(key, default)
+
+    def contains(self, key: Any) -> bool:
+        return key in self._values
+
+    def remove(self, key: Any) -> Any:
+        return self._values.pop(key, None)
+
+    def clear(self) -> None:
+        self._values.clear()
+
+    def keys(self) -> PyneArray:
+        return PyneArray(self._values.keys())
+
+    def values(self) -> PyneArray:
+        return PyneArray(self._values.values())
+
+
 class ArrayNamespace:
     """Pine-like ``array.*`` namespace."""
 
@@ -219,12 +265,64 @@ class ArrayNamespace:
         return _array(arr).max()
 
 
+class MapNamespace:
+    """Pine-like ``map.*`` namespace."""
+
+    def new(self) -> PyneMap:
+        return PyneMap()
+
+    def from_values(self, *items: Any) -> PyneMap:
+        if len(items) % 2 != 0:
+            raise ValueError("map.from_values() expects key/value pairs")
+        result = PyneMap()
+        for idx in range(0, len(items), 2):
+            result.put(items[idx], items[idx + 1])
+        return result
+
+    def from_dict(self, values: dict[Any, Any]) -> PyneMap:
+        return PyneMap(values)
+
+    def copy(self, m: PyneMap) -> PyneMap:
+        return _map(m).copy()
+
+    def size(self, m: PyneMap) -> int:
+        return _map(m).size()
+
+    def put(self, m: PyneMap, key: Any, value: Any) -> None:
+        _map(m).put(key, value)
+
+    def get(self, m: PyneMap, key: Any, default: Any = None) -> Any:
+        return _map(m).get(key, default)
+
+    def contains(self, m: PyneMap, key: Any) -> bool:
+        return _map(m).contains(key)
+
+    def remove(self, m: PyneMap, key: Any) -> Any:
+        return _map(m).remove(key)
+
+    def clear(self, m: PyneMap) -> None:
+        _map(m).clear()
+
+    def keys(self, m: PyneMap) -> PyneArray:
+        return _map(m).keys()
+
+    def values(self, m: PyneMap) -> PyneArray:
+        return _map(m).values()
+
+
 array_namespace = ArrayNamespace()
+map_namespace = MapNamespace()
 
 
 def _array(value: PyneArray) -> PyneArray:
     if not isinstance(value, PyneArray):
         raise TypeError("array.* expects a PyneArray created by array.new_*()")
+    return value
+
+
+def _map(value: PyneMap) -> PyneMap:
+    if not isinstance(value, PyneMap):
+        raise TypeError("map.* expects a PyneMap created by map.new()")
     return value
 
 
