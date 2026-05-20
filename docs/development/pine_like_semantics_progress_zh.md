@@ -54,6 +54,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - 覆盖 `tostring/tonumber/length/substring/pos/contains/startswith/endswith`、
   `replace/replace_all/split/trim/upper/lower/repeat/format`。
 - `str` namespace 保持可调用，因此 `str(value)` 仍然可用。
+- `ticker.*` 核心 ticker id helper 已可用，覆盖 `new/inherit/modify/standard`
+  和 `heikinashi/renko/linebreak/kagi/pointfigure`。
 
 ### Plot 与绘图对象
 
@@ -128,7 +130,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 继续扩展高频 namespace：
 
 - `str.*` 高频 helper 已完成；后续可补更细的时间格式化口径。
-- `ticker.*`
+- `ticker.*` 核心 helper 已完成。
 - 更多 `time.*`
 - 更完整的 `color.*`
 - 更多数学与统计 helper
@@ -149,13 +151,12 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议继续标准库宽度，优先补 `ticker.*` 的核心 ticker id helper。
-完成后应同步更新：
+下一步建议继续标准库宽度，优先补更多 `time.*` helper。完成后应同步更新：
 
-- `src/pyne_runtime/ticker.py`
+- `src/pyne_runtime/time_ext.py`
 - `src/pyne_runtime/runtime.py`
-- `tests/test_ticker_runtime.py`
-- `docs/api/ticker.md`
+- `tests/test_time_runtime.py`
+- `docs/api/time.md`
 - `docs/reference/pine_like_api_matrix.md`
 
 验证门槛保持为完整检查脚本通过。

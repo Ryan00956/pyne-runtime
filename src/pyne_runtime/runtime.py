@@ -51,6 +51,7 @@ from .series import where as series_where
 from .state import PyneStateNamespace
 from .strategy import StrategyModule
 from .string_ext import string_namespace
+from .ticker import TickerNamespace
 
 
 class PyneRuntime:
@@ -261,6 +262,7 @@ class PyneRuntime:
         ns["map"] = map_namespace
         ns["matrix"] = matrix_namespace
         ns["str"] = string_namespace
+        ns["ticker"] = TickerNamespace(ctx.syminfo)
 
         # Drawing functions
         ns.update(plot_funcs)  # plot, hline, fill, bar, marker, etc.

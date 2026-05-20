@@ -43,6 +43,7 @@ from .settings import PyneSettings
 from .state import PyneStateNamespace, PyneVar
 from .strategy import StrategyModule
 from .string_ext import StringNamespace, string_namespace
+from .ticker import TickerNamespace
 from .values import na
 
 __all__ = [
@@ -73,6 +74,7 @@ __all__ = [
     "RequestModule",
     "StrategyModule",
     "StringNamespace",
+    "TickerNamespace",
     "PYNE_INPUT_SCHEMA_VERSION",
     "PYNE_OUTPUT_SCHEMA_VERSION",
     "SharedPyneIncrementalSession",
