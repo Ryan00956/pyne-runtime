@@ -821,6 +821,7 @@ plot(strategy.position_size, "Position")
             "submitted_time": 1,
             "filled_time": 3,
             "canceled_time": None,
+            "rejected_time": None,
             "side": "long",
             "qty": 1.0,
             "price": 2.5,
@@ -837,6 +838,7 @@ plot(strategy.position_size, "Position")
             "submitted_time": 1,
             "filled_time": None,
             "canceled_time": 2,
+            "rejected_time": None,
             "side": "short",
             "qty": 1.0,
             "price": 1.5,
@@ -853,6 +855,7 @@ plot(strategy.position_size, "Position")
             "submitted_time": 2,
             "filled_time": None,
             "canceled_time": 2,
+            "rejected_time": None,
             "side": "flat",
             "qty": 0.0,
             "price": None,
@@ -861,6 +864,53 @@ plot(strategy.position_size, "Position")
             "canceled": 1,
         },
     ]
+
+
+def test_strategy_lifecycle_reports_rejected_entry_and_order_reasons() -> None:
+    result = pn.run(
+        """
+strategy("Lifecycle Reject", overlay=True, initial_capital=1000)
+strategy.risk.allow_entry_in(strategy.direction.long)
+strategy.entry_when(bar_index == 0, "Short", strategy.short, qty=1, price=close)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.entry_when(bar_index == 1, "Pyramid", strategy.long, qty=1, price=close)
+strategy.order_when(bar_index == 2, "Too Big", strategy.long, qty=11, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+            {"time": 2, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+            {"time": 3, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    lifecycle = {event["id"]: event for event in result.output["strategy"]["lifecycle"]}
+    assert lifecycle["Long"]["status"] == "filled"
+    assert lifecycle["Short"]["status"] == "rejected"
+    assert lifecycle["Short"]["phase"] == "rejected"
+    assert lifecycle["Short"]["rejected_reason"] == "direction_not_allowed"
+    assert lifecycle["Short"]["rejected_time"] == 1
+    assert lifecycle["Pyramid"]["status"] == "rejected"
+    assert lifecycle["Pyramid"]["rejected_reason"] == "pyramiding_exceeded"
+    assert lifecycle["Pyramid"]["rejected_time"] == 2
+    assert lifecycle["Too Big"]["status"] == "rejected"
+    assert lifecycle["Too Big"]["rejected_reason"] == "margin"
+    assert lifecycle["Too Big"]["rejected_time"] == 3
+    assert result.output["strategy"]["orders"] == [
+        {
+            "time": 1,
+            "id": "Long",
+            "type": "entry",
+            "side": "long",
+            "qty": 1.0,
+            "price": 100.0,
+            "position_after": 1.0,
+            "comment": "",
+        },
+    ]
+    assert result.values("Position") == [1.0, 1.0, 1.0]
 
 
 def test_strategy_cancel_all_clears_multiple_pending_orders() -> None:

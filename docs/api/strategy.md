@@ -366,14 +366,16 @@ Negative indexes count from the end of the current ledger. Missing trades return
 `output["strategy"]["lifecycle"]` reports the replayed order lifecycle without
 changing the compact `orders` fill ledger. It is intended for host renderers,
 debug panels, and tests that need to distinguish submission, pending,
-fill, and cancel phases.
+fill, cancel, and rejection phases.
 
 Lifecycle records include:
 
-- `status`: `pending`, `filled`, `canceled`, or `submitted`.
+- `status`: `pending`, `filled`, `canceled`, `rejected`, or `submitted`.
 - `phase`: `market_fill`, `pending`, `pending_fill`, `pending_canceled`,
-  `exit_fill`, `close_fill`, `close_all_fill`, or `cancel`.
-- `submitted_time`, `filled_time`, and `canceled_time` when known.
+  `pending_rejected`, `exit_fill`, `close_fill`, `close_all_fill`, `cancel`,
+  or `rejected`.
+- `submitted_time`, `filled_time`, `canceled_time`, and `rejected_time` when
+  known.
 - order identity and replay fields such as `id`, `type`, `side`, `qty`,
   `price`, `limit`, `stop`, `position_after`, `reason`, `comment`,
   `oca_name`, and `oca_type` when those fields apply.
@@ -384,6 +386,10 @@ Pending entry/order submissions that never fill still appear with
 `phase="pending_canceled"`. Filled stop/limit submissions appear with
 `phase="pending_fill"`, while immediate market-style entry/order fills use
 `phase="market_fill"`.
+
+Rejected submissions appear with `status="rejected"` and `rejected_reason`.
+Current rejection reasons include `risk_locked`, `direction_not_allowed`,
+`pyramiding_exceeded`, `max_position_size`, and `margin`.
 
 ## Output
 
@@ -431,6 +437,7 @@ Strategy output is serialized under `output["strategy"]`:
         "submitted_time": 1710000000,
         "filled_time": 1710000000,
         "canceled_time": null,
+        "rejected_time": null,
         "side": "long",
         "qty": 1.0,
         "price": 123.45,

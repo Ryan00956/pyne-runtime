@@ -777,6 +777,8 @@ class StrategyModule:
                 order.pop("_canceled", None)
                 order.pop("_canceled_time", None)
                 order.pop("_canceled_by", None)
+                order.pop("_rejected_reason", None)
+                order.pop("_rejected_time", None)
                 order["time"] = int(order.get("_submit_time", order.get("time", 0)))
                 order["qty"] = float(order.get("_original_qty", order.get("qty", 0.0)))
                 order["position_after"] = 0.0
@@ -807,18 +809,21 @@ class StrategyModule:
             for order in orders_by_time.get(timestamp, []):
                 if order.get("type") == "entry":
                     if risk_locked:
+                        _reject_order(order, timestamp=timestamp, reason="risk_locked")
                         continue
                     if _is_pending_submission(order):
                         pending_orders.append(order)
                         continue
                     side = _normalize_direction(str(order.get("side", self.long)))
-                    if not _entry_allowed(
+                    rejection_reason = _entry_rejection_reason(
                         side=side,
                         previous_size=current_size,
                         same_direction_entry_count=same_direction_entry_count,
                         pyramiding=self._pyramiding,
                         allow_entry_in=self._allow_entry_in,
-                    ):
+                    )
+                    if rejection_reason is not None:
+                        _reject_order(order, timestamp=timestamp, reason=rejection_reason)
                         continue
                     fill_side = "buy" if side == self.long else "sell"
                     fill_price = self._fill_price(float(order.get("_base_price", order.get("price", np.nan))), fill_side)
@@ -829,6 +834,7 @@ class StrategyModule:
                         max_position_size=self._max_position_size,
                     )
                     if qty <= 0:
+                        _reject_order(order, timestamp=timestamp, reason="max_position_size")
                         continue
                     position_after, avg_after = _entry_position_after(
                         previous_size=current_size,
@@ -852,6 +858,7 @@ class StrategyModule:
                         price=fill_price,
                         equity=pre_fill_equity,
                     ):
+                        _reject_order(order, timestamp=timestamp, reason="margin")
                         continue
                     if current_size == 0 or (current_size > 0) != (position_after > 0):
                         same_direction_entry_count = 1
@@ -893,6 +900,7 @@ class StrategyModule:
                         risk_locked = True
                 elif order.get("type") == "order":
                     if risk_locked:
+                        _reject_order(order, timestamp=timestamp, reason="risk_locked")
                         continue
                     if _is_pending_submission(order):
                         pending_orders.append(order)
@@ -923,6 +931,7 @@ class StrategyModule:
                         price=fill_price,
                         equity=pre_fill_equity,
                     ):
+                        _reject_order(order, timestamp=timestamp, reason="margin")
                         continue
                     if position_after == 0:
                         same_direction_entry_count = 0
@@ -1057,13 +1066,15 @@ class StrategyModule:
                     order["_base_price"] = float(trigger_price)
                     if order.get("type") == "entry":
                         side = _normalize_direction(str(order.get("side", self.long)))
-                        if not _entry_allowed(
+                        rejection_reason = _entry_rejection_reason(
                             side=side,
                             previous_size=current_size,
                             same_direction_entry_count=same_direction_entry_count,
                             pyramiding=self._pyramiding,
                             allow_entry_in=self._allow_entry_in,
-                        ):
+                        )
+                        if rejection_reason is not None:
+                            _reject_order(order, timestamp=timestamp, reason=rejection_reason)
                             continue
                         fill_side = "buy" if side == self.long else "sell"
                         fill_price = self._fill_price(float(trigger_price), fill_side)
@@ -1074,6 +1085,7 @@ class StrategyModule:
                             max_position_size=self._max_position_size,
                         )
                         if qty <= 0:
+                            _reject_order(order, timestamp=timestamp, reason="max_position_size")
                             continue
                         position_after, avg_after = _entry_position_after(
                             previous_size=current_size,
@@ -1457,15 +1469,17 @@ def _strategy_lifecycle_event(order: dict[str, Any]) -> dict[str, Any] | None:
     order_type = str(order.get("type") or "")
     active = bool(order.get("_active", True))
     canceled = bool(order.get("_canceled"))
+    rejected = bool(order.get("_rejected_reason"))
     pending_submission = order_type in {"entry", "order"} and _is_pending_submission(order)
 
-    if not active and not canceled and not pending_submission:
+    if not active and not canceled and not rejected and not pending_submission:
         return None
 
     status = _strategy_lifecycle_status(
         order_type=order_type,
         active=active,
         canceled=canceled,
+        rejected=rejected,
         pending_submission=pending_submission,
     )
     phase = _strategy_lifecycle_phase(
@@ -1485,6 +1499,7 @@ def _strategy_lifecycle_event(order: dict[str, Any]) -> dict[str, Any] | None:
         else order.get("time")
         if status == "canceled"
         else None,
+        "rejected_time": order.get("_rejected_time") if status == "rejected" else None,
         "side": order.get("side"),
         "qty": order.get("qty"),
         "price": order.get("price"),
@@ -1507,6 +1522,8 @@ def _strategy_lifecycle_event(order: dict[str, Any]) -> dict[str, Any] | None:
             event[public_key] = order.get(internal_key)
     if order.get("_canceled_by"):
         event["canceled_by"] = order.get("_canceled_by")
+    if order.get("_rejected_reason"):
+        event["rejected_reason"] = order.get("_rejected_reason")
     return event
 
 
@@ -1515,10 +1532,13 @@ def _strategy_lifecycle_status(
     order_type: str,
     active: bool,
     canceled: bool,
+    rejected: bool,
     pending_submission: bool,
 ) -> str:
     if canceled or order_type in {"cancel", "cancel_all"} and active:
         return "canceled"
+    if rejected:
+        return "rejected"
     if active:
         return "filled"
     if pending_submission:
@@ -1536,6 +1556,8 @@ def _strategy_lifecycle_phase(
         return "cancel"
     if status == "canceled" and pending_submission:
         return "pending_canceled"
+    if status == "rejected":
+        return "pending_rejected" if pending_submission else "rejected"
     if status == "pending":
         return "pending"
     if pending_submission:
@@ -1549,6 +1571,11 @@ def _strategy_lifecycle_phase(
     if order_type in {"entry", "order"}:
         return "market_fill"
     return order_type or status
+
+
+def _reject_order(order: dict[str, Any], *, timestamp: int, reason: str) -> None:
+    order["_rejected_reason"] = reason
+    order["_rejected_time"] = timestamp
 
 
 def _pending_trigger(
@@ -1683,6 +1710,31 @@ def _entry_allowed(
     if side == StrategyModule.short and previous_size > 0:
         return True
     return same_direction_entry_count < pyramiding + 1
+
+
+def _entry_rejection_reason(
+    *,
+    side: str,
+    previous_size: float,
+    same_direction_entry_count: int,
+    pyramiding: int,
+    allow_entry_in: str = StrategyDirection.all,
+) -> str | None:
+    if allow_entry_in == StrategyDirection.none:
+        return "direction_not_allowed"
+    if allow_entry_in == StrategyDirection.long and side != StrategyModule.long:
+        return "direction_not_allowed"
+    if allow_entry_in == StrategyDirection.short and side != StrategyModule.short:
+        return "direction_not_allowed"
+    if previous_size == 0:
+        return None
+    if side == StrategyModule.long and previous_size < 0:
+        return None
+    if side == StrategyModule.short and previous_size > 0:
+        return None
+    if same_direction_entry_count >= pyramiding + 1:
+        return "pyramiding_exceeded"
+    return None
 
 
 def _entry_qty_for_max_position_size(
