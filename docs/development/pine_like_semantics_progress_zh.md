@@ -58,6 +58,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   和 `heikinashi/renko/linebreak/kagi/pointfigure`。
 - `time.*` helper 已可用，同时保留 `time` 的 series 行为，覆盖
   `year/month/dayofmonth/dayofweek/hour/minute/second/timestamp/format`。
+- `color.*` helper 已扩展，覆盖 `rgb/new/r/g/b/t/when/from_gradient` 和常用颜色常量。
 
 ### Plot 与绘图对象
 
@@ -134,7 +135,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - `str.*` 高频 helper 已完成；后续可补更细的时间格式化口径。
 - `ticker.*` 核心 helper 已完成。
 - 更多 `time.*` 核心 helper 已完成。
-- 更完整的 `color.*`
+- 更完整的 `color.*` 核心 helper 已完成。
 - 更多数学与统计 helper
 
 ### P4: Strategy 回放语义深化
@@ -153,12 +154,11 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议继续标准库宽度，优先补更完整的 `color.*` helper。完成后应同步更新：
+下一步建议进入 Strategy 回放语义深化，优先补 same-bar stop/limit 触发顺序策略文档和 golden 测试。完成后应同步更新：
 
-- `src/pyne_runtime/color.py`
-- `src/pyne_runtime/runtime.py`
-- `tests/test_color_runtime.py`
-- `docs/api/color.md`
+- `src/pyne_runtime/strategy.py`
+- `tests/test_strategy_runtime.py`
+- `docs/api/strategy.md`
 - `docs/reference/pine_like_api_matrix.md`
 
 验证门槛保持为完整检查脚本通过。

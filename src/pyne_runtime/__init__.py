@@ -5,6 +5,7 @@ from ._version import __version__
 from .api import from_pandas, read_ohlcv, run, schema, validate
 from .barstate import PyneBarState, PyneIncrementalBarState
 from .cache import pyne_cache
+from .color import Color, color
 from .collections import (
     ArrayNamespace,
     MapNamespace,
@@ -51,6 +52,7 @@ __all__ = [
     "__version__",
     "ArrayNamespace",
     "BarMergeNamespace",
+    "Color",
     "DataProvider",
     "MapNamespace",
     "MatrixNamespace",
@@ -90,6 +92,7 @@ __all__ = [
     "is_incremental_pyne_script",
     "array_namespace",
     "barmerge",
+    "color",
     "map_namespace",
     "matrix_namespace",
     "na",
