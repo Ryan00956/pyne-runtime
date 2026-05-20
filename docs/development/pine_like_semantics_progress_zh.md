@@ -122,7 +122,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   pending order，以及 `strategy.oca.reduce` 减少 sibling pending quantity。
 - Strategy cost model golden fixture 已覆盖 percent commission、cash per contract、
   tick slippage、long/short round trip、partial close、close_all 和 reversal order
-  的手续费分摊，以及 pending stop/limit fill 在成本模型下的 lifecycle 细节；
+  的手续费分摊、pending stop/limit fill 在成本模型下的 lifecycle 细节，以及
+  same-bar stop/limit priority 与 intrabar path 对成本回放的影响；
   `closedtrades.commission` 已包含 entry lot 手续费分摊和 exit/close/reversal
   成交手续费分摊。
 
@@ -187,7 +188,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 ## 下一步建议
 
 下一步建议继续扩大 Strategy golden 与 broker-emulator 风格回放语义，优先覆盖
-stop-limit same-bar priority、limit verification assumption 与 intrabar path 在成本模型下的
+limit verification assumption、short bracket exit 和 pending stop-limit entry 在成本模型下的
 lifecycle 细节。完成后应同步更新：
 
 - `src/pyne_runtime/strategy.py`

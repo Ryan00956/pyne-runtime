@@ -581,6 +581,350 @@
         "max_position_size": null,
         "max_intraday_filled_orders": null
       }
+    },
+    {
+      "name": "same_bar_exit_stop_first_costs",
+      "source": "pyne-defined deterministic strategy cost replay semantics",
+      "script": "strategy(\"Same Bar Cost\", overlay=True, initial_capital=1000, slippage=1, mintick=0.1, commission_type=strategy.commission.cash_per_order, commission_value=0.5)\nstrategy.entry_when(bar_index == 0, \"Long\", strategy.long, qty=1, price=close)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
+      "bars": [
+        {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
+        {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100}
+      ],
+      "orders": [
+        {"time": 1, "id": "Long", "type": "entry", "side": "long", "qty": 1.0, "price": 10.1, "position_after": 1.0, "comment": "", "commission": 0.5},
+        {"time": 2, "id": "Bracket", "from_entry": "Long", "type": "exit", "side": "flat", "qty": 1.0, "price": 8.9, "position_after": 0.0, "reason": "stop", "comment": "", "commission": 0.5}
+      ],
+      "lifecycle": [
+        {
+          "id": "Long",
+          "type": "entry",
+          "status": "filled",
+          "phase": "market_fill",
+          "submitted_time": 1,
+          "filled_time": 1,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "long",
+          "qty": 1.0,
+          "price": 10.1,
+          "position_after": 1.0,
+          "comment": "",
+          "commission": 0.5,
+          "requested_qty": 1.0,
+          "filled_qty": 1.0
+        },
+        {
+          "id": "Bracket",
+          "type": "exit",
+          "status": "filled",
+          "phase": "exit_fill",
+          "submitted_time": 2,
+          "filled_time": 2,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "flat",
+          "qty": 1.0,
+          "price": 8.9,
+          "position_after": 0.0,
+          "from_entry": "Long",
+          "reason": "stop",
+          "comment": "",
+          "commission": 0.5,
+          "requested_qty": 1.0,
+          "filled_qty": 1.0,
+          "target_qty": 1.0
+        }
+      ],
+      "closedtrades": [
+        {"entry_time": 1, "exit_time": 2, "entry_id": "Long", "exit_id": "Bracket", "side": "long", "qty": 1.0, "entry_price": 10.1, "exit_price": 8.9, "profit": -1.2, "commission": 1.0, "net_profit": -2.2}
+      ],
+      "opentrades": [],
+      "position": [1.0, 0.0],
+      "equity": [999.4, 997.8],
+      "netprofit": [-0.5, -2.2],
+      "closed_commission": [1.0, 1.0],
+      "summary": {
+        "initial_capital": 1000.0,
+        "currency": "",
+        "equity": 997.8,
+        "netprofit": -2.2,
+        "openprofit": 0.0,
+        "grossprofit": 0.0,
+        "grossloss": -1.2,
+        "commission": 1.0,
+        "backtest_fill_limits_assumption": 0,
+        "same_bar_fill_priority": "stop_first",
+        "intrabar_path": "same_bar_priority",
+        "margin_long": 100.0,
+        "margin_short": 100.0
+      },
+      "risk": {
+        "locked": false,
+        "max_drawdown": null,
+        "max_drawdown_type": "percent_of_equity",
+        "max_intraday_loss": null,
+        "max_intraday_loss_type": "percent_of_equity",
+        "max_position_size": null,
+        "max_intraday_filled_orders": null
+      }
+    },
+    {
+      "name": "same_bar_exit_limit_first_costs",
+      "source": "pyne-defined deterministic strategy cost replay semantics",
+      "script": "strategy(\"Same Bar Cost\", overlay=True, initial_capital=1000, slippage=1, mintick=0.1, commission_type=strategy.commission.cash_per_order, commission_value=0.5, same_bar_fill_priority=strategy.same_bar.limit_first)\nstrategy.entry_when(bar_index == 0, \"Long\", strategy.long, qty=1, price=close)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
+      "bars": [
+        {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
+        {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100}
+      ],
+      "orders": [
+        {"time": 1, "id": "Long", "type": "entry", "side": "long", "qty": 1.0, "price": 10.1, "position_after": 1.0, "comment": "", "commission": 0.5},
+        {"time": 2, "id": "Bracket", "from_entry": "Long", "type": "exit", "side": "flat", "qty": 1.0, "price": 11.9, "position_after": 0.0, "reason": "limit", "comment": "", "commission": 0.5}
+      ],
+      "lifecycle": [
+        {
+          "id": "Long",
+          "type": "entry",
+          "status": "filled",
+          "phase": "market_fill",
+          "submitted_time": 1,
+          "filled_time": 1,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "long",
+          "qty": 1.0,
+          "price": 10.1,
+          "position_after": 1.0,
+          "comment": "",
+          "commission": 0.5,
+          "requested_qty": 1.0,
+          "filled_qty": 1.0
+        },
+        {
+          "id": "Bracket",
+          "type": "exit",
+          "status": "filled",
+          "phase": "exit_fill",
+          "submitted_time": 2,
+          "filled_time": 2,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "flat",
+          "qty": 1.0,
+          "price": 11.9,
+          "position_after": 0.0,
+          "from_entry": "Long",
+          "reason": "limit",
+          "comment": "",
+          "commission": 0.5,
+          "requested_qty": 1.0,
+          "filled_qty": 1.0,
+          "target_qty": 1.0
+        }
+      ],
+      "closedtrades": [
+        {"entry_time": 1, "exit_time": 2, "entry_id": "Long", "exit_id": "Bracket", "side": "long", "qty": 1.0, "entry_price": 10.1, "exit_price": 11.9, "profit": 1.8, "commission": 1.0, "net_profit": 0.8}
+      ],
+      "opentrades": [],
+      "position": [1.0, 0.0],
+      "equity": [999.4, 1000.8],
+      "netprofit": [-0.5, 0.8],
+      "closed_commission": [1.0, 1.0],
+      "summary": {
+        "initial_capital": 1000.0,
+        "currency": "",
+        "equity": 1000.8,
+        "netprofit": 0.8,
+        "openprofit": 0.0,
+        "grossprofit": 1.8,
+        "grossloss": 0.0,
+        "commission": 1.0,
+        "backtest_fill_limits_assumption": 0,
+        "same_bar_fill_priority": "limit_first",
+        "intrabar_path": "same_bar_priority",
+        "margin_long": 100.0,
+        "margin_short": 100.0
+      },
+      "risk": {
+        "locked": false,
+        "max_drawdown": null,
+        "max_drawdown_type": "percent_of_equity",
+        "max_intraday_loss": null,
+        "max_intraday_loss_type": "percent_of_equity",
+        "max_position_size": null,
+        "max_intraday_filled_orders": null
+      }
+    },
+    {
+      "name": "intrabar_high_low_exit_costs",
+      "source": "pyne-defined deterministic strategy cost replay semantics",
+      "script": "strategy(\"Path Cost\", overlay=True, initial_capital=1000, slippage=1, mintick=0.1, commission_type=strategy.commission.cash_per_order, commission_value=0.5, intrabar_path=strategy.intrabar.open_high_low_close)\nstrategy.entry_when(bar_index == 0, \"Long\", strategy.long, qty=1, price=close)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
+      "bars": [
+        {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
+        {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100}
+      ],
+      "orders": [
+        {"time": 1, "id": "Long", "type": "entry", "side": "long", "qty": 1.0, "price": 10.1, "position_after": 1.0, "comment": "", "commission": 0.5},
+        {"time": 2, "id": "Bracket", "from_entry": "Long", "type": "exit", "side": "flat", "qty": 1.0, "price": 11.9, "position_after": 0.0, "reason": "limit", "comment": "", "commission": 0.5}
+      ],
+      "lifecycle": [
+        {
+          "id": "Long",
+          "type": "entry",
+          "status": "filled",
+          "phase": "market_fill",
+          "submitted_time": 1,
+          "filled_time": 1,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "long",
+          "qty": 1.0,
+          "price": 10.1,
+          "position_after": 1.0,
+          "comment": "",
+          "commission": 0.5,
+          "requested_qty": 1.0,
+          "filled_qty": 1.0
+        },
+        {
+          "id": "Bracket",
+          "type": "exit",
+          "status": "filled",
+          "phase": "exit_fill",
+          "submitted_time": 2,
+          "filled_time": 2,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "flat",
+          "qty": 1.0,
+          "price": 11.9,
+          "position_after": 0.0,
+          "from_entry": "Long",
+          "reason": "limit",
+          "comment": "",
+          "commission": 0.5,
+          "requested_qty": 1.0,
+          "filled_qty": 1.0,
+          "target_qty": 1.0
+        }
+      ],
+      "closedtrades": [
+        {"entry_time": 1, "exit_time": 2, "entry_id": "Long", "exit_id": "Bracket", "side": "long", "qty": 1.0, "entry_price": 10.1, "exit_price": 11.9, "profit": 1.8, "commission": 1.0, "net_profit": 0.8}
+      ],
+      "opentrades": [],
+      "position": [1.0, 0.0],
+      "equity": [999.4, 1000.8],
+      "netprofit": [-0.5, 0.8],
+      "closed_commission": [1.0, 1.0],
+      "summary": {
+        "initial_capital": 1000.0,
+        "currency": "",
+        "equity": 1000.8,
+        "netprofit": 0.8,
+        "openprofit": 0.0,
+        "grossprofit": 1.8,
+        "grossloss": 0.0,
+        "commission": 1.0,
+        "backtest_fill_limits_assumption": 0,
+        "same_bar_fill_priority": "stop_first",
+        "intrabar_path": "open_high_low_close",
+        "margin_long": 100.0,
+        "margin_short": 100.0
+      },
+      "risk": {
+        "locked": false,
+        "max_drawdown": null,
+        "max_drawdown_type": "percent_of_equity",
+        "max_intraday_loss": null,
+        "max_intraday_loss_type": "percent_of_equity",
+        "max_position_size": null,
+        "max_intraday_filled_orders": null
+      }
+    },
+    {
+      "name": "intrabar_low_high_exit_costs",
+      "source": "pyne-defined deterministic strategy cost replay semantics",
+      "script": "strategy(\"Path Cost\", overlay=True, initial_capital=1000, slippage=1, mintick=0.1, commission_type=strategy.commission.cash_per_order, commission_value=0.5, intrabar_path=strategy.intrabar.open_low_high_close)\nstrategy.entry_when(bar_index == 0, \"Long\", strategy.long, qty=1, price=close)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
+      "bars": [
+        {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
+        {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100}
+      ],
+      "orders": [
+        {"time": 1, "id": "Long", "type": "entry", "side": "long", "qty": 1.0, "price": 10.1, "position_after": 1.0, "comment": "", "commission": 0.5},
+        {"time": 2, "id": "Bracket", "from_entry": "Long", "type": "exit", "side": "flat", "qty": 1.0, "price": 8.9, "position_after": 0.0, "reason": "stop", "comment": "", "commission": 0.5}
+      ],
+      "lifecycle": [
+        {
+          "id": "Long",
+          "type": "entry",
+          "status": "filled",
+          "phase": "market_fill",
+          "submitted_time": 1,
+          "filled_time": 1,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "long",
+          "qty": 1.0,
+          "price": 10.1,
+          "position_after": 1.0,
+          "comment": "",
+          "commission": 0.5,
+          "requested_qty": 1.0,
+          "filled_qty": 1.0
+        },
+        {
+          "id": "Bracket",
+          "type": "exit",
+          "status": "filled",
+          "phase": "exit_fill",
+          "submitted_time": 2,
+          "filled_time": 2,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "flat",
+          "qty": 1.0,
+          "price": 8.9,
+          "position_after": 0.0,
+          "from_entry": "Long",
+          "reason": "stop",
+          "comment": "",
+          "commission": 0.5,
+          "requested_qty": 1.0,
+          "filled_qty": 1.0,
+          "target_qty": 1.0
+        }
+      ],
+      "closedtrades": [
+        {"entry_time": 1, "exit_time": 2, "entry_id": "Long", "exit_id": "Bracket", "side": "long", "qty": 1.0, "entry_price": 10.1, "exit_price": 8.9, "profit": -1.2, "commission": 1.0, "net_profit": -2.2}
+      ],
+      "opentrades": [],
+      "position": [1.0, 0.0],
+      "equity": [999.4, 997.8],
+      "netprofit": [-0.5, -2.2],
+      "closed_commission": [1.0, 1.0],
+      "summary": {
+        "initial_capital": 1000.0,
+        "currency": "",
+        "equity": 997.8,
+        "netprofit": -2.2,
+        "openprofit": 0.0,
+        "grossprofit": 0.0,
+        "grossloss": -1.2,
+        "commission": 1.0,
+        "backtest_fill_limits_assumption": 0,
+        "same_bar_fill_priority": "stop_first",
+        "intrabar_path": "open_low_high_close",
+        "margin_long": 100.0,
+        "margin_short": 100.0
+      },
+      "risk": {
+        "locked": false,
+        "max_drawdown": null,
+        "max_drawdown_type": "percent_of_equity",
+        "max_intraday_loss": null,
+        "max_intraday_loss_type": "percent_of_equity",
+        "max_position_size": null,
+        "max_intraday_filled_orders": null
+      }
     }
   ]
 }
