@@ -50,6 +50,7 @@ from .series import when as series_when
 from .series import where as series_where
 from .state import PyneStateNamespace
 from .strategy import StrategyModule
+from .string_ext import string_namespace
 
 
 class PyneRuntime:
@@ -259,6 +260,7 @@ class PyneRuntime:
         ns["array"] = array_namespace
         ns["map"] = map_namespace
         ns["matrix"] = matrix_namespace
+        ns["str"] = string_namespace
 
         # Drawing functions
         ns.update(plot_funcs)  # plot, hline, fill, bar, marker, etc.

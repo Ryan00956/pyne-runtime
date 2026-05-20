@@ -42,6 +42,7 @@ from .series import PyneSeries
 from .settings import PyneSettings
 from .state import PyneStateNamespace, PyneVar
 from .strategy import StrategyModule
+from .string_ext import StringNamespace, string_namespace
 from .values import na
 
 __all__ = [
@@ -71,6 +72,7 @@ __all__ = [
     "RequestEvalContext",
     "RequestModule",
     "StrategyModule",
+    "StringNamespace",
     "PYNE_INPUT_SCHEMA_VERSION",
     "PYNE_OUTPUT_SCHEMA_VERSION",
     "SharedPyneIncrementalSession",
@@ -91,5 +93,6 @@ __all__ = [
     "read_ohlcv",
     "run",
     "schema",
+    "string_namespace",
     "validate",
 ]

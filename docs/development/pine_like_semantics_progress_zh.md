@@ -48,6 +48,13 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - 扩展 TA 已覆盖：`alma`、`hma`、`swma`、`dmi`、`sar`、percentiles 等。
 - 输出使用稳定 JSON schema，适合宿主图表层渲染。
 
+### 标准库宽度
+
+- `str.*` 高频字符串 helper 已可用。
+- 覆盖 `tostring/tonumber/length/substring/pos/contains/startswith/endswith`、
+  `replace/replace_all/split/trim/upper/lower/repeat/format`。
+- `str` namespace 保持可调用，因此 `str(value)` 仍然可用。
+
 ### Plot 与绘图对象
 
 - `plot()`、`hline()`、`fill()`、`marker()`、`bgcolor()`、`barcolor()` 已可用。
@@ -120,7 +127,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 继续扩展高频 namespace：
 
-- `str.*`
+- `str.*` 高频 helper 已完成；后续可补更细的时间格式化口径。
 - `ticker.*`
 - 更多 `time.*`
 - 更完整的 `color.*`
@@ -142,12 +149,13 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议进入标准库宽度，优先补 `str.*` 高频字符串 helper。完成后应同步更新：
+下一步建议继续标准库宽度，优先补 `ticker.*` 的核心 ticker id helper。
+完成后应同步更新：
 
-- `src/pyne_runtime/string_ext.py`
+- `src/pyne_runtime/ticker.py`
 - `src/pyne_runtime/runtime.py`
-- `tests/test_string_runtime.py`
-- `docs/api/string.md`
+- `tests/test_ticker_runtime.py`
+- `docs/api/ticker.md`
 - `docs/reference/pine_like_api_matrix.md`
 
 验证门槛保持为完整检查脚本通过。
