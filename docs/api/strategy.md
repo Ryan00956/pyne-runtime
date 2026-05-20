@@ -205,7 +205,9 @@ strategy after equity falls far enough from the replayed equity peak:
 Once locked, future `strategy.entry*` and `strategy.order*` submissions and
 pending fills are blocked. Close, exit, and cancel events remain available so a
 script can flatten or clean up existing exposure. This is deterministic replay
-logic, not a broker-side liquidation model.
+logic, not a broker-side liquidation model. Blocked pending entry/order fills
+remain pending and do not charge commission; if an intraday rule resets at a
+later `session.isfirstbar`, those pending submissions can be evaluated again.
 
 `strategy.risk.max_intraday_loss(value, type=strategy.percent_of_equity)` uses
 the same value types, but resets at the next `session.isfirstbar` boundary. Host
