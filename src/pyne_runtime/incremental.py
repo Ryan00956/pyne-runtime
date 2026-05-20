@@ -420,12 +420,22 @@ class IncrementalStrategyNamespace:
 
     long = "long"
     short = "short"
+    same_bar = type("IncrementalStrategySameBarPriority", (), {
+        "stop_first": "stop_first",
+        "limit_first": "limit_first",
+    })
+    intrabar = type("IncrementalStrategyIntrabarPath", (), {
+        "same_bar_priority": "same_bar_priority",
+        "open_high_low_close": "open_high_low_close",
+        "open_low_high_close": "open_low_high_close",
+    })
 
     def __init__(self, context: "IncrementalContext") -> None:
         self._context = context
         self._initial_capital = 100000.0
         self._currency = ""
         self._orders: list[dict[str, Any]] = []
+        self._pending_orders: list[dict[str, Any]] = []
         self._open_trades: list[dict[str, Any]] = []
         self._closed_trades: list[dict[str, Any]] = []
         self._grossprofit = 0.0
@@ -433,12 +443,32 @@ class IncrementalStrategyNamespace:
         self._commission = 0.0
         self._event_seq = 0
         self._touched = False
+        self._mintick = max(float(getattr(context.syminfo, "mintick", 0.0)), 0.0)
+        self._backtest_fill_limits_assumption = 0
+        self._same_bar_fill_priority = self.same_bar.stop_first
+        self._intrabar_path = self.intrabar.same_bar_priority
+        self._margin_long = 100.0
+        self._margin_short = 100.0
 
     def configure(self, **kwargs: Any) -> None:
         if "initial_capital" in kwargs:
             self._initial_capital = float(kwargs["initial_capital"])
         if "currency" in kwargs:
             self._currency = str(kwargs["currency"] or "")
+        if "mintick" in kwargs or "min_tick" in kwargs:
+            self._mintick = max(float(kwargs.get("mintick", kwargs.get("min_tick", 0.0))), 0.0)
+        if "backtest_fill_limits_assumption" in kwargs:
+            self._backtest_fill_limits_assumption = max(int(kwargs["backtest_fill_limits_assumption"]), 0)
+        if "same_bar_fill_priority" in kwargs:
+            self._same_bar_fill_priority = _normalize_same_bar_fill_priority(
+                str(kwargs["same_bar_fill_priority"])
+            )
+        if "intrabar_path" in kwargs:
+            self._intrabar_path = _normalize_intrabar_path(str(kwargs["intrabar_path"]))
+        if "margin_long" in kwargs:
+            self._margin_long = max(float(kwargs["margin_long"]), 0.0)
+        if "margin_short" in kwargs:
+            self._margin_short = max(float(kwargs["margin_short"]), 0.0)
 
     @property
     def touched(self) -> bool:
@@ -476,6 +506,15 @@ class IncrementalStrategyNamespace:
     def equity(self) -> float:
         return _round8(self._initial_capital + self.netprofit + self.openprofit)
 
+    def begin_bar(self) -> None:
+        if not self._pending_orders:
+            return
+        still_pending = []
+        for order in self._pending_orders:
+            if not self._try_fill_pending_order(order):
+                still_pending.append(order)
+        self._pending_orders = still_pending
+
     def entry(
         self,
         id: str,
@@ -483,6 +522,8 @@ class IncrementalStrategyNamespace:
         *,
         qty: float = 1.0,
         price: float | None = None,
+        limit: float | None = None,
+        stop: float | None = None,
         when: bool = True,
         comment: str = "",
     ) -> None:
@@ -492,30 +533,75 @@ class IncrementalStrategyNamespace:
         if qty_abs <= 0:
             return
         side = self._normalize_direction(direction)
-        fill_price = self._price_or_current(price)
-        signed_qty = qty_abs if side == self.long else -qty_abs
-        if self.position_size and (self.position_size > 0) != (signed_qty > 0):
-            self._close_lots(id="", exit_id=str(id), target_qty=abs(self.position_size), fill_price=fill_price)
-        self._touched = True
-        self._open_trades.append({
-            "entry_id": str(id),
-            "entry_time": self._current_time(),
-            "side": side,
-            "qty": _round8(qty_abs),
-            "entry_price": _round8(fill_price),
-        })
+        base_price = self._price_or_current(price)
         order = {
             "time": self._current_time(),
             "id": str(id),
             "type": "entry",
             "side": side,
             "qty": _round8(qty_abs),
-            "price": _round8(fill_price),
+            "price": _round8(base_price),
             "position_after": self.position_size,
             "comment": comment,
             "_seq": self._next_seq(),
+            "_base_price": float(base_price),
+            "_limit": _optional_float(limit),
+            "_stop": _optional_float(stop),
+            "_submit_time": self._current_time(),
+            "_requested_fill_qty": qty_abs,
         }
         self._orders.append(order)
+        self._touched = True
+        if limit is not None or stop is not None:
+            order["_pending_submission"] = True
+            order["_active"] = False
+            if not self._try_fill_pending_order(order):
+                self._pending_orders.append(order)
+            return
+        self._fill_entry_order(order, fill_price=base_price, reason=None)
+
+    def _fill_entry_order(self, order: dict[str, Any], *, fill_price: float, reason: str | None) -> None:
+        side = self._normalize_direction(str(order.get("side", self.long)))
+        qty_abs = abs(float(order.get("qty", 0.0)))
+        signed_qty = qty_abs if side == self.long else -qty_abs
+        if self.position_size and (self.position_size > 0) != (signed_qty > 0):
+            self._close_lots(id="", exit_id=str(order.get("id", "")), target_qty=abs(self.position_size), fill_price=fill_price)
+        self._open_trades.append({
+            "entry_id": str(order.get("id", "")),
+            "entry_time": self._current_time(),
+            "side": side,
+            "qty": _round8(qty_abs),
+            "entry_price": _round8(fill_price),
+        })
+        order["time"] = self._current_time()
+        order["price"] = _round8(fill_price)
+        order["position_after"] = self.position_size
+        order["_active"] = True
+        order["_filled_qty"] = qty_abs
+        if reason is not None:
+            order["reason"] = reason
+
+    def _try_fill_pending_order(self, order: dict[str, Any]) -> bool:
+        if order.get("_active"):
+            return True
+        bar = self._context.current_bar
+        if bar is None:
+            return False
+        trigger = _pending_trigger(
+            side=self._normalize_direction(str(order.get("side", self.long))),
+            high=float(bar.high),
+            low=float(bar.low),
+            limit=order.get("_limit"),
+            stop=order.get("_stop"),
+            tick_verify=self._limit_fill_verification_amount(),
+            same_bar_fill_priority=self._same_bar_fill_priority,
+            intrabar_path=self._intrabar_path,
+        )
+        if trigger is None:
+            return False
+        reason, fill_price = trigger
+        self._fill_entry_order(order, fill_price=fill_price, reason=reason)
+        return True
 
     def close(
         self,
@@ -563,6 +649,7 @@ class IncrementalStrategyNamespace:
             "orders": [
                 {key: value for key, value in order.items() if not str(key).startswith("_")}
                 for order in sorted(self._orders, key=lambda item: (item.get("time", 0), item.get("_seq", 0)))
+                if order.get("_active", True)
             ],
             "position": {
                 "size": final_size,
@@ -578,25 +665,27 @@ class IncrementalStrategyNamespace:
                 "grossprofit": self.grossprofit,
                 "grossloss": self.grossloss,
                 "commission": _round8(self._commission),
+                "backtest_fill_limits_assumption": self._backtest_fill_limits_assumption,
+                "same_bar_fill_priority": self._same_bar_fill_priority,
+                "intrabar_path": self._intrabar_path,
+                "margin_long": _round8(self._margin_long),
+                "margin_short": _round8(self._margin_short),
+            },
+            "risk": {
+                "locked": False,
+                "max_drawdown": None,
+                "max_drawdown_type": "percent_of_equity",
+                "max_intraday_loss": None,
+                "max_intraday_loss_type": "percent_of_equity",
+                "max_position_size": None,
+                "max_intraday_filled_orders": None,
             },
             "closedtrades": list(self._closed_trades),
             "opentrades": [
                 {**trade, "profit": _round8(_trade_open_profit(trade, self._current_price()))}
                 for trade in self._open_trades
             ],
-            "lifecycle": [
-                {
-                    "time": order.get("time"),
-                    "id": order.get("id"),
-                    "event": f"{order.get('type')}_fill",
-                    "type": order.get("type"),
-                    "side": order.get("side"),
-                    "qty": order.get("qty"),
-                    "price": order.get("price"),
-                    "position_after": order.get("position_after"),
-                }
-                for order in sorted(self._orders, key=lambda item: (item.get("time", 0), item.get("_seq", 0)))
-            ],
+            "lifecycle": _incremental_strategy_lifecycle_events(self._orders),
         }
 
     def _requested_close_qty(self, *, qty: float | None, qty_percent: float | None) -> float:
@@ -668,6 +757,9 @@ class IncrementalStrategyNamespace:
         self._event_seq += 1
         return self._event_seq
 
+    def _limit_fill_verification_amount(self) -> float:
+        return self._backtest_fill_limits_assumption * self._mintick
+
 
 class IncrementalContext:
     """Per-session context exposed to incremental Pyne callbacks."""
@@ -687,11 +779,11 @@ class IncrementalContext:
         self._limits = limits or IncrementalLimits(enabled=False)
         self._limit_tracker = _LimitTracker(self._limits)
         self.ta = IncrementalTaNamespace(self._limit_tracker)
-        self.strategy = IncrementalStrategyNamespace(self)
         self.syminfo = syminfo or SymbolInfo()
         self.timeframe = timeframe or TimeframeInfo()
         self._default_session = session or SessionInfo()
         self.session = self._default_session
+        self.strategy = IncrementalStrategyNamespace(self)
         self._states: dict[str, StateCell] = {}
         self._windows: dict[str, Window] = {}
         self._series: dict[str, dict[str, Any]] = {}
@@ -733,6 +825,7 @@ class IncrementalContext:
         self.last_bar_index = last_bar_index
         self.barstate = barstate
         self.session = _session_info_for_bar(bar, self._default_session)
+        self.strategy.begin_bar()
 
     def state(self, name: str, default: Any = None) -> StateCell:
         key = str(name)
@@ -1282,6 +1375,160 @@ def _trade_open_profit(trade: dict[str, Any], close_price: float) -> float:
         entry_price=float(trade.get("entry_price", 0.0)),
         exit_price=float(close_price),
     )
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
+def _pending_trigger(
+    *,
+    side: str,
+    high: float,
+    low: float,
+    limit: float | None,
+    stop: float | None,
+    tick_verify: float = 0.0,
+    same_bar_fill_priority: str = "stop_first",
+    intrabar_path: str = "same_bar_priority",
+) -> tuple[str, float] | None:
+    if side == IncrementalStrategyNamespace.long:
+        stop_hit = stop is not None and high >= stop
+        limit_hit = limit is not None and low <= limit - tick_verify
+        if stop_hit and limit_hit:
+            return _same_bar_trigger(
+                stop=stop,
+                limit=limit,
+                stop_path="high",
+                limit_path="low",
+                same_bar_fill_priority=same_bar_fill_priority,
+                intrabar_path=intrabar_path,
+            )
+        if stop_hit:
+            return "stop", float(stop)
+        if limit_hit:
+            return "limit", float(limit)
+        return None
+    stop_hit = stop is not None and low <= stop
+    limit_hit = limit is not None and high >= limit + tick_verify
+    if stop_hit and limit_hit:
+        return _same_bar_trigger(
+            stop=stop,
+            limit=limit,
+            stop_path="low",
+            limit_path="high",
+            same_bar_fill_priority=same_bar_fill_priority,
+            intrabar_path=intrabar_path,
+        )
+    if stop_hit:
+        return "stop", float(stop)
+    if limit_hit:
+        return "limit", float(limit)
+    return None
+
+
+def _same_bar_trigger(
+    *,
+    stop: float | None,
+    limit: float | None,
+    stop_path: str,
+    limit_path: str,
+    same_bar_fill_priority: str,
+    intrabar_path: str,
+) -> tuple[str, float]:
+    if intrabar_path == IncrementalStrategyNamespace.intrabar.open_high_low_close:
+        if stop_path == "high" and limit_path == "low":
+            return "stop", float(stop)
+        if limit_path == "high" and stop_path == "low":
+            return "limit", float(limit)
+    if intrabar_path == IncrementalStrategyNamespace.intrabar.open_low_high_close:
+        if stop_path == "low" and limit_path == "high":
+            return "stop", float(stop)
+        if limit_path == "low" and stop_path == "high":
+            return "limit", float(limit)
+    if same_bar_fill_priority == IncrementalStrategyNamespace.same_bar.limit_first:
+        return "limit", float(limit)
+    return "stop", float(stop)
+
+
+def _normalize_same_bar_fill_priority(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    aliases = {
+        "stop": IncrementalStrategyNamespace.same_bar.stop_first,
+        "stop_first": IncrementalStrategyNamespace.same_bar.stop_first,
+        "stop-first": IncrementalStrategyNamespace.same_bar.stop_first,
+        "limit": IncrementalStrategyNamespace.same_bar.limit_first,
+        "limit_first": IncrementalStrategyNamespace.same_bar.limit_first,
+        "limit-first": IncrementalStrategyNamespace.same_bar.limit_first,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    raise ValueError("same_bar_fill_priority must be stop_first or limit_first")
+
+
+def _normalize_intrabar_path(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    aliases = {
+        "same_bar_priority": IncrementalStrategyNamespace.intrabar.same_bar_priority,
+        "same-bar-priority": IncrementalStrategyNamespace.intrabar.same_bar_priority,
+        "open_high_low_close": IncrementalStrategyNamespace.intrabar.open_high_low_close,
+        "open-high-low-close": IncrementalStrategyNamespace.intrabar.open_high_low_close,
+        "ohlc": IncrementalStrategyNamespace.intrabar.open_high_low_close,
+        "open_low_high_close": IncrementalStrategyNamespace.intrabar.open_low_high_close,
+        "open-low-high-close": IncrementalStrategyNamespace.intrabar.open_low_high_close,
+        "olhc": IncrementalStrategyNamespace.intrabar.open_low_high_close,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    raise ValueError("intrabar_path must be same_bar_priority, open_high_low_close, or open_low_high_close")
+
+
+def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    events = []
+    for order in sorted(orders, key=lambda item: (item.get("_submit_time", item.get("time", 0)), item.get("_seq", 0))):
+        order_type = str(order.get("type", ""))
+        pending = bool(order.get("_pending_submission"))
+        active = bool(order.get("_active", True))
+        if active:
+            status = "filled"
+            phase = "pending_fill" if pending else "close_fill" if order_type == "close" else "close_all_fill" if order_type == "close_all" else "market_fill"
+        elif pending:
+            status = "pending"
+            phase = "pending"
+        else:
+            status = "submitted"
+            phase = order_type
+        event: dict[str, Any] = {
+            "id": order.get("id"),
+            "type": order_type,
+            "status": status,
+            "phase": phase,
+            "submitted_time": order.get("_submit_time", order.get("time")),
+            "filled_time": order.get("time") if active else None,
+            "canceled_time": None,
+            "rejected_time": None,
+            "side": order.get("side"),
+            "qty": order.get("qty"),
+            "price": order.get("price"),
+            "position_after": order.get("position_after"),
+        }
+        if order.get("reason") is not None:
+            event["reason"] = order.get("reason")
+        if order.get("comment") is not None:
+            event["comment"] = order.get("comment")
+        if order.get("_limit") is not None:
+            event["limit"] = order.get("_limit")
+        if order.get("_stop") is not None:
+            event["stop"] = order.get("_stop")
+        if order.get("_requested_fill_qty") is not None and active:
+            event["requested_qty"] = _round8(float(order.get("_requested_fill_qty", 0.0)))
+        if order.get("_filled_qty") is not None and active:
+            event["filled_qty"] = _round8(float(order.get("_filled_qty", 0.0)))
+        returnable = {key: value for key, value in event.items() if value is not None or key in {"filled_time", "canceled_time", "rejected_time"}}
+        events.append(returnable)
+    return events
 
 
 def _session_info_for_bar(bar: IncrementalBar, default: SessionInfo) -> SessionInfo:
