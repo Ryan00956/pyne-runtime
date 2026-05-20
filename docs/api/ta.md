@@ -56,3 +56,13 @@ plot(ta.mom(close[1], 10), "Shifted Momentum")
 marker(ta.cross(close, ta.sma(close, 20)), text="Cross")
 ```
 
+## Golden Coverage
+
+The TA golden suite includes deterministic fixtures for core moving averages,
+Wilder smoothing, RSI, rolling extremes, bars-back extreme offsets,
+`barssince()`, and `valuewhen()`.
+
+The current fixture keeps a `pine_equivalent` script alongside the Pyne script
+so future TradingView-exported outputs can replace or extend the expected
+series without changing the test harness.
+

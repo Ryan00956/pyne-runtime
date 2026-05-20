@@ -228,7 +228,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ### P5: Golden 与兼容性证据
 
-- TA golden fixtures。
+- TA golden fixtures 已开始覆盖 `sma`、`ema`、`rma`、`rsi`、rolling extremes、
+  `highestbars`、`lowestbars`、`barssince` 与 `valuewhen`；fixture 内保留
+  `pine_equivalent`，后续可把 TradingView 导出的序列替换/追加为外部对照。
 - request edge-case golden fixtures 已覆盖 Pyne 定义的 gaps/lookahead、
   lower-timeframe grouping、空桶默认值、tuple thunk 和 capability/invalid symbol
   组合场景；后续可继续补真实 Pine 输出对照。
@@ -241,8 +243,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议进入真实 Pine 输出对照 golden，优先选择 TA 与 strategy 中已经实现
-但仍只有 Pyne-defined 测试的高频函数，逐步把“可用”升级成“有外部对照证据”。
+下一步建议继续扩大真实 Pine 输出对照 golden，优先选择 TA 中已经实现但尚未纳入
+golden 的 `macd`、`bb`、`atr`、`alma`、`dmi`、`sar` 等高频函数，以及
+strategy 中仍缺外部导出对照的复杂成交路径，逐步把“可用”升级成“有外部对照证据”。
 完成后应同步更新：
 
 - `tests/golden/`
