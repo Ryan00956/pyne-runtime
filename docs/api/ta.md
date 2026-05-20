@@ -8,6 +8,7 @@ Common helpers:
 ta.sma(close, 20)
 ta.ema(close, 20)
 ta.wma(close, 20)
+ta.vwma(close, 20)
 ta.hma(close, 20)
 ta.swma(close)
 ta.alma(close, 20, 0.85, 6)
@@ -19,8 +20,12 @@ ta.macd(close, 12, 26, 9)
 ta.mom(close, 10)
 ta.linreg(close, 20, 0)
 ta.correlation(close, open, 20)
+ta.stoch(close, high, low, 14)
+ta.cci(close, 20)
+ta.mfi(close, 14)
 ta.dmi(14, 14)
 ta.sar(0.02, 0.02, 0.2)
+ta.supertrend(3, 10)
 ta.bb(close, 20, 2)
 ta.dev(close, 20)
 ta.variance(close, 20)
@@ -42,6 +47,10 @@ Several helpers are also exposed as top-level script functions, such as `cross()
 
 `ta.bb(source, length, mult)` follows Pine's tuple order:
 `middle, upper, lower = ta.bb(close, 20, 2)`.
+
+Several context-aware helpers also follow Pine's argument order:
+`ta.stoch(source, high, low, length)`, `ta.cci(source, length)`,
+`ta.mfi(source, length)`, and `ta.supertrend(factor, atrPeriod)`.
 
 `ta.highestbars(source, length)` and `ta.lowestbars(source, length)` return the
 number of bars back to the most recent highest or lowest value in the rolling
@@ -65,7 +74,7 @@ The TA golden suite includes deterministic fixtures for core moving averages,
 Wilder smoothing, RSI, rolling extremes, bars-back extreme offsets,
 `barssince()`, `valuewhen()`, MACD, Bollinger Bands, ATR, ALMA, DMI, and
 Parabolic SAR, HMA, SWMA, CMO, Williams %R, TSI, rolling percentiles, mean
-absolute deviation, and variance.
+absolute deviation, variance, stochastic, CCI, MFI, VWMA, and Supertrend.
 
 `ta.macd()` follows Pine's tuple shape: MACD line, signal line, and histogram,
 where histogram is `macd_line - signal_line`. The signal line starts after the

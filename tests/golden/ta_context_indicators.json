@@ -1,0 +1,90 @@
+{
+  "name": "ta_context_indicators",
+  "source": "Pyne-defined TA golden fixture for Pine-like context indicator signatures; replace or extend expected_series with exported Pine output when an external TradingView capture is available.",
+  "chart_bars": [
+    {"time": 1, "open": 20.0, "high": 22.0, "low": 19.0, "close": 21.0, "volume": 1000.0},
+    {"time": 2, "open": 21.0, "high": 23.0, "low": 20.0, "close": 22.0, "volume": 1010.0},
+    {"time": 3, "open": 22.0, "high": 24.0, "low": 21.0, "close": 23.0, "volume": 1020.0},
+    {"time": 4, "open": 23.0, "high": 23.5, "low": 20.5, "close": 21.0, "volume": 1030.0},
+    {"time": 5, "open": 21.0, "high": 22.0, "low": 18.5, "close": 19.0, "volume": 1040.0},
+    {"time": 6, "open": 19.0, "high": 21.5, "low": 18.0, "close": 20.5, "volume": 1050.0},
+    {"time": 7, "open": 20.5, "high": 25.0, "low": 20.0, "close": 24.0, "volume": 1060.0},
+    {"time": 8, "open": 24.0, "high": 26.0, "low": 23.0, "close": 25.0, "volume": 1070.0},
+    {"time": 9, "open": 25.0, "high": 25.5, "low": 21.5, "close": 22.0, "volume": 1080.0},
+    {"time": 10, "open": 22.0, "high": 23.0, "low": 19.5, "close": 20.0, "volume": 1090.0},
+    {"time": 11, "open": 20.0, "high": 24.5, "low": 19.0, "close": 24.0, "volume": 1100.0},
+    {"time": 12, "open": 24.0, "high": 27.0, "low": 23.5, "close": 26.0, "volume": 1110.0}
+  ],
+  "script": "supertrend_line, supertrend_direction = ta.supertrend(2, 3)\nplot(ta.stoch(close, high, low, 4), \"Stoch 4\")\nplot(ta.cci(close, 4), \"CCI 4\")\nplot(ta.mfi(close, 4), \"MFI 4\")\nplot(ta.vwma(close, 4), \"VWMA 4\")\nplot(supertrend_line, \"Supertrend 2 3\")\nplot(supertrend_direction, \"Supertrend Direction\")\n",
+  "pine_equivalent": "//@version=5\nindicator(\"TA Context Indicators Golden\")\n[supertrend_line, supertrend_direction] = ta.supertrend(2, 3)\nplot(ta.stoch(close, high, low, 4), \"Stoch 4\")\nplot(ta.cci(close, 4), \"CCI 4\")\nplot(ta.mfi(close, 4), \"MFI 4\")\nplot(ta.vwma(close, 4), \"VWMA 4\")\nplot(supertrend_line, \"Supertrend 2 3\")\nplot(supertrend_direction, \"Supertrend Direction\")\n",
+  "expected_series": {
+    "Stoch 4": [
+      {"time": 4, "value": 40.0},
+      {"time": 5, "value": 9.09090909},
+      {"time": 6, "value": 41.66666667},
+      {"time": 7, "value": 85.71428571},
+      {"time": 8, "value": 87.5},
+      {"time": 9, "value": 50.0},
+      {"time": 10, "value": 7.69230769},
+      {"time": 11, "value": 71.42857143},
+      {"time": 12, "value": 87.5}
+    ],
+    "CCI 4": [
+      {"time": 4, "value": -66.66666667},
+      {"time": 5, "value": -120.0},
+      {"time": 6, "value": -22.22222222},
+      {"time": 7, "value": 133.33333333},
+      {"time": 8, "value": 80.70175439},
+      {"time": 9, "value": -35.8974359},
+      {"time": 10, "value": -104.76190476},
+      {"time": 11, "value": 47.61904762},
+      {"time": 12, "value": 100.0}
+    ],
+    "MFI 4": [
+      {"time": 5, "value": 52.46353509},
+      {"time": 6, "value": 52.08104197},
+      {"time": 7, "value": 53.15488654},
+      {"time": 8, "value": 78.86065793},
+      {"time": 9, "value": 75.62451911},
+      {"time": 10, "value": 53.39130435},
+      {"time": 11, "value": 53.84459528},
+      {"time": 12, "value": 54.81055346}
+    ],
+    "VWMA 4": [
+      {"time": 4, "value": 21.75123153},
+      {"time": 5, "value": 21.23658537},
+      {"time": 6, "value": 20.86352657},
+      {"time": 7, "value": 21.13755981},
+      {"time": 8, "value": 22.15047393},
+      {"time": 9, "value": 22.8814554},
+      {"time": 10, "value": 22.73255814},
+      {"time": 11, "value": 22.74423963},
+      {"time": 12, "value": 23.01826484}
+    ],
+    "Supertrend 2 3": [
+      {"time": 4, "value": 28.0},
+      {"time": 5, "value": 26.58333333},
+      {"time": 6, "value": 26.30555556},
+      {"time": 7, "value": 26.30555556},
+      {"time": 8, "value": 26.30555556},
+      {"time": 9, "value": 26.30555556},
+      {"time": 10, "value": 26.30555556},
+      {"time": 11, "value": 26.30555556},
+      {"time": 12, "value": 26.30555556}
+    ],
+    "Supertrend Direction": [
+      {"time": 1, "value": 1.0},
+      {"time": 2, "value": 1.0},
+      {"time": 3, "value": 1.0},
+      {"time": 4, "value": -1.0},
+      {"time": 5, "value": -1.0},
+      {"time": 6, "value": -1.0},
+      {"time": 7, "value": -1.0},
+      {"time": 8, "value": -1.0},
+      {"time": 9, "value": -1.0},
+      {"time": 10, "value": -1.0},
+      {"time": 11, "value": -1.0},
+      {"time": 12, "value": -1.0}
+    ]
+  }
+}

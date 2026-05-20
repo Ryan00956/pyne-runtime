@@ -358,19 +358,16 @@ class TaModule:
 
     def stoch(
         self,
-        close: PyneSeries | np.ndarray,
+        source: PyneSeries | np.ndarray,
         high: PyneSeries | np.ndarray | None = None,
         low: PyneSeries | np.ndarray | None = None,
-        k_period: int = 14,
-        d_period: int = 3,
-        smooth_k: int = 3,
-    ) -> tuple[PyneSeries | np.ndarray, PyneSeries | np.ndarray]:
-        """Stochastic Oscillator.
+        period: int = 14,
+        *,
+        k_period: int | None = None,
+    ) -> PyneSeries | np.ndarray:
+        """Stochastic oscillator.
 
-        Pine equivalent: ``ta.stoch(close, high, low, 14)``
-
-        Returns:
-            Tuple of (K%, D%) arrays.
+        Pine equivalent: ``ta.stoch(source, high, low, length)``.
         """
         if high is None:
             if self._ctx is None:
@@ -379,62 +376,65 @@ class TaModule:
         if low is None:
             low = self._ctx.low
 
-        close_arr = to_numpy(close, dtype=np.float64)
+        length = k_period if k_period is not None else period
+        source_arr = to_numpy(source, dtype=np.float64)
         high_arr = to_numpy(high, dtype=np.float64)
         low_arr = to_numpy(low, dtype=np.float64)
-        hh = to_numpy(utils.highest(high_arr, k_period), dtype=np.float64)
-        ll = to_numpy(utils.lowest(low_arr, k_period), dtype=np.float64)
+        hh = to_numpy(utils.highest(high_arr, length), dtype=np.float64)
+        ll = to_numpy(utils.lowest(low_arr, length), dtype=np.float64)
 
         with np.errstate(divide="ignore", invalid="ignore"):
-            raw_k = np.where(
+            result = np.where(
                 (hh - ll) != 0,
-                100.0 * (close_arr - ll) / (hh - ll),
+                100.0 * (source_arr - ll) / (hh - ll),
                 50.0,
             )
-        raw_k[:k_period - 1] = np.nan
+        result[:length - 1] = np.nan
 
-        k = self.sma(raw_k, smooth_k)
-        d = self.sma(k, d_period)
-
-        return wrap_like(k, close, high, low), wrap_like(d, close, high, low)
+        return wrap_like(result, source, high, low)
 
     def cci(
         self,
+        source: PyneSeries | np.ndarray | None = None,
+        period: int = 20,
+        *,
         high: PyneSeries | np.ndarray | None = None,
         low: PyneSeries | np.ndarray | None = None,
         close: PyneSeries | np.ndarray | None = None,
-        period: int = 20,
     ) -> PyneSeries | np.ndarray:
         """Commodity Channel Index.
 
-        Pine equivalent: ``ta.cci(high, low, close, 20)``
+        Pine equivalent: ``ta.cci(source, length)``.
         """
-        if high is None:
-            if self._ctx is None:
-                raise RuntimeError("ta.cci() needs OHLC data")
-            high = self._ctx.high
-        if low is None:
-            low = self._ctx.low
-        if close is None:
-            close = self._ctx.close
+        if source is None:
+            if high is None:
+                if self._ctx is None:
+                    raise RuntimeError("ta.cci() needs a source series")
+                high = self._ctx.high
+            if low is None:
+                low = self._ctx.low
+            if close is None:
+                close = self._ctx.close
+            source = (
+                to_numpy(high, dtype=np.float64)
+                + to_numpy(low, dtype=np.float64)
+                + to_numpy(close, dtype=np.float64)
+            ) / 3.0
 
-        high_arr = to_numpy(high, dtype=np.float64)
-        low_arr = to_numpy(low, dtype=np.float64)
-        close_arr = to_numpy(close, dtype=np.float64)
-        tp = (high_arr + low_arr + close_arr) / 3.0
-        tp_sma = self.sma(tp, period)
+        source_arr = to_numpy(source, dtype=np.float64)
+        source_sma = self.sma(source_arr, period)
 
         # Mean absolute deviation
-        n = len(tp)
+        n = len(source_arr)
         mad = np.full(n, np.nan)
         for i in range(period - 1, n):
-            window = tp[i - period + 1: i + 1]
-            mad[i] = np.nanmean(np.abs(window - tp_sma[i]))
+            window = source_arr[i - period + 1: i + 1]
+            mad[i] = np.nanmean(np.abs(window - source_sma[i]))
 
         with np.errstate(divide="ignore", invalid="ignore"):
-            result = np.where(mad != 0, (tp - tp_sma) / (0.015 * mad), 0.0)
+            result = np.where(mad != 0, (source_arr - source_sma) / (0.015 * mad), 0.0)
         result[:period - 1] = np.nan
-        return wrap_like(result, high, low, close)
+        return wrap_like(result, source)
 
     # ═══════════════════════════════════════════════════════════
     #  Trend Indicators
@@ -693,20 +693,28 @@ class TaModule:
 
     def supertrend(
         self,
-        period: int = 10,
-        mult: float = 3.0,
+        factor: float = 3.0,
+        atr_period: int = 10,
         high: PyneSeries | np.ndarray | None = None,
         low: PyneSeries | np.ndarray | None = None,
         close: PyneSeries | np.ndarray | None = None,
+        *,
+        period: int | None = None,
+        mult: float | None = None,
     ) -> tuple[PyneSeries | np.ndarray, PyneSeries | np.ndarray]:
         """Supertrend indicator.
 
-        Pine equivalent: ``ta.supertrend(close, 10, 3)``
+        Pine equivalent: ``ta.supertrend(factor, atrPeriod)``.
 
         Returns:
             Tuple of (supertrend_line, direction) arrays.
             direction: 1 = uptrend (bullish), -1 = downtrend (bearish).
         """
+        if period is not None:
+            atr_period = period
+        if mult is not None:
+            factor = mult
+
         if high is None:
             if self._ctx is None:
                 raise RuntimeError("ta.supertrend() needs OHLC data")
@@ -719,20 +727,20 @@ class TaModule:
         high_arr = to_numpy(high, dtype=np.float64)
         low_arr = to_numpy(low, dtype=np.float64)
         close_arr = to_numpy(close, dtype=np.float64)
-        atr_val = to_numpy(self.atr(period, high_arr, low_arr, close_arr), dtype=np.float64)
+        atr_val = to_numpy(self.atr(atr_period, high_arr, low_arr, close_arr), dtype=np.float64)
         hl2 = (high_arr + low_arr) / 2.0
 
         n = len(close_arr)
-        upper_band = hl2 + mult * atr_val
-        lower_band = hl2 - mult * atr_val
+        upper_band = hl2 + factor * atr_val
+        lower_band = hl2 - factor * atr_val
         supertrend = np.full(n, np.nan)
         direction = np.ones(n)  # 1 = up, -1 = down
 
-        for i in range(period, n):
+        for i in range(atr_period, n):
             if np.isnan(upper_band[i]) or np.isnan(lower_band[i]):
                 continue
 
-            if i == period:
+            if i == atr_period:
                 supertrend[i] = upper_band[i]
                 direction[i] = -1 if close_arr[i] < upper_band[i] else 1
                 continue
@@ -1069,36 +1077,46 @@ class TaModule:
 
     def mfi(
         self,
+        source: PyneSeries | np.ndarray | int | None = None,
         period: int = 14,
+        *,
+        volume: PyneSeries | np.ndarray | None = None,
         high: PyneSeries | np.ndarray | None = None,
         low: PyneSeries | np.ndarray | None = None,
         close: PyneSeries | np.ndarray | None = None,
-        volume: PyneSeries | np.ndarray | None = None,
     ) -> PyneSeries | np.ndarray:
         """Money Flow Index.
 
-        Pine equivalent: ``ta.mfi(hlc3, 14)``
+        Pine equivalent: ``ta.mfi(source, length)``.
         """
-        if high is None:
-            if self._ctx is None:
-                raise RuntimeError("ta.mfi() needs OHLCV data")
-            high = self._ctx.high
-        if low is None:
-            low = self._ctx.low
-        if close is None:
-            close = self._ctx.close
+        if isinstance(source, int):
+            period = source
+            source = None
+        if source is None:
+            if high is None:
+                if self._ctx is None:
+                    raise RuntimeError("ta.mfi() needs a source series and volume data")
+                high = self._ctx.high
+            if low is None:
+                low = self._ctx.low
+            if close is None:
+                close = self._ctx.close
+            source = (
+                to_numpy(high, dtype=np.float64)
+                + to_numpy(low, dtype=np.float64)
+                + to_numpy(close, dtype=np.float64)
+            ) / 3.0
         if volume is None:
+            if self._ctx is None:
+                raise RuntimeError("ta.mfi() needs volume data")
             volume = self._ctx.volume
 
-        high_arr = to_numpy(high, dtype=np.float64)
-        low_arr = to_numpy(low, dtype=np.float64)
-        close_arr = to_numpy(close, dtype=np.float64)
+        source_arr = to_numpy(source, dtype=np.float64)
         volume_arr = to_numpy(volume, dtype=np.float64)
-        tp = (high_arr + low_arr + close_arr) / 3.0
-        raw_mf = tp * volume_arr
+        raw_mf = source_arr * volume_arr
 
-        pos_mf = np.where(utils.change(tp, 1) > 0, raw_mf, 0.0)
-        neg_mf = np.where(utils.change(tp, 1) < 0, raw_mf, 0.0)
+        pos_mf = np.where(utils.change(source_arr, 1) > 0, raw_mf, 0.0)
+        neg_mf = np.where(utils.change(source_arr, 1) < 0, raw_mf, 0.0)
         pos_mf[0] = 0
         neg_mf[0] = 0
 
@@ -1108,7 +1126,7 @@ class TaModule:
         with np.errstate(divide="ignore", invalid="ignore"):
             mfi_val = np.where(neg_sum != 0, 100.0 - 100.0 / (1.0 + pos_sum / neg_sum), 100.0)
         mfi_val[:period] = np.nan
-        return wrap_like(mfi_val, high, low, close, volume)
+        return wrap_like(mfi_val, source, volume)
 
     # ═══════════════════════════════════════════════════════════
     #  Proxy methods for utils (so ta.crossover works)

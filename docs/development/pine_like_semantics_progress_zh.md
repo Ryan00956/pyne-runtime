@@ -231,8 +231,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - TA golden fixtures 已开始覆盖 `sma`、`ema`、`rma`、`rsi`、rolling extremes、
   `highestbars`、`lowestbars`、`barssince`、`valuewhen`、`macd`、`bb`、
   `atr`、`alma`、`dmi`、`sar`、`hma`、`swma`、`cmo`、`wpr`、`tsi`、
-  `percentile_*`、`dev` 与 `variance`；fixture 内保留 `pine_equivalent`，
-  后续可把 TradingView 导出的序列替换/追加为外部对照。
+  `percentile_*`、`dev`、`variance`、`stoch`、`cci`、`mfi`、`vwma`
+  与 `supertrend`；fixture 内保留 `pine_equivalent`，后续可把 TradingView
+  导出的序列替换/追加为外部对照。
 - request edge-case golden fixtures 已覆盖 Pyne 定义的 gaps/lookahead、
   lower-timeframe grouping、空桶默认值、tuple thunk 和 capability/invalid symbol
   组合场景；后续可继续补真实 Pine 输出对照。
@@ -245,9 +246,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议继续扩大真实 Pine 输出对照 golden，优先选择 TA 中较少见但已实现的
-`stoch`、`cci`、`supertrend`、`mfi`、`vwma`、`keltner`、`donchian` 等函数，
-以及 strategy 中仍缺外部导出对照的复杂成交路径，逐步把“可用”升级成“有外部对照证据”。
+下一步建议继续扩大真实 Pine 输出对照 golden，优先选择 strategy 中仍缺外部导出
+对照的复杂成交路径；TA 侧可继续补 `keltner`、`donchian` 等 Pyne 扩展 helper，
+但它们不是 Pine 内置优先级。
 完成后应同步更新：
 
 - `tests/golden/`

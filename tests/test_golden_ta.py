@@ -18,6 +18,7 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
         "ta_core_indicators.json",
         "ta_advanced_indicators.json",
         "ta_remaining_indicators.json",
+        "ta_context_indicators.json",
     ],
 )
 def test_ta_golden_fixture(fixture_name: str) -> None:
