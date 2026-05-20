@@ -3,10 +3,10 @@
 Plot helpers are injected into scripts.
 
 ```python
-indicator("Bands", overlay=True)
+indicator("Bands", overlay=True, format=format.price, scale=scale.right)
 
 p1 = plot(upper, "Upper", color=color.blue)
-plot(mid, "Middle", color=color.orange)
+plot(mid, "Middle", color=color.orange, display=display.all)
 p2 = plot(lower, "Lower", color=color.blue)
 fill(p1, p2, color="rgba(59,130,246,0.08)")
 marker(close > open, shape=shape.triangleup, location=location.abovebar, size=size.small)
@@ -132,6 +132,10 @@ Common plotting and drawing constants:
 - `location.abovebar`, `location.belowbar`, `location.top`,
   `location.bottom`, `location.absolute`
 - `size.tiny`, `size.small`, `size.normal`, `size.large`, `size.huge`
+- `display.none`, `display.all`, `display.pane`, `display.data_window`,
+  `display.status_line`
+- `format.inherit`, `format.price`, `format.volume`, `format.percent`
+- `scale.left`, `scale.right`, `scale.none`
 - `text.align_left`, `text.align_center`, `text.align_right`,
   `text.align_top`, `text.align_middle`, `text.align_bottom`
 - `line.style_solid`, `line.style_dashed`, `line.style_dotted`

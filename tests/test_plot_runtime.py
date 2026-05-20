@@ -225,6 +225,31 @@ table.cell(summary, 0, 0, "Aligned", text_halign=text.align_left, text_valign=te
     assert objects["tables"][0]["cells"][0]["text_valign"] == "top"
 
 
+def test_indicator_and_plot_display_format_scale_namespaces() -> None:
+    result = pn.run(
+        """
+indicator("Display Enums", overlay=False, format=format.price, precision=2, scale=scale.right)
+plot(close, "Hidden Close", display=display.none, format=format.volume, precision=0)
+plot(volume, "Volume Columns", style=plot.style_columns, display=display.data_window)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.output["meta"] == {
+        "title": "Display Enums",
+        "overlay": False,
+        "format": "price",
+        "precision": 2,
+        "scale": "right",
+    }
+    assert result.output["lines"][0]["display"] == "none"
+    assert result.output["lines"][0]["format"] == "volume"
+    assert result.output["lines"][0]["precision"] == 0
+    assert result.output["histograms"][0]["display"] == "data_window"
+
+
 def test_box_and_table_objects_can_be_deleted() -> None:
     result = pn.run(
         """

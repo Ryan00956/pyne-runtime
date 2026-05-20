@@ -303,6 +303,9 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         overlay: bool | None = None,
         pane: str | None = None,
         color_array: PyneSeries | np.ndarray | None = None,
+        display: str | None = None,
+        format: str | None = None,
+        precision: int | None = None,
     ) -> PlotRef:
         """Plot a line series.
 
@@ -317,6 +320,9 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             overlay: True = on price chart, False = separate pane.
             pane: Explicit pane assignment ("main" or "separate").
             color_array: Per-bar color array (overrides ``color``).
+            display: Pine-like display enum string.
+            format: Pine-like numeric format enum string.
+            precision: Optional display precision.
 
         Returns:
             PlotRef for use with ``fill()``.
@@ -370,6 +376,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                 ),
                 "pane": pane,
                 "data": hist_points,
+                **_display_options(display=display, format=format, precision=precision),
             })
             return PlotRef(id=plot_id, title=title, pane=pane)
 
@@ -386,6 +393,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             "style": style,
             "pane": pane,
             "data": points,
+            **_display_options(display=display, format=format, precision=precision),
         }
 
         if color_array is not None or isinstance(color, (np.ndarray, PyneSeries)):
@@ -1223,6 +1231,24 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         large="large",
         huge="huge",
     )
+    display_namespace = _Namespace(
+        none="none",
+        all="all",
+        pane="pane",
+        data_window="data_window",
+        status_line="status_line",
+    )
+    format_namespace = _Namespace(
+        inherit="inherit",
+        price="price",
+        volume="volume",
+        percent="percent",
+    )
+    scale_namespace = _Namespace(
+        left="left",
+        right="right",
+        none="none",
+    )
     text_namespace = _Namespace(
         align_left="left",
         align_center="center",
@@ -1252,5 +1278,24 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         "location": location_namespace,
         "position": position_namespace,
         "size": size_namespace,
+        "display": display_namespace,
+        "format": format_namespace,
+        "scale": scale_namespace,
         "text": text_namespace,
     }
+
+
+def _display_options(
+    *,
+    display: str | None,
+    format: str | None,
+    precision: int | None,
+) -> dict[str, Any]:
+    options: dict[str, Any] = {}
+    if display is not None:
+        options["display"] = str(display)
+    if format is not None:
+        options["format"] = str(format)
+    if precision is not None:
+        options["precision"] = int(precision)
+    return options
