@@ -108,7 +108,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   和 `qty_percent`，用于观察 max position size 截断、partial close/exit 等
   数量语义。
 - Strategy golden fixture 已覆盖 same-bar stop/limit priority、intrabar path
-  policy 和 lifecycle quantity/cancel/rejected 语义。
+  policy、lifecycle quantity/cancel/rejected 语义，以及 risk lock 拒绝
+  entry/order 但允许 close_all 的回放行为。
 
 ## 仍然不是 Pine 的地方
 
@@ -157,19 +158,21 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - intrabar path policy 已支持 high-before-low / low-before-high 两种确定性假设。
 - 订单生命周期报告已加入 `strategy.lifecycle`，并覆盖常见 rejected 原因和
   requested/filled quantity 细节；后续可继续扩展更多 broker-emulator 风格事件。
-- 已增加 strategy same-bar 与 lifecycle golden fixtures；后续继续扩大覆盖面。
+- 已增加 strategy same-bar、lifecycle 与 risk lock golden fixtures；后续继续扩大覆盖面。
 
 ### P5: Golden 与兼容性证据
 
 - TA golden fixtures。
 - request edge-case golden fixtures。
-- strategy fill golden fixtures 已开始覆盖 same-bar 与 lifecycle 场景，后续继续扩大。
+- strategy fill golden fixtures 已开始覆盖 same-bar、lifecycle 与 risk lock 场景，
+  后续继续扩大。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续扩大 Strategy golden 与 broker-emulator 风格回放语义，优先覆盖
-`strategy.close*`、`strategy.exit*` 与 risk lock 的组合场景。完成后应同步更新：
+`strategy.close*`、`strategy.exit*` 的更多 partial、lot matching 与 intraday
+risk reset 组合场景。完成后应同步更新：
 
 - `src/pyne_runtime/strategy.py`
 - `tests/test_strategy_runtime.py`
