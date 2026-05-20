@@ -797,6 +797,72 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [0.0, 0.0, 0.0, 0.0]
 
 
+def test_strategy_lifecycle_reports_pending_fill_and_cancel() -> None:
+    result = pn.run(
+        """
+indicator("Lifecycle", overlay=True)
+strategy.entry("Breakout", strategy.long, qty=1, when=bar_index == 0, stop=2.5)
+strategy.entry("Fade", strategy.short, qty=1, when=bar_index == 0, limit=3.5)
+strategy.cancel("Fade", when=bar_index == 1, comment="No fade")
+plot(strategy.position_size, "Position")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    lifecycle = result.output["strategy"]["lifecycle"]
+    assert lifecycle == [
+        {
+            "id": "Breakout",
+            "type": "entry",
+            "status": "filled",
+            "phase": "pending_fill",
+            "submitted_time": 1,
+            "filled_time": 3,
+            "canceled_time": None,
+            "side": "long",
+            "qty": 1.0,
+            "price": 2.5,
+            "position_after": 1.0,
+            "reason": "stop",
+            "comment": "",
+            "stop": 2.5,
+        },
+        {
+            "id": "Fade",
+            "type": "entry",
+            "status": "canceled",
+            "phase": "pending_canceled",
+            "submitted_time": 1,
+            "filled_time": None,
+            "canceled_time": 2,
+            "side": "short",
+            "qty": 1.0,
+            "price": 1.5,
+            "position_after": 0.0,
+            "comment": "",
+            "limit": 3.5,
+            "canceled_by": "Fade",
+        },
+        {
+            "id": "Fade",
+            "type": "cancel",
+            "status": "canceled",
+            "phase": "cancel",
+            "submitted_time": 2,
+            "filled_time": None,
+            "canceled_time": 2,
+            "side": "flat",
+            "qty": 0.0,
+            "price": None,
+            "position_after": 0.0,
+            "comment": "No fade",
+            "canceled": 1,
+        },
+    ]
+
+
 def test_strategy_cancel_all_clears_multiple_pending_orders() -> None:
     result = pn.run(
         """

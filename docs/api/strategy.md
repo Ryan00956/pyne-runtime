@@ -3,7 +3,7 @@
 `strategy` is the Pine-like namespace for deterministic strategy events.
 
 The current implementation is an event and position semantics layer. It is not
-a broker simulator and does not model order books, margin, or intrabar path.
+a broker simulator and does not model order books or tick-level matching.
 
 ```python
 strategy(
@@ -361,6 +361,30 @@ Supported accessors:
 Negative indexes count from the end of the current ledger. Missing trades return
 `na` for numeric fields and an empty string for string fields.
 
+## Lifecycle Report
+
+`output["strategy"]["lifecycle"]` reports the replayed order lifecycle without
+changing the compact `orders` fill ledger. It is intended for host renderers,
+debug panels, and tests that need to distinguish submission, pending,
+fill, and cancel phases.
+
+Lifecycle records include:
+
+- `status`: `pending`, `filled`, `canceled`, or `submitted`.
+- `phase`: `market_fill`, `pending`, `pending_fill`, `pending_canceled`,
+  `exit_fill`, `close_fill`, `close_all_fill`, or `cancel`.
+- `submitted_time`, `filled_time`, and `canceled_time` when known.
+- order identity and replay fields such as `id`, `type`, `side`, `qty`,
+  `price`, `limit`, `stop`, `position_after`, `reason`, `comment`,
+  `oca_name`, and `oca_type` when those fields apply.
+
+Pending entry/order submissions that never fill still appear with
+`status="pending"`. Pending submissions canceled by `strategy.cancel()`,
+`strategy.cancel_all()`, or OCA behavior appear with `status="canceled"` and
+`phase="pending_canceled"`. Filled stop/limit submissions appear with
+`phase="pending_fill"`, while immediate market-style entry/order fills use
+`phase="market_fill"`.
+
 ## Output
 
 Strategy output is serialized under `output["strategy"]`:
@@ -398,6 +422,22 @@ Strategy output is serialized under `output["strategy"]`:
       "side": "long",
       "avg_price": 123.45
     },
+    "lifecycle": [
+      {
+        "id": "Long",
+        "type": "entry",
+        "status": "filled",
+        "phase": "market_fill",
+        "submitted_time": 1710000000,
+        "filled_time": 1710000000,
+        "canceled_time": null,
+        "side": "long",
+        "qty": 1.0,
+        "price": 123.45,
+        "position_after": 1.0,
+        "comment": ""
+      }
+    ],
     "summary": {
       "initial_capital": 100000.0,
       "currency": "USD",

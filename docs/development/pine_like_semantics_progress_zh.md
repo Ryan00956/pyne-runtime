@@ -100,6 +100,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - `strategy.exit()` 支持 `qty` 和 `qty_percent`，并保持 `qty` 优先。
 - 已有 OCA、pyramiding、commission、slippage、limit verification、margin、
   risk rules、closed/open trade ledgers 和 strategy summary。
+- `strategy.lifecycle` 已输出订单生命周期视角，覆盖 pending、filled、
+  canceled、market_fill、pending_fill、pending_canceled、exit/close/cancel
+  等阶段，便于宿主层和测试层观察 Pine-like 回放逻辑。
 
 ## 仍然不是 Pine 的地方
 
@@ -146,7 +149,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 - same-bar stop/limit 触发顺序策略已明确，默认 `stop_first`，可配置 `limit_first`。
 - intrabar path policy 已支持 high-before-low / low-before-high 两种确定性假设。
-- 增加更细的 fill reason、fill phase 和订单生命周期事件。
+- 订单生命周期报告已加入 `strategy.lifecycle`；后续可继续扩展 skipped/rejected
+  原因、partial fill 细节和更多 broker-emulator 风格事件。
 - 增加 strategy golden fixtures。
 
 ### P5: Golden 与兼容性证据

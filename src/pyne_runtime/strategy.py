@@ -775,6 +775,8 @@ class StrategyModule:
             order["_active"] = False
             if order.get("type") in {"entry", "order"}:
                 order.pop("_canceled", None)
+                order.pop("_canceled_time", None)
+                order.pop("_canceled_by", None)
                 order["time"] = int(order.get("_submit_time", order.get("time", 0)))
                 order["qty"] = float(order.get("_original_qty", order.get("qty", 0.0)))
                 order["position_after"] = 0.0
@@ -1011,6 +1013,8 @@ class StrategyModule:
                     if canceled:
                         for item in canceled:
                             item["_canceled"] = True
+                            item["_canceled_time"] = timestamp
+                            item["_canceled_by"] = order.get("id")
                         order["canceled"] = len(canceled)
                         order["_active"] = True
                     pending_orders = [item for item in pending_orders if not item.get("_canceled")]
@@ -1018,6 +1022,8 @@ class StrategyModule:
                     if pending_orders:
                         for item in pending_orders:
                             item["_canceled"] = True
+                            item["_canceled_time"] = timestamp
+                            item["_canceled_by"] = "cancel_all"
                         order["canceled"] = len(pending_orders)
                         order["_active"] = True
                     pending_orders = []
@@ -1285,6 +1291,7 @@ class StrategyModule:
             },
             "closedtrades": closed_trades,
             "opentrades": serialized_open_trades,
+            "lifecycle": _strategy_lifecycle_events(self._collector.strategy_orders),
         }
 
     def _next_event_seq(self) -> int:
@@ -1429,6 +1436,119 @@ def _exit_trigger(
 
 def _is_pending_submission(order: dict[str, Any]) -> bool:
     return order.get("_limit") is not None or order.get("_stop") is not None
+
+
+def _strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for order in sorted(
+        orders,
+        key=lambda item: (
+            item.get("_submit_time", item.get("time", 0)),
+            item.get("_seq", 0),
+        ),
+    ):
+        event = _strategy_lifecycle_event(order)
+        if event is not None:
+            events.append(event)
+    return events
+
+
+def _strategy_lifecycle_event(order: dict[str, Any]) -> dict[str, Any] | None:
+    order_type = str(order.get("type") or "")
+    active = bool(order.get("_active", True))
+    canceled = bool(order.get("_canceled"))
+    pending_submission = order_type in {"entry", "order"} and _is_pending_submission(order)
+
+    if not active and not canceled and not pending_submission:
+        return None
+
+    status = _strategy_lifecycle_status(
+        order_type=order_type,
+        active=active,
+        canceled=canceled,
+        pending_submission=pending_submission,
+    )
+    phase = _strategy_lifecycle_phase(
+        order_type=order_type,
+        status=status,
+        pending_submission=pending_submission,
+    )
+    event: dict[str, Any] = {
+        "id": order.get("id"),
+        "type": order_type,
+        "status": status,
+        "phase": phase,
+        "submitted_time": order.get("_submit_time", order.get("time")),
+        "filled_time": order.get("time") if status == "filled" else None,
+        "canceled_time": order.get("_canceled_time")
+        if status == "canceled" and pending_submission
+        else order.get("time")
+        if status == "canceled"
+        else None,
+        "side": order.get("side"),
+        "qty": order.get("qty"),
+        "price": order.get("price"),
+        "position_after": order.get("position_after"),
+    }
+    optional_fields = (
+        "from_entry",
+        "reason",
+        "comment",
+        "canceled",
+        "commission",
+        "oca_name",
+        "oca_type",
+    )
+    for key in optional_fields:
+        if key in order:
+            event[key] = order[key]
+    for internal_key, public_key in (("_limit", "limit"), ("_stop", "stop")):
+        if order.get(internal_key) is not None:
+            event[public_key] = order.get(internal_key)
+    if order.get("_canceled_by"):
+        event["canceled_by"] = order.get("_canceled_by")
+    return event
+
+
+def _strategy_lifecycle_status(
+    *,
+    order_type: str,
+    active: bool,
+    canceled: bool,
+    pending_submission: bool,
+) -> str:
+    if canceled or order_type in {"cancel", "cancel_all"} and active:
+        return "canceled"
+    if active:
+        return "filled"
+    if pending_submission:
+        return "pending"
+    return "submitted"
+
+
+def _strategy_lifecycle_phase(
+    *,
+    order_type: str,
+    status: str,
+    pending_submission: bool,
+) -> str:
+    if order_type in {"cancel", "cancel_all"}:
+        return "cancel"
+    if status == "canceled" and pending_submission:
+        return "pending_canceled"
+    if status == "pending":
+        return "pending"
+    if pending_submission:
+        return "pending_fill"
+    if order_type == "exit":
+        return "exit_fill"
+    if order_type == "close":
+        return "close_fill"
+    if order_type == "close_all":
+        return "close_all_fill"
+    if order_type in {"entry", "order"}:
+        return "market_fill"
+    return order_type or status
 
 
 def _pending_trigger(
@@ -1647,11 +1767,15 @@ def _apply_oca_after_fill(filled_order: dict[str, Any], pending_orders: list[dic
             continue
         if oca_type == StrategyOca.cancel:
             order["_canceled"] = True
+            order["_canceled_time"] = filled_order.get("time")
+            order["_canceled_by"] = filled_order.get("id")
         elif oca_type == StrategyOca.reduce:
             remaining = max(float(order.get("qty", 0.0)) - filled_qty, 0.0)
             order["qty"] = remaining
             if remaining <= 0:
                 order["_canceled"] = True
+                order["_canceled_time"] = filled_order.get("time")
+                order["_canceled_by"] = filled_order.get("id")
 
 
 def _commission_amount(
