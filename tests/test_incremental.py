@@ -35,6 +35,11 @@ def _line_values(result: object, line_id: str) -> list[float]:
     return [point["value"] for point in line["data"]]
 
 
+def _line_values_by_name(result: object, name: str) -> list[float]:
+    line = next(item for item in result.lines if item["name"] == name)
+    return [point["value"] for point in line["data"]]
+
+
 def _marker_times(result: object, marker_id: str) -> list[int]:
     for marker in result.output.get("markers", []):
         if marker["id"] == marker_id:
@@ -177,4 +182,74 @@ def on_preview(ctx, bar):
     assert _line_values(snapshot, "seen") == [1.0, 2.0, 3.0]
     assert snapshot.meta["bar_index"] == 2
     assert snapshot.meta["barstate"]["isconfirmed"] is True
+
+
+def test_incremental_strategy_entry_close_matches_batch_series_and_report() -> None:
+    batch_script = """
+strategy("Batch Basic", overlay=True, initial_capital=1000)
+strategy.entry_when(bar_index == 0, "A", strategy.long, qty=2, price=close)
+strategy.close("A", when=bar_index == 2, qty=1, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental Basic", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("A", ctx.strategy.long, qty=2, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.close("A", qty=1, price=bar.close, when=ctx.bar_index == 2)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, _bars(), executor_mode="inline")
+    incremental = pn.run(incremental_script, _bars(), executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    assert _line_values(incremental, "position") == _line_values_by_name(batch, "Position")
+    assert _line_values(incremental, "equity") == _line_values_by_name(batch, "Equity")
+    assert _line_values(incremental, "net_profit") == _line_values_by_name(batch, "Net Profit")
+    assert incremental.output["strategy"]["position"] == batch.output["strategy"]["position"]
+    for key in ("initial_capital", "equity", "netprofit", "openprofit", "grossprofit", "grossloss", "commission"):
+        assert incremental.output["strategy"]["summary"][key] == batch.output["strategy"]["summary"][key]
+    assert incremental.output["strategy"]["orders"] == batch.output["strategy"]["orders"]
+    assert incremental.output["strategy"]["closedtrades"] == batch.output["strategy"]["closedtrades"]
+    assert incremental.output["strategy"]["opentrades"] == batch.output["strategy"]["opentrades"]
+
+
+def test_incremental_strategy_seed_matches_closed_bar_session_snapshot() -> None:
+    script = """
+indicator("Incremental Strategy Replay", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("A", ctx.strategy.long, qty=2, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.close("A", qty=1, price=bar.close, when=ctx.bar_index == 2)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    seeded = pn.run(script, _bars(), executor_mode="inline")
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+    for bar in _bars():
+        session.on_bar_closed(bar)
+    snapshot = session.snapshot_result()
+
+    assert seeded.ok
+    assert _line_values(snapshot, "position") == _line_values(seeded, "position")
+    assert _line_values(snapshot, "equity") == _line_values(seeded, "equity")
+    assert _line_values(snapshot, "net_profit") == _line_values(seeded, "net_profit")
+    assert snapshot.output["strategy"] == seeded.output["strategy"]
 

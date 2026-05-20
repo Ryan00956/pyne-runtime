@@ -415,6 +415,260 @@ class IncrementalTaNamespace:
         return self._helpers[key]
 
 
+class IncrementalStrategyNamespace:
+    """Pine-like strategy helper for one-bar-at-a-time callbacks."""
+
+    long = "long"
+    short = "short"
+
+    def __init__(self, context: "IncrementalContext") -> None:
+        self._context = context
+        self._initial_capital = 100000.0
+        self._currency = ""
+        self._orders: list[dict[str, Any]] = []
+        self._open_trades: list[dict[str, Any]] = []
+        self._closed_trades: list[dict[str, Any]] = []
+        self._grossprofit = 0.0
+        self._grossloss = 0.0
+        self._commission = 0.0
+        self._event_seq = 0
+        self._touched = False
+
+    def configure(self, **kwargs: Any) -> None:
+        if "initial_capital" in kwargs:
+            self._initial_capital = float(kwargs["initial_capital"])
+        if "currency" in kwargs:
+            self._currency = str(kwargs["currency"] or "")
+
+    @property
+    def touched(self) -> bool:
+        return self._touched
+
+    @property
+    def position_size(self) -> float:
+        return _round8(sum(_signed_trade_qty(trade) for trade in self._open_trades))
+
+    @property
+    def position_avg_price(self) -> float | None:
+        size = abs(self.position_size)
+        if size <= 0:
+            return None
+        weighted = sum(abs(float(trade["qty"])) * float(trade["entry_price"]) for trade in self._open_trades)
+        return _round8(weighted / size)
+
+    @property
+    def grossprofit(self) -> float:
+        return _round8(self._grossprofit)
+
+    @property
+    def grossloss(self) -> float:
+        return _round8(self._grossloss)
+
+    @property
+    def netprofit(self) -> float:
+        return _round8(self._grossprofit + self._grossloss - self._commission)
+
+    @property
+    def openprofit(self) -> float:
+        return _round8(sum(_trade_open_profit(trade, self._current_price()) for trade in self._open_trades))
+
+    @property
+    def equity(self) -> float:
+        return _round8(self._initial_capital + self.netprofit + self.openprofit)
+
+    def entry(
+        self,
+        id: str,
+        direction: str = long,
+        *,
+        qty: float = 1.0,
+        price: float | None = None,
+        when: bool = True,
+        comment: str = "",
+    ) -> None:
+        if not when:
+            return
+        qty_abs = abs(float(qty))
+        if qty_abs <= 0:
+            return
+        side = self._normalize_direction(direction)
+        fill_price = self._price_or_current(price)
+        signed_qty = qty_abs if side == self.long else -qty_abs
+        if self.position_size and (self.position_size > 0) != (signed_qty > 0):
+            self.close_all(price=fill_price, comment=comment)
+        self._touched = True
+        self._open_trades.append({
+            "entry_id": str(id),
+            "entry_time": self._current_time(),
+            "side": side,
+            "qty": _round8(qty_abs),
+            "entry_price": _round8(fill_price),
+        })
+        order = {
+            "time": self._current_time(),
+            "id": str(id),
+            "type": "entry",
+            "side": side,
+            "qty": _round8(qty_abs),
+            "price": _round8(fill_price),
+            "position_after": self.position_size,
+            "comment": comment,
+            "_seq": self._next_seq(),
+        }
+        self._orders.append(order)
+
+    def close(
+        self,
+        id: str = "",
+        *,
+        qty: float | None = None,
+        qty_percent: float | None = None,
+        price: float | None = None,
+        when: bool = True,
+        comment: str = "",
+    ) -> None:
+        if not when or not self._open_trades:
+            return
+        fill_price = self._price_or_current(price)
+        target_qty = self._requested_close_qty(qty=qty, qty_percent=qty_percent)
+        if target_qty <= 0:
+            return
+        closed_qty = self._close_lots(id=str(id), target_qty=target_qty, fill_price=fill_price)
+        if closed_qty <= 0:
+            return
+        self._touched = True
+        self._orders.append({
+            "time": self._current_time(),
+            "id": str(id),
+            "type": "close",
+            "side": "flat",
+            "qty": _round8(abs(closed_qty)),
+            "price": _round8(fill_price),
+            "position_after": self.position_size,
+            "comment": comment,
+            "_seq": self._next_seq(),
+        })
+
+    def close_all(self, *, price: float | None = None, when: bool = True, comment: str = "") -> None:
+        if not when or not self._open_trades:
+            return
+        self.close("", qty=abs(self.position_size), price=price, when=True, comment=comment)
+        if self._orders:
+            self._orders[-1]["type"] = "close_all"
+
+    def to_report(self) -> dict[str, Any]:
+        final_size = self.position_size
+        final_avg = self.position_avg_price
+        return {
+            "orders": [
+                {key: value for key, value in order.items() if not str(key).startswith("_")}
+                for order in sorted(self._orders, key=lambda item: (item.get("time", 0), item.get("_seq", 0)))
+            ],
+            "position": {
+                "size": final_size,
+                "side": "long" if final_size > 0 else "short" if final_size < 0 else "flat",
+                "avg_price": final_avg,
+            },
+            "summary": {
+                "initial_capital": _round8(self._initial_capital),
+                "currency": self._currency,
+                "equity": self.equity,
+                "netprofit": self.netprofit,
+                "openprofit": self.openprofit,
+                "grossprofit": self.grossprofit,
+                "grossloss": self.grossloss,
+                "commission": _round8(self._commission),
+            },
+            "closedtrades": list(self._closed_trades),
+            "opentrades": [
+                {**trade, "profit": _round8(_trade_open_profit(trade, self._current_price()))}
+                for trade in self._open_trades
+            ],
+            "lifecycle": [
+                {
+                    "time": order.get("time"),
+                    "id": order.get("id"),
+                    "event": f"{order.get('type')}_fill",
+                    "type": order.get("type"),
+                    "side": order.get("side"),
+                    "qty": order.get("qty"),
+                    "price": order.get("price"),
+                    "position_after": order.get("position_after"),
+                }
+                for order in sorted(self._orders, key=lambda item: (item.get("time", 0), item.get("_seq", 0)))
+            ],
+        }
+
+    def _requested_close_qty(self, *, qty: float | None, qty_percent: float | None) -> float:
+        position_qty = abs(self.position_size)
+        if qty is not None:
+            return min(position_qty, abs(float(qty)))
+        if qty_percent is not None:
+            return min(position_qty, position_qty * max(float(qty_percent), 0.0) / 100.0)
+        return position_qty
+
+    def _close_lots(self, *, id: str, target_qty: float, fill_price: float) -> float:
+        remaining = abs(float(target_qty))
+        closed_signed_qty = 0.0
+        kept: list[dict[str, Any]] = []
+        for trade in self._open_trades:
+            matches_id = not id or str(trade.get("entry_id", "")) == id
+            if not matches_id or remaining <= 0:
+                kept.append(trade)
+                continue
+            trade_qty = abs(float(trade["qty"]))
+            closing_qty = min(trade_qty, remaining)
+            remaining -= closing_qty
+            side = str(trade["side"])
+            profit = _realized_profit(side=side, qty=closing_qty, entry_price=float(trade["entry_price"]), exit_price=fill_price)
+            if profit >= 0:
+                self._grossprofit += profit
+            else:
+                self._grossloss += profit
+            self._closed_trades.append({
+                "entry_id": trade.get("entry_id", ""),
+                "exit_id": id,
+                "side": side,
+                "qty": _round8(closing_qty),
+                "entry_price": trade.get("entry_price"),
+                "exit_price": _round8(fill_price),
+                "entry_time": trade.get("entry_time"),
+                "exit_time": self._current_time(),
+                "profit": _round8(profit),
+                "net_profit": _round8(profit),
+                "commission": 0.0,
+            })
+            closed_signed_qty += closing_qty if side == self.long else -closing_qty
+            leftover_qty = trade_qty - closing_qty
+            if leftover_qty > 1e-9:
+                kept.append({**trade, "qty": _round8(leftover_qty)})
+        self._open_trades = kept
+        return _round8(closed_signed_qty)
+
+    def _normalize_direction(self, direction: str) -> str:
+        normalized = str(direction or "").lower()
+        if normalized in {self.short, "strategy.short", "-1"}:
+            return self.short
+        return self.long
+
+    def _price_or_current(self, price: float | None) -> float:
+        return float(self._current_price() if price is None else price)
+
+    def _current_price(self) -> float:
+        if self._context.current_bar is None:
+            return math.nan
+        return float(self._context.current_bar.close)
+
+    def _current_time(self) -> int:
+        if self._context.current_bar is None:
+            return 0
+        return int(self._context.current_bar.time)
+
+    def _next_seq(self) -> int:
+        self._event_seq += 1
+        return self._event_seq
+
+
 class IncrementalContext:
     """Per-session context exposed to incremental Pyne callbacks."""
 
@@ -433,6 +687,7 @@ class IncrementalContext:
         self._limits = limits or IncrementalLimits(enabled=False)
         self._limit_tracker = _LimitTracker(self._limits)
         self.ta = IncrementalTaNamespace(self._limit_tracker)
+        self.strategy = IncrementalStrategyNamespace(self)
         self.syminfo = syminfo or SymbolInfo()
         self.timeframe = timeframe or TimeframeInfo()
         self._default_session = session or SessionInfo()
@@ -614,6 +869,8 @@ class IncrementalContext:
             ]
         if markers:
             output["markers"] = markers
+        if self.strategy.touched:
+            output["strategy"] = self.strategy.to_report()
 
         return IncrementalPyneResult(
             ok=True,
@@ -1001,6 +1258,30 @@ def _filter_points(points: list[dict[str, Any]], start_s: int | None, end_s: int
             continue
         filtered.append(point)
     return filtered
+
+
+def _round8(value: float) -> float:
+    return round(float(value), 8)
+
+
+def _signed_trade_qty(trade: dict[str, Any]) -> float:
+    qty = abs(float(trade.get("qty", 0.0)))
+    return qty if trade.get("side") == IncrementalStrategyNamespace.long else -qty
+
+
+def _realized_profit(*, side: str, qty: float, entry_price: float, exit_price: float) -> float:
+    if side == IncrementalStrategyNamespace.long:
+        return (float(exit_price) - float(entry_price)) * abs(float(qty))
+    return (float(entry_price) - float(exit_price)) * abs(float(qty))
+
+
+def _trade_open_profit(trade: dict[str, Any], close_price: float) -> float:
+    return _realized_profit(
+        side=str(trade.get("side", IncrementalStrategyNamespace.long)),
+        qty=float(trade.get("qty", 0.0)),
+        entry_price=float(trade.get("entry_price", 0.0)),
+        exit_price=float(close_price),
+    )
 
 
 def _session_info_for_bar(bar: IncrementalBar, default: SessionInfo) -> SessionInfo:

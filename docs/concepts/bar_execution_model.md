@@ -94,3 +94,33 @@ During `on_bar_closed(item)`, the realtime bar is confirmed and committed:
 - `ctx.barstate.ishistory` and `ctx.barstate.islastconfirmedhistory` are false because this is a live confirmation event, not seeded history.
 - `ctx.barstate.isnew` is false if a preview for the same bar time was already seen; it is true when the closed bar is the first event for that bar.
 - Persistent state advances only after this confirmed callback succeeds.
+
+## Incremental Strategy State
+
+Incremental callbacks also expose a scalar `ctx.strategy` namespace for Pine-like
+strategy state that must evolve one committed bar at a time:
+
+```python
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("A", ctx.strategy.long, qty=2, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.close("A", qty=1, price=bar.close, when=ctx.bar_index == 2)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+```
+
+Current incremental strategy scope:
+
+- `ctx.strategy.entry()` fills a market-like entry on the current callback bar.
+- `ctx.strategy.close()` and `ctx.strategy.close_all()` realize all or part of the current open lots.
+- `ctx.strategy.position_size`, `position_avg_price`, `equity`, `netprofit`, `openprofit`, `grossprofit`, and `grossloss` expose scalar values for the current bar.
+- `result.output["strategy"]` includes `orders`, `position`, `summary`, `closedtrades`, `opentrades`, and lifecycle fill events.
+
+The first parity contract is basic entry/close ledger equivalence: a seeded
+incremental run and an `on_bar_closed()` session snapshot must produce identical
+strategy output, and simple entry/close scripts match batch strategy position,
+equity, net profit, orders, and trade ledgers. Pending stop/limit orders, OCA,
+risk locks, commissions, margin, and intrabar fill path policies remain batch
+strategy features until they are promoted into the incremental strategy layer.
