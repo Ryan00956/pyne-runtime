@@ -52,6 +52,7 @@ from .state import PyneStateNamespace
 from .strategy import StrategyModule
 from .string_ext import string_namespace
 from .ticker import TickerNamespace
+from .time_ext import time_namespace
 
 
 class PyneRuntime:
@@ -229,7 +230,7 @@ class PyneRuntime:
         ns["low"] = ctx.low
         ns["close"] = ctx.close
         ns["volume"] = ctx.volume
-        ns["time"] = ctx.time
+        ns["time"] = time_namespace(ctx.time)
         ns["time_close"] = ctx.time_close
         ns["bar_index"] = ctx.bar_index
         ns["last_bar_index"] = ctx.last_bar_index
