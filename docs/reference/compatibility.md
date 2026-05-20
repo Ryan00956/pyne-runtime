@@ -37,7 +37,8 @@ Known differences:
 - `request.security()` cannot capture already evaluated Python expressions such
   as `ta.ema(close, 20)`; use `lambda ctx: ctx.ta.ema(ctx.close, 20)`.
 - `request.security_lower_tf()` returns grouped Python/Pyne objects rather than
-  Pine native arrays. Alignment behavior is covered by golden-style fixtures in
+  Pine native arrays. Higher-timeframe gaps/lookahead alignment and
+  lower-timeframe grouping behavior are covered by golden-style fixtures in
   `tests/golden/`.
 - Strategy support emits deterministic events and a lightweight position
   timeline; it is not a full broker simulator and does not model a complete

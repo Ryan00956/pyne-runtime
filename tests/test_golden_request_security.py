@@ -14,7 +14,10 @@ class GoldenProvider:
     def __init__(self, bars: list[dict[str, Any]]) -> None:
         self.calls: list[tuple[str, str, int, int]] = []
         self._bars = bars
-        self.capabilities = {"security_lower_tf": True}
+        self.capabilities = {
+            "request.security": True,
+            "request.security_lower_tf": True,
+        }
 
     def get_ohlcv(
         self,
@@ -29,6 +32,23 @@ class GoldenProvider:
 
 def test_golden_request_security_lower_tf_alignment() -> None:
     fixture = _load_fixture("request_security_lower_tf_alignment.json")
+    provider = GoldenProvider(fixture["provider_bars"])
+
+    result = pn.run(
+        fixture["script"],
+        fixture["chart_bars"],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
+    for name, expected in fixture["expected_series"].items():
+        assert result.get_series(name) == expected
+
+
+def test_golden_request_security_alignment() -> None:
+    fixture = _load_fixture("request_security_alignment.json")
     provider = GoldenProvider(fixture["provider_bars"])
 
     result = pn.run(
