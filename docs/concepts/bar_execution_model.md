@@ -122,7 +122,7 @@ Current incremental strategy scope:
 - `ctx.strategy.cancel(id)` and `ctx.strategy.cancel_all()` cancel matching pending entries and report the same public cancel orders and lifecycle statuses as batch strategy.
 - `ctx.strategy.oca.cancel` and `ctx.strategy.oca.reduce` are supported for pending entry/order groups.
 - `ctx.strategy.close()` and `ctx.strategy.close_all()` realize all or part of the current open lots.
-- `ctx.strategy.exit()` supports stop/limit exits for open positions, including `from_entry`, `qty`, `qty_percent`, and the same deterministic stop/limit priority policy.
+- `ctx.strategy.exit()` supports stop/limit exits for open positions, including `from_entry`, `qty`, `qty_percent`, the same deterministic stop/limit priority policy, and one-shot exit orders that remain active across later committed bars until filled.
 - `ctx.strategy.risk.allow_entry_in()`, `max_drawdown()`, `max_intraday_loss()`, `max_position_size()`, and `max_intraday_filled_orders()` apply the same deterministic entry gating, position-size capping, risk-lock, rejection lifecycle, and `session.isfirstbar` reset model as batch strategy for committed bars.
 - Long and short positions, `qty`/`qty_percent` partial closes, and reverse entries update the same order/trade report shape as batch strategy for basic market-like fills.
 - `ctx.strategy.position_size`, `position_avg_price`, `equity`, `netprofit`, `openprofit`, `grossprofit`, and `grossloss` expose scalar values for the current bar.
@@ -137,8 +137,9 @@ stop/limit entries, unfilled pending lifecycle reports, and explicit pending
 cancel/cancel_all reports, plus OCA cancel/reduce pending groups, immediate
 per-bar exit calls, core risk rules, and slippage/commission cost accounting.
 Margin enforcement is covered for committed-bar market-like and pending fills.
-Persistent exit order lifecycle remains a batch strategy feature until it is
-promoted into the incremental strategy layer. Pending fill policy parity covers
-limit verification, same-bar stop/limit priority, and deterministic intrabar
-path selection. Exit parity currently covers immediate per-bar stop/limit exit
-calls; persistent exit order lifecycle is still a separate batch-only behavior.
+Exit orders submitted once in incremental mode remain active across later
+committed bars and emit the same public filled exit report once triggered.
+Pending fill policy parity covers limit verification, same-bar stop/limit
+priority, and deterministic intrabar path selection. Unfilled persistent exit
+orders are kept as internal strategy state rather than exposed as public pending
+lifecycle rows.

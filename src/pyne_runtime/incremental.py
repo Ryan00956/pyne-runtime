@@ -502,6 +502,7 @@ class IncrementalStrategyNamespace:
         self._currency = ""
         self._orders: list[dict[str, Any]] = []
         self._pending_orders: list[dict[str, Any]] = []
+        self._pending_exit_orders: list[dict[str, Any]] = []
         self._open_trades: list[dict[str, Any]] = []
         self._closed_trades: list[dict[str, Any]] = []
         self._grossprofit = 0.0
@@ -612,13 +613,17 @@ class IncrementalStrategyNamespace:
             )
             self._intraday_peak_equity = self.equity
             self._sync_risk_locked()
-        if not self._pending_orders:
-            return
-        still_pending = []
-        for order in self._pending_orders:
-            if not self._try_fill_pending_order(order):
-                still_pending.append(order)
-        self._pending_orders = still_pending
+        if self._pending_orders:
+            still_pending = []
+            for order in self._pending_orders:
+                if not self._try_fill_pending_order(order):
+                    still_pending.append(order)
+            self._pending_orders = still_pending
+        still_pending_exits = []
+        for order in self._pending_exit_orders:
+            if not self._try_fill_pending_exit_order(order):
+                still_pending_exits.append(order)
+        self._pending_exit_orders = still_pending_exits
 
     def end_bar(self) -> None:
         equity = self.equity
@@ -1013,70 +1018,33 @@ class IncrementalStrategyNamespace:
         when: bool = True,
         comment: str = "",
     ) -> None:
-        if not when or not self._open_trades or (stop is None and limit is None):
-            return
-        current_position = self.position_size
-        if current_position == 0:
-            return
-        bar = self._context.current_bar
-        if bar is None:
-            return
-        trigger = _exit_trigger(
-            current_position=current_position,
-            high=float(bar.high),
-            low=float(bar.low),
-            stop=_optional_float(stop),
-            limit=_optional_float(limit),
-            tick_verify=self._limit_fill_verification_amount(),
-            same_bar_fill_priority=self._same_bar_fill_priority,
-            intrabar_path=self._intrabar_path,
-        )
-        if trigger is None:
-            return
-        reason, event_price = trigger
-        target_qty = self._target_open_qty(str(from_entry))
-        requested_qty = _requested_exit_qty(target_qty=target_qty, qty=qty, qty_percent=qty_percent)
-        fill_qty = min(target_qty, abs(current_position), requested_qty)
-        if fill_qty <= 0:
-            return
-        fill_side = "sell" if current_position > 0 else "buy"
-        fill_price = self._fill_price(event_price, fill_side)
-        order_commission = self._commission_amount(qty=fill_qty, price=fill_price)
-        if order_commission > 0:
-            self._commission += order_commission
-        closed_qty, _ = self._close_lots(
-            id=str(from_entry),
-            exit_id=str(id),
-            target_qty=fill_qty,
-            fill_price=fill_price,
-            order_commission=order_commission,
-            order_fill_qty=fill_qty,
-        )
-        if abs(closed_qty) <= 0:
+        if not when or (stop is None and limit is None):
             return
         self._touched = True
-        self._orders.append({
-            "time": self._current_time(),
+        pending = self._upsert_pending_exit_order({
             "id": str(id),
             "from_entry": str(from_entry),
             "type": "exit",
             "side": "flat",
-            "qty": _round8(abs(closed_qty)),
-            "price": _round8(fill_price),
-            "position_after": self.position_size,
-            "reason": reason,
+            "qty": 0.0,
+            "price": self._current_price(),
+            "position_after": 0.0,
             "comment": comment,
-            "_base_price": float(fill_price),
-            "_target_qty": _round8(target_qty),
-            "_requested_fill_qty": _round8(requested_qty),
-            "_filled_qty": _round8(abs(closed_qty)),
+            "_limit": _optional_float(limit),
+            "_stop": _optional_float(stop),
             "_requested_qty": _optional_float(qty),
             "_qty_percent": _optional_float(qty_percent),
-            "_seq": self._next_seq(),
             "_submit_time": self._current_time(),
         })
-        if order_commission > 0:
-            self._orders[-1]["commission"] = _round8(order_commission)
+        if self._try_fill_pending_exit_order(pending):
+            self._pending_exit_orders = [
+                order
+                for order in self._pending_exit_orders
+                if not (
+                    order.get("id") == pending.get("id")
+                    and order.get("from_entry") == pending.get("from_entry")
+                )
+            ]
 
     def cancel(self, id: str, *, when: bool = True, comment: str = "") -> None:
         if not when:
@@ -1206,6 +1174,89 @@ class IncrementalStrategyNamespace:
                 still_pending.append(order)
         self._pending_orders = still_pending
         return canceled
+
+    def _upsert_pending_exit_order(self, next_order: dict[str, Any]) -> dict[str, Any]:
+        for order in self._pending_exit_orders:
+            if (
+                order.get("id") == next_order.get("id")
+                and order.get("from_entry") == next_order.get("from_entry")
+            ):
+                order.update(next_order)
+                return order
+        next_order["_seq"] = self._next_seq()
+        self._pending_exit_orders.append(next_order)
+        return next_order
+
+    def _try_fill_pending_exit_order(self, order: dict[str, Any]) -> bool:
+        if not self._open_trades:
+            return False
+        current_position = self.position_size
+        if current_position == 0:
+            return False
+        bar = self._context.current_bar
+        if bar is None:
+            return False
+        trigger = _exit_trigger(
+            current_position=current_position,
+            high=float(bar.high),
+            low=float(bar.low),
+            stop=order.get("_stop"),
+            limit=order.get("_limit"),
+            tick_verify=self._limit_fill_verification_amount(),
+            same_bar_fill_priority=self._same_bar_fill_priority,
+            intrabar_path=self._intrabar_path,
+        )
+        if trigger is None:
+            return False
+        reason, event_price = trigger
+        target_qty = self._target_open_qty(str(order.get("from_entry", "")))
+        requested_qty = _requested_exit_qty(
+            target_qty=target_qty,
+            qty=order.get("_requested_qty"),
+            qty_percent=order.get("_qty_percent"),
+        )
+        fill_qty = min(target_qty, abs(current_position), requested_qty)
+        if fill_qty <= 0:
+            return False
+        fill_side = "sell" if current_position > 0 else "buy"
+        fill_price = self._fill_price(event_price, fill_side)
+        order_commission = self._commission_amount(qty=fill_qty, price=fill_price)
+        if order_commission > 0:
+            self._commission += order_commission
+        closed_qty, _ = self._close_lots(
+            id=str(order.get("from_entry", "")),
+            exit_id=str(order.get("id", "")),
+            target_qty=fill_qty,
+            fill_price=fill_price,
+            order_commission=order_commission,
+            order_fill_qty=fill_qty,
+        )
+        if abs(closed_qty) <= 0:
+            return False
+        public_order = {
+            "time": self._current_time(),
+            "id": str(order.get("id", "")),
+            "from_entry": str(order.get("from_entry", "")),
+            "type": "exit",
+            "side": "flat",
+            "qty": _round8(abs(closed_qty)),
+            "price": _round8(fill_price),
+            "position_after": self.position_size,
+            "reason": reason,
+            "comment": str(order.get("comment", "")),
+            "_base_price": float(fill_price),
+            "_target_qty": _round8(target_qty),
+            "_requested_fill_qty": _round8(requested_qty),
+            "_filled_qty": _round8(abs(closed_qty)),
+            "_requested_qty": order.get("_requested_qty"),
+            "_qty_percent": order.get("_qty_percent"),
+            "_seq": order.get("_seq", self._next_seq()),
+            "_submit_time": self._current_time(),
+        }
+        if order_commission > 0:
+            public_order["commission"] = _round8(order_commission)
+        self._orders.append(public_order)
+        return True
 
     def _reject_order(self, order: dict[str, Any], *, reason: str) -> None:
         order["_active"] = False

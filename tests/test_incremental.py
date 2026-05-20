@@ -1016,6 +1016,86 @@ def on_bar(ctx, bar):
     _assert_full_strategy_matches_batch(incremental, batch)
 
 
+def test_incremental_strategy_one_shot_exit_persists_until_later_bar() -> None:
+    bars = [
+        {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100},
+        {"time": 2, "open": 2, "high": 2.2, "low": 1, "close": 1.0, "volume": 120},
+        {"time": 3, "open": 2, "high": 3, "low": 1.8, "close": 2.8, "volume": 140},
+        {"time": 4, "open": 3, "high": 3.2, "low": 2, "close": 2.4, "volume": 160},
+    ]
+    batch_script = """
+strategy("Persistent Exit", overlay=True, initial_capital=1000)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.exit("Take Profit", from_entry="Long", limit=2.7, stop=0.8)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental Persistent Exit", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("Long", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.exit("Take Profit", from_entry="Long", limit=2.7, stop=0.8, when=ctx.bar_index == 0)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_full_strategy_matches_batch(incremental, batch)
+
+
+def test_incremental_strategy_one_shot_exit_preserves_cost_parity() -> None:
+    bars = [
+        {"time": 1, "open": 10, "high": 10.2, "low": 9.8, "close": 10, "volume": 100},
+        {"time": 2, "open": 10, "high": 11.1, "low": 10, "close": 10.5, "volume": 100},
+        {"time": 3, "open": 10.5, "high": 11.25, "low": 10.2, "close": 11, "volume": 100},
+    ]
+    batch_script = """
+strategy("Persistent Exit Costs", overlay=True, initial_capital=1000, mintick=0.1, slippage=1, backtest_fill_limits_assumption=2, commission_type=strategy.commission.cash_per_order, commission_value=0.5)
+strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
+strategy.exit("Take", from_entry="Long", limit=11)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental Persistent Exit Costs", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(
+        initial_capital=1000,
+        mintick=0.1,
+        slippage=1,
+        backtest_fill_limits_assumption=2,
+        commission_type=ctx.strategy.commission.cash_per_order,
+        commission_value=0.5,
+    )
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("Long", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.exit("Take", from_entry="Long", limit=11, when=ctx.bar_index == 0)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_full_strategy_matches_batch(incremental, batch)
+
+
 def test_incremental_strategy_margin_reject_costs_match_batch_report() -> None:
     bars = [
         {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
