@@ -15,7 +15,7 @@ from .incremental import (
 )
 from .metadata import SessionInfo, SessionNamespace, SymbolInfo, TimeframeInfo
 from .plot import ObjectRef
-from .request import DataProvider, RequestEvalContext, RequestModule
+from .request import DataProvider, LowerTimeframeSeries, RequestEvalContext, RequestModule
 from .result import PyneResult
 from .runtime import PyneRuntime
 from .schema import PYNE_INPUT_SCHEMA_VERSION, PYNE_OUTPUT_SCHEMA_VERSION
@@ -38,6 +38,7 @@ __all__ = [
     "PyneRuntime",
     "PyneSettings",
     "PyneSeries",
+    "LowerTimeframeSeries",
     "PyneStateNamespace",
     "PyneVar",
     "RequestEvalContext",

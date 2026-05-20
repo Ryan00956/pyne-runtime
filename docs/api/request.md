@@ -117,3 +117,40 @@ Unsupported for now:
 
 If no data provider is configured, `request.security()` returns a
 `PYNE_UNSUPPORTED_FEATURE` error.
+
+## `request.security_lower_tf`
+
+```python
+request.security_lower_tf(symbol, timeframe, expression)
+```
+
+`request.security_lower_tf()` requests lower-timeframe OHLCV from the same host
+provider and returns an array-per-chart-bar object. Pyne evaluates the
+expression in the requested lower-timeframe context, then groups requested bars
+into chart-bar buckets using `[chart_time, next_chart_time)`.
+
+```python
+lower = request.security_lower_tf("BTCUSDT", "1", lambda ctx: ctx.close)
+plot(lower.size(), "Lower TF Count")
+plot(lower.last(), "Lower TF Last Close")
+```
+
+Supported now:
+
+- field expressions such as `close`, `"close"`, or `("high", "low")`
+- callable thunks such as `lambda ctx: ctx.ta.sma(ctx.close, 3)`
+- tuple/multi-return expressions
+- bars-back on the grouped result, such as `lower[1].last()`
+
+The returned object exposes:
+
+- `.to_lists()`: Python lists of requested values per chart bar
+- `.size()`: number of lower-timeframe bars per chart bar
+- `.first(default=na)`: first grouped value per chart bar
+- `.last(default=na)`: last grouped value per chart bar
+
+For provider capability negotiation, a provider may expose either a
+`capabilities` attribute or `capabilities()` method. When present,
+`security_lower_tf` or `request.security_lower_tf` must be truthy/supported. If
+no capabilities are declared, Pyne assumes the provider can answer the request
+and relies on `get_ohlcv(...)`.

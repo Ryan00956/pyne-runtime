@@ -30,6 +30,12 @@ class StaticProvider:
         return self._bars
 
 
+class CapabilityProvider(StaticProvider):
+    def __init__(self, bars: list[dict[str, Any]], capabilities: Any) -> None:
+        super().__init__(bars)
+        self.capabilities = capabilities
+
+
 def test_request_security_aligns_host_data_to_chart_bars() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
@@ -340,3 +346,80 @@ plot(bad, "Bad")
     assert not result.ok
     assert result.code == "PYNE_UNSUPPORTED_FEATURE"
     assert "Nested request.security" in str(result.error)
+
+
+def test_request_security_lower_tf_groups_requested_values_by_chart_bar() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+        {"time": 1, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 1100},
+        {"time": 2, "open": 20, "high": 21, "low": 19, "close": 20, "volume": 2000},
+        {"time": 3, "open": 30, "high": 31, "low": 29, "close": 30, "volume": 3000},
+        {"time": 3, "open": 31, "high": 32, "low": 30, "close": 31, "volume": 3100},
+        {"time": 4, "open": 40, "high": 41, "low": 39, "close": 40, "volume": 4000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower TF", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", lambda ctx: ctx.close)
+plot(lower.size(), "Lower Count")
+plot(lower.last(), "Lower Last")
+plot(lower[1].last(), "Previous Lower Last")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert result.values("Lower Count") == [2.0, 1.0, 2.0, 1.0]
+    assert result.values("Lower Last") == [11.0, 20.0, 31.0, 40.0]
+    assert result.values("Previous Lower Last") == [11.0, 20.0, 31.0]
+
+
+def test_request_security_lower_tf_accepts_field_tuple_expression() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 12, "low": 9, "close": 11, "volume": 1000},
+        {"time": 2, "open": 20, "high": 22, "low": 19, "close": 21, "volume": 2000},
+        {"time": 3, "open": 30, "high": 32, "low": 29, "close": 31, "volume": 3000},
+        {"time": 4, "open": 40, "high": 42, "low": 39, "close": 41, "volume": 4000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Tuple", overlay=True)
+lower_high, lower_low = request.security_lower_tf("BTCUSDT", "1", ("high", "low"))
+plot(lower_high.first(), "Lower High First")
+plot(lower_low.last(), "Lower Low Last")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Lower High First") == [12.0, 22.0, 32.0, 42.0]
+    assert result.values("Lower Low Last") == [9.0, 19.0, 29.0, 39.0]
+
+
+def test_request_security_lower_tf_respects_provider_capabilities() -> None:
+    provider = CapabilityProvider(
+        [{"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}],
+        capabilities={"security_lower_tf": False},
+    )
+
+    result = pn.run(
+        """
+indicator("Lower Unsupported", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert "provider capability" in str(result.error)

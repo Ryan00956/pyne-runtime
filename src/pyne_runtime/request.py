@@ -43,6 +43,61 @@ class PyneRequestError(Exception):
 
 
 @dataclass(frozen=True)
+class LowerTimeframeSeries:
+    """Array-per-chart-bar result returned by ``request.security_lower_tf()``."""
+
+    groups: tuple[tuple[Any, ...], ...]
+    name: str | None = None
+
+    def __len__(self) -> int:
+        return len(self.groups)
+
+    def __iter__(self):
+        return iter(self.groups)
+
+    def __getitem__(self, key: int | slice) -> Any:
+        if isinstance(key, slice):
+            return self.groups[key]
+        if not isinstance(key, (int, np.integer)):
+            raise TypeError("LowerTimeframeSeries indices must be a non-negative bars-back integer")
+        if key < 0:
+            raise IndexError("LowerTimeframeSeries does not support forward history references")
+        return self.shift(int(key))
+
+    def to_lists(self) -> list[list[Any]]:
+        return [list(group) for group in self.groups]
+
+    def shift(self, periods: int = 1) -> "LowerTimeframeSeries":
+        periods = int(periods)
+        if periods <= 0:
+            return self
+        empty: tuple[Any, ...] = ()
+        groups = [empty] * len(self.groups)
+        if periods < len(self.groups):
+            groups[periods:] = self.groups[: len(self.groups) - periods]
+        return LowerTimeframeSeries(tuple(groups), name=f"{self.name}[{periods}]" if self.name else None)
+
+    def size(self) -> PyneSeries:
+        return PyneSeries(
+            np.asarray([len(group) for group in self.groups], dtype=np.float64),
+            name=f"{self.name}.size" if self.name else None,
+        )
+
+    def first(self, default: Any = np.nan) -> PyneSeries:
+        return self._edge(0, default=default, label="first")
+
+    def last(self, default: Any = np.nan) -> PyneSeries:
+        return self._edge(-1, default=default, label="last")
+
+    def _edge(self, index: int, *, default: Any, label: str) -> PyneSeries:
+        values = [group[index] if group else default for group in self.groups]
+        return PyneSeries(
+            np.asarray(values, dtype=np.float64),
+            name=f"{self.name}.{label}" if self.name else None,
+        )
+
+
+@dataclass(frozen=True)
 class RequestEvalContext:
     """Calculation-only context passed to request expression thunks."""
 
@@ -205,6 +260,65 @@ class RequestModule:
             requested_values=requested_values,
             gaps=gaps,
             lookahead=lookahead,
+        )
+
+    def security_lower_tf(
+        self,
+        symbol: str,
+        timeframe: str,
+        expression: PyneSeries | str | tuple[Any, ...] | list[Any] | Callable[[RequestEvalContext], Any],
+    ) -> LowerTimeframeSeries | tuple[LowerTimeframeSeries, ...]:
+        """Return lower-timeframe arrays grouped by chart bar.
+
+        The provider supplies lower-timeframe OHLCV. Pyne evaluates the
+        expression in that requested context, then groups requested values into
+        ``[chart_time, next_chart_time)`` buckets.
+        """
+        if self._provider is None:
+            raise PyneRequestError(
+                "request.security_lower_tf() requires a host data provider",
+                code="PYNE_UNSUPPORTED_FEATURE",
+            )
+        if not _provider_supports(self._provider, "security_lower_tf"):
+            raise PyneRequestError(
+                "request.security_lower_tf() requires provider capability 'security_lower_tf'",
+                code="PYNE_UNSUPPORTED_FEATURE",
+            )
+        if self._evaluating:
+            raise PyneRequestError(
+                "Nested request.security_lower_tf() expressions are not supported",
+                code="PYNE_UNSUPPORTED_FEATURE",
+            )
+
+        start, end = self._context.times[0], self._context.times[-1]
+        requested = self._provider.get_ohlcv(str(symbol), str(timeframe), start, end)
+        requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
+        requested_ctx = PyneContext.from_ohlcv(
+            requested,
+            syminfo={"tickerid": str(symbol), "ticker": str(symbol)},
+            timeframe=str(timeframe),
+        )
+        if callable(expression):
+            requested_values, expression_name = self._evaluate_expression_thunk(
+                expression,
+                symbol=str(symbol),
+                timeframe=str(timeframe),
+                requested_ctx=requested_ctx,
+            )
+        else:
+            requested_values, expression_name = _values_from_field_expression(
+                expression,
+                requested,
+                requested_ctx,
+            )
+
+        return _group_lower_timeframe_values(
+            symbol=str(symbol),
+            timeframe=str(timeframe),
+            expression_name=expression_name,
+            chart_times=self._context.times,
+            requested_times=requested_ctx.times,
+            requested_values=requested_values,
         )
 
     def _evaluate_expression_thunk(
@@ -395,6 +509,61 @@ def _align_request_values(
     )
 
 
+def _group_lower_timeframe_values(
+    *,
+    symbol: str,
+    timeframe: str,
+    expression_name: str,
+    chart_times: list[int],
+    requested_times: list[int],
+    requested_values: RequestValues,
+) -> LowerTimeframeSeries | tuple[LowerTimeframeSeries, ...]:
+    if isinstance(requested_values, tuple):
+        return tuple(
+            _group_single_lower_timeframe_values(
+                symbol=symbol,
+                timeframe=timeframe,
+                expression_name=f"{expression_name}[{index}]",
+                chart_times=chart_times,
+                requested_times=requested_times,
+                requested_values=values,
+            )
+            for index, values in enumerate(requested_values)
+        )
+    return _group_single_lower_timeframe_values(
+        symbol=symbol,
+        timeframe=timeframe,
+        expression_name=expression_name,
+        chart_times=chart_times,
+        requested_times=requested_times,
+        requested_values=requested_values,
+    )
+
+
+def _group_single_lower_timeframe_values(
+    *,
+    symbol: str,
+    timeframe: str,
+    expression_name: str,
+    chart_times: list[int],
+    requested_times: list[int],
+    requested_values: list[Any],
+) -> LowerTimeframeSeries:
+    groups: list[tuple[Any, ...]] = []
+    for index, chart_time in enumerate(chart_times):
+        next_time = chart_times[index + 1] if index + 1 < len(chart_times) else None
+        start = bisect_left(requested_times, chart_time)
+        end = len(requested_times) if next_time is None else bisect_left(requested_times, next_time)
+        groups.append(tuple(
+            np.nan if is_na_value(value) else value
+            for value in requested_values[start:end]
+        ))
+    return LowerTimeframeSeries(
+        tuple(groups),
+        name=f"request.security_lower_tf({symbol},{timeframe},{expression_name})",
+    )
+
+
 def _align_single_request_values(
     *,
     symbol: str,
@@ -495,3 +664,16 @@ def _aligned_value(
         return np.nan
     value = requested_values[idx]
     return np.nan if is_na_value(value) else float(value)
+
+
+def _provider_supports(provider: DataProvider, capability: str) -> bool:
+    capabilities = getattr(provider, "capabilities", None)
+    if callable(capabilities):
+        capabilities = capabilities()
+    if capabilities is None:
+        return True
+    if isinstance(capabilities, dict):
+        return bool(capabilities.get(capability, capabilities.get("request.security_lower_tf", False)))
+    if isinstance(capabilities, (set, list, tuple)):
+        return capability in capabilities or "request.security_lower_tf" in capabilities
+    return bool(capabilities)
