@@ -87,6 +87,7 @@ During `on_bar_updated(item)`, the bar is a realtime preview:
 - `ctx.barstate.isconfirmed` and `ctx.barstate.ishistory` are false.
 - `ctx.barstate.isnew` is true only for the first preview update seen for that bar time.
 - Preview callbacks run on a cloned context, so state, TA helpers, windows, and output from the preview do not mutate the persistent session.
+- Drawing object snapshots and `object_events` emitted by preview callbacks are also scoped to the cloned preview context.
 
 During `on_bar_closed(item)`, the realtime bar is confirmed and committed:
 
@@ -94,6 +95,26 @@ During `on_bar_closed(item)`, the realtime bar is confirmed and committed:
 - `ctx.barstate.ishistory` and `ctx.barstate.islastconfirmedhistory` are false because this is a live confirmation event, not seeded history.
 - `ctx.barstate.isnew` is false if a preview for the same bar time was already seen; it is true when the closed bar is the first event for that bar.
 - Persistent state advances only after this confirmed callback succeeds.
+
+## Incremental Drawing Objects
+
+Incremental callbacks can create and mutate Pine-like drawing handles with the
+global `line`, `label`, `box`, and `table` namespaces. Object handles are
+ordinary Python values, so scripts usually store them in `ctx.state()` cells:
+
+```python
+def on_bar(ctx, bar):
+    level = ctx.state("level")
+    if level.value is None:
+        level.value = line.new(ctx.bar_index, bar.close, ctx.bar_index, bar.close)
+    else:
+        line.set_xy2(level.value, ctx.bar_index, bar.close)
+```
+
+Results include the current snapshot under `output["objects"]` and a
+time-filtered create/update/delete stream under `output["object_events"]`.
+`seed()` returns all historical events, while `on_bar_closed()` and
+`on_bar_updated()` return events for the current committed or preview bar.
 
 ## Incremental Strategy State
 

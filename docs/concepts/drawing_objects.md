@@ -55,6 +55,49 @@ Pyne batch execution returns the final drawing state:
 Setter calls update the final snapshot. `delete()` removes the object from the
 snapshot.
 
+## Incremental Event Semantics
+
+Incremental callbacks can use the same global `line`, `label`, `box`, and
+`table` namespaces. Handles are commonly stored in `ctx.state()` cells so later
+bars can mutate the same object:
+
+```python
+indicator("Live level", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    level = ctx.state("level")
+    if level.value is None:
+        level.value = line.new(ctx.bar_index, bar.close, ctx.bar_index, bar.close)
+    else:
+        line.set_xy2(level.value, ctx.bar_index, bar.close)
+```
+
+Incremental results include the current object snapshot under
+`output["objects"]` and a time-filtered event stream under
+`output["object_events"]`:
+
+```json
+{
+  "object_events": [
+    {
+      "time": 1700000000,
+      "bar_index": 10,
+      "confirmed": true,
+      "realtime": false,
+      "action": "update",
+      "kind": "line",
+      "id": "line_1",
+      "object": {"id": "line_1", "x2": 10, "y2": 102.5}
+    }
+  ]
+}
+```
+
+`seed()` returns the historical event stream. `on_bar_closed()` returns only the
+events for that committed bar. `on_bar_updated()` runs on a cloned preview
+context, so preview object events and preview snapshots do not mutate the
+persistent session.
+
 ## Series Coordinates
 
 Object coordinate arguments may be scalars or `PyneSeries` values. When a series
@@ -81,8 +124,5 @@ Supported now:
 - `position.*` constants for table placement
 - legacy `label("text")` fixed-position labels
 - final snapshot output under `output["objects"]`
+- incremental create/update/delete events under `output["object_events"]`
 - object count limits through `PyneSettings.max_drawing_objects`
-
-Planned later:
-
-- richer incremental object event streams

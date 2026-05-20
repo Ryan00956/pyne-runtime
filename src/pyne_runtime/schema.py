@@ -19,6 +19,7 @@ OUTPUT_KEYS = (
     "signals",
     "strategy",
     "objects",
+    "object_events",
 )
 
 

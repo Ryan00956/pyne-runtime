@@ -13,6 +13,7 @@ import re
 import threading
 from collections import deque
 from dataclasses import asdict, dataclass, field
+from types import SimpleNamespace
 from typing import Any, Callable
 
 from .barstate import PyneIncrementalBarState
@@ -28,6 +29,7 @@ from .security import (
     validate_script_security,
 )
 from .settings import PyneSettings
+from .plot import ObjectRef
 
 SAFE_MAX_WINDOW_SIZE = 10_000
 SAFE_MAX_TOTAL_WINDOW_ITEMS = 50_000
@@ -1535,6 +1537,7 @@ class IncrementalContext:
         syminfo: SymbolInfo | None = None,
         timeframe: TimeframeInfo | None = None,
         session: SessionInfo | None = None,
+        max_drawing_objects: int = 500,
     ) -> None:
         self.params = params
         self.meta = meta or {}
@@ -1550,6 +1553,13 @@ class IncrementalContext:
         self._windows: dict[str, Window] = {}
         self._series: dict[str, dict[str, Any]] = {}
         self._markers: dict[str, dict[str, Any]] = {}
+        self._object_lines: dict[str, dict[str, Any]] = {}
+        self._object_labels: dict[str, dict[str, Any]] = {}
+        self._object_boxes: dict[str, dict[str, Any]] = {}
+        self._object_tables: dict[str, dict[str, Any]] = {}
+        self._object_events: list[dict[str, Any]] = []
+        self._object_counter = 0
+        self._max_drawing_objects = max(int(max_drawing_objects), 1)
         self.current_bar: IncrementalBar | None = None
         self.bar_index = -1
         self.last_bar_index = -1
@@ -1684,6 +1694,348 @@ class IncrementalContext:
             "pane": pane,
         })
 
+    def line_new(
+        self,
+        x1: Any,
+        y1: Any,
+        x2: Any,
+        y2: Any,
+        color: str = "#2196f3",
+        width: int = 1,
+        style: str = "solid",
+        extend: str = "none",
+        xloc: str = "bar_index",
+        pane: str | None = None,
+    ) -> ObjectRef:
+        object_id = self._next_object_id("line")
+        entry = {
+            "id": object_id,
+            "x1": _drawing_scalar(x1),
+            "y1": _drawing_scalar(y1),
+            "x2": _drawing_scalar(x2),
+            "y2": _drawing_scalar(y2),
+            "color": color,
+            "width": int(width),
+            "style": style,
+            "extend": extend,
+            "xloc": xloc,
+            "pane": pane or "main",
+        }
+        self._object_lines[object_id] = entry
+        self._record_object_event("create", "line", entry)
+        return ObjectRef(id=object_id, kind="line")
+
+    def line_set_xy1(self, ref: ObjectRef, x: Any, y: Any) -> None:
+        self._update_object(ref, "line", {"x1": _drawing_scalar(x), "y1": _drawing_scalar(y)})
+
+    def line_set_xy2(self, ref: ObjectRef, x: Any, y: Any) -> None:
+        self._update_object(ref, "line", {"x2": _drawing_scalar(x), "y2": _drawing_scalar(y)})
+
+    def line_set_x1(self, ref: ObjectRef, x: Any) -> None:
+        self._update_object(ref, "line", {"x1": _drawing_scalar(x)})
+
+    def line_set_y1(self, ref: ObjectRef, y: Any) -> None:
+        self._update_object(ref, "line", {"y1": _drawing_scalar(y)})
+
+    def line_set_x2(self, ref: ObjectRef, x: Any) -> None:
+        self._update_object(ref, "line", {"x2": _drawing_scalar(x)})
+
+    def line_set_y2(self, ref: ObjectRef, y: Any) -> None:
+        self._update_object(ref, "line", {"y2": _drawing_scalar(y)})
+
+    def line_set_color(self, ref: ObjectRef, color: str) -> None:
+        self._update_object(ref, "line", {"color": color})
+
+    def line_set_width(self, ref: ObjectRef, width: int) -> None:
+        self._update_object(ref, "line", {"width": int(width)})
+
+    def line_set_style(self, ref: ObjectRef, style: str) -> None:
+        self._update_object(ref, "line", {"style": style})
+
+    def line_set_extend(self, ref: ObjectRef, extend: str) -> None:
+        self._update_object(ref, "line", {"extend": extend})
+
+    def line_delete(self, ref: ObjectRef) -> None:
+        self._delete_object(ref, "line")
+
+    def label_new(
+        self,
+        x: Any,
+        y: Any,
+        text: str = "",
+        color: str = "#ffffff",
+        textcolor: str = "#000000",
+        style: str = "label_down",
+        size: str = "normal",
+        xloc: str = "bar_index",
+        yloc: str = "price",
+        pane: str | None = None,
+    ) -> ObjectRef:
+        object_id = self._next_object_id("label")
+        entry = {
+            "id": object_id,
+            "x": _drawing_scalar(x),
+            "y": _drawing_scalar(y),
+            "text": str(text),
+            "color": color,
+            "textcolor": textcolor,
+            "style": style,
+            "size": size,
+            "xloc": xloc,
+            "yloc": yloc,
+            "pane": pane or "main",
+        }
+        self._object_labels[object_id] = entry
+        self._record_object_event("create", "label", entry)
+        return ObjectRef(id=object_id, kind="label")
+
+    def label_set_xy(self, ref: ObjectRef, x: Any, y: Any) -> None:
+        self._update_object(ref, "label", {"x": _drawing_scalar(x), "y": _drawing_scalar(y)})
+
+    def label_set_x(self, ref: ObjectRef, x: Any) -> None:
+        self._update_object(ref, "label", {"x": _drawing_scalar(x)})
+
+    def label_set_y(self, ref: ObjectRef, y: Any) -> None:
+        self._update_object(ref, "label", {"y": _drawing_scalar(y)})
+
+    def label_set_text(self, ref: ObjectRef, text: str) -> None:
+        self._update_object(ref, "label", {"text": str(text)})
+
+    def label_set_color(self, ref: ObjectRef, color: str) -> None:
+        self._update_object(ref, "label", {"color": color})
+
+    def label_set_textcolor(self, ref: ObjectRef, textcolor: str) -> None:
+        self._update_object(ref, "label", {"textcolor": textcolor})
+
+    def label_set_style(self, ref: ObjectRef, style: str) -> None:
+        self._update_object(ref, "label", {"style": style})
+
+    def label_set_size(self, ref: ObjectRef, size: str) -> None:
+        self._update_object(ref, "label", {"size": size})
+
+    def label_set_xloc(self, ref: ObjectRef, xloc: str) -> None:
+        self._update_object(ref, "label", {"xloc": xloc})
+
+    def label_set_yloc(self, ref: ObjectRef, yloc: str) -> None:
+        self._update_object(ref, "label", {"yloc": yloc})
+
+    def label_delete(self, ref: ObjectRef) -> None:
+        self._delete_object(ref, "label")
+
+    def box_new(
+        self,
+        left: Any,
+        top: Any,
+        right: Any,
+        bottom: Any,
+        bgcolor: str = "rgba(0,0,0,0)",
+        border_color: str = "#787b86",
+        border_width: int = 1,
+        border_style: str = "solid",
+        xloc: str = "bar_index",
+        pane: str | None = None,
+    ) -> ObjectRef:
+        object_id = self._next_object_id("box")
+        entry = {
+            "id": object_id,
+            "left": _drawing_scalar(left),
+            "top": _drawing_scalar(top),
+            "right": _drawing_scalar(right),
+            "bottom": _drawing_scalar(bottom),
+            "bgcolor": bgcolor,
+            "border_color": border_color,
+            "border_width": int(border_width),
+            "border_style": border_style,
+            "xloc": xloc,
+            "pane": pane or "main",
+        }
+        self._object_boxes[object_id] = entry
+        self._record_object_event("create", "box", entry)
+        return ObjectRef(id=object_id, kind="box")
+
+    def box_set_left(self, ref: ObjectRef, left: Any) -> None:
+        self._update_object(ref, "box", {"left": _drawing_scalar(left)})
+
+    def box_set_top(self, ref: ObjectRef, top: Any) -> None:
+        self._update_object(ref, "box", {"top": _drawing_scalar(top)})
+
+    def box_set_right(self, ref: ObjectRef, right: Any) -> None:
+        self._update_object(ref, "box", {"right": _drawing_scalar(right)})
+
+    def box_set_bottom(self, ref: ObjectRef, bottom: Any) -> None:
+        self._update_object(ref, "box", {"bottom": _drawing_scalar(bottom)})
+
+    def box_set_lefttop(self, ref: ObjectRef, left: Any, top: Any) -> None:
+        self._update_object(ref, "box", {"left": _drawing_scalar(left), "top": _drawing_scalar(top)})
+
+    def box_set_rightbottom(self, ref: ObjectRef, right: Any, bottom: Any) -> None:
+        self._update_object(
+            ref,
+            "box",
+            {"right": _drawing_scalar(right), "bottom": _drawing_scalar(bottom)},
+        )
+
+    def box_set_bgcolor(self, ref: ObjectRef, bgcolor: str) -> None:
+        self._update_object(ref, "box", {"bgcolor": bgcolor})
+
+    def box_set_border_color(self, ref: ObjectRef, border_color: str) -> None:
+        self._update_object(ref, "box", {"border_color": border_color})
+
+    def box_set_border_width(self, ref: ObjectRef, border_width: int) -> None:
+        self._update_object(ref, "box", {"border_width": int(border_width)})
+
+    def box_delete(self, ref: ObjectRef) -> None:
+        self._delete_object(ref, "box")
+
+    def table_new(
+        self,
+        position: str = "top_right",
+        columns: int = 1,
+        rows: int = 1,
+        bgcolor: str | None = None,
+        frame_color: str = "#787b86",
+        frame_width: int = 1,
+        border_color: str = "#787b86",
+        border_width: int = 1,
+        pane: str | None = None,
+    ) -> ObjectRef:
+        object_id = self._next_object_id("table")
+        entry = {
+            "id": object_id,
+            "position": position,
+            "columns": int(columns),
+            "rows": int(rows),
+            "bgcolor": bgcolor,
+            "frame_color": frame_color,
+            "frame_width": int(frame_width),
+            "border_color": border_color,
+            "border_width": int(border_width),
+            "pane": pane or "main",
+            "cells": [],
+        }
+        self._object_tables[object_id] = entry
+        self._record_object_event("create", "table", entry)
+        return ObjectRef(id=object_id, kind="table")
+
+    def table_cell(
+        self,
+        ref: ObjectRef,
+        column: int,
+        row: int,
+        text: Any = "",
+        text_color: str = "#000000",
+        bgcolor: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        text_halign: str = "center",
+        text_valign: str = "middle",
+    ) -> None:
+        entry = self._object_entry(ref, "table")
+        if entry is None:
+            return
+        cell = {
+            "column": int(column),
+            "row": int(row),
+            "text": str(_drawing_scalar(text)),
+            "text_color": text_color,
+            "bgcolor": bgcolor,
+            "width": width,
+            "height": height,
+            "text_halign": text_halign,
+            "text_valign": text_valign,
+        }
+        _upsert_table_cell(entry, cell)
+        self._record_object_event("update", "table", entry)
+
+    def table_clear(self, ref: ObjectRef) -> None:
+        self._update_object(ref, "table", {"cells": []})
+
+    def table_set_position(self, ref: ObjectRef, position: str) -> None:
+        self._update_object(ref, "table", {"position": position})
+
+    def table_set_bgcolor(self, ref: ObjectRef, bgcolor: str) -> None:
+        self._update_object(ref, "table", {"bgcolor": bgcolor})
+
+    def table_set_frame_color(self, ref: ObjectRef, frame_color: str) -> None:
+        self._update_object(ref, "table", {"frame_color": frame_color})
+
+    def table_set_border_color(self, ref: ObjectRef, border_color: str) -> None:
+        self._update_object(ref, "table", {"border_color": border_color})
+
+    def table_delete(self, ref: ObjectRef) -> None:
+        self._delete_object(ref, "table")
+
+    def _next_object_id(self, kind: str) -> str:
+        self._ensure_object_capacity()
+        self._object_counter += 1
+        return f"{kind}_{self._object_counter}"
+
+    def _ensure_object_capacity(self) -> None:
+        total = (
+            len(self._object_lines)
+            + len(self._object_labels)
+            + len(self._object_boxes)
+            + len(self._object_tables)
+        )
+        if total >= self._max_drawing_objects:
+            raise RuntimeError(f"Drawing object limit exceeded (max {self._max_drawing_objects})")
+
+    def _object_entry(self, ref: ObjectRef, kind: str) -> dict[str, Any] | None:
+        if not isinstance(ref, ObjectRef) or ref.kind != kind:
+            return None
+        buckets = {
+            "line": self._object_lines,
+            "label": self._object_labels,
+            "box": self._object_boxes,
+            "table": self._object_tables,
+        }
+        return buckets[kind].get(ref.id)
+
+    def _update_object(self, ref: ObjectRef, kind: str, updates: dict[str, Any]) -> None:
+        entry = self._object_entry(ref, kind)
+        if entry is None:
+            return
+        entry.update(updates)
+        self._record_object_event("update", kind, entry)
+
+    def _delete_object(self, ref: ObjectRef, kind: str) -> None:
+        entry = self._object_entry(ref, kind)
+        if entry is None:
+            return
+        self._record_object_event("delete", kind, entry)
+        {
+            "line": self._object_lines,
+            "label": self._object_labels,
+            "box": self._object_boxes,
+            "table": self._object_tables,
+        }[kind].pop(ref.id, None)
+
+    def _record_object_event(self, action: str, kind: str, entry: dict[str, Any]) -> None:
+        event: dict[str, Any] = {
+            "action": action,
+            "kind": kind,
+            "id": entry.get("id"),
+            "object": copy.deepcopy(entry),
+        }
+        if self.current_bar is not None:
+            event["time"] = self.current_bar.time
+            event["bar_index"] = self.bar_index
+            event["confirmed"] = self.barstate.isconfirmed
+            event["realtime"] = self.barstate.isrealtime
+        self._object_events.append(event)
+
+    def _objects_snapshot(self) -> dict[str, Any]:
+        objects: dict[str, Any] = {}
+        if self._object_lines:
+            objects["lines"] = list(copy.deepcopy(self._object_lines).values())
+        if self._object_labels:
+            objects["labels"] = list(copy.deepcopy(self._object_labels).values())
+        if self._object_boxes:
+            objects["boxes"] = list(copy.deepcopy(self._object_boxes).values())
+        if self._object_tables:
+            objects["tables"] = list(copy.deepcopy(self._object_tables).values())
+        return objects
+
     def to_result(self, *, start_s: int | None = None, end_s: int | None = None) -> IncrementalPyneResult:
         lines = []
         for item in self._series.values():
@@ -1726,6 +2078,12 @@ class IncrementalContext:
             output["markers"] = markers
         if self.strategy.touched:
             output["strategy"] = self.strategy.to_report()
+        objects = self._objects_snapshot()
+        if objects:
+            output["objects"] = objects
+        object_events = _filter_object_events(self._object_events, start_s, end_s)
+        if object_events:
+            output["object_events"] = object_events
 
         return IncrementalPyneResult(
             ok=True,
@@ -1765,6 +2123,7 @@ class PyneIncrementalSession:
         self._on_bar: Callable[..., Any] | None = None
         self._on_preview: Callable[..., Any] | None = None
         self._ctx: IncrementalContext | None = None
+        self._active_ctx: IncrementalContext | None = None
         self._prepared = False
         self.last_closed_time: int | None = None
         self._closed_count = 0
@@ -1799,6 +2158,7 @@ class PyneIncrementalSession:
             syminfo=self.settings.syminfo,
             timeframe=self.settings.timeframe,
             session=self.settings.session,
+            max_drawing_objects=self.settings.max_drawing_objects,
         )
         self._call_optional(self._init_func, self._ctx)
         self._closed_count = 0
@@ -1836,6 +2196,7 @@ class PyneIncrementalSession:
                 syminfo=self.settings.syminfo,
                 timeframe=self.settings.timeframe,
                 session=self.settings.session,
+                max_drawing_objects=self.settings.max_drawing_objects,
             )
             self._call_optional(self._init_func, self._ctx)
         bar = IncrementalBar.from_dict(item, is_confirmed=True)
@@ -1873,6 +2234,7 @@ class PyneIncrementalSession:
                 syminfo=self.settings.syminfo,
                 timeframe=self.settings.timeframe,
                 session=self.settings.session,
+                max_drawing_objects=self.settings.max_drawing_objects,
             )
             self._call_optional(self._init_func, self._ctx)
         bar = IncrementalBar.from_dict(item, is_confirmed=False)
@@ -1910,14 +2272,20 @@ class PyneIncrementalSession:
     ) -> None:
         ctx.begin_bar(bar, bar_index=bar_index, last_bar_index=last_bar_index, barstate=barstate)
         func = self._on_preview if preview and self._on_preview is not None else self._on_bar
-        with execution_timeout(self.policy.timeout_seconds):
-            self._call_required(func, ctx, bar)
+        previous_ctx = self._active_ctx
+        self._active_ctx = ctx
+        try:
+            with execution_timeout(self.policy.timeout_seconds):
+                self._call_required(func, ctx, bar)
+        finally:
+            self._active_ctx = previous_ctx
         ctx.strategy.end_bar()
 
     def _build_namespace(self) -> dict[str, Any]:
         def indicator(title: str = "", overlay: bool = True, **kwargs: Any) -> None:
             self._meta = {"title": title, "overlay": overlay, **kwargs}
 
+        drawing_namespaces = self._drawing_namespaces()
         return {
             "indicator": indicator,
             "params": self.params,
@@ -1932,7 +2300,115 @@ class PyneIncrementalSession:
             "cache": pyne_cache_namespace.cache,
             "cache_clear": pyne_cache_namespace.cache_clear,
             "cache_stats": pyne_cache_namespace.cache_stats,
+            **drawing_namespaces,
             "__builtins__": build_builtins(self.policy),
+        }
+
+    def _drawing_namespaces(self) -> dict[str, Any]:
+        def ctx() -> IncrementalContext:
+            if self._active_ctx is None:
+                raise PyneSecurityError("Drawing objects can only be mutated inside incremental callbacks")
+            return self._active_ctx
+
+        line_namespace = SimpleNamespace(
+            new=lambda *args, **kwargs: ctx().line_new(*args, **kwargs),
+            set_xy1=lambda *args, **kwargs: ctx().line_set_xy1(*args, **kwargs),
+            set_xy2=lambda *args, **kwargs: ctx().line_set_xy2(*args, **kwargs),
+            set_x1=lambda *args, **kwargs: ctx().line_set_x1(*args, **kwargs),
+            set_y1=lambda *args, **kwargs: ctx().line_set_y1(*args, **kwargs),
+            set_x2=lambda *args, **kwargs: ctx().line_set_x2(*args, **kwargs),
+            set_y2=lambda *args, **kwargs: ctx().line_set_y2(*args, **kwargs),
+            set_color=lambda *args, **kwargs: ctx().line_set_color(*args, **kwargs),
+            set_width=lambda *args, **kwargs: ctx().line_set_width(*args, **kwargs),
+            set_style=lambda *args, **kwargs: ctx().line_set_style(*args, **kwargs),
+            set_extend=lambda *args, **kwargs: ctx().line_set_extend(*args, **kwargs),
+            delete=lambda *args, **kwargs: ctx().line_delete(*args, **kwargs),
+            style_solid="solid",
+            style_dashed="dashed",
+            style_dotted="dotted",
+            extend_none="none",
+            extend_left="left",
+            extend_right="right",
+            extend_both="both",
+        )
+        label_namespace = SimpleNamespace(
+            new=lambda *args, **kwargs: ctx().label_new(*args, **kwargs),
+            set_xy=lambda *args, **kwargs: ctx().label_set_xy(*args, **kwargs),
+            set_x=lambda *args, **kwargs: ctx().label_set_x(*args, **kwargs),
+            set_y=lambda *args, **kwargs: ctx().label_set_y(*args, **kwargs),
+            set_text=lambda *args, **kwargs: ctx().label_set_text(*args, **kwargs),
+            set_color=lambda *args, **kwargs: ctx().label_set_color(*args, **kwargs),
+            set_textcolor=lambda *args, **kwargs: ctx().label_set_textcolor(*args, **kwargs),
+            set_style=lambda *args, **kwargs: ctx().label_set_style(*args, **kwargs),
+            set_size=lambda *args, **kwargs: ctx().label_set_size(*args, **kwargs),
+            set_xloc=lambda *args, **kwargs: ctx().label_set_xloc(*args, **kwargs),
+            set_yloc=lambda *args, **kwargs: ctx().label_set_yloc(*args, **kwargs),
+            delete=lambda *args, **kwargs: ctx().label_delete(*args, **kwargs),
+            style_label_up="label_up",
+            style_label_down="label_down",
+            style_label_left="label_left",
+            style_label_right="label_right",
+            style_label_center="label_center",
+        )
+        box_namespace = SimpleNamespace(
+            new=lambda *args, **kwargs: ctx().box_new(*args, **kwargs),
+            set_left=lambda *args, **kwargs: ctx().box_set_left(*args, **kwargs),
+            set_top=lambda *args, **kwargs: ctx().box_set_top(*args, **kwargs),
+            set_right=lambda *args, **kwargs: ctx().box_set_right(*args, **kwargs),
+            set_bottom=lambda *args, **kwargs: ctx().box_set_bottom(*args, **kwargs),
+            set_lefttop=lambda *args, **kwargs: ctx().box_set_lefttop(*args, **kwargs),
+            set_rightbottom=lambda *args, **kwargs: ctx().box_set_rightbottom(*args, **kwargs),
+            set_bgcolor=lambda *args, **kwargs: ctx().box_set_bgcolor(*args, **kwargs),
+            set_border_color=lambda *args, **kwargs: ctx().box_set_border_color(*args, **kwargs),
+            set_border_width=lambda *args, **kwargs: ctx().box_set_border_width(*args, **kwargs),
+            delete=lambda *args, **kwargs: ctx().box_delete(*args, **kwargs),
+            border_style_solid="solid",
+            border_style_dashed="dashed",
+            border_style_dotted="dotted",
+        )
+        table_namespace = SimpleNamespace(
+            new=lambda *args, **kwargs: ctx().table_new(*args, **kwargs),
+            cell=lambda *args, **kwargs: ctx().table_cell(*args, **kwargs),
+            clear=lambda *args, **kwargs: ctx().table_clear(*args, **kwargs),
+            set_position=lambda *args, **kwargs: ctx().table_set_position(*args, **kwargs),
+            set_bgcolor=lambda *args, **kwargs: ctx().table_set_bgcolor(*args, **kwargs),
+            set_frame_color=lambda *args, **kwargs: ctx().table_set_frame_color(*args, **kwargs),
+            set_border_color=lambda *args, **kwargs: ctx().table_set_border_color(*args, **kwargs),
+            delete=lambda *args, **kwargs: ctx().table_delete(*args, **kwargs),
+        )
+        return {
+            "line": line_namespace,
+            "label": label_namespace,
+            "box": box_namespace,
+            "table": table_namespace,
+            "position": SimpleNamespace(
+                top_left="top_left",
+                top_center="top_center",
+                top_right="top_right",
+                middle_left="middle_left",
+                middle_center="middle_center",
+                middle_right="middle_right",
+                bottom_left="bottom_left",
+                bottom_center="bottom_center",
+                bottom_right="bottom_right",
+            ),
+            "xloc": SimpleNamespace(bar_index="bar_index", bar_time="bar_time"),
+            "yloc": SimpleNamespace(price="price", abovebar="abovebar", belowbar="belowbar"),
+            "text": SimpleNamespace(
+                align_left="left",
+                align_center="center",
+                align_right="right",
+                align_top="top",
+                align_middle="middle",
+                align_bottom="bottom",
+            ),
+            "size": SimpleNamespace(
+                tiny="tiny",
+                small="small",
+                normal="normal",
+                large="large",
+                huge="huge",
+            ),
         }
 
     def _call_optional(self, func: Callable[..., Any] | None, ctx: IncrementalContext) -> None:
@@ -1978,6 +2454,7 @@ class PyneIncrementalSession:
                 syminfo=self.settings.syminfo,
                 timeframe=self.settings.timeframe,
                 session=self.settings.session,
+                max_drawing_objects=self.settings.max_drawing_objects,
             )
             self._call_optional(self._init_func, self._ctx)
         return self._ctx.to_result(start_s=start_s, end_s=end_s)
@@ -2114,6 +2591,53 @@ def _filter_points(points: list[dict[str, Any]], start_s: int | None, end_s: int
             continue
         filtered.append(point)
     return filtered
+
+
+def _filter_object_events(
+    events: list[dict[str, Any]],
+    start_s: int | None,
+    end_s: int | None,
+) -> list[dict[str, Any]]:
+    if start_s is None and end_s is None:
+        return copy.deepcopy(events)
+    filtered = []
+    for event in events:
+        try:
+            ts = int(event.get("time"))
+        except (TypeError, ValueError):
+            continue
+        if start_s is not None and ts < start_s:
+            continue
+        if end_s is not None and ts > end_s:
+            continue
+        filtered.append(copy.deepcopy(event))
+    return filtered
+
+
+def _drawing_scalar(value: Any) -> Any:
+    if isinstance(value, StateCell):
+        value = value.value
+    if value is None:
+        return None
+    if isinstance(value, bool | str | int):
+        return value
+    if isinstance(value, float):
+        return None if math.isnan(value) else _round8(value)
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return value
+    return None if math.isnan(number) else _round8(number)
+
+
+def _upsert_table_cell(entry: dict[str, Any], cell: dict[str, Any]) -> None:
+    cells = entry.setdefault("cells", [])
+    for idx, existing in enumerate(cells):
+        if existing.get("column") == cell["column"] and existing.get("row") == cell["row"]:
+            cells[idx] = cell
+            return
+    cells.append(cell)
+    cells.sort(key=lambda item: (item.get("row", 0), item.get("column", 0)))
 
 
 def _round8(value: float) -> float:

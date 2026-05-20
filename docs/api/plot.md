@@ -103,7 +103,8 @@ Each emitted point includes `direction`, `value`, and a scaled `height`.
 
 `line`, `label`, `box`, and `table` are Pine-like object namespaces.
 Constructors return opaque handles that can be passed to setter functions. Pyne
-serializes the final object snapshot under `output["objects"]`.
+serializes the final object snapshot under `output["objects"]`. Incremental
+scripts also emit create/update/delete records under `output["object_events"]`.
 
 ```python
 indicator("Objects", overlay=True)
@@ -126,6 +127,12 @@ table.cell(summary, 1, 0, close)
 For object coordinates, series arguments are resolved to their latest valid
 value. This makes history references such as `bar_index[2]` and `close[2]`
 usable in batch execution.
+
+In incremental execution, object coordinates are ordinary scalar callback
+values such as `ctx.bar_index`, `bar.time`, `bar.high`, or `bar.close`.
+`on_bar_closed()` returns events for the committed bar; `on_bar_updated()`
+returns preview events from a cloned context without mutating the persistent
+session.
 
 Supported `line` methods:
 

@@ -76,6 +76,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   - `line.*`、`label.*`、`box.*`、`text.*`、`position.*`
 - `indicator(..., format=..., scale=..., precision=...)` 可写入 metadata。
 - `label.new(..., yloc=...)`、`label.set_xloc()`、`label.set_yloc()` 已支持。
+- 增量执行已支持 `line`、`label`、`box`、`table` 的 create/update/delete
+  事件流，输出到 `output["object_events"]`，同时保留当前对象快照
+  `output["objects"]`；preview 事件运行在克隆上下文中，不污染持久 session。
 
 ### Request 多上下文
 
@@ -172,7 +175,7 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - 不能捕获 `request.security(symbol, tf, close + open)` 这种裸表达式的 AST 上下文；
   需要 `lambda ctx: ctx.close + ctx.open`。
 - Strategy 仍是确定性回放模型，不是完整券商模拟器。
-- Drawing output 目前偏最终快照，尚未做完整增量对象事件流。
+- Drawing output 是宿主渲染 JSON 协议，不是 TradingView 原生图层对象。
 
 ## 下一阶段优先级
 
@@ -229,13 +232,15 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议进入 batch/incremental 在 strategy 输出上的 parity 证据，优先选择
-不依赖宿主异步数据的 entry/close、pending fill、risk reset 与 trade ledger 场景。
+下一步建议进入 request-context edge case 与 golden 证据扩展，优先选择
+`request.security()` 的 gaps/lookahead 边界、lower-timeframe 分组边界，以及
+invalid symbol/provider capability 的组合场景。
 完成后应同步更新：
 
-- `src/pyne_runtime/strategy.py`
-- `tests/test_strategy_runtime.py`
-- `docs/api/strategy.md`
+- `src/pyne_runtime/request.py`
+- `tests/test_request_security.py`
+- `tests/test_golden_request_security.py`
+- `docs/api/request.md`
 - `docs/reference/pine_like_api_matrix.md`
 
 验证门槛保持为完整检查脚本通过。

@@ -201,6 +201,136 @@ def on_preview(ctx, bar):
     assert snapshot.meta["barstate"]["isconfirmed"] is True
 
 
+def test_incremental_drawing_objects_emit_events_and_snapshot() -> None:
+    script = """
+indicator("Incremental Objects", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    level = ctx.state("level")
+    note = ctx.state("note")
+    if ctx.bar_index == 0:
+        level.value = line.new(ctx.bar_index, bar.close, ctx.bar_index, bar.close, color=color.orange)
+        note.value = label.new(ctx.bar_index, bar.high, "start", color.green)
+    elif ctx.bar_index == 1:
+        line.set_xy2(level.value, ctx.bar_index, bar.high)
+        label.set_text(note.value, "updated")
+        label.set_xy(note.value, ctx.bar_index, bar.low)
+    else:
+        line.delete(level.value)
+        label.delete(note.value)
+"""
+
+    result = pn.run(script, _bars(), executor_mode="inline")
+
+    assert result.ok, result.error
+    assert "objects" not in result.output
+    events = result.output["object_events"]
+    assert [(event["action"], event["kind"], event["time"]) for event in events] == [
+        ("create", "line", 1),
+        ("create", "label", 1),
+        ("update", "line", 2),
+        ("update", "label", 2),
+        ("update", "label", 2),
+        ("delete", "line", 3),
+        ("delete", "label", 3),
+    ]
+    assert events[2]["object"]["x2"] == 1
+    assert events[2]["object"]["y2"] == 2
+    assert events[4]["object"]["text"] == "updated"
+    assert events[-1]["confirmed"] is True
+
+
+def test_incremental_drawing_object_preview_does_not_persist() -> None:
+    script = """
+indicator("Preview Objects", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    level = ctx.state("level")
+    if level.value is None:
+        level.value = line.new(ctx.bar_index, bar.close, ctx.bar_index, bar.close, color=color.orange)
+    else:
+        line.set_xy2(level.value, ctx.bar_index, bar.close)
+
+def on_preview(ctx, bar):
+    level = ctx.state("level")
+    line.set_color(level.value, color.red)
+    line.set_xy2(level.value, ctx.bar_index, bar.close)
+"""
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    seed = session.seed(_bars()[:1])
+    preview = session.on_bar_updated({"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100})
+    snapshot = session.snapshot_result()
+    closed = session.on_bar_closed({"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100})
+
+    assert seed.output["objects"]["lines"][0]["color"] == "#f59e0b"
+    assert preview.output["objects"]["lines"][0]["color"] == "#ef5350"
+    assert preview.output["object_events"][0]["action"] == "update"
+    assert preview.output["object_events"][0]["confirmed"] is False
+    assert snapshot.output["objects"]["lines"][0]["color"] == "#f59e0b"
+    assert snapshot.output["objects"]["lines"][0]["x2"] == 0
+    assert closed.output["objects"]["lines"][0]["color"] == "#f59e0b"
+    assert closed.output["objects"]["lines"][0]["x2"] == 1
+    assert closed.output["object_events"][0]["confirmed"] is True
+
+
+def test_incremental_box_and_table_objects_emit_events() -> None:
+    script = """
+indicator("Incremental Box Table", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    zone = ctx.state("zone")
+    summary = ctx.state("summary")
+    if ctx.bar_index == 0:
+        zone.value = box.new(ctx.bar_index, bar.high, ctx.bar_index, bar.low, bgcolor=color.green)
+        summary.value = table.new(position.top_right, 1, 1)
+        table.cell(summary.value, 0, 0, "start", text_halign=text.align_left)
+    else:
+        box.set_rightbottom(zone.value, ctx.bar_index, bar.low)
+        table.cell(summary.value, 0, 0, bar.close, text_halign=text.align_right)
+"""
+
+    result = pn.run(script, _bars()[:2], executor_mode="inline")
+
+    assert result.ok, result.error
+    objects = result.output["objects"]
+    assert objects["boxes"][0]["right"] == 1
+    assert objects["boxes"][0]["bottom"] == 1
+    assert objects["tables"][0]["cells"][0]["text"] == "2.0"
+    assert objects["tables"][0]["cells"][0]["text_halign"] == "right"
+    assert [(event["action"], event["kind"]) for event in result.output["object_events"]] == [
+        ("create", "box"),
+        ("create", "table"),
+        ("update", "table"),
+        ("update", "box"),
+        ("update", "table"),
+    ]
+
+
+def test_incremental_drawing_object_limit_is_enforced() -> None:
+    script = """
+indicator("Incremental Object Limit", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    line.new(ctx.bar_index, bar.close, ctx.bar_index, bar.high)
+    label.new(ctx.bar_index, bar.high, text="too much")
+"""
+
+    result = pn.run(
+        script,
+        _bars()[:1],
+        settings=pn.PyneSettings(max_drawing_objects=1),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "Drawing object limit exceeded" in str(result.error)
+
+
 def test_incremental_strategy_entry_close_matches_batch_series_and_report() -> None:
     batch_script = """
 strategy("Batch Basic", overlay=True, initial_capital=1000)
