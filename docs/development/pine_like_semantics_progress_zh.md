@@ -118,6 +118,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - Strategy pending risk lock golden fixture 已覆盖 pending entry 在 intraday
   risk lock 下保持挂起并在 session reset 后成交，以及在 global drawdown lock
   下保持 `pending` 的行为。
+- Strategy OCA lifecycle golden fixture 已覆盖 `strategy.oca.cancel` 取消 sibling
+  pending order，以及 `strategy.oca.reduce` 减少 sibling pending quantity。
 
 ## 仍然不是 Pine 的地方
 
@@ -167,21 +169,21 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - 订单生命周期报告已加入 `strategy.lifecycle`，并覆盖常见 rejected 原因和
   requested/filled quantity 细节；后续可继续扩展更多 broker-emulator 风格事件。
 - 已增加 strategy same-bar、lifecycle、risk lock、lot matching 与 intraday
-  reset、pending risk lock golden fixtures；后续继续扩大覆盖面。
+  reset、pending risk lock、OCA lifecycle golden fixtures；后续继续扩大覆盖面。
 
 ### P5: Golden 与兼容性证据
 
 - TA golden fixtures。
 - request edge-case golden fixtures。
 - strategy fill golden fixtures 已开始覆盖 same-bar、lifecycle、risk lock、
-  lot matching、intraday reset 与 pending risk lock 场景，后续继续扩大。
+  lot matching、intraday reset、pending risk lock 与 OCA lifecycle 场景，后续继续扩大。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续扩大 Strategy golden 与 broker-emulator 风格回放语义，优先覆盖
-OCA reduce/cancel 的 lifecycle 细节，以及更多 commission/slippage 组合场景。
-完成后应同步更新：
+更多 commission/slippage 组合场景，以及 pending/exit 在成本模型下的 lifecycle
+细节。完成后应同步更新：
 
 - `src/pyne_runtime/strategy.py`
 - `tests/test_strategy_runtime.py`
