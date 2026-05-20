@@ -120,6 +120,7 @@ Current incremental strategy scope:
 - `ctx.strategy.cancel(id)` and `ctx.strategy.cancel_all()` cancel matching pending entries and report the same public cancel orders and lifecycle statuses as batch strategy.
 - `ctx.strategy.oca.cancel` and `ctx.strategy.oca.reduce` are supported for pending entry/order groups.
 - `ctx.strategy.close()` and `ctx.strategy.close_all()` realize all or part of the current open lots.
+- `ctx.strategy.exit()` supports stop/limit exits for open positions, including `from_entry`, `qty`, `qty_percent`, and the same deterministic stop/limit priority policy.
 - Long and short positions, `qty`/`qty_percent` partial closes, and reverse entries update the same order/trade report shape as batch strategy for basic market-like fills.
 - `ctx.strategy.position_size`, `position_avg_price`, `equity`, `netprofit`, `openprofit`, `grossprofit`, and `grossloss` expose scalar values for the current bar.
 - `result.output["strategy"]` includes `orders`, `position`, `summary`, `closedtrades`, `opentrades`, and lifecycle fill events.
@@ -134,4 +135,6 @@ cancel/cancel_all reports, plus OCA cancel/reduce pending groups. Risk locks,
 commissions, margin enforcement, and exit/bracket orders remain batch strategy
 features until they are promoted into the incremental strategy layer. Pending
 fill policy parity covers limit verification, same-bar stop/limit priority, and
-deterministic intrabar path selection.
+deterministic intrabar path selection. Exit parity currently covers immediate
+per-bar stop/limit exit calls; persistent exit order lifecycle is still a
+separate batch-only behavior.

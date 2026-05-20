@@ -714,6 +714,74 @@ class IncrementalStrategyNamespace:
         if self._orders:
             self._orders[-1]["type"] = "close_all"
 
+    def exit(
+        self,
+        id: str,
+        *,
+        from_entry: str = "",
+        qty: float | None = None,
+        qty_percent: float | None = None,
+        stop: float | None = None,
+        limit: float | None = None,
+        when: bool = True,
+        comment: str = "",
+    ) -> None:
+        if not when or not self._open_trades or (stop is None and limit is None):
+            return
+        current_position = self.position_size
+        if current_position == 0:
+            return
+        bar = self._context.current_bar
+        if bar is None:
+            return
+        trigger = _exit_trigger(
+            current_position=current_position,
+            high=float(bar.high),
+            low=float(bar.low),
+            stop=_optional_float(stop),
+            limit=_optional_float(limit),
+            tick_verify=self._limit_fill_verification_amount(),
+            same_bar_fill_priority=self._same_bar_fill_priority,
+            intrabar_path=self._intrabar_path,
+        )
+        if trigger is None:
+            return
+        reason, event_price = trigger
+        target_qty = self._target_open_qty(str(from_entry))
+        requested_qty = _requested_exit_qty(target_qty=target_qty, qty=qty, qty_percent=qty_percent)
+        fill_qty = min(target_qty, abs(current_position), requested_qty)
+        if fill_qty <= 0:
+            return
+        closed_qty = self._close_lots(
+            id=str(from_entry),
+            exit_id=str(id),
+            target_qty=fill_qty,
+            fill_price=event_price,
+        )
+        if abs(closed_qty) <= 0:
+            return
+        self._touched = True
+        self._orders.append({
+            "time": self._current_time(),
+            "id": str(id),
+            "from_entry": str(from_entry),
+            "type": "exit",
+            "side": "flat",
+            "qty": _round8(abs(closed_qty)),
+            "price": _round8(event_price),
+            "position_after": self.position_size,
+            "reason": reason,
+            "comment": comment,
+            "_base_price": float(event_price),
+            "_target_qty": _round8(target_qty),
+            "_requested_fill_qty": _round8(requested_qty),
+            "_filled_qty": _round8(abs(closed_qty)),
+            "_requested_qty": _optional_float(qty),
+            "_qty_percent": _optional_float(qty_percent),
+            "_seq": self._next_seq(),
+            "_submit_time": self._current_time(),
+        })
+
     def cancel(self, id: str, *, when: bool = True, comment: str = "") -> None:
         if not when:
             return
@@ -809,6 +877,13 @@ class IncrementalStrategyNamespace:
         if qty_percent is not None:
             return min(position_qty, position_qty * max(float(qty_percent), 0.0) / 100.0)
         return position_qty
+
+    def _target_open_qty(self, from_entry: str) -> float:
+        return _round8(sum(
+            abs(float(trade.get("qty", 0.0)))
+            for trade in self._open_trades
+            if not from_entry or str(trade.get("entry_id", "")) == from_entry
+        ))
 
     def _cancel_pending(self, predicate: Callable[[dict[str, Any]], bool], *, canceled_by: str) -> int:
         canceled = 0
@@ -1528,6 +1603,15 @@ def _trade_open_profit(trade: dict[str, Any], close_price: float) -> float:
     )
 
 
+def _requested_exit_qty(*, target_qty: float, qty: float | None, qty_percent: float | None) -> float:
+    target = max(float(target_qty), 0.0)
+    if qty is not None:
+        return max(float(qty), 0.0)
+    if qty_percent is not None:
+        return target * max(float(qty_percent), 0.0) / 100.0
+    return target
+
+
 def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
@@ -1570,6 +1654,52 @@ def _pending_trigger(
             limit=limit,
             stop_path="low",
             limit_path="high",
+            same_bar_fill_priority=same_bar_fill_priority,
+            intrabar_path=intrabar_path,
+        )
+    if stop_hit:
+        return "stop", float(stop)
+    if limit_hit:
+        return "limit", float(limit)
+    return None
+
+
+def _exit_trigger(
+    *,
+    current_position: float,
+    high: float,
+    low: float,
+    stop: float | None,
+    limit: float | None,
+    tick_verify: float = 0.0,
+    same_bar_fill_priority: str = "stop_first",
+    intrabar_path: str = "same_bar_priority",
+) -> tuple[str, float] | None:
+    if current_position > 0:
+        stop_hit = stop is not None and low <= stop
+        limit_hit = limit is not None and high >= limit + tick_verify
+        if stop_hit and limit_hit:
+            return _same_bar_trigger(
+                stop=stop,
+                limit=limit,
+                stop_path="low",
+                limit_path="high",
+                same_bar_fill_priority=same_bar_fill_priority,
+                intrabar_path=intrabar_path,
+            )
+        if stop_hit:
+            return "stop", float(stop)
+        if limit_hit:
+            return "limit", float(limit)
+        return None
+    stop_hit = stop is not None and high >= stop
+    limit_hit = limit is not None and low <= limit - tick_verify
+    if stop_hit and limit_hit:
+        return _same_bar_trigger(
+            stop=stop,
+            limit=limit,
+            stop_path="high",
+            limit_path="low",
             same_bar_fill_priority=same_bar_fill_priority,
             intrabar_path=intrabar_path,
         )
@@ -1664,7 +1794,17 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
             phase = "pending_canceled" if pending else "cancel"
         elif active:
             status = "filled"
-            phase = "pending_fill" if pending else "close_fill" if order_type == "close" else "close_all_fill" if order_type == "close_all" else "market_fill"
+            phase = (
+                "pending_fill"
+                if pending
+                else "exit_fill"
+                if order_type == "exit"
+                else "close_fill"
+                if order_type == "close"
+                else "close_all_fill"
+                if order_type == "close_all"
+                else "market_fill"
+            )
         elif pending:
             status = "pending"
             phase = "pending"
@@ -1673,6 +1813,7 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
             phase = order_type
         event: dict[str, Any] = {
             "id": order.get("id"),
+            "from_entry": order.get("from_entry"),
             "type": order_type,
             "status": status,
             "phase": phase,
@@ -1701,6 +1842,10 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
             event["requested_qty"] = _round8(float(order.get("_requested_fill_qty", 0.0)))
         if order.get("_filled_qty") is not None and active:
             event["filled_qty"] = _round8(float(order.get("_filled_qty", 0.0)))
+        if order.get("_target_qty") is not None:
+            event["target_qty"] = _round8(float(order.get("_target_qty", 0.0)))
+        if order.get("_qty_percent") is not None:
+            event["qty_percent"] = _round8(float(order.get("_qty_percent", 0.0)))
         if order.get("_canceled_by") is not None:
             event["canceled_by"] = order.get("_canceled_by")
         if order.get("canceled") is not None:
