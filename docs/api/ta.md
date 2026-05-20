@@ -60,7 +60,12 @@ marker(ta.cross(close, ta.sma(close, 20)), text="Cross")
 
 The TA golden suite includes deterministic fixtures for core moving averages,
 Wilder smoothing, RSI, rolling extremes, bars-back extreme offsets,
-`barssince()`, and `valuewhen()`.
+`barssince()`, `valuewhen()`, MACD, Bollinger Bands, ATR, ALMA, DMI, and
+Parabolic SAR.
+
+`ta.macd()` follows Pine's tuple shape: MACD line, signal line, and histogram,
+where histogram is `macd_line - signal_line`. The signal line starts after the
+first complete non-`na` MACD-line window.
 
 The current fixture keeps a `pine_equivalent` script alongside the Pyne script
 so future TradingView-exported outputs can replace or extend the expected

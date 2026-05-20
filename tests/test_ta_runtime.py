@@ -64,6 +64,8 @@ plot(lower, "Lower")
     assert result.ok
     assert {line["name"] for line in result.lines} >= {"DIF", "DEA", "HIST", "Upper", "Middle", "Lower"}
     assert result.output["histograms"][0]["title"] == "HIST"
+    assert _series_values(result, "DEA")
+    assert _series_values(result, "HIST")
 
 
 def test_rsi_atr_and_crossover_helpers_emit_markers() -> None:

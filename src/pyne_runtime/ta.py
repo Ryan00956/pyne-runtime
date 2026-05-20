@@ -452,14 +452,14 @@ class TaModule:
         Pine equivalent: ``ta.macd(close, 12, 26, 9)``
 
         Returns:
-            Tuple of (DIF, DEA, histogram) arrays.
-            ``histogram = 2 * (DIF - DEA)``
+            Tuple of (MACD line, signal line, histogram) arrays.
+            ``histogram = macd_line - signal_line``.
         """
         ema_fast = self.ema(src, fast)
         ema_slow = self.ema(src, slow)
         dif = ema_fast - ema_slow
-        dea = self.ema(dif, signal)
-        hist = 2.0 * (dif - dea)
+        dea = wrap_like(_ema_skip_leading_na(to_numpy(dif, dtype=np.float64), signal), src)
+        hist = dif - dea
         return dif, dea, hist
 
     def mom(self, src: PyneSeries | np.ndarray, period: int = 1) -> PyneSeries | np.ndarray:

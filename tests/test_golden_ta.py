@@ -4,14 +4,23 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 import pyne_runtime as pn
 
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
 
 
-def test_ta_core_indicators_golden() -> None:
-    fixture = _load_fixture("ta_core_indicators.json")
+@pytest.mark.parametrize(
+    "fixture_name",
+    [
+        "ta_core_indicators.json",
+        "ta_advanced_indicators.json",
+    ],
+)
+def test_ta_golden_fixture(fixture_name: str) -> None:
+    fixture = _load_fixture(fixture_name)
 
     result = pn.run(
         fixture["script"],
