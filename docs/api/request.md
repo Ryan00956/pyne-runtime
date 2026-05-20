@@ -106,10 +106,16 @@ Supported now:
 - `expression` as a field name string, such as `"close"`
 - `expression` as a callable thunk, such as `lambda ctx: ctx.ta.ema(ctx.close, 20)`
 - tuple/multi-return expressions that can be unpacked in Python
-- `gaps="off"`: carry the latest requested value forward
-- `gaps="on"`: only emit values on exact requested bar timestamps
-- `lookahead="off"`: use the latest requested bar at or before each chart bar
-- `lookahead="on"`: use the next requested bar at or after each chart bar
+- `gaps="off"` or `gaps=barmerge.gaps_off`: carry the latest requested value forward
+- `gaps="on"` or `gaps=barmerge.gaps_on`: only emit values on exact requested bar timestamps
+- `lookahead="off"` or `lookahead=barmerge.lookahead_off`: use the latest requested bar at or before each chart bar
+- `lookahead="on"` or `lookahead=barmerge.lookahead_on`: use the next requested bar at or after each chart bar
+
+Pyne also accepts the string aliases `"gaps_on"`, `"gaps_off"`,
+`"lookahead_on"`, `"lookahead_off"`, `"barmerge.gaps_on"`,
+`"barmerge.gaps_off"`, `"barmerge.lookahead_on"`, and
+`"barmerge.lookahead_off"`. Unknown `gaps` or `lookahead` values return
+`PYNE_UNSUPPORTED_FEATURE` before the provider is called.
 
 ## Expression Thunks
 

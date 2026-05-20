@@ -38,3 +38,10 @@ def test_schema_exposes_ohlcv_contract() -> None:
     assert schema["input"]["type"] == "ohlcv"
     assert schema["input"]["schemaVersion"] == pn.PYNE_INPUT_SCHEMA_VERSION
     assert "close" in schema["input"]["required"]
+
+
+def test_barmerge_namespace_is_public_api() -> None:
+    assert pn.barmerge.gaps_on == "barmerge.gaps_on"
+    assert pn.barmerge.gaps_off == "barmerge.gaps_off"
+    assert pn.barmerge.lookahead_on == "barmerge.lookahead_on"
+    assert pn.barmerge.lookahead_off == "barmerge.lookahead_off"

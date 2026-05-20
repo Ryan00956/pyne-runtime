@@ -103,6 +103,78 @@ plot(higher, "Higher")
     ]
 
 
+def test_request_security_accepts_barmerge_alignment_constants() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+        {"time": 3, "open": 30, "high": 31, "low": 29, "close": 30, "volume": 3000},
+    ])
+
+    result = pn.run(
+        """
+indicator("MTF Barmerge", overlay=True)
+gapped = request.security("BTCUSDT", "2", "close", gaps=barmerge.gaps_on)
+ahead = request.security("BTCUSDT", "2", "close", lookahead=barmerge.lookahead_on)
+plot(gapped, "Gapped")
+plot(ahead, "Ahead")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert result.get_series("Gapped") == [
+        {"time": 1, "value": 10.0},
+        {"time": 3, "value": 30.0},
+    ]
+    assert result.values("Ahead") == [10, 30, 30]
+
+
+def test_request_security_rejects_invalid_gaps_before_provider_call() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Invalid Gaps", overlay=True)
+higher = request.security("BTCUSDT", "2", "close", gaps="maybe")
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert "gaps must be one of" in str(result.error)
+    assert provider.calls == []
+
+
+def test_request_security_rejects_invalid_lookahead_before_provider_call() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Invalid Lookahead", overlay=True)
+higher = request.security("BTCUSDT", "2", "close", lookahead="future")
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert "lookahead must be one of" in str(result.error)
+    assert provider.calls == []
+
+
 def test_request_security_requires_host_provider() -> None:
     result = pn.run(
         """

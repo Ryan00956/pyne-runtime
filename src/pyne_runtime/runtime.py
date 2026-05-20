@@ -28,7 +28,7 @@ from .input import InputModule
 from .color import color as color_singleton
 from .math_ext import pyne_math
 from .plot import OutputCollector, create_plot_functions
-from .request import PyneRequestError, RequestModule
+from .request import PyneRequestError, RequestModule, barmerge
 from .incremental import IncrementalPyneResult, PyneIncrementalSession, is_incremental_pyne_script
 from . import utils
 from .cache import pyne_cache
@@ -251,6 +251,7 @@ class PyneRuntime:
 
         # request.* — host-backed multi-context data requests
         ns["request"] = RequestModule(ctx, provider=self.settings.data_provider)
+        ns["barmerge"] = barmerge
 
         # strategy.* — lightweight strategy event semantics
         ns["strategy"] = strategy

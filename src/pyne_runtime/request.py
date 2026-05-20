@@ -20,6 +20,35 @@ RequestValues = list[Any] | tuple[list[Any], ...]
 
 _REQUEST_SECURITY_CAPABILITIES = ("request.security", "security", "ohlcv")
 _REQUEST_LOWER_TF_CAPABILITIES = ("request.security_lower_tf", "security_lower_tf", "lower_tf")
+_GAPS_ALIASES = {
+    "off": "off",
+    "gaps_off": "off",
+    "barmerge.gaps_off": "off",
+    "on": "on",
+    "gaps_on": "on",
+    "barmerge.gaps_on": "on",
+}
+_LOOKAHEAD_ALIASES = {
+    "off": "off",
+    "lookahead_off": "off",
+    "barmerge.lookahead_off": "off",
+    "on": "on",
+    "lookahead_on": "on",
+    "barmerge.lookahead_on": "on",
+}
+
+
+@dataclass(frozen=True)
+class BarMergeNamespace:
+    """Pine-like constants for request alignment options."""
+
+    gaps_off: str = "barmerge.gaps_off"
+    gaps_on: str = "barmerge.gaps_on"
+    lookahead_off: str = "barmerge.lookahead_off"
+    lookahead_on: str = "barmerge.lookahead_on"
+
+
+barmerge = BarMergeNamespace()
 
 
 class DataProvider(Protocol):
@@ -276,6 +305,16 @@ class RequestModule:
                 "Nested request.security() expressions are not supported",
                 code="PYNE_UNSUPPORTED_FEATURE",
             )
+        normalized_gaps = _normalize_request_option(
+            gaps,
+            name="gaps",
+            aliases=_GAPS_ALIASES,
+        )
+        normalized_lookahead = _normalize_request_option(
+            lookahead,
+            name="lookahead",
+            aliases=_LOOKAHEAD_ALIASES,
+        )
 
         start, end = self._context.times[0], self._context.times[-1]
         requested, requested_ctx = self._requested_context(str(symbol), str(timeframe), start, end)
@@ -307,8 +346,8 @@ class RequestModule:
             chart_times=self._context.times,
             requested_times=requested_times,
             requested_values=requested_values,
-            gaps=gaps,
-            lookahead=lookahead,
+            gaps=normalized_gaps,
+            lookahead=normalized_lookahead,
         )
 
     def security_lower_tf(
@@ -729,17 +768,14 @@ def _aligned_value(
     gaps: str,
     lookahead: str,
 ) -> float:
-    normalized_gaps = str(gaps or "off").lower()
-    normalized_lookahead = str(lookahead or "off").lower()
-
-    if normalized_gaps in {"on", "gaps_on"}:
+    if gaps == "on":
         idx = bisect_left(requested_times, chart_time)
         if idx < len(requested_times) and requested_times[idx] == chart_time:
             value = requested_values[idx]
             return np.nan if is_na_value(value) else float(value)
         return np.nan
 
-    if normalized_lookahead in {"on", "lookahead_on"}:
+    if lookahead == "on":
         idx = bisect_left(requested_times, chart_time)
     else:
         idx = bisect_right(requested_times, chart_time) - 1
@@ -748,6 +784,18 @@ def _aligned_value(
         return np.nan
     value = requested_values[idx]
     return np.nan if is_na_value(value) else float(value)
+
+
+def _normalize_request_option(value: Any, *, name: str, aliases: dict[str, str]) -> str:
+    raw = "off" if value is None else str(value).strip().lower()
+    normalized = aliases.get(raw)
+    if normalized is None:
+        accepted = ", ".join(sorted(aliases))
+        raise PyneRequestError(
+            f"request.security() {name} must be one of: {accepted}",
+            code="PYNE_UNSUPPORTED_FEATURE",
+        )
+    return normalized
 
 
 def _provider_supports(provider: DataProvider, capability_names: tuple[str, ...]) -> bool:

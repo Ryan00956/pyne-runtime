@@ -29,6 +29,7 @@ pn.SessionNamespace
 pn.DataProvider
 pn.RequestEvalContext
 pn.RequestModule
+pn.barmerge
 pn.StrategyModule
 
 pn.execute_pyne_script
@@ -52,6 +53,8 @@ pn.na
 script-level `syminfo`, `timeframe`, and `session` namespaces.
 `DataProvider` is the host protocol for `request.security()` market data access.
 `RequestEvalContext` is the calculation-only context passed to `request.security()` expression thunks.
+`pn.barmerge` exposes Pine-like request alignment constants such as
+`pn.barmerge.gaps_on` and `pn.barmerge.lookahead_off`.
 `StrategyModule` is the script-level `strategy.*` event namespace.
 
 Internal helpers and non-exported functions are not part of the compatibility contract.

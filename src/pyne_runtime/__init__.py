@@ -15,7 +15,14 @@ from .incremental import (
 )
 from .metadata import SessionInfo, SessionNamespace, SymbolInfo, TimeframeInfo
 from .plot import ObjectRef
-from .request import DataProvider, LowerTimeframeSeries, RequestEvalContext, RequestModule
+from .request import (
+    BarMergeNamespace,
+    DataProvider,
+    LowerTimeframeSeries,
+    RequestEvalContext,
+    RequestModule,
+    barmerge,
+)
 from .result import PyneResult
 from .runtime import PyneRuntime
 from .schema import PYNE_INPUT_SCHEMA_VERSION, PYNE_OUTPUT_SCHEMA_VERSION
@@ -27,6 +34,7 @@ from .values import na
 
 __all__ = [
     "__version__",
+    "BarMergeNamespace",
     "DataProvider",
     "ObjectRef",
     "PyneData",
@@ -55,6 +63,7 @@ __all__ = [
     "execute_pyne_script_in_process",
     "from_pandas",
     "is_incremental_pyne_script",
+    "barmerge",
     "na",
     "pyne_cache",
     "read_ohlcv",
