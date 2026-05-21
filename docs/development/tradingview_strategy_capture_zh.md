@@ -92,6 +92,18 @@ python scripts/strategy_capture_scaffold.py
 python scripts/strategy_capture_scaffold.py --check
 ```
 
+已经导入真实 TradingView 序列后，用 diff 脚本查看外部 capture 与当前 Pyne
+输出的差异：
+
+```powershell
+python scripts/strategy_capture_diff.py
+python scripts/strategy_capture_diff.py tests/golden/strategy_pine_equivalent_smoke.json --case market_round_trip_process_on_close
+python scripts/strategy_capture_diff.py --json
+```
+
+diff 脚本只检查 `status` 为 `captured` 的 case，`not_captured` 会被跳过；如果发现
+plot 差异或 Pyne 运行错误，脚本会返回非零退出码。
+
 报告中的状态含义：
 
 - `captured`：已有 TradingView 导出序列，并参与测试断言。
