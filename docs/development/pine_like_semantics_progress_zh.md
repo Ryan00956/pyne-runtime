@@ -273,13 +273,16 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy pine-equivalent short-side fixture 已加入 short bracket stop/limit 分支、
   short max position size 截断与 short OCA reduce cost allocation 样板，用于对照
   空头方向的 slippage、commission、filled_qty 截断和 reduced sibling quantity。
+- strategy pine-equivalent margin/order/cancel fixture 已加入 margin admission、
+  lower-level `strategy.order` net-position 减仓/反转，以及 `strategy.cancel()` /
+  `strategy.cancel_all()` 清理 pending order 后不复活的样板。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
-下一步建议继续沿 strategy 的 pine-equivalent fixture 样板扩展：优先选择
-margin_long/margin_short、strategy.order lower-level net-position、cancel/cancel_all
-与真实 TradingView 导出序列替换，继续扩大 broker-emulator 风格边界的外部证据。
+下一步建议把 strategy pine-equivalent fixture 从 Pyne-defined 预期推进到真实
+TradingView 导出序列：优先选择 market round-trip、bracket exit、cost allocation、
+reversal/pyramiding 与 margin/order/cancel 这些已经有稳定 scaffold 的样板。
 完成后应同步更新：
 
 - `tests/golden/`

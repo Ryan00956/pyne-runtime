@@ -173,7 +173,8 @@ commission, partial close allocation, reversal, pyramiding, and OCA/risk-lock
 interactions, plus global drawdown lock, max position size, and limit
 verification scenarios, partial exits, same-bar stop/limit priority, and
 intrabar path policy, including mirrored short-side exit, size, OCA, and cost
-paths. These Pine scripts use
+paths, margin admission, lower-level `strategy.order` net-position behavior,
+and cancel/cancel_all cleanup. These Pine scripts use
 `process_orders_on_close=true`, while Pyne scripts pin explicit entry or close
 fills with `price=close` where needed, so expected prices are deterministic and
 can be replaced with exported TradingView values when an external capture is
