@@ -298,7 +298,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 下一步建议把 strategy pine-equivalent fixture 从 Pyne-defined 预期推进到真实
 TradingView 导出序列：优先选择 market round-trip、bracket exit、cost allocation、
 reversal/pyramiding 与 margin/order/cancel 这些已经有稳定 scaffold 的样板。
-具体执行方式见 `docs/development/tradingview_strategy_capture_zh.md`。
+阶段计划见 `docs/development/tradingview_capture_next_phase_zh.md`，具体导入与
+状态检查方式见 `docs/development/tradingview_strategy_capture_zh.md`。
 完成后应同步更新：
 
 - `tests/golden/`
