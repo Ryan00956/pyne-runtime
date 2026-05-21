@@ -37,6 +37,38 @@ TradingView 导出的 plot 序列作为外部证据接入现有 golden runner。
 5. 将 `status` 从 `not_captured` 改为 `captured`。
 6. 运行 `python -m pytest tests/test_golden_strategy.py -q`。
 
+也可以用导入脚本写回 fixture：
+
+```powershell
+python scripts/strategy_capture_import.py `
+  tests/golden/strategy_pine_equivalent_smoke.json `
+  --case market_round_trip_process_on_close `
+  --values exported_plots.csv `
+  --tolerance 1e-9 `
+  --note "TradingView export YYYY-MM-DD"
+```
+
+`--values` 支持两种格式：
+
+```json
+{
+  "values": {
+    "Position": [2.0, 2.0, 0.0],
+    "Net Profit": [0.0, 0.0, 6.0]
+  }
+}
+```
+
+```csv
+time,Position,Net Profit
+1,2,0
+2,2,0
+3,0,6
+```
+
+CSV 导入会忽略 `time`、`timestamp`、`date`、`datetime`、`bar_index` 等对齐列。
+如果导出中包含 fixture 没有声明的 plot 标题，导入脚本会拒绝写入。
+
 ## 状态检查
 
 仓库提供状态脚本，用于查看哪些 case 已经接入真实 TradingView capture：

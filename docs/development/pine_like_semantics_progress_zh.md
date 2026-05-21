@@ -281,6 +281,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   runner 会把外部序列纳入断言。
 - 已加入 `scripts/strategy_capture_status.py`，用于统计 `captured`、
   `not_captured` 与 `missing` 的 strategy pine-equivalent capture 状态。
+- 已加入 `scripts/strategy_capture_import.py`，支持从 TradingView 导出的 JSON/CSV
+  plot 序列写回 `external_capture.values`，并拒绝未知 plot 标题。
 - batch / incremental parity tests。
 
 ## 下一步建议
