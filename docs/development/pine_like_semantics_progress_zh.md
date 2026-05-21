@@ -264,12 +264,15 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy pine-equivalent OCA/risk fixture 已加入 OCA cancel 与 OCA reduce 在
   intraday risk lock 下延迟 pending fill、session reset 后恢复触发、取消 sibling
   或缩减 sibling quantity 的样板。
+- strategy pine-equivalent risk/size/limit fixture 已加入 global drawdown lock、
+  max position size 截断与 limit verification tick 假设样板，用于对照 rejected
+  lifecycle、filled_qty 截断、pending limit 验证、commission 与 closed trade 口径。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续沿 strategy 的 pine-equivalent fixture 样板扩展：优先选择
-global drawdown lock、max position size 截断与 limit verification 交叉场景，
+strategy.exit partial、same-bar stop/limit priority 与 intrabar path 交叉场景，
 继续扩大复杂订单生命周期的外部对照面。
 完成后应同步更新：
 
