@@ -167,10 +167,11 @@ broker margin calls, forced liquidation, interest, or cash settlement.
 ## Pine-Equivalent Goldens
 
 The strategy golden suite includes `pine_equivalent` scaffolds for a basic
-market round trip and pending limit/stop entries. These Pine scripts use
-`process_orders_on_close=true`, while Pyne scripts pin explicit close fills with
-`price=close`, so expected prices are deterministic and can be replaced with
-exported TradingView values when an external capture is available.
+market round trip, pending limit/stop entries, and bracket exits. These Pine
+scripts use `process_orders_on_close=true`, while Pyne scripts pin explicit
+entry or close fills with `price=close` where needed, so expected prices are
+deterministic and can be replaced with exported TradingView values when an
+external capture is available.
 
 Capital reporting:
 

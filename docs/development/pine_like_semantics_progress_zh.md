@@ -249,13 +249,16 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy pine-equivalent pending entry fixture 已加入 limit entry 与 stop entry
   样板，用于对照 pending 提交、触发成交、平仓、position/equity/netprofit
   与 lifecycle 口径。
+- strategy pine-equivalent bracket exit fixture 已加入 limit exit 与 stop exit
+  样板，用于对照 `strategy.exit()` bracket 的出场原因、成交价、closed trade、
+  position/equity/netprofit 与 lifecycle 口径。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续沿 strategy 的 pine-equivalent fixture 样板扩展：优先选择
-bracket exit，然后是 commission/slippage，这两类能在 TradingView 中稳定导出
-且最能暴露 broker-emulator 口径差异的场景。
+commission/slippage，这类能在 TradingView 中稳定导出且最能暴露 broker-emulator
+成本口径差异。
 完成后应同步更新：
 
 - `tests/golden/`
