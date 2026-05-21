@@ -35,6 +35,10 @@ def test_strategy_capture_prepare_priority_manifest(tmp_path: Path) -> None:
     assert first["case"] == "market_round_trip_process_on_close"
     assert first["priority"] is True
     assert first["status"] == "not_captured"
+    assert first["bars_file"] == (
+        "01_strategy_pine_equivalent_smoke__"
+        "market_round_trip_process_on_close_bars.csv"
+    )
     assert first["bar_count"] == 4
     assert first["plot_titles"] == [
         "Position",
@@ -45,6 +49,13 @@ def test_strategy_capture_prepare_priority_manifest(tmp_path: Path) -> None:
     ]
     assert (out_dir / first["pine_file"]).read_text(encoding="utf-8").startswith(
         "//@version=5\nstrategy("
+    )
+    assert (out_dir / first["bars_file"]).read_text(encoding="utf-8") == (
+        "time,open,high,low,close,volume\n"
+        "1,10,10.5,9.5,10,100\n"
+        "2,11,11.5,10.5,11,100\n"
+        "3,13,13.5,12.5,13,100\n"
+        "4,12,12.5,11.5,12,100\n"
     )
     assert (out_dir / "README.md").read_text(encoding="utf-8").startswith(
         "# TradingView Strategy Capture Export Pack"

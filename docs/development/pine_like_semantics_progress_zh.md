@@ -288,7 +288,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   strategy pine-equivalent case 补齐 `not_captured` 占位；当前 27 个 case
   已全部具备 `external_capture` contract，状态脚本不再报告 `missing`。
 - 已加入 `scripts/strategy_capture_prepare.py`，用于生成 TradingView 导出准备包：
-  `.pine` 文件、`manifest.json` 和人工执行 README，默认覆盖 10 个 priority case。
+  `.pine` 文件、`_bars.csv` 数据窗口核对文件、`manifest.json` 和人工执行 README，
+  默认覆盖 10 个 priority case。
 - 测试层已保护 capture contract：`strategy_capture_scaffold.py --check` 必须对
   真实 golden fixtures 返回 0，priority case 必须全部具备 TradingView capture 元数据。
 - 已加入 `scripts/strategy_capture_diff.py`，用于对比 `captured` 的 TradingView

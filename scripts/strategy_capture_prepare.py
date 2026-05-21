@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
 import shutil
@@ -95,6 +96,7 @@ def prepare_capture_files(
             pine_path = out_dir / entry["pine_file"]
             pine_path.parent.mkdir(parents=True, exist_ok=True)
             pine_path.write_text(case["pine_equivalent"].rstrip() + "\n", encoding="utf-8")
+            write_bars_csv(out_dir / entry["bars_file"], case.get("bars", []))
             entries.append(entry)
     return entries
 
@@ -104,6 +106,7 @@ def build_entry(fixture_path: Path, case: dict[str, Any], index: int) -> dict[st
     case_name = case["name"]
     capture = case.get("external_capture", {})
     pine_file = f"{index:02d}_{slugify(fixture_path.stem)}__{slugify(case_name)}.pine"
+    bars_file = f"{Path(pine_file).stem}_bars.csv"
     export_file = f"{Path(pine_file).stem}.csv"
     return {
         "fixture": fixture_name,
@@ -111,6 +114,7 @@ def build_entry(fixture_path: Path, case: dict[str, Any], index: int) -> dict[st
         "priority": fixture_name in PRIORITY_FIXTURES,
         "status": capture.get("status", "missing"),
         "pine_file": pine_file,
+        "bars_file": bars_file,
         "expected_export_file": export_file,
         "bar_count": len(case.get("bars", [])),
         "plot_titles": list(case.get("values", {})),
@@ -132,19 +136,21 @@ def render_readme(entries: list[dict[str, Any]]) -> str:
     lines = [
         "# TradingView Strategy Capture Export Pack",
         "",
-        "Copy each `.pine` file into TradingView Pine Editor, export the declared plots,",
-        "then import the CSV/JSON back into the matching fixture.",
+        "Copy each `.pine` file into TradingView Pine Editor, align the chart data with",
+        "the matching `_bars.csv`, export the declared plots, then import the CSV/JSON",
+        "back into the matching fixture.",
         "",
         "## Cases",
         "",
-        "| # | Fixture | Case | Pine file | Plots | Bars |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| # | Fixture | Case | Pine file | Bars file | Plots | Bars |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for index, entry in enumerate(entries, start=1):
         plots = ", ".join(f"`{title}`" for title in entry["plot_titles"])
         lines.append(
             f"| {index} | `{entry['fixture']}` | `{entry['case']}` | "
-            f"`{entry['pine_file']}` | {plots} | {entry['bar_count']} |"
+            f"`{entry['pine_file']}` | `{entry['bars_file']}` | "
+            f"{plots} | {entry['bar_count']} |"
         )
     lines.extend(
         [
@@ -178,6 +184,15 @@ def fixture_sort_key(path: Path) -> tuple[int, str]:
     except ValueError:
         priority = len(PRIORITY_FIXTURES)
     return priority, path.name
+
+
+def write_bars_csv(path: Path, bars: list[dict[str, Any]]) -> None:
+    fieldnames = ["time", "open", "high", "low", "close", "volume"]
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
+        writer.writeheader()
+        for bar in bars:
+            writer.writerow({field: bar.get(field, "") for field in fieldnames})
 
 
 def slugify(value: str) -> str:

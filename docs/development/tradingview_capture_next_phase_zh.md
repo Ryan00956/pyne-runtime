@@ -168,11 +168,13 @@ python scripts/strategy_capture_prepare.py --out-dir .tmp/tradingview-priority -
 准备包包含：
 
 - 每个 case 对应的 `.pine` 文件。
-- `manifest.json`，记录 fixture、case、plot 标题、bar 数、导入命令和 diff 命令。
+- 每个 case 对应的 `_bars.csv` 文件，用于核对 TradingView 数据窗口。
+- `manifest.json`，记录 fixture、case、plot 标题、bar 数、bars 文件、导入命令和 diff 命令。
 - `README.md`，用于人工执行导出时快速核对。
 
 1. 打开 fixture，复制目标 case 的 `pine_equivalent` 到 TradingView Pine Editor。
-2. 使用与 fixture `bars` 完全一致的数据窗口或导入数据源。
+2. 使用准备包里的 `_bars.csv` 核对数据窗口；如果使用外部导入数据源，必须与
+   `_bars.csv` 的 `time/open/high/low/close/volume` 完全一致。
 3. 导出 plot 数据，保留 fixture `values` 中声明的所有 plot 标题。
 4. 用 import 脚本写回 fixture：
 
