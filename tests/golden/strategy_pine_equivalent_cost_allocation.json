@@ -9,6 +9,13 @@
         "Percent commission is 1% of traded notional.",
         "Entry notional is 20.0, entry commission is 0.2; close notional is 24.0, close commission is 0.24."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 12, "high": 12.5, "low": 11.5, "close": 12, "volume": 100}
@@ -69,6 +76,13 @@
         "Cash-per-contract commission is 0.25 per filled unit.",
         "The partial close allocates half of the entry commission to the first closed trade, and close_all allocates the remaining entry commission to the second closed trade."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 12, "high": 12.5, "low": 11.5, "close": 12, "volume": 100},

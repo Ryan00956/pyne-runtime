@@ -283,6 +283,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   `not_captured` 与 `missing` 的 strategy pine-equivalent capture 状态。
 - 已加入 `scripts/strategy_capture_import.py`，支持从 TradingView 导出的 JSON/CSV
   plot 序列写回 `external_capture.values`，并拒绝未知 plot 标题。
+- 已加入 `scripts/strategy_capture_scaffold.py`，用于给新增或既有
+  strategy pine-equivalent case 补齐 `not_captured` 占位；当前 27 个 case
+  已全部具备 `external_capture` contract，状态脚本不再报告 `missing`。
 - batch / incremental parity tests。
 
 ## 下一步建议

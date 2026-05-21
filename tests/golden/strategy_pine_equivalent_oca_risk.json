@@ -10,6 +10,13 @@
         "The stop is touched while the intraday lock is active, then fills after a session reset; the OCA cancel sibling is canceled by that fill.",
         "The Pyne bars use session_isfirstbar metadata to make the reset explicit for host-side replay."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100, "session_isfirstbar": true},
         {"time": 2, "open": 100, "high": 101, "low": 89, "close": 90, "volume": 100},
@@ -76,6 +83,13 @@
         "The first OCA fill happens only after a session reset, then reduces the sibling requested quantity from 2 to 1.",
         "The Pyne bars use session_isfirstbar metadata to make the reset explicit for host-side replay."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100, "session_isfirstbar": true},
         {"time": 2, "open": 100, "high": 101, "low": 89, "close": 90, "volume": 100},

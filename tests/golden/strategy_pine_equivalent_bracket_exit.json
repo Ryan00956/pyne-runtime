@@ -9,6 +9,13 @@
         "The Pyne entry pins price=close to match process_orders_on_close-style Pine fills.",
         "The second bar touches only the limit side of the bracket, avoiding same-bar stop/limit ambiguity."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 11, "high": 12.2, "low": 10.8, "close": 12, "volume": 100}
@@ -66,6 +73,13 @@
         "The Pyne entry pins price=close to match process_orders_on_close-style Pine fills.",
         "The second bar touches only the stop side of the bracket, avoiding same-bar stop/limit ambiguity."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 9.5, "high": 9.8, "low": 8.8, "close": 9, "volume": 100}

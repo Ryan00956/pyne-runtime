@@ -9,6 +9,13 @@
         "The fixture uses mintick=0.1 and slippage=2, so a long entry at close 10 fills at 10.2 and the close at 12 fills at 11.8.",
         "Cash-per-order commission charges 0.5 on entry and 0.5 on close; closed-trade gross profit is 1.6 and net profit is 0.6."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 12, "high": 12.5, "low": 11.5, "close": 12, "volume": 100}

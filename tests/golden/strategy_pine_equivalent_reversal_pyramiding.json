@@ -9,6 +9,13 @@
         "The opposite-direction entry closes the existing long lot and opens a new short target in one replayed fill.",
         "Pyne exposes the broker-style transaction quantity through lifecycle.transaction_qty while the compact order ledger keeps the new target entry quantity."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 9, "high": 9.5, "low": 8.5, "close": 9, "volume": 100},
@@ -72,6 +79,13 @@
         "pyramiding=1 permits one additional same-direction entry after the first open long lot.",
         "close_all closes both entry lots FIFO while closed trade accessors preserve per-lot profit."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 11, "high": 11.5, "low": 10.5, "close": 11, "volume": 100},

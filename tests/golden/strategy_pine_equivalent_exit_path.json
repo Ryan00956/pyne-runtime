@@ -9,6 +9,13 @@
         "The partial exit targets the B entry lot and closes half of its original quantity.",
         "close_all later closes the remaining A and B lots FIFO."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
         {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
@@ -52,6 +59,13 @@
       "script": "strategy(\"Pine Equivalent Same Bar Stop First\", overlay=True, initial_capital=1000)\nstrategy.entry(\"Long\", strategy.long, qty=1, when=bar_index == 0, price=close)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Same Bar Stop First\", overlay=true, initial_capital=1000, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=1)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent_notes": ["Both bracket prices are touched by the second bar; Pyne's default explicit policy selects the stop side."],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100}
@@ -76,6 +90,13 @@
       "script": "strategy(\"Pine Equivalent Same Bar Limit First\", overlay=True, initial_capital=1000, same_bar_fill_priority=strategy.same_bar.limit_first)\nstrategy.entry(\"Long\", strategy.long, qty=1, when=bar_index == 0, price=close)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Same Bar Limit First\", overlay=true, initial_capital=1000, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=1)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent_notes": ["Both bracket prices are touched by the second bar; this Pyne fixture selects the limit side through an explicit deterministic policy."],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100}
@@ -100,6 +121,13 @@
       "script": "strategy(\"Pine Equivalent Intrabar High Low\", overlay=True, initial_capital=1000, intrabar_path=strategy.intrabar.open_high_low_close)\nstrategy.entry(\"Long\", strategy.long, qty=1, when=bar_index == 0, price=close)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Intrabar High Low\", overlay=true, initial_capital=1000, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=1)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent_notes": ["Both bracket prices are touched by the second bar; Pyne's explicit open-high-low-close path reaches the limit before the stop."],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100}
@@ -124,6 +152,13 @@
       "script": "strategy(\"Pine Equivalent Intrabar Low High\", overlay=True, initial_capital=1000, intrabar_path=strategy.intrabar.open_low_high_close)\nstrategy.entry(\"Long\", strategy.long, qty=1, when=bar_index == 0, price=close)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Intrabar Low High\", overlay=true, initial_capital=1000, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=1)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent_notes": ["Both bracket prices are touched by the second bar; Pyne's explicit open-low-high-close path reaches the stop before the limit."],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 10, "high": 13, "low": 8, "close": 11, "volume": 100}

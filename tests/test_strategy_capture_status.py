@@ -26,8 +26,8 @@ def test_strategy_capture_status_json_report() -> None:
 
     assert report["counts"]["total"] == 27
     assert report["counts"]["captured"] == 0
-    assert report["counts"]["not_captured"] == 1
-    assert report["counts"]["missing"] == 26
+    assert report["counts"]["not_captured"] == 27
+    assert report["counts"]["missing"] == 0
     assert report["counts"]["priority_total"] == 10
     smoke = report["cases"][0]
     assert smoke["fixture"] == "strategy_pine_equivalent_smoke.json"

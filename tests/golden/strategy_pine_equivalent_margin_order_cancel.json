@@ -9,6 +9,13 @@
         "The first entry requires more margin than available equity and is rejected without commission.",
         "The smaller entry passes margin admission, then close_all carries entry and close commissions into the closed trade."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
         {"time": 2, "open": 105, "high": 106, "low": 104, "close": 105, "volume": 100}
@@ -39,6 +46,13 @@
         "strategy.order is lower-level net-position arithmetic rather than Pine-style entry pyramiding.",
         "The second order reduces the long position; the third order closes the remaining long unit and opens a new short position."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
         {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
@@ -76,6 +90,13 @@
         "cancel removes only the matching pending order; cancel_all removes the remaining pending order.",
         "The final bar touches both original stop prices, proving canceled pending orders do not revive."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},

@@ -9,6 +9,13 @@
         "Both stop and limit are touched on the exit bar; Pyne's default deterministic policy chooses the stop side.",
         "Short entry sell fills subtract slippage ticks, while the stop exit buy fill adds slippage ticks."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 10, "high": 12, "low": 8, "close": 9, "volume": 100}
@@ -38,6 +45,13 @@
         "Both stop and limit are touched on the exit bar; this Pyne fixture selects the limit side through an explicit deterministic policy.",
         "Short entry sell fills subtract slippage ticks, while the limit exit buy fill adds slippage ticks."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 10, "high": 12, "low": 8, "close": 9, "volume": 100}
@@ -67,6 +81,13 @@
         "max_position_size caps the first requested short entry from 5 contracts to 3 contracts.",
         "The later same-direction short entry is rejected because the capped position is already at the configured maximum."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 12, "high": 13, "low": 11, "close": 12, "volume": 100},
         {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
@@ -98,6 +119,13 @@
         "The first short stop fill reduces the sibling pending order quantity from 2 to 1.",
         "Cash-per-contract commission is charged on the reduced filled quantity, not the original sibling request."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 8.5, "high": 9, "low": 7.8, "close": 8, "volume": 100},

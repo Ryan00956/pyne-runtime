@@ -9,6 +9,13 @@
         "Uses process_orders_on_close=true and a close pinned with price=close on the Pyne side to keep the exit deterministic.",
         "The limit-entry fill price is the submitted limit price."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 9.6, "high": 9.8, "low": 8.8, "close": 9.2, "volume": 100},
@@ -67,6 +74,13 @@
         "Uses process_orders_on_close=true and a close pinned with price=close on the Pyne side to keep the exit deterministic.",
         "The stop-entry fill price is the submitted stop price in this fixture."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 11.5, "high": 12.2, "low": 11.4, "close": 12.1, "volume": 100},

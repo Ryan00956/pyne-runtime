@@ -79,6 +79,13 @@ python scripts/strategy_capture_status.py --json
 python scripts/strategy_capture_status.py --missing-only
 ```
 
+新增 fixture 后，先用 scaffold 脚本补齐 `not_captured` 占位：
+
+```powershell
+python scripts/strategy_capture_scaffold.py
+python scripts/strategy_capture_scaffold.py --check
+```
+
 报告中的状态含义：
 
 - `captured`：已有 TradingView 导出序列，并参与测试断言。

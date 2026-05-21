@@ -9,6 +9,13 @@
         "The drawdown lock is triggered by marked-to-market equity falling more than 5% from the replayed peak.",
         "Entry and order submissions after the lock are rejected without commission, while close_all remains allowed to flatten the existing position."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
         {"time": 2, "open": 100, "high": 100, "low": 89, "close": 90, "volume": 100},
@@ -48,6 +55,13 @@
         "max_position_size caps the first requested entry from 5 contracts to 3 contracts.",
         "The later same-direction entry is rejected because the capped position is already at the configured maximum."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
         {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 100},
@@ -86,6 +100,13 @@
         "backtest_fill_limits_assumption=2 with mintick=0.1 requires the long limit to trade through 10.0 by 0.2.",
         "The second bar touches 9.9 but remains pending; the third bar reaches 9.79 and fills at the requested limit plus one tick of slippage."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10.5, "high": 10.7, "low": 10.1, "close": 10.5, "volume": 100},
         {"time": 2, "open": 10.3, "high": 10.5, "low": 9.9, "close": 10.2, "volume": 100},
