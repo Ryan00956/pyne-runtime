@@ -16,6 +16,7 @@ TradingView-backed parity。
   - `scripts/strategy_capture_status.py`
   - `scripts/strategy_capture_scaffold.py`
   - `scripts/strategy_capture_prepare.py`
+  - `scripts/strategy_capture_preflight.py`
   - `scripts/strategy_capture_import.py`
   - `scripts/strategy_capture_diff.py`
 
@@ -176,7 +177,13 @@ python scripts/strategy_capture_prepare.py --out-dir .tmp/tradingview-priority -
 2. 使用准备包里的 `_bars.csv` 核对数据窗口；如果使用外部导入数据源，必须与
    `_bars.csv` 的 `time/open/high/low/close/volume` 完全一致。
 3. 导出 plot 数据，保留 fixture `values` 中声明的所有 plot 标题。
-4. 用 import 脚本写回 fixture：
+4. 导入前先运行 preflight，确认导出文件存在、plot 列完整、行数和可选 time 列对齐：
+
+```powershell
+python scripts/strategy_capture_preflight.py .tmp/tradingview-priority/manifest.json --case <case_name>
+```
+
+5. 用 import 脚本写回 fixture：
 
 ```powershell
 python scripts/strategy_capture_import.py `
@@ -187,19 +194,19 @@ python scripts/strategy_capture_import.py `
   --note "TradingView export YYYY-MM-DD, symbol/timeframe/source"
 ```
 
-5. 运行单 case 或单 fixture diff：
+6. 运行单 case 或单 fixture diff：
 
 ```powershell
 python scripts/strategy_capture_diff.py tests/golden/<fixture>.json --case <case_name>
 ```
 
-6. 如果 diff 为 0，运行 strategy golden：
+7. 如果 diff 为 0，运行 strategy golden：
 
 ```powershell
 python -m pytest tests/test_golden_strategy.py -q
 ```
 
-7. 如果 diff 不为 0，进入差异分类流程，不要直接覆盖 Pyne baseline。
+8. 如果 diff 不为 0，进入差异分类流程，不要直接覆盖 Pyne baseline。
 
 ## 差异处理流程
 

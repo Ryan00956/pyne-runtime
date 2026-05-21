@@ -103,6 +103,16 @@ prepare 脚本默认只生成 priority case；输出目录中会包含每个 cas
 脚本、`_bars.csv` 数据窗口核对文件，以及 `manifest.json`。manifest 会记录每个
 case 的 plot 标题、bar 数、bars 文件、导入命令和 diff 命令。
 
+导入前可以先对 TradingView 导出的 CSV 做预检查：
+
+```powershell
+python scripts/strategy_capture_preflight.py .tmp/tradingview-priority/manifest.json
+python scripts/strategy_capture_preflight.py .tmp/tradingview-priority/manifest.json --case market_round_trip_process_on_close
+```
+
+preflight 会检查导出文件是否存在、plot 列是否完整、是否包含未知 plot、行数是否
+匹配 bar 数；如果导出包含 `time` 列，还会和对应 `_bars.csv` 对齐。
+
 已经导入真实 TradingView 序列后，用 diff 脚本查看外部 capture 与当前 Pyne
 输出的差异：
 

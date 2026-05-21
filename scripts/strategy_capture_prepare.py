@@ -155,6 +155,14 @@ def render_readme(entries: list[dict[str, Any]]) -> str:
     lines.extend(
         [
             "",
+            "## Preflight",
+            "",
+            "After placing TradingView exports next to this manifest, run:",
+            "",
+            "```powershell",
+            "python scripts/strategy_capture_preflight.py <pack-dir>/manifest.json",
+            "```",
+            "",
             "## Import Pattern",
             "",
             "```powershell",
