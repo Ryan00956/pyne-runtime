@@ -92,6 +92,16 @@ python scripts/strategy_capture_scaffold.py
 python scripts/strategy_capture_scaffold.py --check
 ```
 
+准备 TradingView 导出时，可以生成 Pine 脚本与 manifest：
+
+```powershell
+python scripts/strategy_capture_prepare.py --out-dir .tmp/tradingview-priority --clean
+python scripts/strategy_capture_prepare.py --out-dir .tmp/tradingview-all --all --clean
+```
+
+prepare 脚本默认只生成 priority case；输出目录中的 `manifest.json` 会记录每个
+case 的 plot 标题、bar 数、导入命令和 diff 命令。
+
 已经导入真实 TradingView 序列后，用 diff 脚本查看外部 capture 与当前 Pyne
 输出的差异：
 

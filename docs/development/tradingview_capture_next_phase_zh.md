@@ -15,6 +15,7 @@ TradingView-backed parity。
 - 已有工具：
   - `scripts/strategy_capture_status.py`
   - `scripts/strategy_capture_scaffold.py`
+  - `scripts/strategy_capture_prepare.py`
   - `scripts/strategy_capture_import.py`
   - `scripts/strategy_capture_diff.py`
 
@@ -84,6 +85,14 @@ priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。
 
 目标是先打通最短链路，验证导出、导入、diff 和 golden runner 都工作正常。
 
+开始前先生成 TradingView export pack：
+
+```powershell
+python scripts/strategy_capture_prepare.py --out-dir .tmp/tradingview-priority --clean
+```
+
+默认只生成 priority cases；如需生成全部 27 个 case，使用 `--all`。
+
 | Fixture | Case | 状态 | 备注 |
 | --- | --- | --- | --- |
 | `strategy_pine_equivalent_smoke.json` | `market_round_trip_process_on_close` | `not_captured` | 第一优先级，验证 market fill 和 process-on-close scaffold |
@@ -149,6 +158,18 @@ python -m pytest tests/test_golden_strategy.py -q
 ```
 
 ## 单个 Case 执行流程
+
+0. 生成或刷新导出准备包：
+
+```powershell
+python scripts/strategy_capture_prepare.py --out-dir .tmp/tradingview-priority --clean
+```
+
+准备包包含：
+
+- 每个 case 对应的 `.pine` 文件。
+- `manifest.json`，记录 fixture、case、plot 标题、bar 数、导入命令和 diff 命令。
+- `README.md`，用于人工执行导出时快速核对。
 
 1. 打开 fixture，复制目标 case 的 `pine_equivalent` 到 TradingView Pine Editor。
 2. 使用与 fixture `bars` 完全一致的数据窗口或导入数据源。
