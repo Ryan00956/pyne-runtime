@@ -119,3 +119,19 @@ def test_strategy_capture_scaffold_check_fails_when_missing(tmp_path: Path) -> N
 
     assert completed.returncode == 1
     assert "missing TradingView capture placeholder" in completed.stdout
+
+
+def test_strategy_capture_scaffold_check_real_golden_fixtures() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "strategy_capture_scaffold.py"),
+            "--check",
+        ],
+        check=True,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "would add 0 placeholder(s)" in completed.stdout
