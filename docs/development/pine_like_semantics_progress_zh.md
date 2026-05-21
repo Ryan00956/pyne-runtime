@@ -246,12 +246,15 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   Pyne 脚本显式使用 `price=close` 固定成交价，fixture 同时保存
   `process_orders_on_close=true` 的 Pine scaffold，方便后续替换为 TradingView
   导出的外部序列。
+- strategy pine-equivalent pending entry fixture 已加入 limit entry 与 stop entry
+  样板，用于对照 pending 提交、触发成交、平仓、position/equity/netprofit
+  与 lifecycle 口径。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续沿 strategy 的 pine-equivalent fixture 样板扩展：优先选择
-limit/stop entry、bracket exit、commission/slippage 这三类能在 TradingView 中稳定导出
+bracket exit，然后是 commission/slippage，这两类能在 TradingView 中稳定导出
 且最能暴露 broker-emulator 口径差异的场景。
 完成后应同步更新：
 

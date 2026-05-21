@@ -12,13 +12,20 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 
 
 @pytest.mark.parametrize(
-    "case",
-    json.loads((GOLDEN_DIR / "strategy_pine_equivalent_smoke.json").read_text())[
-        "cases"
+    "fixture_name",
+    [
+        "strategy_pine_equivalent_smoke.json",
+        "strategy_pine_equivalent_pending_entries.json",
     ],
-    ids=lambda case: case["name"],
 )
-def test_strategy_pine_equivalent_smoke_golden(case: dict) -> None:
+def test_strategy_pine_equivalent_golden(fixture_name: str) -> None:
+    fixture = json.loads((GOLDEN_DIR / fixture_name).read_text())
+
+    for case in fixture["cases"]:
+        _assert_strategy_pine_equivalent_case(case)
+
+
+def _assert_strategy_pine_equivalent_case(case: dict) -> None:
     result = pn.run(case["script"], case["bars"], executor_mode="inline")
 
     assert result.ok, result.error
