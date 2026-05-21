@@ -9,6 +9,8 @@ Push-Location $Root
 try {
     & $Python -m ruff check .
     & $Python -m pytest
+    & $Python scripts/strategy_capture_scaffold.py --check
+    & $Python scripts/strategy_capture_diff.py
     $Dist = Join-Path $env:TEMP "pyne-runtime-dist-check"
     if (Test-Path $Dist) {
         Remove-Item -LiteralPath $Dist -Recurse -Force

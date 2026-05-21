@@ -55,6 +55,13 @@ TradingView-backed parity。
 
 当至少一批 priority case 稳定 captured 后，把 diff 检查作为常规验证的一部分。
 
+当前进度：
+
+- `scripts/check.ps1`、`scripts/check.sh` 和 GitHub Actions CI 已显式运行
+  `strategy_capture_scaffold.py --check` 与 `strategy_capture_diff.py`。
+- 当前没有 captured case，因此 diff gate 会跳过 27 个 `not_captured` case；
+  后续一旦导入真实 TradingView 序列，差异会自动进入本地和 CI 质量门。
+
 完成标准：
 
 - `python scripts/strategy_capture_diff.py` 在 captured case 上保持 0 difference。

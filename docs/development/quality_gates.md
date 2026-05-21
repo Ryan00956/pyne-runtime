@@ -17,6 +17,8 @@ Run these before committing package changes:
 ```bash
 python -m ruff check .
 python -m pytest
+python scripts/strategy_capture_scaffold.py --check
+python scripts/strategy_capture_diff.py
 ```
 
 Golden-style semantic fixtures live under `tests/golden/` and are exercised by
@@ -24,6 +26,11 @@ the normal pytest suite. Add or update a fixture when a Pine-like compatibility
 claim depends on exact alignment or replay output, especially for
 `request.security` gaps/lookahead alignment, lower-timeframe grouping, strategy
 fills, and barstate flags.
+
+The strategy capture gates protect the TradingView external-evidence workflow:
+`strategy_capture_scaffold.py --check` ensures every strategy pine-equivalent
+case keeps an `external_capture` contract, and `strategy_capture_diff.py` fails
+when any `captured` TradingView plot sequence diverges from current Pyne output.
 
 From the package root, the full package check also verifies build metadata:
 

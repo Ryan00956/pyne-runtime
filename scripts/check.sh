@@ -8,6 +8,8 @@ DIST="${TMPDIR:-/tmp}/pyne-runtime-dist-check"
 cd "$ROOT"
 "$PYTHON" -m ruff check .
 "$PYTHON" -m pytest
+"$PYTHON" scripts/strategy_capture_scaffold.py --check
+"$PYTHON" scripts/strategy_capture_diff.py
 rm -rf "$DIST"
 "$PYTHON" -m build --outdir "$DIST"
 "$PYTHON" -m twine check "$DIST"/*
