@@ -267,13 +267,16 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy pine-equivalent risk/size/limit fixture 已加入 global drawdown lock、
   max position size 截断与 limit verification tick 假设样板，用于对照 rejected
   lifecycle、filled_qty 截断、pending limit 验证、commission 与 closed trade 口径。
+- strategy pine-equivalent exit/path fixture 已加入 `strategy.exit(qty_percent=...)`
+  partial exit、same-bar stop/limit priority 与 intrabar path 样板，用于对照
+  exit target_qty/filled_qty、同 bar 双触发分支与显式高低路径分支。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续沿 strategy 的 pine-equivalent fixture 样板扩展：优先选择
-strategy.exit partial、same-bar stop/limit priority 与 intrabar path 交叉场景，
-继续扩大复杂订单生命周期的外部对照面。
+short-side exits、short-side risk/size、short-side pending/OCA 与 cost allocation
+交叉场景，继续扩大空头路径和复杂订单生命周期的外部对照面。
 完成后应同步更新：
 
 - `tests/golden/`
