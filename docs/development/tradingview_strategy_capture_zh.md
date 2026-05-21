@@ -67,7 +67,13 @@ time,Position,Net Profit
 ```
 
 CSV 导入会忽略 `time`、`timestamp`、`date`、`datetime`、`bar_index` 等对齐列。
-如果导出中包含 fixture 没有声明的 plot 标题，导入脚本会拒绝写入。
+导入脚本默认执行完整性校验：
+
+- 如果导出中包含 fixture 没有声明的 plot 标题，会拒绝写入。
+- 如果导出缺少 fixture 已声明的 plot 标题，会拒绝写入；临时局部导入可显式使用
+  `--allow-partial-plots`。
+- 如果任意 plot 序列长度与 fixture bar 数不一致，会拒绝写入；排查对齐问题时可显式使用
+  `--allow-length-mismatch`。
 
 ## 状态检查
 

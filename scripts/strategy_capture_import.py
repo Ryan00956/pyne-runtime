@@ -44,18 +44,27 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
         help="Optional capture note. May be repeated.",
     )
+    parser.add_argument(
+        "--allow-partial-plots",
+        action="store_true",
+        help="Allow the export to omit plot titles declared by the fixture.",
+    )
+    parser.add_argument(
+        "--allow-length-mismatch",
+        action="store_true",
+        help="Allow exported plot sequences to differ from the fixture bar count.",
+    )
     args = parser.parse_args(argv)
 
     values = load_values(args.values, args.format)
     fixture = json.loads(args.fixture.read_text(encoding="utf-8"))
     case = find_case(fixture, args.case)
-    plot_titles = set(case.get("values", {}))
-    unknown_titles = sorted(set(values) - plot_titles)
-    if unknown_titles:
-        raise SystemExit(
-            "export contains plot title(s) not present in fixture values: "
-            + ", ".join(unknown_titles)
-        )
+    validate_capture_values(
+        case,
+        values,
+        allow_partial_plots=args.allow_partial_plots,
+        allow_length_mismatch=args.allow_length_mismatch,
+    )
 
     case["external_capture"] = {
         "provider": "tradingview",
@@ -128,6 +137,63 @@ def normalize_values(raw_values: dict[str, Any]) -> dict[str, list[float | None]
             raise SystemExit(f"plot {title!r} must be a list")
         values[title] = [parse_scalar(value) for value in series]
     return values
+
+
+def validate_capture_values(
+    case: dict[str, Any],
+    values: dict[str, list[float | None]],
+    *,
+    allow_partial_plots: bool,
+    allow_length_mismatch: bool,
+) -> None:
+    plot_titles = set(case.get("values", {}))
+    if not plot_titles:
+        raise SystemExit(f"case {case.get('name', '<unknown>')!r} has no fixture values")
+
+    unknown_titles = sorted(set(values) - plot_titles)
+    if unknown_titles:
+        raise SystemExit(
+            "export contains plot title(s) not present in fixture values: "
+            + ", ".join(unknown_titles)
+        )
+
+    missing_titles = sorted(plot_titles - set(values))
+    if missing_titles and not allow_partial_plots:
+        raise SystemExit(
+            "export missing fixture plot title(s): " + ", ".join(missing_titles)
+        )
+
+    if allow_length_mismatch:
+        return
+
+    expected_length = expected_capture_length(case)
+    mismatches = [
+        f"{title}={len(series)}"
+        for title, series in values.items()
+        if len(series) != expected_length
+    ]
+    if mismatches:
+        raise SystemExit(
+            f"export length must match fixture bar count {expected_length}; got "
+            + ", ".join(mismatches)
+        )
+
+
+def expected_capture_length(case: dict[str, Any]) -> int:
+    bars = case.get("bars")
+    if isinstance(bars, list):
+        return len(bars)
+
+    value_lengths = {
+        len(series)
+        for series in case.get("values", {}).values()
+        if isinstance(series, list)
+    }
+    if len(value_lengths) == 1:
+        return next(iter(value_lengths))
+    raise SystemExit(
+        f"case {case.get('name', '<unknown>')!r} has no unambiguous capture length"
+    )
 
 
 def parse_scalar(value: object) -> float | None:
