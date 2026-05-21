@@ -252,13 +252,16 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy pine-equivalent bracket exit fixture 已加入 limit exit 与 stop exit
   样板，用于对照 `strategy.exit()` bracket 的出场原因、成交价、closed trade、
   position/equity/netprofit 与 lifecycle 口径。
+- strategy pine-equivalent cost fixture 已加入 cash-per-order commission 与 tick
+  slippage 往返样板，用于对照 gross profit、commission、net profit、equity
+  与 closed trade cost allocation 口径。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续沿 strategy 的 pine-equivalent fixture 样板扩展：优先选择
-commission/slippage，这类能在 TradingView 中稳定导出且最能暴露 broker-emulator
-成本口径差异。
+percent commission、cash-per-contract commission 与 partial close/exit，
+继续扩大成本分摊和成交数量口径的外部对照面。
 完成后应同步更新：
 
 - `tests/golden/`
