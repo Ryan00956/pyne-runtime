@@ -44,8 +44,28 @@ def _assert_strategy_pine_equivalent_case(case: dict) -> None:
     assert result.output["strategy"]["opentrades"] == case["opentrades"]
     for title, values in case["values"].items():
         assert result.values(title) == values
+    _assert_external_capture(case, result)
     assert result.output["strategy"]["summary"] == case["summary"]
     assert result.output["strategy"]["risk"] == case["risk"]
+
+
+def _assert_external_capture(case: dict, result: pn.PyneResult) -> None:
+    capture = case.get("external_capture")
+    if capture is None:
+        return
+
+    assert capture["provider"] == "tradingview"
+    assert capture["status"] in {"not_captured", "captured"}
+    if capture["status"] == "not_captured":
+        assert "values" not in capture
+        return
+
+    tolerance = capture.get("tolerance", 0.0)
+    for title, expected_values in capture["values"].items():
+        actual_values = result.values(title)
+        assert len(actual_values) == len(expected_values)
+        for actual, expected in zip(actual_values, expected_values, strict=True):
+            assert actual == pytest.approx(expected, abs=tolerance)
 
 
 @pytest.mark.parametrize(

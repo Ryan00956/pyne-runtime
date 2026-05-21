@@ -180,6 +180,25 @@ fills with `price=close` where needed, so expected prices are deterministic and
 can be replaced with exported TradingView values when an external capture is
 available.
 
+Fixtures can include an optional `external_capture` block:
+
+```json
+{
+  "provider": "tradingview",
+  "status": "captured",
+  "tolerance": 1e-9,
+  "values": {
+    "Position": [2.0, 2.0, 0.0],
+    "Net Profit": [0.0, 0.0, 6.0]
+  }
+}
+```
+
+`status="not_captured"` records that a Pine scaffold exists but no external
+export has been added yet. `status="captured"` turns the exported plot values
+into active assertions against Pyne output. The values should come from the
+matching `pine_equivalent` script's exported plot data, not from Pyne itself.
+
 Capital reporting:
 
 - `initial_capital` defaults to `100000`.

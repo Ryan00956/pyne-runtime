@@ -9,6 +9,13 @@
         "Uses process_orders_on_close=true to align Pine market-order fills with Pyne's explicit same-bar close price fixture.",
         "The Pyne script pins fill prices with price=close so the fixture remains deterministic without broker-emulator timing assumptions."
       ],
+      "external_capture": {
+        "provider": "tradingview",
+        "status": "not_captured",
+        "notes": [
+          "Populate values from TradingView's exported plot data when an external capture is available."
+        ]
+      },
       "bars": [
         {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
         {"time": 2, "open": 11, "high": 11.5, "low": 10.5, "close": 11, "volume": 100},
