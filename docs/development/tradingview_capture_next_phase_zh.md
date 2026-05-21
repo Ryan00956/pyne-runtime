@@ -16,6 +16,7 @@ TradingView-backed parity。
   - `scripts/strategy_capture_status.py`
   - `scripts/strategy_capture_scaffold.py`
   - `scripts/strategy_capture_prepare.py`
+  - `scripts/strategy_capture_next.py`
   - `scripts/strategy_capture_preflight.py`
   - `scripts/strategy_capture_import.py`
   - `scripts/strategy_capture_diff.py`
@@ -90,6 +91,7 @@ priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。
 
 ```powershell
 python scripts/strategy_capture_prepare.py --out-dir .tmp/tradingview-priority --clean
+python scripts/strategy_capture_next.py --manifest .tmp/tradingview-priority/manifest.json
 ```
 
 默认只生成 priority cases；如需生成全部 27 个 case，使用 `--all`。
@@ -173,17 +175,23 @@ python scripts/strategy_capture_prepare.py --out-dir .tmp/tradingview-priority -
 - `manifest.json`，记录 fixture、case、plot 标题、bar 数、bars 文件、导入命令和 diff 命令。
 - `README.md`，用于人工执行导出时快速核对。
 
-1. 打开 fixture，复制目标 case 的 `pine_equivalent` 到 TradingView Pine Editor。
-2. 使用准备包里的 `_bars.csv` 核对数据窗口；如果使用外部导入数据源，必须与
+1. 使用 next 脚本确认下一条待采集 case：
+
+```powershell
+python scripts/strategy_capture_next.py --manifest .tmp/tradingview-priority/manifest.json
+```
+
+2. 打开 next 输出中的 `.pine` 文件，将内容复制到 TradingView Pine Editor。
+3. 使用准备包里的 `_bars.csv` 核对数据窗口；如果使用外部导入数据源，必须与
    `_bars.csv` 的 `time/open/high/low/close/volume` 完全一致。
-3. 导出 plot 数据，保留 fixture `values` 中声明的所有 plot 标题。
-4. 导入前先运行 preflight，确认导出文件存在、plot 列完整、行数和可选 time 列对齐：
+4. 导出 plot 数据，保留 fixture `values` 中声明的所有 plot 标题。
+5. 导入前先运行 preflight，确认导出文件存在、plot 列完整、行数和可选 time 列对齐：
 
 ```powershell
 python scripts/strategy_capture_preflight.py .tmp/tradingview-priority/manifest.json --case <case_name>
 ```
 
-5. 用 import 脚本写回 fixture：
+6. 用 import 脚本写回 fixture：
 
 ```powershell
 python scripts/strategy_capture_import.py `
@@ -194,19 +202,19 @@ python scripts/strategy_capture_import.py `
   --note "TradingView export YYYY-MM-DD, symbol/timeframe/source"
 ```
 
-6. 运行单 case 或单 fixture diff：
+7. 运行单 case 或单 fixture diff：
 
 ```powershell
 python scripts/strategy_capture_diff.py tests/golden/<fixture>.json --case <case_name>
 ```
 
-7. 如果 diff 为 0，运行 strategy golden：
+8. 如果 diff 为 0，运行 strategy golden：
 
 ```powershell
 python -m pytest tests/test_golden_strategy.py -q
 ```
 
-8. 如果 diff 不为 0，进入差异分类流程，不要直接覆盖 Pyne baseline。
+9. 如果 diff 不为 0，进入差异分类流程，不要直接覆盖 Pyne baseline。
 
 ## 差异处理流程
 

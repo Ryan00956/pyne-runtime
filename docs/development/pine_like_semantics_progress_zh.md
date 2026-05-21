@@ -290,6 +290,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - 已加入 `scripts/strategy_capture_prepare.py`，用于生成 TradingView 导出准备包：
   `.pine` 文件、`_bars.csv` 数据窗口核对文件、`manifest.json` 和人工执行 README，
   默认覆盖 10 个 priority case。
+- 已加入 `scripts/strategy_capture_next.py`，用于读取当前 capture 状态并输出下一条
+  待采集 case 及 prepare/preflight/import/diff 命令。
 - 已加入 `scripts/strategy_capture_preflight.py`，用于在导入前检查 TradingView
   CSV 导出文件是否存在、plot 列是否完整、行数是否匹配，并校验可选 `time` 列。
 - 测试层已保护 capture contract：`strategy_capture_scaffold.py --check` 必须对

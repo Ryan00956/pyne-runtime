@@ -103,6 +103,13 @@ prepare 脚本默认只生成 priority case；输出目录中会包含每个 cas
 脚本、`_bars.csv` 数据窗口核对文件，以及 `manifest.json`。manifest 会记录每个
 case 的 plot 标题、bar 数、bars 文件、导入命令和 diff 命令。
 
+查看下一条待采集 case 与对应命令：
+
+```powershell
+python scripts/strategy_capture_next.py --manifest .tmp/tradingview-priority/manifest.json
+python scripts/strategy_capture_next.py --manifest .tmp/tradingview-priority/manifest.json --json
+```
+
 导入前可以先对 TradingView 导出的 CSV 做预检查：
 
 ```powershell

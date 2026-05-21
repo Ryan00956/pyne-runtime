@@ -155,6 +155,15 @@ def render_readme(entries: list[dict[str, Any]]) -> str:
     lines.extend(
         [
             "",
+            "## Next Task",
+            "",
+            "To see the next pending capture task and its commands, run:",
+            "",
+            "```powershell",
+            "python scripts/strategy_capture_next.py --manifest <pack-dir>/manifest.json",
+            "python scripts/strategy_capture_next.py --manifest <pack-dir>/manifest.json --json",
+            "```",
+            "",
             "## Preflight",
             "",
             "After placing TradingView exports next to this manifest, run:",
