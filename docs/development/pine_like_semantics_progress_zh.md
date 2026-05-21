@@ -270,13 +270,16 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy pine-equivalent exit/path fixture 已加入 `strategy.exit(qty_percent=...)`
   partial exit、same-bar stop/limit priority 与 intrabar path 样板，用于对照
   exit target_qty/filled_qty、同 bar 双触发分支与显式高低路径分支。
+- strategy pine-equivalent short-side fixture 已加入 short bracket stop/limit 分支、
+  short max position size 截断与 short OCA reduce cost allocation 样板，用于对照
+  空头方向的 slippage、commission、filled_qty 截断和 reduced sibling quantity。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续沿 strategy 的 pine-equivalent fixture 样板扩展：优先选择
-short-side exits、short-side risk/size、short-side pending/OCA 与 cost allocation
-交叉场景，继续扩大空头路径和复杂订单生命周期的外部对照面。
+margin_long/margin_short、strategy.order lower-level net-position、cancel/cancel_all
+与真实 TradingView 导出序列替换，继续扩大 broker-emulator 风格边界的外部证据。
 完成后应同步更新：
 
 - `tests/golden/`
