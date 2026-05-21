@@ -37,6 +37,22 @@ TradingView 导出的 plot 序列作为外部证据接入现有 golden runner。
 5. 将 `status` 从 `not_captured` 改为 `captured`。
 6. 运行 `python -m pytest tests/test_golden_strategy.py -q`。
 
+## 状态检查
+
+仓库提供状态脚本，用于查看哪些 case 已经接入真实 TradingView capture：
+
+```powershell
+python scripts/strategy_capture_status.py
+python scripts/strategy_capture_status.py --json
+python scripts/strategy_capture_status.py --missing-only
+```
+
+报告中的状态含义：
+
+- `captured`：已有 TradingView 导出序列，并参与测试断言。
+- `not_captured`：已有 `external_capture` 占位，但还没有导出序列。
+- `missing`：该 case 还没有 `external_capture` 字段。
+
 ## 优先顺序
 
 优先替换这些已经稳定的 scaffold：

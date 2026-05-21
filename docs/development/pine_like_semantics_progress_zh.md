@@ -279,6 +279,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy pine-equivalent fixture 已加入 `external_capture` 可选字段约定；
   当 `status="captured"` 且包含 TradingView 导出的 plot `values` 时，golden
   runner 会把外部序列纳入断言。
+- 已加入 `scripts/strategy_capture_status.py`，用于统计 `captured`、
+  `not_captured` 与 `missing` 的 strategy pine-equivalent capture 状态。
 - batch / incremental parity tests。
 
 ## 下一步建议
