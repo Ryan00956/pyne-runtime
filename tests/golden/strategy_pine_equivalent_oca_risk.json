@@ -1,0 +1,139 @@
+{
+  "cases": [
+    {
+      "name": "oca_cancel_waits_for_intraday_risk_reset",
+      "source": "Pyne-defined OCA cancel plus intraday-risk strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
+      "script": "strategy(\"Pine Equivalent OCA Cancel Risk Reset\", overlay=True, initial_capital=1000)\nstrategy.risk.max_intraday_loss(5, strategy.percent_of_equity)\nstrategy.entry(\"Long\", strategy.long, qty=10, when=bar_index == 0, price=close)\nstrategy.entry(\"Breakout\", strategy.long, qty=1, when=bar_index == 0, stop=120, oca_name=\"risk_group\", oca_type=strategy.oca.cancel)\nstrategy.order(\"Fade\", strategy.short, qty=1, when=bar_index == 0, limit=130, oca_name=\"risk_group\", oca_type=strategy.oca.cancel)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.opentrades, \"Open Trades\")\n",
+      "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent OCA Cancel Risk Reset\", overlay=true, initial_capital=1000, process_orders_on_close=true)\nstrategy.risk.max_intraday_loss(5, strategy.percent_of_equity)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=10)\n    strategy.entry(\"Breakout\", strategy.long, qty=1, stop=120, oca_name=\"risk_group\", oca_type=strategy.oca.cancel)\n    strategy.order(\"Fade\", strategy.short, qty=1, limit=130, oca_name=\"risk_group\", oca_type=strategy.oca.cancel)\nif bar_index == 2\n    strategy.close_all()\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.opentrades, \"Open Trades\")\n",
+      "pine_equivalent_notes": [
+        "The pending OCA group is submitted before the intraday risk lock.",
+        "The stop is touched while the intraday lock is active, then fills after a session reset; the OCA cancel sibling is canceled by that fill.",
+        "The Pyne bars use session_isfirstbar metadata to make the reset explicit for host-side replay."
+      ],
+      "bars": [
+        {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100, "session_isfirstbar": true},
+        {"time": 2, "open": 100, "high": 101, "low": 89, "close": 90, "volume": 100},
+        {"time": 3, "open": 90, "high": 121, "low": 88, "close": 90, "volume": 100},
+        {"time": 4, "open": 90, "high": 121, "low": 90, "close": 120, "volume": 100, "session_isfirstbar": true}
+      ],
+      "orders": [
+        {"time": 1, "id": "Long", "type": "entry", "side": "long", "qty": 10.0, "price": 100.0, "position_after": 10.0, "comment": ""},
+        {"time": 3, "id": "close_all", "type": "close_all", "side": "flat", "qty": 10.0, "price": 90.0, "position_after": 0.0, "comment": ""},
+        {"time": 4, "id": "Breakout", "type": "entry", "side": "long", "qty": 1.0, "price": 120.0, "position_after": 1.0, "comment": "", "reason": "stop", "oca_name": "risk_group", "oca_type": "cancel"}
+      ],
+      "lifecycle": [
+        {"id": "Long", "type": "entry", "status": "filled", "phase": "market_fill", "submitted_time": 1, "filled_time": 1, "canceled_time": null, "rejected_time": null, "side": "long", "qty": 10.0, "price": 100.0, "position_after": 10.0, "comment": "", "requested_qty": 10.0, "filled_qty": 10.0},
+        {"id": "Breakout", "type": "entry", "status": "filled", "phase": "pending_fill", "submitted_time": 1, "filled_time": 4, "canceled_time": null, "rejected_time": null, "side": "long", "qty": 1.0, "price": 120.0, "position_after": 1.0, "reason": "stop", "comment": "", "oca_name": "risk_group", "oca_type": "cancel", "stop": 120.0, "requested_qty": 1.0, "filled_qty": 1.0},
+        {"id": "Fade", "type": "order", "status": "canceled", "phase": "pending_canceled", "submitted_time": 1, "filled_time": null, "canceled_time": 4, "rejected_time": null, "side": "short", "qty": 1.0, "price": 100.0, "position_after": 0.0, "comment": "", "limit": 130.0, "canceled_by": "Breakout"},
+        {"id": "close_all", "type": "close_all", "status": "filled", "phase": "close_all_fill", "submitted_time": 3, "filled_time": 3, "canceled_time": null, "rejected_time": null, "side": "flat", "qty": 10.0, "price": 90.0, "position_after": 0.0, "comment": "", "requested_qty": 10.0, "filled_qty": 10.0, "target_qty": 10.0}
+      ],
+      "closedtrades": [
+        {"entry_time": 1, "exit_time": 3, "entry_id": "Long", "exit_id": "close_all", "side": "long", "qty": 10.0, "entry_price": 100.0, "exit_price": 90.0, "profit": -100.0, "commission": 0.0, "net_profit": -100.0}
+      ],
+      "opentrades": [
+        {"entry_time": 4, "entry_id": "Breakout", "side": "long", "qty": 1.0, "entry_price": 120.0, "profit": 0.0}
+      ],
+      "values": {
+        "Position": [10.0, 10.0, 0.0, 1.0],
+        "Equity": [1000.0, 900.0, 900.0, 900.0],
+        "Net Profit": [0.0, 0.0, -100.0, -100.0],
+        "Open Profit": [0.0, -100.0, 0.0, 0.0],
+        "Closed Trades": [0.0, 0.0, 1.0, 1.0],
+        "Open Trades": [1.0, 1.0, 0.0, 1.0]
+      },
+      "summary": {
+        "initial_capital": 1000.0,
+        "currency": "",
+        "equity": 900.0,
+        "netprofit": -100.0,
+        "openprofit": 0.0,
+        "grossprofit": 0.0,
+        "grossloss": -100.0,
+        "commission": 0.0,
+        "backtest_fill_limits_assumption": 0,
+        "same_bar_fill_priority": "stop_first",
+        "intrabar_path": "same_bar_priority",
+        "margin_long": 100.0,
+        "margin_short": 100.0
+      },
+      "risk": {
+        "locked": false,
+        "max_drawdown": null,
+        "max_drawdown_type": "percent_of_equity",
+        "max_intraday_loss": 5.0,
+        "max_intraday_loss_type": "percent_of_equity",
+        "max_position_size": null,
+        "max_intraday_filled_orders": null
+      }
+    },
+    {
+      "name": "oca_reduce_waits_for_intraday_risk_reset",
+      "source": "Pyne-defined OCA reduce plus intraday-risk strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
+      "script": "strategy(\"Pine Equivalent OCA Reduce Risk Reset\", overlay=True, initial_capital=1000)\nstrategy.risk.max_intraday_loss(5, strategy.percent_of_equity)\nstrategy.entry(\"Long\", strategy.long, qty=10, when=bar_index == 0, price=close)\nstrategy.entry(\"First\", strategy.long, qty=1, when=bar_index == 0, stop=120, oca_name=\"scale\", oca_type=strategy.oca.reduce)\nstrategy.order(\"Second\", strategy.long, qty=2, when=bar_index == 0, stop=125, oca_name=\"scale\", oca_type=strategy.oca.reduce)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.opentrades, \"Open Trades\")\n",
+      "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent OCA Reduce Risk Reset\", overlay=true, initial_capital=1000, process_orders_on_close=true)\nstrategy.risk.max_intraday_loss(5, strategy.percent_of_equity)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=10)\n    strategy.entry(\"First\", strategy.long, qty=1, stop=120, oca_name=\"scale\", oca_type=strategy.oca.reduce)\n    strategy.order(\"Second\", strategy.long, qty=2, stop=125, oca_name=\"scale\", oca_type=strategy.oca.reduce)\nif bar_index == 2\n    strategy.close_all()\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.opentrades, \"Open Trades\")\n",
+      "pine_equivalent_notes": [
+        "The pending OCA reduce group is submitted before the intraday risk lock.",
+        "The first OCA fill happens only after a session reset, then reduces the sibling requested quantity from 2 to 1.",
+        "The Pyne bars use session_isfirstbar metadata to make the reset explicit for host-side replay."
+      ],
+      "bars": [
+        {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100, "session_isfirstbar": true},
+        {"time": 2, "open": 100, "high": 101, "low": 89, "close": 90, "volume": 100},
+        {"time": 3, "open": 90, "high": 121, "low": 88, "close": 90, "volume": 100},
+        {"time": 4, "open": 90, "high": 121, "low": 90, "close": 120, "volume": 100, "session_isfirstbar": true},
+        {"time": 5, "open": 120, "high": 126, "low": 119, "close": 126, "volume": 100}
+      ],
+      "orders": [
+        {"time": 1, "id": "Long", "type": "entry", "side": "long", "qty": 10.0, "price": 100.0, "position_after": 10.0, "comment": ""},
+        {"time": 3, "id": "close_all", "type": "close_all", "side": "flat", "qty": 10.0, "price": 90.0, "position_after": 0.0, "comment": ""},
+        {"time": 4, "id": "First", "type": "entry", "side": "long", "qty": 1.0, "price": 120.0, "position_after": 1.0, "comment": "", "reason": "stop", "oca_name": "scale", "oca_type": "reduce"},
+        {"time": 5, "id": "Second", "type": "order", "side": "long", "qty": 1.0, "price": 125.0, "position_after": 2.0, "comment": "", "reason": "stop", "oca_name": "scale", "oca_type": "reduce"}
+      ],
+      "lifecycle": [
+        {"id": "Long", "type": "entry", "status": "filled", "phase": "market_fill", "submitted_time": 1, "filled_time": 1, "canceled_time": null, "rejected_time": null, "side": "long", "qty": 10.0, "price": 100.0, "position_after": 10.0, "comment": "", "requested_qty": 10.0, "filled_qty": 10.0},
+        {"id": "First", "type": "entry", "status": "filled", "phase": "pending_fill", "submitted_time": 1, "filled_time": 4, "canceled_time": null, "rejected_time": null, "side": "long", "qty": 1.0, "price": 120.0, "position_after": 1.0, "reason": "stop", "comment": "", "oca_name": "scale", "oca_type": "reduce", "stop": 120.0, "requested_qty": 1.0, "filled_qty": 1.0},
+        {"id": "Second", "type": "order", "status": "filled", "phase": "pending_fill", "submitted_time": 1, "filled_time": 5, "canceled_time": null, "rejected_time": null, "side": "long", "qty": 1.0, "price": 125.0, "position_after": 2.0, "reason": "stop", "comment": "", "oca_name": "scale", "oca_type": "reduce", "stop": 125.0, "requested_qty": 2.0, "filled_qty": 1.0},
+        {"id": "close_all", "type": "close_all", "status": "filled", "phase": "close_all_fill", "submitted_time": 3, "filled_time": 3, "canceled_time": null, "rejected_time": null, "side": "flat", "qty": 10.0, "price": 90.0, "position_after": 0.0, "comment": "", "requested_qty": 10.0, "filled_qty": 10.0, "target_qty": 10.0}
+      ],
+      "closedtrades": [
+        {"entry_time": 1, "exit_time": 3, "entry_id": "Long", "exit_id": "close_all", "side": "long", "qty": 10.0, "entry_price": 100.0, "exit_price": 90.0, "profit": -100.0, "commission": 0.0, "net_profit": -100.0}
+      ],
+      "opentrades": [
+        {"entry_time": 4, "entry_id": "First", "side": "long", "qty": 1.0, "entry_price": 120.0, "profit": 6.0},
+        {"entry_time": 5, "entry_id": "Second", "side": "long", "qty": 1.0, "entry_price": 125.0, "profit": 1.0}
+      ],
+      "values": {
+        "Position": [10.0, 10.0, 0.0, 1.0, 2.0],
+        "Equity": [1000.0, 900.0, 900.0, 900.0, 907.0],
+        "Net Profit": [0.0, 0.0, -100.0, -100.0, -100.0],
+        "Open Profit": [0.0, -100.0, 0.0, 0.0, 7.0],
+        "Closed Trades": [0.0, 0.0, 1.0, 1.0, 1.0],
+        "Open Trades": [1.0, 1.0, 0.0, 1.0, 2.0]
+      },
+      "summary": {
+        "initial_capital": 1000.0,
+        "currency": "",
+        "equity": 907.0,
+        "netprofit": -100.0,
+        "openprofit": 7.0,
+        "grossprofit": 0.0,
+        "grossloss": -100.0,
+        "commission": 0.0,
+        "backtest_fill_limits_assumption": 0,
+        "same_bar_fill_priority": "stop_first",
+        "intrabar_path": "same_bar_priority",
+        "margin_long": 100.0,
+        "margin_short": 100.0
+      },
+      "risk": {
+        "locked": false,
+        "max_drawdown": null,
+        "max_drawdown_type": "percent_of_equity",
+        "max_intraday_loss": 5.0,
+        "max_intraday_loss_type": "percent_of_equity",
+        "max_position_size": null,
+        "max_intraday_filled_orders": null
+      }
+    }
+  ]
+}

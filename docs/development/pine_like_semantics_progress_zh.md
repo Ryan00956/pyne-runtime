@@ -261,12 +261,16 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy pine-equivalent reversal/pyramiding fixture 已加入 opposite entry 反转与
   pyramiding=1 同向加仓样板，用于对照 transaction quantity、独立 entry lot、
   close_all FIFO 平仓、position/equity/netprofit 与 lifecycle 口径。
+- strategy pine-equivalent OCA/risk fixture 已加入 OCA cancel 与 OCA reduce 在
+  intraday risk lock 下延迟 pending fill、session reset 后恢复触发、取消 sibling
+  或缩减 sibling quantity 的样板。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续沿 strategy 的 pine-equivalent fixture 样板扩展：优先选择
-OCA cancel/reduce 与 risk-lock 交叉场景，继续扩大复杂订单生命周期的外部对照面。
+global drawdown lock、max position size 截断与 limit verification 交叉场景，
+继续扩大复杂订单生命周期的外部对照面。
 完成后应同步更新：
 
 - `tests/golden/`

@@ -169,7 +169,8 @@ broker margin calls, forced liquidation, interest, or cash settlement.
 The strategy golden suite includes `pine_equivalent` scaffolds for a basic
 market round trip, pending limit/stop entries, bracket exits,
 commission/slippage cost accounting, percent commission, cash-per-contract
-commission, partial close allocation, reversal, and pyramiding. These Pine scripts use
+commission, partial close allocation, reversal, pyramiding, and OCA/risk-lock
+interactions. These Pine scripts use
 `process_orders_on_close=true`, while Pyne scripts pin explicit entry or close
 fills with `price=close` where needed, so expected prices are deterministic and
 can be replaced with exported TradingView values when an external capture is
