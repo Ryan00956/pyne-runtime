@@ -255,13 +255,15 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy pine-equivalent cost fixture 已加入 cash-per-order commission 与 tick
   slippage 往返样板，用于对照 gross profit、commission、net profit、equity
   与 closed trade cost allocation 口径。
+- strategy pine-equivalent cost allocation fixture 已加入 percent commission 与
+  cash-per-contract partial close 样板，用于对照按名义金额、按合约数和按部分平仓
+  比例分摊的 closed trade 成本口径。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
 下一步建议继续沿 strategy 的 pine-equivalent fixture 样板扩展：优先选择
-percent commission、cash-per-contract commission 与 partial close/exit，
-继续扩大成本分摊和成交数量口径的外部对照面。
+reversal、pyramiding 与 OCA cancel/reduce，继续扩大复杂订单生命周期的外部对照面。
 完成后应同步更新：
 
 - `tests/golden/`

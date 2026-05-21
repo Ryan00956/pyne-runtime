@@ -18,6 +18,7 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
         "strategy_pine_equivalent_pending_entries.json",
         "strategy_pine_equivalent_bracket_exit.json",
         "strategy_pine_equivalent_costs.json",
+        "strategy_pine_equivalent_cost_allocation.json",
     ],
 )
 def test_strategy_pine_equivalent_golden(fixture_name: str) -> None:
