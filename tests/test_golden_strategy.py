@@ -13,6 +13,27 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 
 @pytest.mark.parametrize(
     "case",
+    json.loads((GOLDEN_DIR / "strategy_pine_equivalent_smoke.json").read_text())[
+        "cases"
+    ],
+    ids=lambda case: case["name"],
+)
+def test_strategy_pine_equivalent_smoke_golden(case: dict) -> None:
+    result = pn.run(case["script"], case["bars"], executor_mode="inline")
+
+    assert result.ok, result.error
+    assert result.output["strategy"]["orders"] == case["orders"]
+    assert result.output["strategy"]["lifecycle"] == case["lifecycle"]
+    assert result.output["strategy"]["closedtrades"] == case["closedtrades"]
+    assert result.output["strategy"]["opentrades"] == case["opentrades"]
+    for title, values in case["values"].items():
+        assert result.values(title) == values
+    assert result.output["strategy"]["summary"] == case["summary"]
+    assert result.output["strategy"]["risk"] == case["risk"]
+
+
+@pytest.mark.parametrize(
+    "case",
     json.loads((GOLDEN_DIR / "strategy_same_bar_priority.json").read_text())["cases"],
     ids=lambda case: case["name"],
 )

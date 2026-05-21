@@ -164,6 +164,14 @@ the new `strategy.entry*` or `strategy.order*` fill is skipped. Reducing,
 closing, exiting, and canceling exposure remains allowed. Pyne does not model
 broker margin calls, forced liquidation, interest, or cash settlement.
 
+## Pine-Equivalent Goldens
+
+The strategy golden suite includes a small `pine_equivalent` scaffold for a
+basic market round trip. Its Pine script uses `process_orders_on_close=true`,
+while the Pyne script pins fills with `price=close`, so the expected prices are
+deterministic and can be replaced with exported TradingView values when an
+external capture is available.
+
 Capital reporting:
 
 - `initial_capital` defaults to `100000`.

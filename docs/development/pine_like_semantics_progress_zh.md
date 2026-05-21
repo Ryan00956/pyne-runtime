@@ -242,13 +242,17 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   limit verification cost、bracket/stop-limit cost、risk/margin cost、entry sizing cost
   和 reversal lot cost、OCA cost、pending risk recovery cost、cancel risk cost
   与 trade accessor、mixed lifecycle cost 场景，后续继续扩大。
+- strategy pine-equivalent smoke fixture 已加入基础 market round-trip 对照样板：
+  Pyne 脚本显式使用 `price=close` 固定成交价，fixture 同时保存
+  `process_orders_on_close=true` 的 Pine scaffold，方便后续替换为 TradingView
+  导出的外部序列。
 - batch / incremental parity tests。
 
 ## 下一步建议
 
-下一步建议继续扩大真实 Pine 输出对照 golden，优先选择 strategy 中仍缺外部导出
-对照的复杂成交路径；TA 侧可继续补 `keltner`、`donchian` 等 Pyne 扩展 helper，
-但它们不是 Pine 内置优先级。
+下一步建议继续沿 strategy 的 pine-equivalent fixture 样板扩展：优先选择
+limit/stop entry、bracket exit、commission/slippage 这三类能在 TradingView 中稳定导出
+且最能暴露 broker-emulator 口径差异的场景。
 完成后应同步更新：
 
 - `tests/golden/`
