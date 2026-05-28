@@ -1,0 +1,290 @@
+"""Per-session incremental callback context."""
+from __future__ import annotations
+
+import copy
+import math
+import re
+from dataclasses import asdict
+from typing import Any
+
+from ..barstate import PyneIncrementalBarState
+from ..metadata import SessionInfo, SymbolInfo, TimeframeInfo
+from ..security import PyneSecurityError
+from .bar import IncrementalBar, _session_info_for_bar
+from .drawing import IncrementalDrawingMixin, _filter_object_events
+from .limits import IncrementalLimits, StateCell, Window, _LimitTracker
+from .result import IncrementalPyneResult
+from .strategy import IncrementalStrategyNamespace
+from .ta import IncrementalTaNamespace
+
+
+class IncrementalContext(IncrementalDrawingMixin):
+    """Per-session context exposed to incremental Pyne callbacks."""
+
+    def __init__(
+        self,
+        *,
+        params: dict[str, Any],
+        meta: dict[str, Any] | None = None,
+        limits: IncrementalLimits | None = None,
+        syminfo: SymbolInfo | None = None,
+        timeframe: TimeframeInfo | None = None,
+        session: SessionInfo | None = None,
+        max_drawing_objects: int = 500,
+    ) -> None:
+        self.params = params
+        self.meta = meta or {}
+        self._limits = limits or IncrementalLimits(enabled=False)
+        self._limit_tracker = _LimitTracker(self._limits)
+        self.ta = IncrementalTaNamespace(self._limit_tracker)
+        self.syminfo = syminfo or SymbolInfo()
+        self.timeframe = timeframe or TimeframeInfo()
+        self._default_session = session or SessionInfo()
+        self.session = self._default_session
+        self.strategy = IncrementalStrategyNamespace(self)
+        self._states: dict[str, StateCell] = {}
+        self._windows: dict[str, Window] = {}
+        self._series: dict[str, dict[str, Any]] = {}
+        self._markers: dict[str, dict[str, Any]] = {}
+        self._object_lines: dict[str, dict[str, Any]] = {}
+        self._object_labels: dict[str, dict[str, Any]] = {}
+        self._object_boxes: dict[str, dict[str, Any]] = {}
+        self._object_tables: dict[str, dict[str, Any]] = {}
+        self._object_events: list[dict[str, Any]] = []
+        self._object_counter = 0
+        self._max_drawing_objects = max(int(max_drawing_objects), 1)
+        self.current_bar: IncrementalBar | None = None
+        self.bar_index = -1
+        self.last_bar_index = -1
+        self.barstate = PyneIncrementalBarState()
+
+    def clone_for_preview(self) -> "IncrementalContext":
+        clone = copy.deepcopy(self)
+        clone._series = {}
+        clone._markers = {}
+        clone.current_bar = None
+        return clone
+
+    def clear_outputs(self) -> None:
+        self._series = {}
+        self._markers = {}
+
+    def begin_bar(
+        self,
+        bar: IncrementalBar,
+        *,
+        bar_index: int,
+        last_bar_index: int,
+        barstate: PyneIncrementalBarState,
+    ) -> None:
+        bar.bar_index = bar_index
+        bar.last_bar_index = last_bar_index
+        bar.is_first = barstate.isfirst
+        bar.is_last = barstate.islast
+        bar.is_history = barstate.ishistory
+        bar.is_realtime = barstate.isrealtime
+        bar.is_new = barstate.isnew
+        bar.is_last_confirmed_history = barstate.islastconfirmedhistory
+        self.current_bar = bar
+        self.bar_index = bar_index
+        self.last_bar_index = last_bar_index
+        self.barstate = barstate
+        self.session = _session_info_for_bar(bar, self._default_session)
+        self.strategy.begin_bar()
+
+    def state(self, name: str, default: Any = None) -> StateCell:
+        key = str(name)
+        if key not in self._states:
+            if self._limits.enabled and len(self._states) >= self._limits.max_state_keys:
+                raise PyneSecurityError(
+                    f"Incremental state keys exceed safe-mode limit {self._limits.max_state_keys}"
+                )
+            self._states[key] = StateCell(copy.deepcopy(default))
+        return self._states[key]
+
+    def window(self, name: str, size: int) -> Window:
+        key = str(name)
+        if key not in self._windows:
+            self._limit_tracker.reserve_window(size, label=f"window:{key}")
+            self._windows[key] = Window(size)
+        return self._windows[key]
+
+    def plot(
+        self,
+        name_or_value: Any,
+        value: Any = None,
+        *,
+        title: str | None = None,
+        color: str = "#f59e0b",
+        pane: str = "main",
+        linewidth: int = 2,
+        style: str = "solid",
+        type: str = "line",
+    ) -> None:
+        if self.current_bar is None:
+            return
+
+        if isinstance(name_or_value, str):
+            name = name_or_value
+            point_value = value
+        else:
+            name = title or "plot"
+            point_value = name_or_value
+
+        if point_value is None:
+            return
+        try:
+            number = float(point_value)
+        except (TypeError, ValueError):
+            return
+        if math.isnan(number):
+            return
+
+        local_id = _slug(name)
+        entry = self._series.setdefault(local_id, {
+            "id": local_id,
+            "title": title or name,
+            "color": color,
+            "linewidth": linewidth,
+            "style": style,
+            "type": type,
+            "pane": pane,
+            "data": [],
+        })
+        entry["data"].append({
+            "time": self.current_bar.time,
+            "value": round(number, 8),
+        })
+
+    def marker(
+        self,
+        condition: bool,
+        *,
+        text: str = "",
+        shape: str = "circle",
+        color: str = "#f59e0b",
+        position: str = "above",
+        pane: str = "main",
+    ) -> None:
+        if self.current_bar is None or not condition:
+            return
+        key = _slug(text or shape or "marker")
+        entry = self._markers.setdefault(key, {
+            "id": key,
+            "shape": shape,
+            "color": color,
+            "text": text,
+            "position": position,
+            "pane": pane,
+            "data": [],
+        })
+        entry["data"].append({
+            "time": self.current_bar.time,
+            "shape": shape,
+            "color": color,
+            "text": text,
+            "position": position,
+            "pane": pane,
+        })
+
+
+    def to_result(
+        self,
+        *,
+        start_s: int | None = None,
+        end_s: int | None = None,
+    ) -> IncrementalPyneResult:
+        lines = []
+        for item in self._series.values():
+            data = _filter_points(item.get("data") or [], start_s, end_s)
+            if not data:
+                continue
+            line = {**item, "data": data}
+            lines.append({
+                "id": line["id"],
+                "name": line.get("title", line["id"]),
+                "color": line.get("color", "#f59e0b"),
+                "type": line.get("type", "line"),
+                "pane": line.get("pane", "main"),
+                "lineWidth": line.get("linewidth", 2),
+                "lineStyle": _style_to_int(line.get("style", "solid")),
+                "data": data,
+            })
+
+        markers = []
+        for item in self._markers.values():
+            data = _filter_points(item.get("data") or [], start_s, end_s)
+            if data:
+                markers.append({**item, "data": data})
+
+        output: dict[str, Any] = {}
+        if lines:
+            output["lines"] = [
+                {
+                    "id": line.get("id"),
+                    "title": line.get("name"),
+                    "color": line.get("color"),
+                    "linewidth": line.get("lineWidth", 2),
+                    "style": "solid",
+                    "pane": line.get("pane", "main"),
+                    "data": line.get("data") or [],
+                }
+                for line in lines
+            ]
+        if markers:
+            output["markers"] = markers
+        if self.strategy.touched:
+            output["strategy"] = self.strategy.to_report()
+        objects = self._objects_snapshot()
+        if objects:
+            output["objects"] = objects
+        object_events = _filter_object_events(self._object_events, start_s, end_s)
+        if object_events:
+            output["object_events"] = object_events
+
+        return IncrementalPyneResult(
+            ok=True,
+            lines=lines,
+            output=output,
+            meta={
+                **self.meta,
+                "mode": "incremental",
+                "bar_index": self.bar_index,
+                "last_bar_index": self.last_bar_index,
+                "barstate": asdict(self.barstate),
+            },
+        )
+
+def _slug(value: str) -> str:
+    normalized = re.sub(r"[^a-zA-Z0-9_]+", "_", str(value).strip()).strip("_").lower()
+    return normalized or "plot"
+
+def _filter_points(
+    points: list[dict[str, Any]],
+    start_s: int | None,
+    end_s: int | None,
+) -> list[dict[str, Any]]:
+    if start_s is None and end_s is None:
+        return list(points)
+    filtered = []
+    for point in points:
+        try:
+            ts = int(point.get("time"))
+        except (TypeError, ValueError):
+            continue
+        if start_s is not None and ts < start_s:
+            continue
+        if end_s is not None and ts > end_s:
+            continue
+        filtered.append(point)
+    return filtered
+
+def _style_to_int(style: Any) -> int:
+    if isinstance(style, int):
+        return style
+    normalized = str(style or "solid").lower()
+    if normalized in {"dashed", "dash"}:
+        return 1
+    if normalized in {"dotted", "dot"}:
+        return 2
+    return 0
