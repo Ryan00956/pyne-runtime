@@ -25,17 +25,18 @@ def test_strategy_capture_status_json_report() -> None:
     report = json.loads(completed.stdout)
 
     assert report["counts"]["total"] == 27
-    assert report["counts"]["captured"] == 0
-    assert report["counts"]["not_captured"] == 27
+    assert report["counts"]["captured"] == 3
+    assert report["counts"]["not_captured"] == 24
     assert report["counts"]["missing"] == 0
     assert report["counts"]["priority_total"] == 10
+    assert report["counts"]["priority_captured"] == 3
     assert all(case["provider"] == "tradingview" for case in report["cases"])
     smoke = report["cases"][0]
     assert smoke["fixture"] == "strategy_pine_equivalent_smoke.json"
     assert smoke["case"] == "market_round_trip_process_on_close"
     assert smoke["priority"] is True
     assert smoke["provider"] == "tradingview"
-    assert smoke["status"] == "not_captured"
+    assert smoke["status"] == "captured"
 
 
 def test_strategy_capture_status_priority_cases_have_capture_contract() -> None:

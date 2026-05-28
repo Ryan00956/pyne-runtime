@@ -3,6 +3,7 @@
 .mypy_cache/
 .coverage
 htmlcov/
+.tmp/
 
 __pycache__/
 *.py[cod]

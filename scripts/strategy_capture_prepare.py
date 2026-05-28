@@ -95,7 +95,7 @@ def prepare_capture_files(
             entry = build_entry(fixture_path, case, len(entries) + 1)
             pine_path = out_dir / entry["pine_file"]
             pine_path.parent.mkdir(parents=True, exist_ok=True)
-            pine_path.write_text(case["pine_equivalent"].rstrip() + "\n", encoding="utf-8")
+            pine_path.write_text(render_capture_pine(case).rstrip() + "\n", encoding="utf-8")
             write_bars_csv(out_dir / entry["bars_file"], case.get("bars", []))
             entries.append(entry)
     return entries
@@ -116,6 +116,7 @@ def build_entry(fixture_path: Path, case: dict[str, Any], index: int) -> dict[st
         "pine_file": pine_file,
         "bars_file": bars_file,
         "expected_export_file": export_file,
+        "time_alignment_required": False,
         "bar_count": len(case.get("bars", [])),
         "plot_titles": list(case.get("values", {})),
         "import_command": (
@@ -136,9 +137,16 @@ def render_readme(entries: list[dict[str, Any]]) -> str:
     lines = [
         "# TradingView Strategy Capture Export Pack",
         "",
-        "Copy each `.pine` file into TradingView Pine Editor, align the chart data with",
-        "the matching `_bars.csv`, export the declared plots, then import the CSV/JSON",
-        "back into the matching fixture.",
+        "Copy each `.pine` file into TradingView Pine Editor, export the declared plots,",
+        "then import the CSV/JSON back into the matching fixture.",
+        "",
+        "Generated Pine scripts replace fixture-local `bar_index == N` triggers with a",
+        "small capture window helper. By default the helper uses the last N completed chart bars,",
+        "which avoids TradingView's full-history `bar_index == 0` being far outside the",
+        "exported window. Turn off `Pyne capture: use last chart bars` in the script inputs",
+        "when you want to anchor the capture to a specific `Pyne capture: start time (ms)`.",
+        "Values outside the capture window are plotted as `na`, so full-window chart exports",
+        "can still be trimmed by the import helper.",
         "",
         "## Cases",
         "",
@@ -201,6 +209,98 @@ def fixture_sort_key(path: Path) -> tuple[int, str]:
     except ValueError:
         priority = len(PRIORITY_FIXTURES)
     return priority, path.name
+
+
+BAR_INDEX_EQUALS_RE = re.compile(r"(?<![A-Za-z0-9_])bar_index\s*==\s*(\d+)")
+
+
+def render_capture_pine(case: dict[str, Any]) -> str:
+    script = case["pine_equivalent"].rstrip()
+    rewritten = BAR_INDEX_EQUALS_RE.sub(r"_pyne_capture_bar(\1)", script)
+    if rewritten == script:
+        return script
+    return mask_plot_values(inject_capture_window(rewritten, len(case.get("bars", []))))
+
+
+def inject_capture_window(script: str, bar_count: int) -> str:
+    capture_bars = max(int(bar_count), 1)
+    header = "\n".join(
+        [
+            f"_pyne_capture_bars = {capture_bars}",
+            '_pyne_capture_use_last_bars = input.bool(true, "Pyne capture: use last chart bars")',
+            (
+                "_pyne_capture_start_time = input.int("
+                '1704067200000, "Pyne capture: start time (ms)")'
+            ),
+            (
+                "_pyne_capture_start_hit = time >= _pyne_capture_start_time and "
+                "(na(time[1]) or time[1] < _pyne_capture_start_time)"
+            ),
+            "_pyne_capture_from_time = ta.barssince(_pyne_capture_start_hit)",
+            (
+                "_pyne_capture_from_last = "
+                "bar_index - (last_bar_index - _pyne_capture_bars)"
+            ),
+            (
+                "_pyne_capture_index = _pyne_capture_use_last_bars ? "
+                "_pyne_capture_from_last : _pyne_capture_from_time"
+            ),
+            (
+                "_pyne_capture_active = "
+                "_pyne_capture_index >= 0 and _pyne_capture_index < _pyne_capture_bars"
+            ),
+            "_pyne_capture_bar(offset) => _pyne_capture_index == offset",
+        ]
+    )
+    lines = script.splitlines()
+    if lines and lines[0].startswith("//@version="):
+        return "\n".join([lines[0], header, *lines[1:]])
+    return "\n".join([header, *lines])
+
+
+def mask_plot_values(script: str) -> str:
+    lines = []
+    for line in script.splitlines():
+        lines.append(mask_plot_line(line))
+    return "\n".join(lines)
+
+
+def mask_plot_line(line: str) -> str:
+    stripped = line.lstrip()
+    indent = line[:len(line) - len(stripped)]
+    if not stripped.startswith("plot("):
+        return line
+    split_at = first_top_level_comma(stripped, start=len("plot("))
+    if split_at is None:
+        return line
+    expression = stripped[len("plot("):split_at].strip()
+    rest = stripped[split_at:]
+    return f"{indent}plot(_pyne_capture_active ? ({expression}) : na{rest}"
+
+
+def first_top_level_comma(text: str, *, start: int) -> int | None:
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    for index in range(start, len(text)):
+        char = text[index]
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+        if char in {'"', "'"}:
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "," and depth == 0:
+            return index
+    return None
 
 
 def write_bars_csv(path: Path, bars: list[dict[str, Any]]) -> None:

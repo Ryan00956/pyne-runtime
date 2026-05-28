@@ -121,18 +121,22 @@ def check_entry(
             "unknown plot column(s): " + ", ".join(unknown_plots),
         )
 
-    row_count = len(export["rows"])
+    active_rows = [
+        row for row in export["rows"]
+        if any((row.get(column, "") or "").strip() for column in plot_columns)
+    ]
+    row_count = len(active_rows)
     if row_count != entry["bar_count"]:
         add_issue(
             case_report,
             "row_count",
-            f"row count {row_count} does not match expected bar count {entry['bar_count']}",
+            f"active plot row count {row_count} does not match expected bar count {entry['bar_count']}",
         )
 
-    if "time" in export["normalized_fieldnames"] and bars_path.exists():
+    if entry.get("time_alignment_required", True) and "time" in export["normalized_fieldnames"] and bars_path.exists():
         bars = read_csv(bars_path)
         expected_time = [row.get("time", "") for row in bars["rows"]]
-        exported_time = [row.get(export["time_column"], "") for row in export["rows"]]
+        exported_time = [row.get(export["time_column"], "") for row in active_rows]
         if exported_time != expected_time:
             add_issue(case_report, "time_alignment", "time column does not match bars file")
 

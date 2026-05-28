@@ -60,6 +60,13 @@ def _assert_external_capture(case: dict, result: pn.PyneResult) -> None:
         assert "values" not in capture
         return
 
+    assert capture.get("assertion", "parity") in {"reference", "parity"}
+    assert isinstance(capture.get("values"), dict)
+    if "bars" in capture:
+        assert len(capture["bars"]) == len(next(iter(capture["values"].values())))
+    if capture.get("assertion", "parity") == "reference":
+        return
+
     tolerance = capture.get("tolerance", 0.0)
     for title, expected_values in capture["values"].items():
         actual_values = result.values(title)

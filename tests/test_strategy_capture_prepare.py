@@ -34,7 +34,7 @@ def test_strategy_capture_prepare_priority_manifest(tmp_path: Path) -> None:
     assert first["fixture"] == "strategy_pine_equivalent_smoke.json"
     assert first["case"] == "market_round_trip_process_on_close"
     assert first["priority"] is True
-    assert first["status"] == "not_captured"
+    assert first["status"] == "captured"
     assert first["bars_file"] == (
         "01_strategy_pine_equivalent_smoke__"
         "market_round_trip_process_on_close_bars.csv"
@@ -47,9 +47,13 @@ def test_strategy_capture_prepare_priority_manifest(tmp_path: Path) -> None:
         "Open Profit",
         "Closed Trades",
     ]
-    assert (out_dir / first["pine_file"]).read_text(encoding="utf-8").startswith(
-        "//@version=5\nstrategy("
-    )
+    pine_text = (out_dir / first["pine_file"]).read_text(encoding="utf-8")
+    assert pine_text.startswith("//@version=5\n_pyne_capture_bars = 4\n")
+    assert "if _pyne_capture_bar(0)\n    strategy.entry" in pine_text
+    assert "if _pyne_capture_bar(2)\n    strategy.close" in pine_text
+    assert "bar_index - (last_bar_index - _pyne_capture_bars)" in pine_text
+    assert "bar_index == 0" not in pine_text
+    assert 'plot(_pyne_capture_active ? (strategy.position_size) : na, "Position")' in pine_text
     assert (out_dir / first["bars_file"]).read_text(encoding="utf-8") == (
         "time,open,high,low,close,volume\n"
         "1,10,10.5,9.5,10,100\n"

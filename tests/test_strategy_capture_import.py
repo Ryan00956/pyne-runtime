@@ -56,6 +56,7 @@ def test_strategy_capture_import_json_values(tmp_path: Path) -> None:
     assert capture == {
         "provider": "tradingview",
         "status": "captured",
+        "assertion": "reference",
         "tolerance": 1e-09,
         "values": {
             "Position": [0.0, 1.0],
@@ -65,7 +66,7 @@ def test_strategy_capture_import_json_values(tmp_path: Path) -> None:
     }
 
 
-def test_strategy_capture_import_csv_ignores_time_columns(tmp_path: Path) -> None:
+def test_strategy_capture_import_csv_ignores_chart_columns_and_empty_rows(tmp_path: Path) -> None:
     fixture = tmp_path / "fixture.json"
     fixture.write_text(
         json.dumps(
@@ -85,7 +86,13 @@ def test_strategy_capture_import_csv_ignores_time_columns(tmp_path: Path) -> Non
     )
     values = tmp_path / "values.csv"
     values.write_text(
-        "time,Position,Net Profit\n1,0,0\n2,1,2\n",
+        (
+            "time,open,high,low,close,Position,Net Profit,Volume\n"
+            "1,10,11,9,10,,,100\n"
+            "2,10,11,9,10,0,0,100\n"
+            "3,11,12,10,11,1,2,200\n"
+            "4,12,13,11,12,,,300\n"
+        ),
         encoding="utf-8",
     )
 
@@ -108,6 +115,10 @@ def test_strategy_capture_import_csv_ignores_time_columns(tmp_path: Path) -> Non
         "Position": [0.0, 1.0],
         "Net Profit": [0.0, 2.0],
     }
+    assert updated["cases"][0]["external_capture"]["bars"] == [
+        {"time": 2, "open": 10.0, "high": 11.0, "low": 9.0, "close": 10.0, "volume": 100.0},
+        {"time": 3, "open": 11.0, "high": 12.0, "low": 10.0, "close": 11.0, "volume": 200.0},
+    ]
 
 
 def test_strategy_capture_import_rejects_unknown_plot(tmp_path: Path) -> None:

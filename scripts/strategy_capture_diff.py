@@ -113,7 +113,8 @@ def diff_case(
         "differences": [],
     }
 
-    result = pn.run(case["script"], case["bars"], executor_mode="inline")
+    bars = capture.get("bars") or case["bars"]
+    result = pn.run(case["script"], bars, executor_mode="inline")
     if not result.ok:
         case_report["runtime_error"] = result.error
         case_report["difference_count"] = 1

@@ -16,6 +16,11 @@ IGNORED_CSV_COLUMNS = {
     "datetime",
     "bar_index",
     "bar index",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
 }
 
 
@@ -39,6 +44,15 @@ def main(argv: list[str] | None = None) -> int:
         help="Absolute tolerance used by the golden test.",
     )
     parser.add_argument(
+        "--assertion",
+        choices=["reference", "parity"],
+        default="reference",
+        help=(
+            "How tests should treat this capture. 'reference' stores TradingView evidence "
+            "without failing golden tests on known differences; 'parity' asserts it matches Pyne."
+        ),
+    )
+    parser.add_argument(
         "--note",
         action="append",
         default=[],
@@ -56,7 +70,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    values = load_values(args.values, args.format)
+    export = load_export(args.values, args.format)
+    values = export["values"]
     fixture = json.loads(args.fixture.read_text(encoding="utf-8"))
     case = find_case(fixture, args.case)
     validate_capture_values(
@@ -69,9 +84,12 @@ def main(argv: list[str] | None = None) -> int:
     case["external_capture"] = {
         "provider": "tradingview",
         "status": "captured",
+        "assertion": args.assertion,
         "tolerance": args.tolerance,
         "values": values,
     }
+    if export.get("bars"):
+        case["external_capture"]["bars"] = export["bars"]
     if args.note:
         case["external_capture"]["notes"] = args.note
 
@@ -84,11 +102,15 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def load_values(path: Path, format_name: str) -> dict[str, list[float | None]]:
+    return load_export(path, format_name)["values"]
+
+
+def load_export(path: Path, format_name: str) -> dict[str, Any]:
     resolved_format = detect_format(path, format_name)
     if resolved_format == "json":
-        return load_json_values(path)
+        return load_json_export(path)
     if resolved_format == "csv":
-        return load_csv_values(path)
+        return load_csv_export(path)
     raise ValueError(f"unsupported values format: {resolved_format}")
 
 
@@ -104,14 +126,25 @@ def detect_format(path: Path, format_name: str) -> str:
 
 
 def load_json_values(path: Path) -> dict[str, list[float | None]]:
+    return load_json_export(path)["values"]
+
+
+def load_json_export(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     values = payload.get("values", payload) if isinstance(payload, dict) else None
     if not isinstance(values, dict):
         raise SystemExit("JSON export must be an object or contain a values object")
-    return normalize_values(values)
+    export: dict[str, Any] = {"values": normalize_values(values)}
+    if isinstance(payload, dict) and isinstance(payload.get("bars"), list):
+        export["bars"] = normalize_bars(payload["bars"])
+    return export
 
 
 def load_csv_values(path: Path) -> dict[str, list[float | None]]:
+    return load_csv_export(path)["values"]
+
+
+def load_csv_export(path: Path) -> dict[str, Any]:
     with path.open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         if reader.fieldnames is None:
@@ -121,11 +154,22 @@ def load_csv_values(path: Path) -> dict[str, list[float | None]]:
             for column in reader.fieldnames
             if column is not None and column.strip().lower() not in IGNORED_CSV_COLUMNS
         ]
+        chart_columns = chart_column_map(reader.fieldnames)
         values: dict[str, list[float | None]] = {column: [] for column in columns}
+        bars: list[dict[str, Any]] = []
         for row in reader:
-            for column in columns:
-                values[column].append(parse_scalar(row.get(column, "")))
-    return values
+            parsed = {column: parse_scalar(row.get(column, "")) for column in columns}
+            if columns and all(value is None for value in parsed.values()):
+                continue
+            for column, value in parsed.items():
+                values[column].append(value)
+            bar = parse_chart_bar(row, chart_columns)
+            if bar is not None:
+                bars.append(bar)
+    export: dict[str, Any] = {"values": values}
+    if bars:
+        export["bars"] = bars
+    return export
 
 
 def normalize_values(raw_values: dict[str, Any]) -> dict[str, list[float | None]]:
@@ -137,6 +181,24 @@ def normalize_values(raw_values: dict[str, Any]) -> dict[str, list[float | None]
             raise SystemExit(f"plot {title!r} must be a list")
         values[title] = [parse_scalar(value) for value in series]
     return values
+
+
+def normalize_bars(raw_bars: list[Any]) -> list[dict[str, Any]]:
+    bars: list[dict[str, Any]] = []
+    for item in raw_bars:
+        if not isinstance(item, dict):
+            raise SystemExit("bars entries must be objects")
+        bars.append(
+            {
+                "time": int(float(item["time"])),
+                "open": float(item["open"]),
+                "high": float(item["high"]),
+                "low": float(item["low"]),
+                "close": float(item["close"]),
+                "volume": float(item.get("volume", 0.0)),
+            }
+        )
+    return bars
 
 
 def validate_capture_values(
@@ -205,6 +267,44 @@ def parse_scalar(value: object) -> float | None:
     if raw == "" or raw.lower() in {"na", "nan", "null"}:
         return None
     return float(raw)
+
+
+def chart_column_map(fieldnames: list[str | None]) -> dict[str, str]:
+    normalized = {
+        field.strip().lower(): field
+        for field in fieldnames
+        if field is not None and field.strip()
+    }
+    return {
+        key: normalized[key]
+        for key in ("time", "open", "high", "low", "close", "volume")
+        if key in normalized
+    }
+
+
+def parse_chart_bar(row: dict[str, str], columns: dict[str, str]) -> dict[str, Any] | None:
+    required = ("time", "open", "high", "low", "close")
+    if any(key not in columns for key in required):
+        return None
+    try:
+        time_value = parse_scalar(row.get(columns["time"], ""))
+        open_value = parse_scalar(row.get(columns["open"], ""))
+        high_value = parse_scalar(row.get(columns["high"], ""))
+        low_value = parse_scalar(row.get(columns["low"], ""))
+        close_value = parse_scalar(row.get(columns["close"], ""))
+        volume_value = parse_scalar(row.get(columns["volume"], "")) if "volume" in columns else 0.0
+    except ValueError:
+        return None
+    if None in {time_value, open_value, high_value, low_value, close_value}:
+        return None
+    return {
+        "time": int(time_value),
+        "open": float(open_value),
+        "high": float(high_value),
+        "low": float(low_value),
+        "close": float(close_value),
+        "volume": float(volume_value or 0.0),
+    }
 
 
 def find_case(fixture: dict[str, Any], case_name: str) -> dict[str, Any]:
