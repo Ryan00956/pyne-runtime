@@ -16,10 +16,29 @@ Run these before committing package changes:
 
 ```bash
 python -m ruff check .
+python -m pytest tests/test_architecture.py -q
 python -m pytest
 python scripts/strategy_capture_scaffold.py --check
 python scripts/strategy_capture_diff.py
 ```
+
+## Architecture Checks
+
+Architecture guard tests live in `tests/test_architecture.py`. Run them directly when
+moving modules or changing public package exports:
+
+```bash
+python -m pytest tests/test_architecture.py -q
+```
+
+These checks verify that:
+
+- every name in `pyne_runtime.__all__` is importable;
+- core package modules do not import host application modules such as `app` or
+  `candlescope`;
+- the internal `pyne_runtime` import graph has no static cycles;
+- unusually large modules emit a warning for architecture review without failing
+  the test suite.
 
 Golden-style semantic fixtures live under `tests/golden/` and are exercised by
 the normal pytest suite. Add or update a fixture when a Pine-like compatibility
@@ -48,7 +67,9 @@ The build output is written to a temporary directory, so the package tree stays 
 
 ## Independence Check
 
-Package code must not import CandleScope application modules. This should return no matches:
+Package code must not import CandleScope application modules. The architecture
+tests enforce this with AST scanning. For a quick manual check, this should
+return no matches:
 
 ```bash
 Select-String -Path src/pyne_runtime/*.py -Pattern 'from app\.|import app\.|app\.'
