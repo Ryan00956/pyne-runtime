@@ -1165,11 +1165,11 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [-2.0, -2.0, 0.0, 0.0]
 
 
-def test_strategy_configure_pyramiding_allows_same_direction_adds() -> None:
+def test_strategy_configure_pyramiding_two_allows_same_direction_add() -> None:
     result = pn.run(
         """
 indicator("Pyramiding", overlay=True)
-strategy.configure(pyramiding=1)
+strategy.configure(pyramiding=2)
 strategy.entry_when(close > open, "Long", strategy.long, qty=1, price=close)
 plot(strategy.position_size, "Position")
 plot(strategy.position_avg_price, "Average")
@@ -1292,7 +1292,7 @@ def test_strategy_callable_declares_metadata_and_configures_replay() -> None:
 strategy(
     "Declared Strategy",
     overlay=False,
-    pyramiding=1,
+    pyramiding=2,
     slippage=1,
     mintick=0.1,
     commission_type=strategy.commission.percent,
@@ -1310,7 +1310,7 @@ plot(strategy.position_size, "Position")
         "title": "Declared Strategy",
         "overlay": False,
         "script_type": "strategy",
-        "pyramiding": 1,
+        "pyramiding": 2,
         "slippage": 1,
         "mintick": 0.1,
         "commission_type": "percent",

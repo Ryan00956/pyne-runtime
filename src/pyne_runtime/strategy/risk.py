@@ -69,7 +69,7 @@ def _entry_allowed(
         return True
     if side == "short" and previous_size > 0:
         return True
-    return same_direction_entry_count < pyramiding + 1
+    return same_direction_entry_count < pyramiding
 
 
 def _entry_rejection_reason(
@@ -92,7 +92,7 @@ def _entry_rejection_reason(
         return None
     if side == "short" and previous_size > 0:
         return None
-    if same_direction_entry_count >= pyramiding + 1:
+    if same_direction_entry_count >= pyramiding:
         return "pyramiding_exceeded"
     return None
 

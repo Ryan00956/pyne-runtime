@@ -222,8 +222,7 @@
       ],
       "orders": [
         {"time": 1, "id": "A", "type": "entry", "side": "long", "qty": 1.0, "price": 10.0, "position_after": 1.0, "comment": "", "commission": 0.25},
-        {"time": 2, "id": "B", "type": "entry", "side": "long", "qty": 2.0, "price": 11.0, "position_after": 3.0, "comment": "", "commission": 0.5},
-        {"time": 4, "id": "close_all", "type": "close_all", "side": "flat", "qty": 3.0, "price": 13.0, "position_after": 0.0, "comment": "", "commission": 0.75}
+        {"time": 4, "id": "close_all", "type": "close_all", "side": "flat", "qty": 1.0, "price": 13.0, "position_after": 0.0, "comment": "", "commission": 0.25}
       ],
       "lifecycle": [
         {
@@ -247,20 +246,20 @@
         {
           "id": "B",
           "type": "entry",
-          "status": "filled",
-          "phase": "market_fill",
+          "status": "rejected",
+          "phase": "rejected",
           "submitted_time": 2,
-          "filled_time": 2,
+          "filled_time": null,
           "canceled_time": null,
-          "rejected_time": null,
+          "rejected_time": 2,
           "side": "long",
           "qty": 2.0,
           "price": 11.0,
-          "position_after": 3.0,
+          "position_after": 0.0,
           "comment": "",
-          "commission": 0.5,
           "requested_qty": 2.0,
-          "filled_qty": 2.0
+          "filled_qty": 0.0,
+          "rejected_reason": "pyramiding_exceeded"
         },
         {
           "id": "C",
@@ -290,35 +289,34 @@
           "canceled_time": null,
           "rejected_time": null,
           "side": "flat",
-          "qty": 3.0,
+          "qty": 1.0,
           "price": 13.0,
           "position_after": 0.0,
           "comment": "",
-          "commission": 0.75,
-          "requested_qty": 3.0,
-          "filled_qty": 3.0,
-          "target_qty": 3.0
+          "commission": 0.25,
+          "requested_qty": 1.0,
+          "filled_qty": 1.0,
+          "target_qty": 1.0
         }
       ],
       "closedtrades": [
-        {"entry_time": 1, "exit_time": 4, "entry_id": "A", "exit_id": "close_all", "side": "long", "qty": 1.0, "entry_price": 10.0, "exit_price": 13.0, "profit": 3.0, "commission": 0.5, "net_profit": 2.5},
-        {"entry_time": 2, "exit_time": 4, "entry_id": "B", "exit_id": "close_all", "side": "long", "qty": 2.0, "entry_price": 11.0, "exit_price": 13.0, "profit": 4.0, "commission": 1.0, "net_profit": 3.0}
+        {"entry_time": 1, "exit_time": 4, "entry_id": "A", "exit_id": "close_all", "side": "long", "qty": 1.0, "entry_price": 10.0, "exit_price": 13.0, "profit": 3.0, "commission": 0.5, "net_profit": 2.5}
       ],
       "opentrades": [],
-      "position": [1.0, 3.0, 3.0, 0.0],
-      "equity": [999.75, 1000.25, 1003.25, 1005.5],
-      "netprofit": [-0.25, -0.75, -0.75, 5.5],
+      "position": [1.0, 1.0, 1.0, 0.0],
+      "equity": [999.75, 1000.75, 1001.75, 1002.5],
+      "netprofit": [-0.25, -0.25, -0.25, 2.5],
       "first_closed_commission": [0.5, 0.5, 0.5, 0.5],
-      "last_closed_commission": [1.0, 1.0, 1.0, 1.0],
+      "last_closed_commission": [],
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
-        "equity": 1005.5,
-        "netprofit": 5.5,
+        "equity": 1002.5,
+        "netprofit": 2.5,
         "openprofit": 0.0,
-        "grossprofit": 7.0,
+        "grossprofit": 3.0,
         "grossloss": 0.0,
-        "commission": 1.5,
+        "commission": 0.5,
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "same_bar_priority",
