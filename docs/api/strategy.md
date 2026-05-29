@@ -19,6 +19,7 @@ strategy(
     commission_type=strategy.commission.percent,
     commission_value=0.1,
     backtest_fill_limits_assumption=1,
+    process_orders_on_close=True,
     same_bar_fill_priority=strategy.same_bar.stop_first,
     intrabar_path=strategy.intrabar.same_bar_priority,
     margin_long=0,
@@ -77,6 +78,7 @@ strategy(
     commission_type=strategy.commission.percent,
     commission_value=0.1,
     backtest_fill_limits_assumption=1,
+    process_orders_on_close=True,
     same_bar_fill_priority=strategy.same_bar.stop_first,
     intrabar_path=strategy.intrabar.same_bar_priority,
     margin_long=0,
@@ -128,6 +130,12 @@ mental model:
 - the filled price remains the requested limit price plus normal slippage rules
 
 The default is `0`, which preserves the simpler touch-to-fill behavior.
+
+`process_orders_on_close=True` follows Pine's close-processing visibility:
+orders submitted on a bar can fill at that bar's close or intrabar price, while
+strategy series such as `strategy.position_size`, `strategy.netprofit`, and
+`strategy.closedtrades` expose same-bar fills on the following bar. The default
+is `False`, preserving Pyne's original same-bar fill visibility.
 
 `same_bar_fill_priority` controls deterministic replay when both stop and limit
 prices are touched by the same bar:

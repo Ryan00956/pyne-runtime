@@ -776,6 +776,33 @@ plot(strategy.position_size, "Position")
     assert result.output["strategy"]["summary"]["margin_short"] == 0.0
 
 
+def test_strategy_process_orders_on_close_delays_market_fill_visibility() -> None:
+    result = pn.run(
+        """
+strategy("Process On Close", overlay=True, initial_capital=1000, process_orders_on_close=True)
+strategy.entry("Long", strategy.long, qty=2, when=bar_index == 0, price=close)
+strategy.close("Long", when=bar_index == 2, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.netprofit, "Net Profit")
+plot(strategy.openprofit, "Open Profit")
+plot(strategy.closedtrades, "Closed Trades")
+""",
+        [
+            {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
+            {"time": 2, "open": 11, "high": 11.5, "low": 10.5, "close": 11, "volume": 100},
+            {"time": 3, "open": 13, "high": 13.5, "low": 12.5, "close": 13, "volume": 100},
+            {"time": 4, "open": 12, "high": 12.5, "low": 11.5, "close": 12, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Position") == [0.0, 2.0, 2.0, 0.0]
+    assert result.values("Net Profit") == [0.0, 0.0, 0.0, 6.0]
+    assert result.values("Open Profit") == [0.0, 2.0, 6.0, 0.0]
+    assert result.values("Closed Trades") == [0.0, 0.0, 0.0, 1.0]
+
+
 def test_strategy_margin_allows_leveraged_short_when_margin_percent_is_lower() -> None:
     result = pn.run(
         """

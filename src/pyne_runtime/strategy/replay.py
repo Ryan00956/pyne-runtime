@@ -97,6 +97,18 @@ def replay_strategy_orders(strategy: Any) -> None:
                 else self._initial_capital
             )
         risk_locked = drawdown_locked or intraday_locked or filled_orders_locked
+        if self._process_orders_on_close:
+            _write_strategy_snapshot(
+                self,
+                idx=idx,
+                current_size=current_size,
+                current_avg=current_avg,
+                gross_profit=gross_profit,
+                gross_loss=gross_loss,
+                total_commission=total_commission,
+                closed_trades=closed_trades,
+                open_trades=open_trades,
+            )
         for order in orders_by_time.get(timestamp, []):
             if order.get("type") == "entry":
                 if risk_locked:
@@ -526,34 +538,36 @@ def replay_strategy_orders(strategy: Any) -> None:
                         risk_locked = True
                 _apply_oca_after_fill(order, pending_orders)
             pending_orders = [item for item in remaining_pending if not item.get("_canceled")]
+        if not self._process_orders_on_close:
+            _write_strategy_snapshot(
+                self,
+                idx=idx,
+                current_size=current_size,
+                current_avg=current_avg,
+                gross_profit=gross_profit,
+                gross_loss=gross_loss,
+                total_commission=total_commission,
+                closed_trades=closed_trades,
+                open_trades=open_trades,
+            )
         net_profit = gross_profit + gross_loss - total_commission
         open_profit = _open_profit(
             current_size,
             current_avg,
             float(self._context.close.values[idx]),
         )
-        self._position_size[idx] = current_size
-        self._position_avg_price[idx] = current_avg
-        self._grossprofit[idx] = gross_profit
-        self._grossloss[idx] = gross_loss
-        self._netprofit[idx] = net_profit
-        self._openprofit[idx] = open_profit
-        self._equity[idx] = self._initial_capital + net_profit + open_profit
-        self._closedtrades_count[idx] = len(closed_trades)
-        self._opentrades_count[idx] = len(
-            [trade for trade in open_trades if float(trade.get("qty", 0.0)) > 0]
-        )
-        peak_equity = max(peak_equity, float(self._equity[idx]))
-        intraday_peak_equity = max(intraday_peak_equity, float(self._equity[idx]))
+        equity = self._initial_capital + net_profit + open_profit
+        peak_equity = max(peak_equity, float(equity))
+        intraday_peak_equity = max(intraday_peak_equity, float(equity))
         if self._max_drawdown_value is not None and _max_drawdown_hit(
-            equity=float(self._equity[idx]),
+            equity=float(equity),
             peak_equity=peak_equity,
             threshold=self._max_drawdown_value,
             risk_type=self._max_drawdown_type,
         ):
             drawdown_locked = True
         if self._max_intraday_loss_value is not None and _max_drawdown_hit(
-            equity=float(self._equity[idx]),
+            equity=float(equity),
             peak_equity=intraday_peak_equity,
             threshold=self._max_intraday_loss_value,
             risk_type=self._max_intraday_loss_type,
@@ -568,6 +582,37 @@ def replay_strategy_orders(strategy: Any) -> None:
         gross_profit=gross_profit,
         gross_loss=gross_loss,
         total_commission=total_commission,
+    )
+
+
+def _write_strategy_snapshot(
+    strategy: Any,
+    *,
+    idx: int,
+    current_size: float,
+    current_avg: float,
+    gross_profit: float,
+    gross_loss: float,
+    total_commission: float,
+    closed_trades: list[dict[str, Any]],
+    open_trades: list[dict[str, Any]],
+) -> None:
+    net_profit = gross_profit + gross_loss - total_commission
+    open_profit = _open_profit(
+        current_size,
+        current_avg,
+        float(strategy._context.close.values[idx]),
+    )
+    strategy._position_size[idx] = current_size
+    strategy._position_avg_price[idx] = current_avg
+    strategy._grossprofit[idx] = gross_profit
+    strategy._grossloss[idx] = gross_loss
+    strategy._netprofit[idx] = net_profit
+    strategy._openprofit[idx] = open_profit
+    strategy._equity[idx] = strategy._initial_capital + net_profit + open_profit
+    strategy._closedtrades_count[idx] = len(closed_trades)
+    strategy._opentrades_count[idx] = len(
+        [trade for trade in open_trades if float(trade.get("qty", 0.0)) > 0]
     )
 
 

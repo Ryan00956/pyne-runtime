@@ -3,7 +3,7 @@
     {
       "name": "market_round_trip_process_on_close",
       "source": "Pyne-defined strategy replay fixture with a Pine-equivalent script scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent Market Round Trip\", overlay=True, initial_capital=1000, pyramiding=0)\nstrategy.entry(\"Long\", strategy.long, qty=2, when=bar_index == 0, price=close)\nstrategy.close(\"Long\", when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
+      "script": "strategy(\"Pine Equivalent Market Round Trip\", overlay=True, initial_capital=1000, pyramiding=0, process_orders_on_close=True)\nstrategy.entry(\"Long\", strategy.long, qty=2, when=bar_index == 0, price=close)\nstrategy.close(\"Long\", when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Market Round Trip\", overlay=true, initial_capital=1000, pyramiding=0, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=2)\nif bar_index == 2\n    strategy.close(\"Long\")\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent_notes": [
         "Uses process_orders_on_close=true to align Pine market-order fills with Pyne's explicit same-bar close price fixture.",
@@ -12,7 +12,7 @@
       "external_capture": {
         "provider": "tradingview",
         "status": "captured",
-        "assertion": "reference",
+        "assertion": "parity",
         "tolerance": 1e-09,
         "values": {
           "Position": [
@@ -195,9 +195,9 @@
       "opentrades": [],
       "values": {
         "Position": [
-          2.0,
-          2.0,
           0.0,
+          2.0,
+          2.0,
           0.0
         ],
         "Equity": [
@@ -209,19 +209,19 @@
         "Net Profit": [
           0.0,
           0.0,
-          6.0,
+          0.0,
           6.0
         ],
         "Open Profit": [
           0.0,
           2.0,
-          0.0,
+          6.0,
           0.0
         ],
         "Closed Trades": [
           0.0,
           0.0,
-          1.0,
+          0.0,
           1.0
         ]
       },

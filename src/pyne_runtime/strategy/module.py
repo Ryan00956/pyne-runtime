@@ -95,6 +95,7 @@ class StrategyModule:
         self._commission_type: str | None = None
         self._commission_value = 0.0
         self._backtest_fill_limits_assumption = 0
+        self._process_orders_on_close = False
         self._same_bar_fill_priority = StrategySameBarPriority.stop_first
         self._intrabar_path = StrategyIntrabarPath.same_bar_priority
         self._margin_long = 0.0
@@ -114,6 +115,7 @@ class StrategyModule:
                 "initial_capital",
                 "currency",
                 "backtest_fill_limits_assumption",
+                "process_orders_on_close",
                 "same_bar_fill_priority",
                 "intrabar_path",
                 "margin_long",
@@ -141,6 +143,7 @@ class StrategyModule:
         initial_capital: float | None = None,
         currency: str | None = None,
         backtest_fill_limits_assumption: int | None = None,
+        process_orders_on_close: bool | None = None,
         same_bar_fill_priority: str | None = None,
         intrabar_path: str | None = None,
         margin_long: float | None = None,
@@ -172,6 +175,8 @@ class StrategyModule:
                 int(backtest_fill_limits_assumption),
                 0,
             )
+        if process_orders_on_close is not None:
+            self._process_orders_on_close = bool(process_orders_on_close)
         if same_bar_fill_priority is not None:
             self._same_bar_fill_priority = _normalize_same_bar_fill_priority(
                 same_bar_fill_priority
