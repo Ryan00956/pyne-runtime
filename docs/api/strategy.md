@@ -199,6 +199,27 @@ export has been added yet. `status="captured"` turns the exported plot values
 into active assertions against Pyne output. The values should come from the
 matching `pine_equivalent` script's exported plot data, not from Pyne itself.
 
+## Batch And Incremental Shared Core
+
+Batch strategy replay and incremental strategy callbacks share the same
+constant classes and pure helper semantics for:
+
+- direction, commission, OCA, same-bar priority, intrabar path, and risk mode
+  constants
+- pending entry/order and bracket-exit trigger resolution
+- same-bar stop/limit priority and deterministic intrabar path normalization
+- commission, margin, exposure-reduction, max-position-size, drawdown, and
+  intraday filled-order gates
+- open-trade profit and numeric trade field coercion helpers
+
+The shared helpers live under `pyne_runtime.strategy.*` and are covered by unit
+tests in `tests/test_strategy_shared_helpers.py`. Incremental strategy still
+owns scalar current-bar mutation, preview isolation, pending-order storage,
+open/closed trade list mutation, and callback lifecycle reporting. Batch
+strategy still owns vector replay and per-bar series output. This keeps the
+high-risk state transitions separate while making the deterministic admission,
+cost, risk, and trigger rules common to both runtimes.
+
 Capital reporting:
 
 - `initial_capital` defaults to `100000`.

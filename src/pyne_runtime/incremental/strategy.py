@@ -4,24 +4,41 @@ from __future__ import annotations
 import math
 from typing import Any, Callable
 
+from ..strategy.constants import (
+    StrategyCommission,
+    StrategyDirection,
+    StrategyIntrabarPath,
+    StrategyOca,
+    StrategyRiskMode,
+    StrategySameBarPriority,
+)
+from ..strategy.costs import (
+    _commission_amount,
+    _is_exposure_reduction,
+    _margin_required,
+    _normalize_commission_type,
+)
+from ..strategy.ledger import _trade_float, _trade_open_profit
+from ..strategy.orders import (
+    _exit_trigger,
+    _normalize_intrabar_path,
+    _normalize_oca_type,
+    _normalize_same_bar_fill_priority,
+    _pending_trigger,
+)
+from ..strategy.risk import (
+    _entry_qty_for_max_position_size,
+    _entry_rejection_reason,
+    _intraday_filled_orders_hit,
+    _max_drawdown_hit,
+    _normalize_allowed_entry_direction,
+    _normalize_risk_mode,
+)
 
-class IncrementalStrategyDirection:
-    all = "all"
-    both = "all"
-    long = "long"
-    short = "short"
-    none = "none"
 
-
-class IncrementalStrategyCommission:
-    percent = "percent"
-    cash_per_order = "cash_per_order"
-    cash_per_contract = "cash_per_contract"
-
-
-class IncrementalStrategyRiskMode:
-    percent_of_equity = "percent_of_equity"
-    cash = "cash"
+IncrementalStrategyDirection = StrategyDirection
+IncrementalStrategyCommission = StrategyCommission
+IncrementalStrategyRiskMode = StrategyRiskMode
 
 
 class IncrementalStrategyRiskNamespace:
@@ -151,20 +168,9 @@ class IncrementalStrategyNamespace:
     direction = IncrementalStrategyDirection
     percent_of_equity = IncrementalStrategyRiskMode.percent_of_equity
     cash = IncrementalStrategyRiskMode.cash
-    oca = type("IncrementalStrategyOca", (), {
-        "none": "none",
-        "cancel": "cancel",
-        "reduce": "reduce",
-    })
-    same_bar = type("IncrementalStrategySameBarPriority", (), {
-        "stop_first": "stop_first",
-        "limit_first": "limit_first",
-    })
-    intrabar = type("IncrementalStrategyIntrabarPath", (), {
-        "same_bar_priority": "same_bar_priority",
-        "open_high_low_close": "open_high_low_close",
-        "open_low_high_close": "open_low_high_close",
-    })
+    oca = StrategyOca
+    same_bar = StrategySameBarPriority
+    intrabar = StrategyIntrabarPath
 
     def __init__(self, context: "IncrementalContext") -> None:
         self._context = context
@@ -1171,15 +1177,6 @@ class IncrementalStrategyNamespace:
 def _round8(value: float) -> float:
     return round(float(value), 8)
 
-def _trade_float(trade: dict[str, Any], key: str) -> float:
-    value = trade.get(key)
-    if value is None or value == "":
-        return math.nan
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return math.nan
-
 def _signed_trade_qty(trade: dict[str, Any]) -> float:
     qty = abs(float(trade.get("qty", 0.0)))
     return qty if trade.get("side") == IncrementalStrategyNamespace.long else -qty
@@ -1188,14 +1185,6 @@ def _realized_profit(*, side: str, qty: float, entry_price: float, exit_price: f
     if side == IncrementalStrategyNamespace.long:
         return (float(exit_price) - float(entry_price)) * abs(float(qty))
     return (float(entry_price) - float(exit_price)) * abs(float(qty))
-
-def _trade_open_profit(trade: dict[str, Any], close_price: float) -> float:
-    return _realized_profit(
-        side=str(trade.get("side", IncrementalStrategyNamespace.long)),
-        qty=float(trade.get("qty", 0.0)),
-        entry_price=float(trade.get("entry_price", 0.0)),
-        exit_price=float(close_price),
-    )
 
 def _requested_exit_qty(
     *,
@@ -1214,322 +1203,6 @@ def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
     return float(value)
-
-def _pending_trigger(
-    *,
-    side: str,
-    high: float,
-    low: float,
-    limit: float | None,
-    stop: float | None,
-    tick_verify: float = 0.0,
-    same_bar_fill_priority: str = "stop_first",
-    intrabar_path: str = "same_bar_priority",
-) -> tuple[str, float] | None:
-    if side == IncrementalStrategyNamespace.long:
-        stop_hit = stop is not None and high >= stop
-        limit_hit = limit is not None and low <= limit - tick_verify
-        if stop_hit and limit_hit:
-            return _same_bar_trigger(
-                stop=stop,
-                limit=limit,
-                stop_path="high",
-                limit_path="low",
-                same_bar_fill_priority=same_bar_fill_priority,
-                intrabar_path=intrabar_path,
-            )
-        if stop_hit:
-            return "stop", float(stop)
-        if limit_hit:
-            return "limit", float(limit)
-        return None
-    stop_hit = stop is not None and low <= stop
-    limit_hit = limit is not None and high >= limit + tick_verify
-    if stop_hit and limit_hit:
-        return _same_bar_trigger(
-            stop=stop,
-            limit=limit,
-            stop_path="low",
-            limit_path="high",
-            same_bar_fill_priority=same_bar_fill_priority,
-            intrabar_path=intrabar_path,
-        )
-    if stop_hit:
-        return "stop", float(stop)
-    if limit_hit:
-        return "limit", float(limit)
-    return None
-
-def _exit_trigger(
-    *,
-    current_position: float,
-    high: float,
-    low: float,
-    stop: float | None,
-    limit: float | None,
-    tick_verify: float = 0.0,
-    same_bar_fill_priority: str = "stop_first",
-    intrabar_path: str = "same_bar_priority",
-) -> tuple[str, float] | None:
-    if current_position > 0:
-        stop_hit = stop is not None and low <= stop
-        limit_hit = limit is not None and high >= limit + tick_verify
-        if stop_hit and limit_hit:
-            return _same_bar_trigger(
-                stop=stop,
-                limit=limit,
-                stop_path="low",
-                limit_path="high",
-                same_bar_fill_priority=same_bar_fill_priority,
-                intrabar_path=intrabar_path,
-            )
-        if stop_hit:
-            return "stop", float(stop)
-        if limit_hit:
-            return "limit", float(limit)
-        return None
-    stop_hit = stop is not None and high >= stop
-    limit_hit = limit is not None and low <= limit - tick_verify
-    if stop_hit and limit_hit:
-        return _same_bar_trigger(
-            stop=stop,
-            limit=limit,
-            stop_path="high",
-            limit_path="low",
-            same_bar_fill_priority=same_bar_fill_priority,
-            intrabar_path=intrabar_path,
-        )
-    if stop_hit:
-        return "stop", float(stop)
-    if limit_hit:
-        return "limit", float(limit)
-    return None
-
-def _same_bar_trigger(
-    *,
-    stop: float | None,
-    limit: float | None,
-    stop_path: str,
-    limit_path: str,
-    same_bar_fill_priority: str,
-    intrabar_path: str,
-) -> tuple[str, float]:
-    if intrabar_path == IncrementalStrategyNamespace.intrabar.open_high_low_close:
-        if stop_path == "high" and limit_path == "low":
-            return "stop", float(stop)
-        if limit_path == "high" and stop_path == "low":
-            return "limit", float(limit)
-    if intrabar_path == IncrementalStrategyNamespace.intrabar.open_low_high_close:
-        if stop_path == "low" and limit_path == "high":
-            return "stop", float(stop)
-        if limit_path == "low" and stop_path == "high":
-            return "limit", float(limit)
-    if same_bar_fill_priority == IncrementalStrategyNamespace.same_bar.limit_first:
-        return "limit", float(limit)
-    return "stop", float(stop)
-
-def _normalize_same_bar_fill_priority(value: str) -> str:
-    normalized = str(value or "").strip().lower()
-    aliases = {
-        "stop": IncrementalStrategyNamespace.same_bar.stop_first,
-        "stop_first": IncrementalStrategyNamespace.same_bar.stop_first,
-        "stop-first": IncrementalStrategyNamespace.same_bar.stop_first,
-        "limit": IncrementalStrategyNamespace.same_bar.limit_first,
-        "limit_first": IncrementalStrategyNamespace.same_bar.limit_first,
-        "limit-first": IncrementalStrategyNamespace.same_bar.limit_first,
-    }
-    if normalized in aliases:
-        return aliases[normalized]
-    raise ValueError("same_bar_fill_priority must be stop_first or limit_first")
-
-def _normalize_intrabar_path(value: str) -> str:
-    normalized = str(value or "").strip().lower()
-    aliases = {
-        "same_bar_priority": IncrementalStrategyNamespace.intrabar.same_bar_priority,
-        "same-bar-priority": IncrementalStrategyNamespace.intrabar.same_bar_priority,
-        "open_high_low_close": IncrementalStrategyNamespace.intrabar.open_high_low_close,
-        "open-high-low-close": IncrementalStrategyNamespace.intrabar.open_high_low_close,
-        "ohlc": IncrementalStrategyNamespace.intrabar.open_high_low_close,
-        "open_low_high_close": IncrementalStrategyNamespace.intrabar.open_low_high_close,
-        "open-low-high-close": IncrementalStrategyNamespace.intrabar.open_low_high_close,
-        "olhc": IncrementalStrategyNamespace.intrabar.open_low_high_close,
-    }
-    if normalized in aliases:
-        return aliases[normalized]
-    raise ValueError(
-        "intrabar_path must be same_bar_priority, open_high_low_close, or open_low_high_close"
-    )
-
-def _normalize_oca_type(value: str | None) -> str:
-    normalized = str(value or "").strip().lower()
-    aliases = {
-        "": IncrementalStrategyNamespace.oca.none,
-        "none": IncrementalStrategyNamespace.oca.none,
-        "strategy.oca.none": IncrementalStrategyNamespace.oca.none,
-        "cancel": IncrementalStrategyNamespace.oca.cancel,
-        "strategy.oca.cancel": IncrementalStrategyNamespace.oca.cancel,
-        "reduce": IncrementalStrategyNamespace.oca.reduce,
-        "strategy.oca.reduce": IncrementalStrategyNamespace.oca.reduce,
-    }
-    if normalized in aliases:
-        return aliases[normalized]
-    raise ValueError(
-        "oca_type must be strategy.oca.none, strategy.oca.cancel, or strategy.oca.reduce"
-    )
-
-def _normalize_allowed_entry_direction(value: str) -> str:
-    normalized = str(value or IncrementalStrategyDirection.all).strip().lower()
-    aliases = {
-        "all": IncrementalStrategyDirection.all,
-        "both": IncrementalStrategyDirection.all,
-        "strategy.direction.all": IncrementalStrategyDirection.all,
-        "strategy.direction.both": IncrementalStrategyDirection.all,
-        "long": IncrementalStrategyDirection.long,
-        "strategy.long": IncrementalStrategyDirection.long,
-        "strategy.direction.long": IncrementalStrategyDirection.long,
-        "short": IncrementalStrategyDirection.short,
-        "strategy.short": IncrementalStrategyDirection.short,
-        "strategy.direction.short": IncrementalStrategyDirection.short,
-        "none": IncrementalStrategyDirection.none,
-        "false": IncrementalStrategyDirection.none,
-        "off": IncrementalStrategyDirection.none,
-        "strategy.direction.none": IncrementalStrategyDirection.none,
-    }
-    return aliases.get(normalized, IncrementalStrategyDirection.all)
-
-def _normalize_risk_mode(value: str) -> str:
-    normalized = str(value or IncrementalStrategyRiskMode.percent_of_equity).strip().lower()
-    if normalized in {
-        "percent",
-        "percent_of_equity",
-        "strategy.percent_of_equity",
-        "strategy.risk.percent_of_equity",
-    }:
-        return IncrementalStrategyRiskMode.percent_of_equity
-    if normalized in {"cash", "money", "strategy.cash", "strategy.risk.cash"}:
-        return IncrementalStrategyRiskMode.cash
-    return IncrementalStrategyRiskMode.percent_of_equity
-
-def _normalize_commission_type(value: str) -> str:
-    normalized = str(value or "").strip().lower()
-    if normalized in {"percent", "strategy.commission.percent"}:
-        return IncrementalStrategyCommission.percent
-    if normalized in {
-        "cash_per_order",
-        "cash_per_order_contract",
-        "strategy.commission.cash_per_order",
-    }:
-        return IncrementalStrategyCommission.cash_per_order
-    if normalized in {
-        "cash_per_contract",
-        "cash_per_contracts",
-        "strategy.commission.cash_per_contract",
-    }:
-        return IncrementalStrategyCommission.cash_per_contract
-    return normalized
-
-def _commission_amount(
-    *,
-    commission_type: str | None,
-    commission_value: float,
-    qty: float,
-    price: float,
-) -> float:
-    if commission_type is None or commission_value <= 0:
-        return 0.0
-    if commission_type == IncrementalStrategyCommission.percent:
-        return abs(float(qty) * float(price)) * commission_value / 100.0
-    if commission_type == IncrementalStrategyCommission.cash_per_order:
-        return commission_value
-    if commission_type == IncrementalStrategyCommission.cash_per_contract:
-        return abs(float(qty)) * commission_value
-    return 0.0
-
-def _entry_rejection_reason(
-    *,
-    side: str,
-    previous_size: float,
-    same_direction_entry_count: int,
-    pyramiding: int,
-    allow_entry_in: str = IncrementalStrategyDirection.all,
-) -> str | None:
-    if allow_entry_in == IncrementalStrategyDirection.none:
-        return "direction_not_allowed"
-    if (
-        allow_entry_in == IncrementalStrategyDirection.long
-        and side != IncrementalStrategyNamespace.long
-    ):
-        return "direction_not_allowed"
-    if (
-        allow_entry_in == IncrementalStrategyDirection.short
-        and side != IncrementalStrategyNamespace.short
-    ):
-        return "direction_not_allowed"
-    if previous_size == 0:
-        return None
-    if side == IncrementalStrategyNamespace.long and previous_size < 0:
-        return None
-    if side == IncrementalStrategyNamespace.short and previous_size > 0:
-        return None
-    if same_direction_entry_count >= pyramiding + 1:
-        return "pyramiding_exceeded"
-    return None
-
-def _entry_qty_for_max_position_size(
-    *,
-    side: str,
-    previous_size: float,
-    requested_qty: float,
-    max_position_size: float | None,
-) -> float:
-    qty = abs(float(requested_qty))
-    if max_position_size is None:
-        return qty
-    limit = max(float(max_position_size), 0.0)
-    if side == IncrementalStrategyNamespace.long:
-        available = limit - float(previous_size) if previous_size > 0 else limit
-    else:
-        available = limit + float(previous_size) if previous_size < 0 else limit
-    return max(min(qty, available), 0.0)
-
-def _max_drawdown_hit(
-    *,
-    equity: float,
-    peak_equity: float,
-    threshold: float,
-    risk_type: str,
-) -> bool:
-    if threshold <= 0:
-        return False
-    drawdown = max(float(peak_equity) - float(equity), 0.0)
-    if risk_type == IncrementalStrategyRiskMode.cash:
-        return drawdown >= threshold
-    if peak_equity <= 0:
-        return False
-    return drawdown / peak_equity * 100.0 >= threshold
-
-def _intraday_filled_orders_hit(*, filled_orders: int, threshold: int | None) -> bool:
-    if threshold is None:
-        return False
-    return int(filled_orders) >= max(int(threshold), 0)
-
-def _margin_required(
-    *,
-    position_size: float,
-    price: float,
-    margin_percent: float,
-    pointvalue: float,
-) -> float:
-    if position_size == 0 or margin_percent <= 0:
-        return 0.0
-    return abs(float(position_size) * float(price) * float(pointvalue)) * margin_percent / 100.0
-
-def _is_exposure_reduction(previous_size: float, next_size: float) -> bool:
-    if previous_size == 0:
-        return False
-    if (previous_size > 0) != (next_size > 0):
-        return False
-    return abs(next_size) <= abs(previous_size)
 
 def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list[dict[str, Any]]:
     events = []

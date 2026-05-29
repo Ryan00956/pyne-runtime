@@ -292,6 +292,7 @@ def _normalize_intrabar_path(value: str) -> str:
     normalized = str(value or "").strip().lower()
     aliases = {
         "same_bar_priority": StrategyIntrabarPath.same_bar_priority,
+        "same-bar-priority": StrategyIntrabarPath.same_bar_priority,
         "priority": StrategyIntrabarPath.same_bar_priority,
         "open_high_low_close": StrategyIntrabarPath.open_high_low_close,
         "ohlc": StrategyIntrabarPath.open_high_low_close,
