@@ -786,6 +786,7 @@ plot(strategy.position_size, "Position")
 plot(strategy.netprofit, "Net Profit")
 plot(strategy.openprofit, "Open Profit")
 plot(strategy.closedtrades, "Closed Trades")
+plot(strategy.closedtrades.profit(1), "Next Closed Profit")
 """,
         [
             {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
@@ -801,6 +802,7 @@ plot(strategy.closedtrades, "Closed Trades")
     assert result.values("Net Profit") == [0.0, 0.0, 0.0, 6.0]
     assert result.values("Open Profit") == [0.0, 2.0, 6.0, 0.0]
     assert result.values("Closed Trades") == [0.0, 0.0, 0.0, 1.0]
+    assert result.values("Next Closed Profit") == [0.0, 0.0, 0.0, 0.0]
 
 
 def test_strategy_margin_allows_leveraged_short_when_margin_percent_is_lower() -> None:

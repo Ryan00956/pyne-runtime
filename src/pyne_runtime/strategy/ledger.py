@@ -114,11 +114,14 @@ def _trade_float(trade: dict[str, Any], key: str) -> float:
 
 def _trade_from_snapshot(trades: list[dict[str, Any]], trade_num: int) -> dict[str, Any]:
     if not trades:
-        return {"_empty_ledger": True} if int(trade_num) in {-1, 0} else {}
+        index = int(trade_num)
+        return {"_empty_ledger": True} if index in {-1, 0, 1} else {}
     index = int(trade_num)
     if index < 0:
         index = len(trades) + index
     if index < 0 or index >= len(trades):
+        if index == len(trades):
+            return {"_empty_ledger": True}
         return {}
     return trades[index]
 

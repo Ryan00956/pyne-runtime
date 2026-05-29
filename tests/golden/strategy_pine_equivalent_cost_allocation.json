@@ -517,9 +517,21 @@
           0.0,
           3.0
         ],
-        "Last Closed Profit": [],
-        "Last Closed Commission": [],
-        "Last Closed Net Profit": []
+        "Last Closed Profit": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Last Closed Commission": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Last Closed Net Profit": [
+          0.0,
+          0.0,
+          0.0
+        ]
       },
       "summary": {
         "initial_capital": 1000.0,
