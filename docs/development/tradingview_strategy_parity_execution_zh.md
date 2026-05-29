@@ -4,7 +4,25 @@
 
 目标不是继续扩大采集数量，而是先利用这 10 份真实 TradingView reference，把第一批 priority strategy case 从“可采集、可 diff”推进到“关键语义可对齐、可回归”。
 
-## 当前基线
+## 执行状态
+
+截至 2026-05-29，本执行阶段的 10 个 priority case 已全部从 `reference`
+升级为 `parity` gate：
+
+```text
+10 captured case(s)
+67 plot(s)
+195 point(s)
+0 difference(s)
+0 runtime error(s)
+0 skipped
+```
+
+当前 capture 状态仍为 `10/27 captured`、`17 not_captured`、`0 missing`。
+剩余 17 个非 priority case 属于下一轮采集扩展，不属于本执行阶段的 runtime
+parity 修复范围。
+
+## 执行前基线
 
 已完成：
 
@@ -429,16 +447,16 @@ git diff --check
 ## 暂不做的事
 
 - 暂不继续采剩余 17 个非 priority case，除非某个修复需要新的 TV 证据。
-- 暂不把所有 captured case 直接改成 `parity`。
+- 暂不把 17 个非 priority scaffold 直接改成 `captured` 或 `parity`。
 - 暂不为了让 diff 归零而改写 TV reference values。
 - 暂不把 Pyne 定位成 TradingView Pine 源码解释器；本阶段只对齐 Python API 下的 Pine-like strategy runtime。
 
 ## 阶段完成标准
 
-本执行阶段完成时应满足：
+本执行阶段完成时已满足：
 
 - 10 个 priority case 仍保持 captured。
-- 至少 `margin_long_rejects_then_small_fill`、两个 bracket exit case、smoke market round trip 进入 parity。
-- 聚合 diff 从当前 `107 difference(s)` 明显下降，并且剩余差异均归入明确后续阶段。
+- 10 个 priority case 全部进入 parity。
+- 聚合 diff 从执行前 `107 difference(s)` 降为 `0 difference(s)`。
 - 全量测试、ruff、diff check 通过。
 - `docs/development/pine_like_semantics_progress_zh.md` 和 `docs/reference/pine_like_api_matrix.md` 同步更新 strategy parity 状态。

@@ -240,7 +240,7 @@
       "external_capture": {
         "provider": "tradingview",
         "status": "captured",
-        "assertion": "reference",
+        "assertion": "parity",
         "tolerance": 1e-09,
         "values": {
           "Position": [
@@ -594,7 +594,7 @@
       "external_capture": {
         "provider": "tradingview",
         "status": "captured",
-        "assertion": "reference",
+        "assertion": "parity",
         "tolerance": 1e-09,
         "values": {
           "Position": [

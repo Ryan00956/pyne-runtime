@@ -277,6 +277,12 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - strategy pine-equivalent margin/order/cancel fixture 已加入 margin admission、
   lower-level `strategy.order` net-position 减仓/反转，以及 `strategy.cancel()` /
   `strategy.cancel_all()` 清理 pending order 后不复活的样板。
+- 10 个 priority strategy pine-equivalent TradingView capture 已全部进入
+  `parity` gate，覆盖 market round-trip、bracket exit、percent commission、
+  cash-per-contract partial close、reversal、pyramiding、margin admission、
+  `strategy.order` 减仓/反转，以及 `strategy.cancel()` / `strategy.cancel_all()`
+  pending 清理；聚合 diff 为 `10 captured case(s), 67 plot(s), 195 point(s),
+  0 difference(s)`。
 - strategy pine-equivalent fixture 已加入 `external_capture` 可选字段约定；
   当 `status="captured"` 且包含 TradingView 导出的 plot `values` 时，golden
   runner 会把外部序列纳入断言。
@@ -303,11 +309,12 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议把 strategy pine-equivalent fixture 从 Pyne-defined 预期推进到真实
-TradingView 导出序列：优先选择 market round-trip、bracket exit、cost allocation、
-reversal/pyramiding 与 margin/order/cancel 这些已经有稳定 scaffold 的样板。
-阶段计划见 `docs/development/tradingview_capture_next_phase_zh.md`，具体导入与
-状态检查方式见 `docs/development/tradingview_strategy_capture_zh.md`。
+下一步建议进入第二批 strategy capture 扩展：在已有 `10/27 captured`、
+`17 not_captured`、`0 missing` 的 contract 上，优先采集仍未被真实 TradingView
+导出覆盖的 pending entry、exit path、OCA/risk、risk/size/limit 与 short-side
+case。采集前仍使用 `strategy_capture_next.py`、`strategy_capture_prepare.py`、
+`strategy_capture_preflight.py`、`strategy_capture_import.py` 和
+`strategy_capture_diff.py` 维持同一条证据链。
 完成后应同步更新：
 
 - `tests/golden/`
