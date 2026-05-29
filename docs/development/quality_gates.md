@@ -58,8 +58,12 @@ fills, and barstate flags.
 
 The strategy capture gates protect the TradingView external-evidence workflow:
 `strategy_capture_scaffold.py --check` ensures every strategy pine-equivalent
-case keeps an `external_capture` contract, and `strategy_capture_diff.py` fails
-when any `captured` TradingView plot sequence diverges from current Pyne output.
+case keeps an `external_capture` contract. Captured TradingView data can be used
+in two assertion modes: `reference` captures are preserved as external evidence
+and inspected with `strategy_capture_diff.py`, while `parity` captures are
+expected to match current Pyne output in the golden tests. Use
+`strategy_capture_diff.py --summary` when you need a grouped case/plot view of
+the remaining reference differences.
 
 ## Phase-Focused Checks
 

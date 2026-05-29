@@ -55,6 +55,18 @@ def test_strategy_capture_diff_reports_value_mismatch(tmp_path: Path) -> None:
     assert completed.returncode == 1
     report = json.loads(completed.stdout)
     assert report["counts"]["differences"] == 1
+    assert report["summary"] == {
+        "cases": [
+            {
+                "fixture": "fixture.json",
+                "case": "sample",
+                "differences": 1,
+                "runtime_error": False,
+                "plots": [{"plot": "Position", "differences": 1}],
+            }
+        ],
+        "plots": [{"plot": "Position", "differences": 1}],
+    }
     assert report["differences"][0] == {
         "fixture": "fixture.json",
         "case": "sample",
@@ -87,6 +99,30 @@ def test_strategy_capture_diff_skips_not_captured_cases(tmp_path: Path) -> None:
     report = json.loads(completed.stdout)
     assert report["counts"]["captured_cases"] == 0
     assert report["counts"]["skipped_cases"] == 1
+
+
+def test_strategy_capture_diff_summary_output_groups_mismatches(tmp_path: Path) -> None:
+    fixture = write_fixture(tmp_path, captured_values={"Position": [2.0]})
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "strategy_capture_diff.py"),
+            str(fixture),
+            "--summary",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 1
+    assert "Strategy TradingView capture diff: 1 captured case(s)" in completed.stdout
+    assert "Differences by case:" in completed.stdout
+    assert "fixture.json" in completed.stdout
+    assert "sample" in completed.stdout
+    assert "Differences by plot:" in completed.stdout
+    assert "Position" in completed.stdout
 
 
 def write_fixture(

@@ -40,12 +40,19 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print machine-readable JSON instead of a table.",
     )
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Print grouped difference counts instead of point-level rows.",
+    )
     args = parser.parse_args(argv)
 
     fixture_paths = args.fixtures or sorted(args.golden_dir.glob(STRATEGY_FIXTURE_GLOB))
     report = build_report(fixture_paths, set(args.case))
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
+    elif args.summary:
+        print_summary(report)
     else:
         print_table(report)
 
@@ -94,6 +101,50 @@ def build_report(
         },
         "cases": cases,
         "differences": differences,
+        "summary": build_summary(cases, differences),
+    }
+
+
+def build_summary(
+    cases: list[dict[str, Any]],
+    differences: list[dict[str, Any]],
+) -> dict[str, Any]:
+    case_rows: list[dict[str, Any]] = []
+    plot_counts: dict[str, int] = {}
+
+    for case in cases:
+        plot_counts_for_case: dict[str, int] = {}
+        for row in case["differences"]:
+            plot = row.get("plot")
+            if plot is None:
+                continue
+            plot_counts_for_case[plot] = plot_counts_for_case.get(plot, 0) + 1
+
+        case_rows.append(
+            {
+                "fixture": case["fixture"],
+                "case": case["case"],
+                "differences": case["difference_count"],
+                "runtime_error": case["runtime_error"] is not None,
+                "plots": [
+                    {"plot": plot, "differences": count}
+                    for plot, count in sorted(plot_counts_for_case.items())
+                ],
+            }
+        )
+
+    for row in differences:
+        plot = row.get("plot")
+        if plot is None:
+            continue
+        plot_counts[plot] = plot_counts.get(plot, 0) + 1
+
+    return {
+        "cases": case_rows,
+        "plots": [
+            {"plot": plot, "differences": count}
+            for plot, count in sorted(plot_counts.items())
+        ],
     }
 
 
@@ -202,15 +253,7 @@ def diff_row(
 
 
 def print_table(report: dict[str, Any]) -> None:
-    counts = report["counts"]
-    print(
-        "Strategy TradingView capture diff: "
-        f"{counts['captured_cases']} captured case(s), "
-        f"{counts['plots']} plot(s), {counts['points']} point(s), "
-        f"{counts['differences']} difference(s), "
-        f"{counts['runtime_errors']} runtime error(s), "
-        f"{counts['skipped_cases']} skipped"
-    )
+    print_header(report)
     if not report["differences"]:
         return
 
@@ -233,6 +276,46 @@ def print_table(report: dict[str, Any]) -> None:
             f"{format_value(row['pyne']):>14} "
             f"{format_value(row['delta']):>14}"
         )
+
+
+def print_summary(report: dict[str, Any]) -> None:
+    print_header(report)
+    if not report["differences"]:
+        return
+
+    summary = report["summary"]
+    print()
+    print("Differences by case:")
+    print(f"{'fixture':<48} {'case':<44} {'diffs':>6} {'runtime':>8}")
+    print("-" * 110)
+    for row in summary["cases"]:
+        if row["differences"] == 0 and not row["runtime_error"]:
+            continue
+        print(
+            f"{row['fixture']:<48} "
+            f"{row['case']:<44} "
+            f"{row['differences']:>6} "
+            f"{str(row['runtime_error']):>8}"
+        )
+
+    print()
+    print("Differences by plot:")
+    print(f"{'plot':<30} {'diffs':>6}")
+    print("-" * 38)
+    for row in summary["plots"]:
+        print(f"{row['plot']:<30} {row['differences']:>6}")
+
+
+def print_header(report: dict[str, Any]) -> None:
+    counts = report["counts"]
+    print(
+        "Strategy TradingView capture diff: "
+        f"{counts['captured_cases']} captured case(s), "
+        f"{counts['plots']} plot(s), {counts['points']} point(s), "
+        f"{counts['differences']} difference(s), "
+        f"{counts['runtime_errors']} runtime error(s), "
+        f"{counts['skipped_cases']} skipped"
+    )
 
 
 def format_value(value: Any) -> str:
