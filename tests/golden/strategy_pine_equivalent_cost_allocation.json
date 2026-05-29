@@ -189,16 +189,16 @@
           0.0
         ],
         "Closed Profit": [
-          4.0,
-          4.0
+          0.0,
+          0.0
         ],
         "Closed Commission": [
-          0.44,
-          0.44
+          0.0,
+          0.0
         ],
         "Closed Net Profit": [
-          3.56,
-          3.56
+          0.0,
+          0.0
         ]
       },
       "summary": {
@@ -503,35 +503,23 @@
           1.0
         ],
         "First Closed Profit": [
-          4.0,
-          4.0,
+          0.0,
+          0.0,
           4.0
         ],
         "First Closed Commission": [
-          1.0,
-          1.0,
+          0.0,
+          0.0,
           1.0
         ],
         "First Closed Net Profit": [
-          3.0,
-          3.0,
+          0.0,
+          0.0,
           3.0
         ],
-        "Last Closed Profit": [
-          6.0,
-          6.0,
-          6.0
-        ],
-        "Last Closed Commission": [
-          1.0,
-          1.0,
-          1.0
-        ],
-        "Last Closed Net Profit": [
-          5.0,
-          5.0,
-          5.0
-        ]
+        "Last Closed Profit": [],
+        "Last Closed Commission": [],
+        "Last Closed Net Profit": []
       },
       "summary": {
         "initial_capital": 1000.0,

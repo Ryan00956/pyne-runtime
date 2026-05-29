@@ -32,32 +32,32 @@ class StrategyTradesNamespace:
             return self._strategy._closedtrades_count.copy()
         return self._strategy._opentrades_count.copy()
 
-    def size(self, trade_num: int = -1) -> float:
-        return _trade_float(self._trade(trade_num), "qty")
+    def size(self, trade_num: int = -1) -> float | PyneSeries:
+        return self._trade_float(trade_num, "qty")
 
-    def qty(self, trade_num: int = -1) -> float:
+    def qty(self, trade_num: int = -1) -> float | PyneSeries:
         return self.size(trade_num)
 
-    def profit(self, trade_num: int = -1) -> float:
-        return _trade_float(self._trade(trade_num), "profit")
+    def profit(self, trade_num: int = -1) -> float | PyneSeries:
+        return self._trade_float(trade_num, "profit")
 
-    def net_profit(self, trade_num: int = -1) -> float:
-        return _trade_float(self._trade(trade_num), "net_profit")
+    def net_profit(self, trade_num: int = -1) -> float | PyneSeries:
+        return self._trade_float(trade_num, "net_profit")
 
-    def commission(self, trade_num: int = -1) -> float:
-        return _trade_float(self._trade(trade_num), "commission")
+    def commission(self, trade_num: int = -1) -> float | PyneSeries:
+        return self._trade_float(trade_num, "commission")
 
-    def entry_price(self, trade_num: int = -1) -> float:
-        return _trade_float(self._trade(trade_num), "entry_price")
+    def entry_price(self, trade_num: int = -1) -> float | PyneSeries:
+        return self._trade_float(trade_num, "entry_price")
 
-    def exit_price(self, trade_num: int = -1) -> float:
-        return _trade_float(self._trade(trade_num), "exit_price")
+    def exit_price(self, trade_num: int = -1) -> float | PyneSeries:
+        return self._trade_float(trade_num, "exit_price")
 
-    def entry_time(self, trade_num: int = -1) -> float:
-        return _trade_float(self._trade(trade_num), "entry_time")
+    def entry_time(self, trade_num: int = -1) -> float | PyneSeries:
+        return self._trade_float(trade_num, "entry_time")
 
-    def exit_time(self, trade_num: int = -1) -> float:
-        return _trade_float(self._trade(trade_num), "exit_time")
+    def exit_time(self, trade_num: int = -1) -> float | PyneSeries:
+        return self._trade_float(trade_num, "exit_time")
 
     def entry_id(self, trade_num: int = -1) -> str:
         return str(self._trade(trade_num).get("entry_id", ""))
@@ -83,6 +83,22 @@ class StrategyTradesNamespace:
             return {}
         return trades[index]
 
+    def _trade_float(self, trade_num: int, key: str) -> float | PyneSeries:
+        snapshots = (
+            self._strategy._closed_trades_by_bar
+            if self._kind == "closedtrades"
+            else self._strategy._open_trades_by_bar
+        )
+        if self._strategy._process_orders_on_close and snapshots:
+            values = [
+                _trade_float(_trade_from_snapshot(trades, trade_num), key)
+                for trades in snapshots
+            ]
+            if all(is_na_value(value) for value in values):
+                return float("nan")
+            return PyneSeries(values, name=f"strategy.{self._kind}.{key}({trade_num})")
+        return _trade_float(self._trade(trade_num), key)
+
 
 def _trade_float(trade: dict[str, Any], key: str) -> float:
     value = trade.get(key)
@@ -94,6 +110,17 @@ def _trade_float(trade: dict[str, Any], key: str) -> float:
         return float(value)
     except (TypeError, ValueError):
         return float("nan")
+
+
+def _trade_from_snapshot(trades: list[dict[str, Any]], trade_num: int) -> dict[str, Any]:
+    if not trades:
+        return {"_empty_ledger": True} if int(trade_num) in {-1, 0} else {}
+    index = int(trade_num)
+    if index < 0:
+        index = len(trades) + index
+    if index < 0 or index >= len(trades):
+        return {}
+    return trades[index]
 
 
 def _record_fill(

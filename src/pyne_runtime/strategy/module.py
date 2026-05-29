@@ -74,6 +74,8 @@ class StrategyModule:
         self._opentrades_count = np.zeros(context.bar_count, dtype=np.float64)
         self._closed_trades: list[dict[str, Any]] = []
         self._open_trades: list[dict[str, Any]] = []
+        self._closed_trades_by_bar: list[list[dict[str, Any]]] = []
+        self._open_trades_by_bar: list[list[dict[str, Any]]] = []
         self._closedtrades_namespace = StrategyTradesNamespace(self, "closedtrades")
         self._opentrades_namespace = StrategyTradesNamespace(self, "opentrades")
         self._touched = False

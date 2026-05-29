@@ -48,6 +48,8 @@ def replay_strategy_orders(strategy: Any) -> None:
         filled_orders=intraday_filled_orders,
         threshold=self._max_intraday_filled_orders,
     )
+    self._closed_trades_by_bar = [[] for _ in range(self._context.bar_count)]
+    self._open_trades_by_bar = [[] for _ in range(self._context.bar_count)]
     session_first = _condition_values(
         self._context.session.isfirstbar,
         self._context.bar_count,
@@ -614,9 +616,12 @@ def _write_strategy_snapshot(
     strategy._openprofit[idx] = open_profit
     strategy._equity[idx] = strategy._initial_capital + net_profit + open_profit
     strategy._closedtrades_count[idx] = len(closed_trades)
-    strategy._opentrades_count[idx] = len(
-        [trade for trade in open_trades if float(trade.get("qty", 0.0)) > 0]
-    )
+    visible_open_trades = [
+        dict(trade) for trade in open_trades if float(trade.get("qty", 0.0)) > 0
+    ]
+    strategy._opentrades_count[idx] = len(visible_open_trades)
+    strategy._closed_trades_by_bar[idx] = [dict(trade) for trade in closed_trades]
+    strategy._open_trades_by_bar[idx] = visible_open_trades
 
 
 def _condition_values(value: Any, length: int) -> list[bool]:
