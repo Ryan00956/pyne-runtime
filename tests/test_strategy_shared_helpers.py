@@ -37,6 +37,7 @@ def test_incremental_strategy_reuses_shared_order_helpers() -> None:
     ) == ("limit", 9.5)
     assert orders._exit_trigger(
         current_position=1.0,
+        open_price=10.0,
         high=11.0,
         low=9.0,
         limit=10.5,

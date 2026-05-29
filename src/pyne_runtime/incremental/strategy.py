@@ -926,6 +926,7 @@ class IncrementalStrategyNamespace:
             return False
         trigger = _exit_trigger(
             current_position=current_position,
+            open_price=float(bar.open),
             high=float(bar.high),
             low=float(bar.low),
             stop=order.get("_stop"),

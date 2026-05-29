@@ -9,6 +9,7 @@ from .constants import StrategyIntrabarPath, StrategyOca, StrategySameBarPriorit
 def _exit_trigger(
     *,
     current_position: float,
+    open_price: float,
     high: float,
     low: float,
     stop: float | None,
@@ -32,7 +33,7 @@ def _exit_trigger(
         if stop_hit:
             return "stop", stop
         if limit_hit:
-            return "limit", limit
+            return "limit", max(float(limit), float(open_price))
         return None
     stop_hit = stop is not None and high >= stop
     limit_hit = limit is not None and low <= limit - tick_verify
@@ -48,7 +49,7 @@ def _exit_trigger(
     if stop_hit:
         return "stop", stop
     if limit_hit:
-        return "limit", limit
+        return "limit", min(float(limit), float(open_price))
     return None
 
 

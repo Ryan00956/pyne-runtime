@@ -571,6 +571,7 @@ class StrategyModule:
         limits = _optional_price_values(limit, self._context.bar_count)
         high_values = _price_values(self._context.high, self._context.high, self._context.bar_count)
         low_values = _price_values(self._context.low, self._context.low, self._context.bar_count)
+        open_values = _price_values(self._context.open, self._context.open, self._context.bar_count)
 
         for idx, flag in enumerate(flags):
             if not flag:
@@ -580,6 +581,7 @@ class StrategyModule:
                 continue
             trigger = _exit_trigger(
                 current_position=current_position,
+                open_price=open_values[idx],
                 high=high_values[idx],
                 low=low_values[idx],
                 stop=stops[idx],
