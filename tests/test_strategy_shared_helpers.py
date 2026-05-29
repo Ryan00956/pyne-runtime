@@ -29,6 +29,7 @@ def test_incremental_strategy_reuses_shared_order_helpers() -> None:
     assert orders._normalize_intrabar_path("same-bar-priority") == "same_bar_priority"
     assert orders._pending_trigger(
         side="long",
+        open_price=10.0,
         high=11.0,
         low=9.0,
         limit=9.5,

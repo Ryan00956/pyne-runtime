@@ -204,6 +204,7 @@ def _reject_order(order: dict[str, Any], *, timestamp: int, reason: str) -> None
 def _pending_trigger(
     *,
     side: str,
+    open_price: float,
     high: float,
     low: float,
     limit: float | None,
@@ -216,7 +217,7 @@ def _pending_trigger(
         stop_hit = stop is not None and high >= stop
         limit_hit = limit is not None and low <= limit - tick_verify
         if stop_hit and limit_hit:
-            return _same_bar_trigger(
+            reason, price = _same_bar_trigger(
                 stop=stop,
                 limit=limit,
                 stop_path="high",
@@ -224,15 +225,31 @@ def _pending_trigger(
                 same_bar_fill_priority=same_bar_fill_priority,
                 intrabar_path=intrabar_path,
             )
+            return reason, _pending_fill_price(
+                side=side,
+                reason=reason,
+                trigger_price=price,
+                open_price=open_price,
+            )
         if stop_hit:
-            return "stop", float(stop)
+            return "stop", _pending_fill_price(
+                side=side,
+                reason="stop",
+                trigger_price=float(stop),
+                open_price=open_price,
+            )
         if limit_hit:
-            return "limit", float(limit)
+            return "limit", _pending_fill_price(
+                side=side,
+                reason="limit",
+                trigger_price=float(limit),
+                open_price=open_price,
+            )
         return None
     stop_hit = stop is not None and low <= stop
     limit_hit = limit is not None and high >= limit + tick_verify
     if stop_hit and limit_hit:
-        return _same_bar_trigger(
+        reason, price = _same_bar_trigger(
             stop=stop,
             limit=limit,
             stop_path="low",
@@ -240,11 +257,41 @@ def _pending_trigger(
             same_bar_fill_priority=same_bar_fill_priority,
             intrabar_path=intrabar_path,
         )
+        return reason, _pending_fill_price(
+            side=side,
+            reason=reason,
+            trigger_price=price,
+            open_price=open_price,
+        )
     if stop_hit:
-        return "stop", float(stop)
+        return "stop", _pending_fill_price(
+            side=side,
+            reason="stop",
+            trigger_price=float(stop),
+            open_price=open_price,
+        )
     if limit_hit:
-        return "limit", float(limit)
+        return "limit", _pending_fill_price(
+            side=side,
+            reason="limit",
+            trigger_price=float(limit),
+            open_price=open_price,
+        )
     return None
+
+
+def _pending_fill_price(
+    *,
+    side: str,
+    reason: str,
+    trigger_price: float,
+    open_price: float,
+) -> float:
+    trigger = float(trigger_price)
+    opened = float(open_price)
+    if side == "long":
+        return max(trigger, opened) if reason == "stop" else min(trigger, opened)
+    return min(trigger, opened) if reason == "stop" else max(trigger, opened)
 
 
 def _same_bar_trigger(

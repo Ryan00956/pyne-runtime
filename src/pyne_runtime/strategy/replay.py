@@ -375,6 +375,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                 pending_orders = []
 
         if pending_orders:
+            open_price = float(self._context.open.values[idx])
             high = float(self._context.high.values[idx])
             low = float(self._context.low.values[idx])
             remaining_pending = []
@@ -384,8 +385,15 @@ def replay_strategy_orders(strategy: Any) -> None:
                 if risk_locked and order.get("type") in {"entry", "order"}:
                     remaining_pending.append(order)
                     continue
+                trigger_reference_price = open_price
+                if (
+                    self._process_orders_on_close
+                    and int(order.get("_submit_time", order.get("time", 0))) == timestamp
+                ):
+                    trigger_reference_price = float(self._context.close.values[idx])
                 trigger = _pending_trigger(
                     side=_normalize_direction(str(order.get("side", self.long))),
+                    open_price=trigger_reference_price,
                     high=high,
                     low=low,
                     limit=order.get("_limit"),

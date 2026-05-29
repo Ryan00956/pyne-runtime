@@ -594,6 +594,7 @@ class IncrementalStrategyNamespace:
             return False
         trigger = _pending_trigger(
             side=self._normalize_direction(str(order.get("side", self.long))),
+            open_price=float(bar.open),
             high=float(bar.high),
             low=float(bar.low),
             limit=order.get("_limit"),
