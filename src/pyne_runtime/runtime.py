@@ -17,42 +17,26 @@ Usage::
 """
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 
-import numpy as np
-
 from .context import PyneContext
-from .ta import TaModule
 from .input import InputModule
-from .color import color as color_singleton
-from .math_ext import PyneMath
-from .plot import OutputCollector, create_plot_functions
-from .request import PyneRequestError, RequestModule, barmerge
+from .plot import OutputCollector
+from .request import PyneRequestError
 from .incremental import IncrementalPyneResult, PyneIncrementalSession, is_incremental_pyne_script
-from . import utils
 from .cache import pyne_cache
-from .collections import array_namespace, map_namespace, matrix_namespace
 from .errors import classify_security_error, error_hint
+from .namespace import RuntimeServices, build_script_namespace
 from .result import PyneResult
 from .security import (
     PyneSecurityError,
     PyneSecurityPolicy,
     PyneTimeoutError,
-    build_builtins,
     enforce_output_limits,
     execution_timeout,
     validate_script_security,
 )
 from .settings import PyneSettings
-from .series import switch as series_switch
-from .series import when as series_when
-from .series import where as series_where
-from .state import PyneStateNamespace
-from .strategy import StrategyModule
-from .string_ext import string_namespace
-from .ticker import TickerNamespace
-from .time_ext import time_namespace
 
 
 class PyneRuntime:
@@ -126,35 +110,23 @@ class PyneRuntime:
                 session=self.settings.session,
             )
 
-            # 2. Create module instances bound to this context
-            ta = TaModule(ctx)
-            input_mod = InputModule(params=params, context=ctx)
-            state = PyneStateNamespace()
-            collector = OutputCollector(
-                times=ctx.times,
-                max_drawing_objects=self.settings.max_drawing_objects,
-            )
-            plot_funcs = create_plot_functions(collector)
-            strategy = StrategyModule(ctx, collector)
-
-            # 3. Build script execution namespace
-            script_globals = self._build_namespace(
+            # 2. Create runtime services bound to this context
+            services = RuntimeServices(
                 ctx=ctx,
-                ta=ta,
-                input_mod=input_mod,
-                plot_funcs=plot_funcs,
+                settings=self.settings,
                 params=params,
                 policy=policy,
-                state=state,
-                strategy=strategy,
             )
+
+            # 3. Build script execution namespace
+            script_globals = self._build_namespace(services)
 
             # 4. Execute
             with execution_timeout(policy.timeout_seconds):
                 exec(script, script_globals)  # noqa: S102
 
             # 5. Collect outputs
-            result = self._collect_result(collector, input_mod)
+            result = self._collect_result(services.collector, services.input)
             enforce_output_limits(result.output, policy)
             result.meta = {**result.meta, "securityMode": policy.mode}
             return result
@@ -208,140 +180,10 @@ class PyneRuntime:
 
     def _build_namespace(
         self,
-        ctx: PyneContext,
-        ta: TaModule,
-        input_mod: InputModule,
-        plot_funcs: dict[str, Any],
-        params: dict[str, Any],
-        policy: PyneSecurityPolicy,
-        state: PyneStateNamespace,
-        strategy: StrategyModule,
+        services: RuntimeServices,
     ) -> dict[str, Any]:
-        """Build the global namespace injected into user scripts.
-
-        This is where all the magic happens — every Pine-style API
-        becomes a Python variable/function available without imports.
-        """
-        ns: dict[str, Any] = {}
-
-        # ── Layer 1: Data context (OHLCV arrays) ────────────
-        ns["open"] = ctx.open
-        ns["high"] = ctx.high
-        ns["low"] = ctx.low
-        ns["close"] = ctx.close
-        ns["volume"] = ctx.volume
-        ns["time"] = time_namespace(ctx.time)
-        ns["time_close"] = ctx.time_close
-        ns["bar_index"] = ctx.bar_index
-        ns["last_bar_index"] = ctx.last_bar_index
-        ns["barstate"] = ctx.barstate
-        ns["bar_count"] = ctx.bar_count
-        ns["syminfo"] = ctx.syminfo
-        ns["timeframe"] = ctx.timeframe
-        ns["session"] = ctx.session
-
-        # Derived sources
-        ns["hl2"] = ctx.hl2
-        ns["hlc3"] = ctx.hlc3
-        ns["ohlc4"] = ctx.ohlc4
-        ns["hlcc4"] = ctx.hlcc4
-
-        # ── Layer 2: Pyne API (Pine-style) ───────────────────
-        # ta.* — technical analysis functions
-        ns["ta"] = ta
-
-        # input.* — parameter declaration
-        ns["input"] = input_mod
-
-        # request.* — host-backed multi-context data requests
-        ns["request"] = RequestModule(ctx, provider=self.settings.data_provider)
-        ns["barmerge"] = barmerge
-
-        # strategy.* — lightweight strategy event semantics
-        ns["strategy"] = strategy
-        ns["array"] = array_namespace
-        ns["map"] = map_namespace
-        ns["matrix"] = matrix_namespace
-        ns["str"] = string_namespace
-        ns["ticker"] = TickerNamespace(ctx.syminfo)
-
-        # Drawing functions
-        ns.update(plot_funcs)  # plot, hline, fill, bar, marker, etc.
-
-        # color.* — color constants and helpers
-        ns["color"] = color_singleton
-
-        # math.* — array-aware math (overrides Python's math)
-        ns["math"] = PyneMath(mintick=getattr(ctx.syminfo, "mintick", 0.01))
-
-        # pyne.* — local helper namespace for cache and future runtime helpers.
-        pyne_namespace = SimpleNamespace(
-            cache=pyne_cache.get_or_load,
-            cache_clear=pyne_cache.clear,
-            cache_stats=pyne_cache.stats,
-            var=state.var,
-            state=state.state,
-            state_snapshot=state.snapshot,
-        )
-        ns["pyne"] = pyne_namespace
-        ns["cache"] = pyne_namespace.cache
-        ns["cache_clear"] = pyne_namespace.cache_clear
-        ns["cache_stats"] = pyne_namespace.cache_stats
-        ns["var"] = state.var
-        ns["state"] = state.state
-
-        # ── Layer 2.5: Utility functions (global access) ─────
-        # These are also available via ta.* but exposed at top level
-        # for convenience, matching Pine's global functions
-        ns["crossover"] = utils.crossover
-        ns["cross"] = utils.cross
-        ns["crossunder"] = utils.crossunder
-        ns["when"] = series_when
-        ns["iff"] = series_when
-        ns["where"] = series_where
-        ns["switch"] = series_switch
-        ns["ref"] = utils.shift
-        ns["highest"] = utils.highest
-        ns["highestbars"] = utils.highestbars
-        ns["lowest"] = utils.lowest
-        ns["lowestbars"] = utils.lowestbars
-        ns["change"] = utils.change
-        ns["roc"] = utils.roc
-        ns["barssince"] = utils.barssince
-        ns["valuewhen"] = utils.valuewhen
-        ns["shift"] = utils.shift
-        ns["na"] = utils.na
-        ns["nz"] = utils.nz
-        ns["na_check"] = utils.na_check
-        ns["cum"] = utils.cum
-        ns["rising"] = utils.rising
-        ns["falling"] = utils.falling
-
-        # Pine-style lowercase constants and common TA aliases. These are
-        # ordinary Python names, so they do not require a custom parser.
-        ns["true"] = True
-        ns["false"] = False
-        ns["sma"] = ta.sma
-        ns["ema"] = ta.ema
-        ns["wma"] = ta.wma
-        ns["rma"] = ta.rma
-        ns["vwma"] = ta.vwma
-        ns["rsi"] = ta.rsi
-        ns["macd"] = ta.macd
-        ns["atr"] = ta.atr
-        ns["bb"] = ta.bb
-
-        # ── Layer 3: Python standard library ─────────────────
-        ns["np"] = np
-        ns["numpy"] = np
-
-        # ── Legacy compatibility ─────────────────────────────
-        ns["params"] = params
-
-        # ── Builtins / imports (policy-controlled) ──────────
-        ns["__builtins__"] = build_builtins(policy)
-
-        return ns
+        """Build the global namespace injected into user scripts."""
+        return build_script_namespace(services)
 
     def _collect_result(
         self,
