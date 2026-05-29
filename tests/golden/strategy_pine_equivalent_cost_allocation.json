@@ -3,7 +3,7 @@
     {
       "name": "percent_commission_round_trip",
       "source": "Pyne-defined percent-commission strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent Percent Commission\", overlay=True, initial_capital=1000, pyramiding=0, commission_type=strategy.commission.percent, commission_value=1)\nstrategy.entry(\"Long\", strategy.long, qty=2, when=bar_index == 0, price=close)\nstrategy.close(\"Long\", when=bar_index == 1, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"Closed Profit\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\nplot(strategy.closedtrades.net_profit(0), \"Closed Net Profit\")\n",
+      "script": "strategy(\"Pine Equivalent Percent Commission\", overlay=True, initial_capital=1000, pyramiding=0, commission_type=strategy.commission.percent, commission_value=1, process_orders_on_close=True)\nstrategy.entry(\"Long\", strategy.long, qty=2, when=bar_index == 0, price=close)\nstrategy.close(\"Long\", when=bar_index == 1, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"Closed Profit\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\nplot(strategy.closedtrades.net_profit(0), \"Closed Net Profit\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Percent Commission\", overlay=true, initial_capital=1000, pyramiding=0, commission_type=strategy.commission.percent, commission_value=1, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=2)\nif bar_index == 1\n    strategy.close(\"Long\")\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"Closed Profit\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\nplot(strategy.closedtrades.profit(0) - strategy.closedtrades.commission(0), \"Closed Net Profit\")\n",
       "pine_equivalent_notes": [
         "Percent commission is 1% of traded notional.",
@@ -169,24 +169,24 @@
       "opentrades": [],
       "values": {
         "Position": [
-          2.0,
-          0.0
+          0.0,
+          2.0
         ],
         "Equity": [
-          999.8,
-          1003.56
+          1000.0,
+          1003.8
         ],
         "Net Profit": [
-          -0.2,
-          3.56
+          0.0,
+          -0.2
         ],
         "Open Profit": [
           0.0,
-          0.0
+          4.0
         ],
         "Closed Trades": [
           0.0,
-          1.0
+          0.0
         ],
         "Closed Profit": [
           4.0,
@@ -204,9 +204,9 @@
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
-        "equity": 1003.56,
-        "netprofit": 3.56,
-        "openprofit": 0.0,
+        "equity": 1003.8,
+        "netprofit": -0.2,
+        "openprofit": 4.0,
         "grossprofit": 4.0,
         "grossloss": 0.0,
         "commission": 0.44,
@@ -229,7 +229,7 @@
     {
       "name": "cash_per_contract_partial_close_allocation",
       "source": "Pyne-defined cash-per-contract partial-close strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent Contract Partial\", overlay=True, initial_capital=1000, pyramiding=0, commission_type=strategy.commission.cash_per_contract, commission_value=0.25)\nstrategy.entry(\"Long\", strategy.long, qty=4, when=bar_index == 0, price=close)\nstrategy.close(\"Long\", when=bar_index == 1, qty_percent=50, price=close)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.commission(0), \"First Closed Commission\")\nplot(strategy.closedtrades.net_profit(0), \"First Closed Net Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\nplot(strategy.closedtrades.commission(1), \"Last Closed Commission\")\nplot(strategy.closedtrades.net_profit(1), \"Last Closed Net Profit\")\n",
+      "script": "strategy(\"Pine Equivalent Contract Partial\", overlay=True, initial_capital=1000, pyramiding=0, commission_type=strategy.commission.cash_per_contract, commission_value=0.25, process_orders_on_close=True)\nstrategy.entry(\"Long\", strategy.long, qty=4, when=bar_index == 0, price=close)\nstrategy.close(\"Long\", when=bar_index == 1, qty_percent=50, price=close)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.commission(0), \"First Closed Commission\")\nplot(strategy.closedtrades.net_profit(0), \"First Closed Net Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\nplot(strategy.closedtrades.commission(1), \"Last Closed Commission\")\nplot(strategy.closedtrades.net_profit(1), \"Last Closed Net Profit\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Contract Partial\", overlay=true, initial_capital=1000, pyramiding=0, commission_type=strategy.commission.cash_per_contract, commission_value=0.25, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=4)\nif bar_index == 1\n    strategy.close(\"Long\", qty_percent=50)\nif bar_index == 2\n    strategy.close_all()\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.commission(0), \"First Closed Commission\")\nplot(strategy.closedtrades.profit(0) - strategy.closedtrades.commission(0), \"First Closed Net Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\nplot(strategy.closedtrades.commission(1), \"Last Closed Commission\")\nplot(strategy.closedtrades.profit(1) - strategy.closedtrades.commission(1), \"Last Closed Net Profit\")\n",
       "pine_equivalent_notes": [
         "Cash-per-contract commission is 0.25 per filled unit.",
@@ -478,29 +478,29 @@
       "opentrades": [],
       "values": {
         "Position": [
+          0.0,
           4.0,
-          2.0,
-          0.0
+          2.0
         ],
         "Equity": [
-          999.0,
-          1006.5,
-          1008.0
+          1000.0,
+          1007.0,
+          1008.5
         ],
         "Net Profit": [
+          0.0,
           -1.0,
-          2.5,
-          8.0
+          2.5
         ],
         "Open Profit": [
           0.0,
-          4.0,
-          0.0
+          8.0,
+          6.0
         ],
         "Closed Trades": [
           0.0,
-          1.0,
-          2.0
+          0.0,
+          1.0
         ],
         "First Closed Profit": [
           4.0,
@@ -536,9 +536,9 @@
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
-        "equity": 1008.0,
-        "netprofit": 8.0,
-        "openprofit": 0.0,
+        "equity": 1008.5,
+        "netprofit": 2.5,
+        "openprofit": 6.0,
         "grossprofit": 10.0,
         "grossloss": 0.0,
         "commission": 2.0,
