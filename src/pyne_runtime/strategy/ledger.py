@@ -1,12 +1,15 @@
 """Strategy trade ledger helpers."""
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from ..series import PyneSeries
 from ..values import is_na_value
+
+if TYPE_CHECKING:
+    from .module import StrategyModule
 
 
 class StrategyTradesNamespace:

@@ -95,7 +95,7 @@ src/pyne_runtime/
   values.py              # scalar/series coercion, na rules, type helpers
   barstate.py            # bar_index, barstate flags
   state.py               # var/state model
-  request.py             # host-backed request.security and data access
+  request/               # host-backed request.security and data access
   objects.py             # line/label/box/table object models
   semantics/
     reference.py         # slow reference bar-by-bar evaluator helpers
@@ -683,7 +683,7 @@ The first implementation slice should be Phase 1 only.
 
 - `src/pyne_runtime/context.py`
 - `src/pyne_runtime/runtime.py`
-- `src/pyne_runtime/plot.py`
+- `src/pyne_runtime/plot/`
 - `src/pyne_runtime/input.py`
 - `src/pyne_runtime/ta.py`
 - `src/pyne_runtime/utils.py`

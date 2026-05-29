@@ -5,6 +5,10 @@
 The current implementation is an event and position semantics layer. It is not
 a broker simulator and does not model order books or tick-level matching.
 
+The public strategy API is stable through both `pyne_runtime.strategy` and the
+package top level. Existing imports such as `from pyne_runtime.strategy import
+StrategyModule` and `from pyne_runtime import StrategyModule` continue to work.
+
 ```python
 strategy(
     "Trend Strategy",

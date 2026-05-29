@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from ..strategy.constants import (
     StrategyCommission,
@@ -34,6 +34,9 @@ from ..strategy.risk import (
     _normalize_allowed_entry_direction,
     _normalize_risk_mode,
 )
+
+if TYPE_CHECKING:
+    from .context import IncrementalContext
 
 
 IncrementalStrategyDirection = StrategyDirection

@@ -1,7 +1,12 @@
 """Strategy risk configuration and gates."""
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .constants import StrategyDirection, StrategyRiskMode
+
+if TYPE_CHECKING:
+    from .module import StrategyModule
 
 
 class StrategyRiskNamespace:

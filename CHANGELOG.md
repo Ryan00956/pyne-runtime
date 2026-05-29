@@ -42,3 +42,6 @@
 - Added lightweight pending `strategy.entry/order` stop-limit triggers plus `strategy.cancel()` and `strategy.cancel_all()`.
 - Added lightweight `strategy.oca.cancel` handling for pending entry/order groups.
 - Added lightweight `strategy.oca.reduce` quantity reduction for pending entry/order groups.
+- Reorganized internal runtime architecture into focused `strategy`, `incremental`,
+  `request`, and `plot` subpackages, plus a namespace registry, without public
+  API breaking changes.

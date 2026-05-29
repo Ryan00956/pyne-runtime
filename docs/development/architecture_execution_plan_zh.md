@@ -2,7 +2,7 @@
 
 本文档把当前架构审查结论转成可逐步落地的执行手册。目标不是推倒重写，而是在保持公共 API、测试金标和宿主集成稳定的前提下，把职责边界从“靠大文件经验维护”推进到“靠模块结构和契约维护”。
 
-核心判断：Pyne Runtime 的主执行链路清晰，测试和文档基础很好；当前主要风险集中在 `strategy.py`、`incremental.py`、`plot.py`、`request.py` 这些复杂领域模块，以及 `runtime.py` 作为 namespace 总装配中心的持续膨胀。
+核心判断：Pyne Runtime 的主执行链路清晰，测试和文档基础很好；迁移前主要风险集中在 strategy、incremental、plot、request 这些复杂领域单文件模块，以及 `runtime.py` 作为 namespace 总装配中心的持续膨胀。
 
 ## 0. 总目标
 
@@ -38,7 +38,7 @@
 api.py
   -> executor.py
     -> runtime.py
-      -> context.py / series.py / input.py / ta.py / request.py / strategy.py / plot.py
+      -> context.py / series.py / input.py / ta.py / request/ / strategy/ / plot/
       -> exec(script, namespace)
       -> result.py
 ```
@@ -54,12 +54,12 @@ api.py
 - `security.py`: 安全策略、builtins、导入限制、输出限制。
 - `result.py`: 结构化结果模型。
 
-当前职责偏重的模块：
+迁移前职责偏重的模块：
 
-- `incremental.py`: 会话、上下文、增量 TA、增量 strategy、drawing objects、限制策略和 session manager 混在一起。
-- `strategy.py`: public namespace、订单事件、仓位回放、风险控制、成本模型、OCA、交易账本和报告混在一起。
-- `plot.py`: collector、plot/bar/marker/fill、drawing object API 和序列化混在一起。
-- `request.py`: provider 协议、请求上下文、表达式 thunk、对齐和 lower timeframe grouping 混在一起。
+- incremental 单文件模块：会话、上下文、增量 TA、增量 strategy、drawing objects、限制策略和 session manager 混在一起。
+- strategy 单文件模块：public namespace、订单事件、仓位回放、风险控制、成本模型、OCA、交易账本和报告混在一起。
+- plot 单文件模块：collector、plot/bar/marker/fill、drawing object API 和序列化混在一起。
+- request 单文件模块：provider 协议、请求上下文、表达式 thunk、对齐和 lower timeframe grouping 混在一起。
 - `runtime.py`: namespace 装配集中了解太多具体模块。
 
 `ta.py` 当前体量也较大，但它更接近函数库式技术指标集合，状态耦合和跨领域边界风险低于 strategy/incremental/request/plot。本轮不把 `ta.py` 纳入主迁移路径；后续如果指标族继续膨胀，可单独评估 `ta/` 子包化。
@@ -205,20 +205,20 @@ def test_core_package_does_not_import_host_app_modules():
 
 ### 目标
 
-把 `strategy.py` 拆成领域子包，但保持 `StrategyModule` 行为和公开输出完全一致。
+把旧 strategy 单文件模块拆成领域子包，但保持 `StrategyModule` 行为和公开输出完全一致。
 
 ### 推荐顺序
 
 #### Step 2.1 创建子包壳
 
-Python 同一目录下不能同时稳定依赖 `strategy.py` 文件和 `strategy/` 包的同名导入行为。因此本阶段不采用“保留旧 `strategy.py`，同时新增 `strategy/`”的路线。
+Python 同一目录下不能同时稳定依赖旧 strategy 单文件和 `strategy/` 包的同名导入行为。因此本阶段不采用“保留旧 strategy 单文件，同时新增 `strategy/`”的路线。
 
 推荐做法：
 
 1. 创建 `src/pyne_runtime/strategy/`。
-2. 把旧 `strategy.py` 的内容一次性迁入 `src/pyne_runtime/strategy/module.py`，先保持行为不变。
+2. 把旧 strategy 单文件内容一次性迁入 `src/pyne_runtime/strategy/module.py`，先保持行为不变。
 3. 创建 `src/pyne_runtime/strategy/__init__.py`，从 `module.py` re-export `StrategyModule`，并继续导出原来可从 `pyne_runtime.strategy` 访问的 public symbols。
-4. 删除旧 `src/pyne_runtime/strategy.py`。
+4. 删除旧同名文件入口。
 5. 运行 public import smoke，确认 `from pyne_runtime.strategy import StrategyModule` 和 `from pyne_runtime import StrategyModule` 都可用。
 
 如果某次迁移必须先用临时包名降低风险，临时包名应使用 `strategy_core/`，且必须在同一工作块或紧邻工作块完成最终替换，不能长期留下两套入口。
@@ -331,7 +331,7 @@ def replay_strategy_orders(context, orders, config) -> StrategyReplayResult:
 
 ### 目标
 
-把 `incremental.py` 拆成 session、context、ta、strategy、drawing、limits、manager 等模块，降低单文件认知负担。
+把旧 incremental 单文件模块拆成 session、context、ta、strategy、drawing、limits、manager 等模块，降低单文件认知负担。
 
 ### 推荐顺序
 
@@ -489,7 +489,7 @@ class IncrementalDrawingMixin:
 
 ### 目标
 
-降低 `plot.py` 文件规模，同时为 batch/incremental 共享 drawing object 模型打基础。
+降低旧 plot 单文件模块规模，同时为 batch/incremental 共享 drawing object 模型打基础。
 
 ### 推荐顺序
 

@@ -156,10 +156,14 @@ higher_ema = request.security(
 
 ### 5.1 Existing Pieces
 
-Current files:
+Current package locations:
 
 ```text
-src/pyne_runtime/request.py
+src/pyne_runtime/request/module.py
+src/pyne_runtime/request/eval.py
+src/pyne_runtime/request/alignment.py
+src/pyne_runtime/request/lower_tf.py
+src/pyne_runtime/request/provider.py
 src/pyne_runtime/context.py
 src/pyne_runtime/ta.py
 src/pyne_runtime/runtime.py
@@ -193,7 +197,7 @@ chart PyneContext
 
 ### 5.2 New RequestEvalContext
 
-Add a lightweight context object in `src/pyne_runtime/request.py`.
+Add a lightweight context object in `src/pyne_runtime/request/eval.py`.
 
 Proposed shape:
 
@@ -337,7 +341,8 @@ except Exception as exc:
 
 Files:
 
-- `src/pyne_runtime/request.py`
+- `src/pyne_runtime/request/eval.py`
+- `src/pyne_runtime/request/module.py`
 - `tests/test_request_security.py`
 
 Work:
@@ -357,7 +362,8 @@ Expected: same output as field-level `close` request.
 
 Files:
 
-- `src/pyne_runtime/request.py`
+- `src/pyne_runtime/request/eval.py`
+- `src/pyne_runtime/request/module.py`
 - `tests/test_request_security.py`
 
 Work:
@@ -403,7 +409,7 @@ Assert that history is applied in requested context before alignment.
 
 Files:
 
-- `src/pyne_runtime/request.py`
+- `src/pyne_runtime/request/eval.py`
 - `tests/test_request_security.py`
 
 Target:
@@ -436,7 +442,7 @@ Recommended Phase 11 choice:
 
 Files:
 
-- `src/pyne_runtime/request.py`
+- `src/pyne_runtime/request/eval.py`
 - `tests/test_request_security.py`
 
 Tests:

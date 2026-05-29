@@ -15,11 +15,21 @@ python -m pip install -e .[dev]
 Run these before committing package changes:
 
 ```bash
+python -m compileall src tests -q
 python -m ruff check .
 python -m pytest tests/test_architecture.py -q
-python -m pytest
+python -m pytest -q
 python scripts/strategy_capture_scaffold.py --check
 python scripts/strategy_capture_diff.py
+git diff --check
+```
+
+When the package is not installed in editable mode, set `PYTHONPATH=src` before
+running pytest. On PowerShell from the repository root:
+
+```powershell
+$env:PYTHONPATH='h:\program\pyne-runtime\src'
+python -m pytest -q
 ```
 
 ## Architecture Checks
@@ -50,6 +60,33 @@ The strategy capture gates protect the TradingView external-evidence workflow:
 `strategy_capture_scaffold.py --check` ensures every strategy pine-equivalent
 case keeps an `external_capture` contract, and `strategy_capture_diff.py` fails
 when any `captured` TradingView plot sequence diverges from current Pyne output.
+
+## Phase-Focused Checks
+
+Use focused checks during architecture work, then finish with the full gate:
+
+```bash
+python -m pytest \
+  tests/test_golden_strategy.py \
+  tests/test_strategy_runtime.py \
+  tests/test_incremental.py \
+  -q
+python -m pytest tests/test_request_security.py tests/test_golden_request_security.py -q
+python -m pytest tests/test_plot_runtime.py tests/test_result.py -q
+python -m pytest \
+  tests/test_smoke.py \
+  tests/test_api.py \
+  tests/test_cli.py \
+  tests/test_cli_contracts.py \
+  -q
+```
+
+The architecture guard should be run whenever public exports, package layout,
+or namespace assembly changes:
+
+```bash
+python -m pytest tests/test_architecture.py -q
+```
 
 From the package root, the full package check also verifies build metadata:
 

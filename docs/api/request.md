@@ -6,6 +6,21 @@ Pyne does not fetch exchange or broker data by itself. The host application
 provides a data provider, and Pyne owns deterministic alignment back to the
 chart bars.
 
+The public request API is stable through both `pyne_runtime.request` and the
+package top level. These imports continue to work:
+
+```python
+from pyne_runtime.request import (
+    DataProvider,
+    LowerTimeframeSeries,
+    PyneInvalidSymbolError,
+    PyneRequestError,
+    RequestEvalContext,
+    RequestModule,
+    barmerge,
+)
+```
+
 ## Data Provider
 
 A provider implements `get_ohlcv(symbol, timeframe, start, end)`:
@@ -252,3 +267,22 @@ The request test suite includes deterministic fixtures for:
 - empty lower-timeframe buckets and aggregation defaults
 - invalid-symbol ignore behavior and provider capability rejection before
   provider calls
+
+## Internal Responsibilities
+
+The request implementation is split into focused helpers while keeping the same
+public namespace:
+
+- `request.provider` defines the provider protocol, capability checks, and
+    requested metadata defaults.
+- `request.eval` owns `RequestEvalContext`, field lookup, history references,
+    callable expression thunks, and expression-result normalization.
+- `request.alignment` owns `barmerge` constants plus gaps/lookahead alignment.
+- `request.lower_tf` owns lower-timeframe grouping and numeric aggregations.
+- `request.errors` owns stable request exception types and error codes.
+- `request.module` keeps the user-facing `RequestModule` facade, provider
+    calls, requested-context caching, and error conversion.
+
+This boundary keeps provider integration, expression evaluation, bar alignment,
+and lower-timeframe grouping independently testable without changing script
+syntax or result shape.

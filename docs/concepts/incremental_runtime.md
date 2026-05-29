@@ -28,3 +28,28 @@ Callback context exposes Pine-like scalar clock values for the current event:
 so preview state does not mutate the persistent session. `on_bar_closed()`
 confirms the realtime bar and advances persistent state.
 
+## Internal Responsibilities
+
+Incremental runtime code is split by lifecycle role:
+
+- `incremental.bar` defines `IncrementalBar` and scalar barstate wiring.
+- `incremental.result` defines `IncrementalPyneResult`.
+- `incremental.limits` tracks drawing, state, and resource limits.
+- `incremental.ta` owns step-by-step technical-analysis helpers.
+- `incremental.drawing` owns line, label, box, and table mutation helpers.
+- `incremental.strategy` owns scalar current-bar strategy state and callback
+    reporting, while reusing shared batch strategy constants and pure helpers.
+- `incremental.context` exposes the callback-facing `ctx` object.
+- `incremental.session` owns script compilation, preview cloning, and confirmed
+    bar commits.
+- `incremental.manager` provides reusable shared-session orchestration.
+- `incremental.detection` decides whether a script should use incremental mode.
+
+Public imports remain stable through `pyne_runtime.incremental` and the package
+top level. These imports continue to work:
+
+```python
+from pyne_runtime.incremental import PyneIncrementalSession
+from pyne_runtime import PyneIncrementalSession
+```
+
