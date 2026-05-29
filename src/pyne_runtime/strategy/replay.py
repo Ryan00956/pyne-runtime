@@ -97,6 +97,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                 else self._initial_capital
             )
         risk_locked = drawdown_locked or intraday_locked or filled_orders_locked
+        same_bar_visible_fill = False
         if self._process_orders_on_close:
             _write_strategy_snapshot(
                 self,
@@ -345,6 +346,8 @@ def replay_strategy_orders(strategy: Any) -> None:
                     total_commission=total_commission,
                 )
                 order["_active"] = True
+                if order.get("type") == "exit" and self._process_orders_on_close:
+                    same_bar_visible_fill = True
                 current_size = next_size
                 if current_size == 0:
                     current_avg = np.nan
@@ -538,7 +541,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                         risk_locked = True
                 _apply_oca_after_fill(order, pending_orders)
             pending_orders = [item for item in remaining_pending if not item.get("_canceled")]
-        if not self._process_orders_on_close:
+        if not self._process_orders_on_close or same_bar_visible_fill:
             _write_strategy_snapshot(
                 self,
                 idx=idx,
