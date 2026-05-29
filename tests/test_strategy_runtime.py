@@ -755,6 +755,27 @@ plot(strategy.position_size, "Position")
     assert result.output["strategy"]["summary"]["margin_long"] == 100.0
 
 
+def test_strategy_default_margin_does_not_reject_high_notional_entry() -> None:
+    result = pn.run(
+        """
+strategy("Default Margin", overlay=True, initial_capital=1000)
+strategy.entry_when(bar_index == 0, "High Notional", strategy.long, qty=20, price=close)
+plot(strategy.position_size, "Position")
+""",
+        [
+            {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+            {"time": 2, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == ["High Notional"]
+    assert result.values("Position") == [20.0, 20.0]
+    assert result.output["strategy"]["summary"]["margin_long"] == 0.0
+    assert result.output["strategy"]["summary"]["margin_short"] == 0.0
+
+
 def test_strategy_margin_allows_leveraged_short_when_margin_percent_is_lower() -> None:
     result = pn.run(
         """
@@ -878,7 +899,7 @@ plot(strategy.position_size, "Position")
 def test_strategy_lifecycle_reports_rejected_entry_and_order_reasons() -> None:
     result = pn.run(
         """
-strategy("Lifecycle Reject", overlay=True, initial_capital=1000)
+strategy("Lifecycle Reject", overlay=True, initial_capital=1000, margin_long=100)
 strategy.risk.allow_entry_in(strategy.direction.long)
 strategy.entry_when(bar_index == 0, "Short", strategy.short, qty=1, price=close)
 strategy.entry_when(bar_index == 0, "Long", strategy.long, qty=1, price=close)
@@ -1659,8 +1680,8 @@ plot(strategy.grossloss, "Gross Loss")
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "same_bar_priority",
-        "margin_long": 100.0,
-        "margin_short": 100.0,
+        "margin_long": 0.0,
+        "margin_short": 0.0,
     }
     assert result.output["strategy"]["closedtrades"] == [
         {

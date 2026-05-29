@@ -33,7 +33,7 @@
       ],
       "opentrades": [],
       "values": {"Position": [-1.0, 0.0], "Equity": [999.4, 997.8], "Net Profit": [-0.5, -2.2], "Open Profit": [-0.1, 0.0], "Closed Trades": [0.0, 1.0], "Closed Commission": [1.0, 1.0]},
-      "summary": {"initial_capital": 1000.0, "currency": "", "equity": 997.8, "netprofit": -2.2, "openprofit": 0.0, "grossprofit": 0.0, "grossloss": -1.2, "commission": 1.0, "backtest_fill_limits_assumption": 0, "same_bar_fill_priority": "stop_first", "intrabar_path": "same_bar_priority", "margin_long": 100.0, "margin_short": 100.0},
+      "summary": {"initial_capital": 1000.0, "currency": "", "equity": 997.8, "netprofit": -2.2, "openprofit": 0.0, "grossprofit": 0.0, "grossloss": -1.2, "commission": 1.0, "backtest_fill_limits_assumption": 0, "same_bar_fill_priority": "stop_first", "intrabar_path": "same_bar_priority", "margin_long": 0.0, "margin_short": 0.0},
       "risk": {"locked": false, "max_drawdown": null, "max_drawdown_type": "percent_of_equity", "max_intraday_loss": null, "max_intraday_loss_type": "percent_of_equity", "max_position_size": null, "max_intraday_filled_orders": null}
     },
     {
@@ -69,7 +69,7 @@
       ],
       "opentrades": [],
       "values": {"Position": [-1.0, 0.0], "Equity": [999.4, 999.8], "Net Profit": [-0.5, -0.2], "Open Profit": [-0.1, 0.0], "Closed Trades": [0.0, 1.0], "Closed Commission": [1.0, 1.0]},
-      "summary": {"initial_capital": 1000.0, "currency": "", "equity": 999.8, "netprofit": -0.2, "openprofit": 0.0, "grossprofit": 0.8, "grossloss": 0.0, "commission": 1.0, "backtest_fill_limits_assumption": 0, "same_bar_fill_priority": "limit_first", "intrabar_path": "same_bar_priority", "margin_long": 100.0, "margin_short": 100.0},
+      "summary": {"initial_capital": 1000.0, "currency": "", "equity": 999.8, "netprofit": -0.2, "openprofit": 0.0, "grossprofit": 0.8, "grossloss": 0.0, "commission": 1.0, "backtest_fill_limits_assumption": 0, "same_bar_fill_priority": "limit_first", "intrabar_path": "same_bar_priority", "margin_long": 0.0, "margin_short": 0.0},
       "risk": {"locked": false, "max_drawdown": null, "max_drawdown_type": "percent_of_equity", "max_intraday_loss": null, "max_intraday_loss_type": "percent_of_equity", "max_position_size": null, "max_intraday_filled_orders": null}
     },
     {
@@ -107,7 +107,7 @@
       ],
       "opentrades": [],
       "values": {"Position": [-3.0, -3.0, 0.0], "Equity": [999.25, 1002.25, 1004.5], "Net Profit": [-0.75, -0.75, 4.5], "Open Profit": [0.0, 3.0, 0.0], "Closed Trades": [0.0, 0.0, 1.0], "Closed Commission": [1.5, 1.5, 1.5]},
-      "summary": {"initial_capital": 1000.0, "currency": "", "equity": 1004.5, "netprofit": 4.5, "openprofit": 0.0, "grossprofit": 6.0, "grossloss": 0.0, "commission": 1.5, "backtest_fill_limits_assumption": 0, "same_bar_fill_priority": "stop_first", "intrabar_path": "same_bar_priority", "margin_long": 100.0, "margin_short": 100.0},
+      "summary": {"initial_capital": 1000.0, "currency": "", "equity": 1004.5, "netprofit": 4.5, "openprofit": 0.0, "grossprofit": 6.0, "grossloss": 0.0, "commission": 1.5, "backtest_fill_limits_assumption": 0, "same_bar_fill_priority": "stop_first", "intrabar_path": "same_bar_priority", "margin_long": 0.0, "margin_short": 0.0},
       "risk": {"locked": false, "max_drawdown": null, "max_drawdown_type": "percent_of_equity", "max_intraday_loss": null, "max_intraday_loss_type": "percent_of_equity", "max_position_size": 3.0, "max_intraday_filled_orders": null}
     },
     {
@@ -148,7 +148,7 @@
       ],
       "opentrades": [],
       "values": {"Position": [0.0, -1.0, -2.0, 0.0], "Equity": [1000.0, 999.65, 1000.3, 1001.6], "Net Profit": [0.0, -0.25, -0.5, 1.6], "Open Profit": [0.0, -0.1, 0.8, 0.0], "Closed Trades": [0.0, 0.0, 0.0, 2.0], "First Closed Commission": [0.5, 0.5, 0.5, 0.5], "Last Closed Commission": [0.5, 0.5, 0.5, 0.5]},
-      "summary": {"initial_capital": 1000.0, "currency": "", "equity": 1001.6, "netprofit": 1.6, "openprofit": 0.0, "grossprofit": 2.6, "grossloss": 0.0, "commission": 1.0, "backtest_fill_limits_assumption": 0, "same_bar_fill_priority": "stop_first", "intrabar_path": "same_bar_priority", "margin_long": 100.0, "margin_short": 100.0},
+      "summary": {"initial_capital": 1000.0, "currency": "", "equity": 1001.6, "netprofit": 1.6, "openprofit": 0.0, "grossprofit": 2.6, "grossloss": 0.0, "commission": 1.0, "backtest_fill_limits_assumption": 0, "same_bar_fill_priority": "stop_first", "intrabar_path": "same_bar_priority", "margin_long": 0.0, "margin_short": 0.0},
       "risk": {"locked": false, "max_drawdown": null, "max_drawdown_type": "percent_of_equity", "max_intraday_loss": null, "max_intraday_loss_type": "percent_of_equity", "max_position_size": null, "max_intraday_filled_orders": null}
     }
   ]

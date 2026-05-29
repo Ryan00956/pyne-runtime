@@ -72,8 +72,8 @@
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "same_bar_priority",
-        "margin_long": 100.0,
-        "margin_short": 100.0
+        "margin_long": 0.0,
+        "margin_short": 0.0
       },
       "risk": {
         "locked": false,
@@ -201,8 +201,8 @@
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "same_bar_priority",
-        "margin_long": 100.0,
-        "margin_short": 100.0
+        "margin_long": 0.0,
+        "margin_short": 0.0
       },
       "risk": {
         "locked": false,
@@ -286,8 +286,8 @@
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "same_bar_priority",
-        "margin_long": 100.0,
-        "margin_short": 100.0
+        "margin_long": 0.0,
+        "margin_short": 0.0
       },
       "risk": {
         "locked": false,
@@ -392,8 +392,8 @@
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "same_bar_priority",
-        "margin_long": 100.0,
-        "margin_short": 100.0
+        "margin_long": 0.0,
+        "margin_short": 0.0
       },
       "risk": {
         "locked": false,
@@ -481,8 +481,8 @@
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "same_bar_priority",
-        "margin_long": 100.0,
-        "margin_short": 100.0
+        "margin_long": 0.0,
+        "margin_short": 0.0
       },
       "risk": {
         "locked": false,
@@ -569,8 +569,8 @@
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "same_bar_priority",
-        "margin_long": 100.0,
-        "margin_short": 100.0
+        "margin_long": 0.0,
+        "margin_short": 0.0
       },
       "risk": {
         "locked": false,
@@ -655,8 +655,8 @@
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "same_bar_priority",
-        "margin_long": 100.0,
-        "margin_short": 100.0
+        "margin_long": 0.0,
+        "margin_short": 0.0
       },
       "risk": {
         "locked": false,
@@ -741,8 +741,8 @@
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "limit_first",
         "intrabar_path": "same_bar_priority",
-        "margin_long": 100.0,
-        "margin_short": 100.0
+        "margin_long": 0.0,
+        "margin_short": 0.0
       },
       "risk": {
         "locked": false,
@@ -827,8 +827,8 @@
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "open_high_low_close",
-        "margin_long": 100.0,
-        "margin_short": 100.0
+        "margin_long": 0.0,
+        "margin_short": 0.0
       },
       "risk": {
         "locked": false,
@@ -913,8 +913,8 @@
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "open_low_high_close",
-        "margin_long": 100.0,
-        "margin_short": 100.0
+        "margin_long": 0.0,
+        "margin_short": 0.0
       },
       "risk": {
         "locked": false,

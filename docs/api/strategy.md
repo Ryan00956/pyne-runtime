@@ -21,8 +21,8 @@ strategy(
     backtest_fill_limits_assumption=1,
     same_bar_fill_priority=strategy.same_bar.stop_first,
     intrabar_path=strategy.intrabar.same_bar_priority,
-    margin_long=100,
-    margin_short=100,
+    margin_long=0,
+    margin_short=0,
 )
 
 fast = ta.ema(close, 12)
@@ -79,8 +79,8 @@ strategy(
     backtest_fill_limits_assumption=1,
     same_bar_fill_priority=strategy.same_bar.stop_first,
     intrabar_path=strategy.intrabar.same_bar_priority,
-    margin_long=100,
-    margin_short=100,
+    margin_long=0,
+    margin_short=0,
 )
 ```
 
@@ -158,11 +158,11 @@ Margin settings are accepted in the Pine-like declaration:
 
 - `margin_long` is the percent margin required for long exposure.
 - `margin_short` is the percent margin required for short exposure.
-- both default to `100`, meaning no leverage
+- both default to `0`, meaning no margin admission check
 - lower values allow larger notional exposure for the same equity
 - `syminfo.pointvalue` participates in the notional calculation
 
-Pyne uses margin settings as deterministic entry/order admission rules. If the
+Pyne uses explicit margin settings as deterministic entry/order admission rules. If the
 resulting position would require more margin than the current replayed equity,
 the new `strategy.entry*` or `strategy.order*` fill is skipped. Reducing,
 closing, exiting, and canceling exposure remains allowed. Pyne does not model
@@ -567,8 +567,8 @@ Strategy output is serialized under `output["strategy"]`:
       "grossloss": 0.0,
       "commission": 0.0,
       "backtest_fill_limits_assumption": 0,
-      "margin_long": 100.0,
-      "margin_short": 100.0
+      "margin_long": 0.0,
+      "margin_short": 0.0
     },
     "closedtrades": [],
     "opentrades": [

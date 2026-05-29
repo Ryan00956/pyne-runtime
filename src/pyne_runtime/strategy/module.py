@@ -97,8 +97,8 @@ class StrategyModule:
         self._backtest_fill_limits_assumption = 0
         self._same_bar_fill_priority = StrategySameBarPriority.stop_first
         self._intrabar_path = StrategyIntrabarPath.same_bar_priority
-        self._margin_long = 100.0
-        self._margin_short = 100.0
+        self._margin_long = 0.0
+        self._margin_short = 0.0
 
     def __call__(self, title: str = "", overlay: bool = True, **kwargs: Any) -> None:
         """Declare strategy metadata and Pine-like replay settings."""

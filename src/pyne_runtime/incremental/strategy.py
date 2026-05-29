@@ -215,8 +215,8 @@ class IncrementalStrategyNamespace:
         self._backtest_fill_limits_assumption = 0
         self._same_bar_fill_priority = self.same_bar.stop_first
         self._intrabar_path = self.intrabar.same_bar_priority
-        self._margin_long = 100.0
-        self._margin_short = 100.0
+        self._margin_long = 0.0
+        self._margin_short = 0.0
 
     def configure(self, **kwargs: Any) -> None:
         if "pyramiding" in kwargs:

@@ -1311,6 +1311,39 @@ def on_bar(ctx, bar):
     _assert_full_strategy_matches_batch(incremental, batch)
 
 
+def test_incremental_strategy_default_margin_matches_batch_report() -> None:
+    bars = [
+        {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+        {"time": 2, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100},
+    ]
+    batch_script = """
+strategy("Default Margin", overlay=True, initial_capital=1000)
+strategy.entry_when(bar_index == 0, "High Notional", strategy.long, qty=20, price=close)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+"""
+    incremental_script = """
+indicator("Incremental Default Margin", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("High Notional", ctx.strategy.long, qty=20, price=bar.close, when=ctx.bar_index == 0)
+    ctx.plot("Position", ctx.strategy.position_size)
+    ctx.plot("Equity", ctx.strategy.equity)
+    ctx.plot("Net Profit", ctx.strategy.netprofit)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    _assert_full_strategy_matches_batch(incremental, batch)
+
+
 def test_incremental_strategy_pending_margin_stays_pending_like_batch() -> None:
     bars = [
         {"time": 1, "open": 100, "high": 120, "low": 99, "close": 100, "volume": 100},
