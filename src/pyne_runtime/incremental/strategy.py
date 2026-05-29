@@ -153,7 +153,7 @@ class IncrementalStrategyTradesNamespace:
     def _trade(self, trade_num: int) -> dict[str, Any]:
         trades = self._trades()
         if not trades:
-            return {}
+            return {"_empty_ledger": True} if int(trade_num) in {-1, 0} else {}
         index = int(trade_num)
         if index < 0:
             index = len(trades) + index

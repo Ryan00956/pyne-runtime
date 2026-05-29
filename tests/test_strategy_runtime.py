@@ -2187,3 +2187,26 @@ plot(1 if strategy.opentrades.entry_id(0) == "B" else 0, "Open Id Match")
     assert result.values("First Open Entry") == [11.0, 11.0, 11.0, 11.0]
     assert result.values("Closed Id Match") == [1.0, 1.0, 1.0, 1.0]
     assert result.values("Open Id Match") == [1.0, 1.0, 1.0, 1.0]
+
+
+def test_strategy_trade_accessors_return_zero_for_empty_default_trade() -> None:
+    result = pn.run(
+        """
+strategy("Empty Trade Accessors", overlay=True, initial_capital=1000)
+plot(strategy.closedtrades.profit(0), "Closed Profit")
+plot(strategy.closedtrades.commission(-1), "Closed Commission")
+plot(strategy.opentrades.profit(0), "Open Profit")
+plot(1 if na(strategy.closedtrades.profit(99)) else 0, "Closed Far Missing Is Na")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Closed Profit") == [0.0, 0.0]
+    assert result.values("Closed Commission") == [0.0, 0.0]
+    assert result.values("Open Profit") == [0.0, 0.0]
+    assert result.values("Closed Far Missing Is Na") == [1.0, 1.0]

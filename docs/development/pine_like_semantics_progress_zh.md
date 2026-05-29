@@ -165,8 +165,9 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 - Strategy trade accessor golden fixture 已覆盖 `strategy.closedtrades.*` 与
   `strategy.opentrades.*` 的 size/qty/profit/net_profit/commission/entry_price/
   exit_price/entry_time/exit_time/entry_id/exit_id/side 字段，包含负索引、
-  missing numeric 为 `na`、missing string 为空字符串，以及 closed/open ledger
-  同时存在时的读取口径。
+  空 ledger 的默认 `0` / `-1` numeric accessor 返回 `0`、非空 ledger 越界
+  numeric 为 `na`、missing string 为空字符串，以及 closed/open ledger 同时
+  存在时的读取口径。
 - Strategy mixed lifecycle cost golden fixture 已覆盖 risk lock 延迟 pending fill
   后，intraday reset 再触发 OCA cancel / OCA reduce，并继续由 `strategy.cancel()`
   或 `strategy.cancel_all()` 清理剩余 pending order 的 lifecycle 顺序、成本分摊

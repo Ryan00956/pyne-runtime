@@ -75,7 +75,7 @@ class StrategyTradesNamespace:
             else self._strategy._open_trades
         )
         if not trades:
-            return {}
+            return {"_empty_ledger": True} if int(trade_num) in {-1, 0} else {}
         index = int(trade_num)
         if index < 0:
             index = len(trades) + index
@@ -87,6 +87,8 @@ class StrategyTradesNamespace:
 def _trade_float(trade: dict[str, Any], key: str) -> float:
     value = trade.get(key)
     if value is None or value == "":
+        if trade.get("_empty_ledger"):
+            return 0.0
         return float("nan")
     try:
         return float(value)

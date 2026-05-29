@@ -437,8 +437,11 @@ Supported accessors:
 - `exit_id(trade_num)`
 - `side(trade_num)`
 
-Negative indexes count from the end of the current ledger. Missing trades return
-`na` for numeric fields and an empty string for string fields. The count objects
+Negative indexes count from the end of the current ledger. When a ledger is
+empty, the default first/latest trade accessors (`0` and `-1`) return `0` for
+numeric fields so exported plots stay aligned with TradingView's empty-ledger
+zeros. Out-of-range indexes on a non-empty ledger still return `na` for numeric
+fields and an empty string for string fields. The count objects
 (`strategy.closedtrades` and `strategy.opentrades`) are bar-by-bar series, while
 field accessors read from the latest replayed ledger snapshot.
 

@@ -67,9 +67,14 @@ def _assert_external_capture(case: dict, result: pn.PyneResult) -> None:
     if capture.get("assertion", "parity") == "reference":
         return
 
+    capture_result = result
+    if "bars" in capture:
+        capture_result = pn.run(case["script"], capture["bars"], executor_mode="inline")
+        assert capture_result.ok, capture_result.error
+
     tolerance = capture.get("tolerance", 0.0)
     for title, expected_values in capture["values"].items():
-        actual_values = result.values(title)
+        actual_values = capture_result.values(title)
         assert len(actual_values) == len(expected_values)
         for actual, expected in zip(actual_values, expected_values, strict=True):
             assert actual == pytest.approx(expected, abs=tolerance)

@@ -1259,9 +1259,9 @@ def on_bar(ctx, bar):
     assert result.ok
     assert _line_values(result, "closed_count") == [0.0, 0.0, 1.0]
     assert _line_values(result, "open_count") == [1.0, 2.0, 1.0]
-    assert _line_values(result, "closed_profit") == [2.0]
-    assert _line_values(result, "closed_commission") == [0.5]
-    assert _line_values(result, "closed_net") == [1.5]
+    assert _line_values(result, "closed_profit") == [0.0, 0.0, 2.0]
+    assert _line_values(result, "closed_commission") == [0.0, 0.0, 0.5]
+    assert _line_values(result, "closed_net") == [0.0, 0.0, 1.5]
     assert _line_values(result, "open_entry") == [1.0, 1.0, 2.0]
     assert _line_values(result, "open_profit") == [0.0, 1.0, 2.0]
     assert _line_values(result, "closed_id_match") == [0.0, 0.0, 1.0]
