@@ -1097,6 +1097,9 @@ class IncrementalStrategyNamespace:
                 exit_price=fill_price,
             )
             entry_commission = float(trade.get("commission", 0.0))
+            reported_profit = profit
+            if entry_commission > 0 and closing_qty < trade_qty:
+                reported_profit -= entry_commission
             entry_commission_share = entry_commission * closing_qty / max(trade_qty, 1e-12)
             exit_commission_share = float(order_commission) * closing_qty / fill_qty_total
             used_order_commission += exit_commission_share
@@ -1113,9 +1116,11 @@ class IncrementalStrategyNamespace:
                 "exit_price": _round8(fill_price),
                 "entry_time": trade.get("entry_time"),
                 "exit_time": self._current_time(),
-                "profit": _round8(profit),
+                "profit": _round8(reported_profit),
                 "commission": _round8(entry_commission_share + exit_commission_share),
-                "net_profit": _round8(profit - entry_commission_share - exit_commission_share),
+                "net_profit": _round8(
+                    reported_profit - entry_commission_share - exit_commission_share
+                ),
             })
             closed_signed_qty += closing_qty if side == self.long else -closing_qty
             leftover_qty = trade_qty - closing_qty

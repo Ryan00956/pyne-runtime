@@ -169,6 +169,9 @@ def _record_fill(
             profit = _trade_realized_profit(trade, close_qty, fill_price)
             trade_qty_before = float(trade.get("qty", 0.0))
             entry_commission = float(trade.get("commission", 0.0))
+            reported_profit = profit
+            if entry_commission > 0 and close_qty < trade_qty_before:
+                reported_profit -= entry_commission
             entry_commission_share = (
                 entry_commission * close_qty / max(trade_qty_before, 1e-12)
             )
@@ -187,7 +190,7 @@ def _record_fill(
                 order=order,
                 qty=close_qty,
                 exit_price=fill_price,
-                profit=profit,
+                profit=reported_profit,
                 commission=entry_commission_share + exit_commission_share,
             ))
             trade["qty"] = round(trade_qty_before - close_qty, 8)

@@ -200,9 +200,9 @@
           "qty": 4.0,
           "entry_price": 100.0,
           "exit_price": 90.0,
-          "profit": -40.0,
+          "profit": -42.5,
           "commission": 2.0,
-          "net_profit": -42.0
+          "net_profit": -44.5
         }
       ],
       "opentrades": [

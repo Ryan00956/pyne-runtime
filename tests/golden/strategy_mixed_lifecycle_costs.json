@@ -139,9 +139,9 @@
           "qty": 1.0,
           "entry_price": 100.0,
           "exit_price": 80.0,
-          "profit": -20.0,
+          "profit": -21.0,
           "commission": 1.1,
-          "net_profit": -21.1
+          "net_profit": -22.1
         },
         {
           "entry_time": 1,
