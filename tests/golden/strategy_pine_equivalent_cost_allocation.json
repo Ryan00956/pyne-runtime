@@ -11,36 +11,195 @@
       ],
       "external_capture": {
         "provider": "tradingview",
-        "status": "not_captured",
+        "status": "captured",
+        "assertion": "reference",
+        "tolerance": 1e-09,
+        "values": {
+          "Position": [
+            0.0,
+            2.0
+          ],
+          "Equity": [
+            1000.0,
+            -780.6380000000058
+          ],
+          "Net Profit": [
+            0.0,
+            -1472.038
+          ],
+          "Open Profit": [
+            0.0,
+            -308.6000000000058
+          ],
+          "Closed Trades": [
+            0.0,
+            0.0
+          ],
+          "Closed Profit": [
+            0.0,
+            0.0
+          ],
+          "Closed Commission": [
+            0.0,
+            0.0
+          ],
+          "Closed Net Profit": [
+            0.0,
+            0.0
+          ]
+        },
+        "bars": [
+          {
+            "time": 1780048800,
+            "open": 73707.8,
+            "high": 73709.3,
+            "low": 73556.1,
+            "close": 73601.9,
+            "volume": 2012.414
+          },
+          {
+            "time": 1780052400,
+            "open": 73601.9,
+            "high": 73662.3,
+            "low": 73305.1,
+            "close": 73447.6,
+            "volume": 2660.912
+          }
+        ],
         "notes": [
-          "Populate values from TradingView's exported plot data when an external capture is available."
+          "TradingView export 2026-05-29, BINANCE:BTCUSDT.P, 60m, capture-window export"
         ]
       },
       "bars": [
-        {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
-        {"time": 2, "open": 12, "high": 12.5, "low": 11.5, "close": 12, "volume": 100}
+        {
+          "time": 1,
+          "open": 10,
+          "high": 10.5,
+          "low": 9.5,
+          "close": 10,
+          "volume": 100
+        },
+        {
+          "time": 2,
+          "open": 12,
+          "high": 12.5,
+          "low": 11.5,
+          "close": 12,
+          "volume": 100
+        }
       ],
       "orders": [
-        {"time": 1, "id": "Long", "type": "entry", "side": "long", "qty": 2.0, "price": 10.0, "position_after": 2.0, "comment": "", "commission": 0.2},
-        {"time": 2, "id": "Long", "type": "close", "side": "flat", "qty": 2.0, "price": 12.0, "position_after": 0.0, "comment": "", "commission": 0.24}
+        {
+          "time": 1,
+          "id": "Long",
+          "type": "entry",
+          "side": "long",
+          "qty": 2.0,
+          "price": 10.0,
+          "position_after": 2.0,
+          "comment": "",
+          "commission": 0.2
+        },
+        {
+          "time": 2,
+          "id": "Long",
+          "type": "close",
+          "side": "flat",
+          "qty": 2.0,
+          "price": 12.0,
+          "position_after": 0.0,
+          "comment": "",
+          "commission": 0.24
+        }
       ],
       "lifecycle": [
-        {"id": "Long", "type": "entry", "status": "filled", "phase": "market_fill", "submitted_time": 1, "filled_time": 1, "canceled_time": null, "rejected_time": null, "side": "long", "qty": 2.0, "price": 10.0, "position_after": 2.0, "comment": "", "commission": 0.2, "requested_qty": 2.0, "filled_qty": 2.0},
-        {"id": "Long", "type": "close", "status": "filled", "phase": "close_fill", "submitted_time": 2, "filled_time": 2, "canceled_time": null, "rejected_time": null, "side": "flat", "qty": 2.0, "price": 12.0, "position_after": 0.0, "comment": "", "commission": 0.24, "requested_qty": 2.0, "filled_qty": 2.0, "target_qty": 2.0}
+        {
+          "id": "Long",
+          "type": "entry",
+          "status": "filled",
+          "phase": "market_fill",
+          "submitted_time": 1,
+          "filled_time": 1,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "long",
+          "qty": 2.0,
+          "price": 10.0,
+          "position_after": 2.0,
+          "comment": "",
+          "commission": 0.2,
+          "requested_qty": 2.0,
+          "filled_qty": 2.0
+        },
+        {
+          "id": "Long",
+          "type": "close",
+          "status": "filled",
+          "phase": "close_fill",
+          "submitted_time": 2,
+          "filled_time": 2,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "flat",
+          "qty": 2.0,
+          "price": 12.0,
+          "position_after": 0.0,
+          "comment": "",
+          "commission": 0.24,
+          "requested_qty": 2.0,
+          "filled_qty": 2.0,
+          "target_qty": 2.0
+        }
       ],
       "closedtrades": [
-        {"entry_time": 1, "exit_time": 2, "entry_id": "Long", "exit_id": "Long", "side": "long", "qty": 2.0, "entry_price": 10.0, "exit_price": 12.0, "profit": 4.0, "commission": 0.44, "net_profit": 3.56}
+        {
+          "entry_time": 1,
+          "exit_time": 2,
+          "entry_id": "Long",
+          "exit_id": "Long",
+          "side": "long",
+          "qty": 2.0,
+          "entry_price": 10.0,
+          "exit_price": 12.0,
+          "profit": 4.0,
+          "commission": 0.44,
+          "net_profit": 3.56
+        }
       ],
       "opentrades": [],
       "values": {
-        "Position": [2.0, 0.0],
-        "Equity": [999.8, 1003.56],
-        "Net Profit": [-0.2, 3.56],
-        "Open Profit": [0.0, 0.0],
-        "Closed Trades": [0.0, 1.0],
-        "Closed Profit": [4.0, 4.0],
-        "Closed Commission": [0.44, 0.44],
-        "Closed Net Profit": [3.56, 3.56]
+        "Position": [
+          2.0,
+          0.0
+        ],
+        "Equity": [
+          999.8,
+          1003.56
+        ],
+        "Net Profit": [
+          -0.2,
+          3.56
+        ],
+        "Open Profit": [
+          0.0,
+          0.0
+        ],
+        "Closed Trades": [
+          0.0,
+          1.0
+        ],
+        "Closed Profit": [
+          4.0,
+          4.0
+        ],
+        "Closed Commission": [
+          0.44,
+          0.44
+        ],
+        "Closed Net Profit": [
+          3.56,
+          3.56
+        ]
       },
       "summary": {
         "initial_capital": 1000.0,
@@ -78,43 +237,301 @@
       ],
       "external_capture": {
         "provider": "tradingview",
-        "status": "not_captured",
+        "status": "captured",
+        "assertion": "reference",
+        "tolerance": 1e-09,
+        "values": {
+          "Position": [
+            0.0,
+            4.0,
+            2.0
+          ],
+          "Equity": [
+            1000.0,
+            575.4000000000233,
+            266.30000000001746
+          ],
+          "Net Profit": [
+            0.0,
+            -1.0,
+            -213.29999999998836
+          ],
+          "Open Profit": [
+            0.0,
+            -423.5999999999767,
+            -520.3999999999942
+          ],
+          "Closed Trades": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "First Closed Profit": [
+            0.0,
+            0.0,
+            -212.79999999998836
+          ],
+          "First Closed Commission": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "First Closed Net Profit": [
+            0.0,
+            0.0,
+            -213.79999999998836
+          ],
+          "Last Closed Profit": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Last Closed Commission": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Last Closed Net Profit": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "bars": [
+          {
+            "time": 1780045200,
+            "open": 73625.1,
+            "high": 73866.8,
+            "low": 73615.0,
+            "close": 73707.8,
+            "volume": 3377.656
+          },
+          {
+            "time": 1780048800,
+            "open": 73707.8,
+            "high": 73709.3,
+            "low": 73556.1,
+            "close": 73601.9,
+            "volume": 2012.414
+          },
+          {
+            "time": 1780052400,
+            "open": 73601.9,
+            "high": 73662.3,
+            "low": 73305.1,
+            "close": 73447.6,
+            "volume": 2660.912
+          }
+        ],
         "notes": [
-          "Populate values from TradingView's exported plot data when an external capture is available."
+          "TradingView export 2026-05-29, BINANCE:BTCUSDT.P, 60m, capture-window export"
         ]
       },
       "bars": [
-        {"time": 1, "open": 10, "high": 10.5, "low": 9.5, "close": 10, "volume": 100},
-        {"time": 2, "open": 12, "high": 12.5, "low": 11.5, "close": 12, "volume": 100},
-        {"time": 3, "open": 13, "high": 13.5, "low": 12.5, "close": 13, "volume": 100}
+        {
+          "time": 1,
+          "open": 10,
+          "high": 10.5,
+          "low": 9.5,
+          "close": 10,
+          "volume": 100
+        },
+        {
+          "time": 2,
+          "open": 12,
+          "high": 12.5,
+          "low": 11.5,
+          "close": 12,
+          "volume": 100
+        },
+        {
+          "time": 3,
+          "open": 13,
+          "high": 13.5,
+          "low": 12.5,
+          "close": 13,
+          "volume": 100
+        }
       ],
       "orders": [
-        {"time": 1, "id": "Long", "type": "entry", "side": "long", "qty": 4.0, "price": 10.0, "position_after": 4.0, "comment": "", "commission": 1.0},
-        {"time": 2, "id": "Long", "type": "close", "side": "flat", "qty": 2.0, "price": 12.0, "position_after": 2.0, "comment": "", "commission": 0.5},
-        {"time": 3, "id": "close_all", "type": "close_all", "side": "flat", "qty": 2.0, "price": 13.0, "position_after": 0.0, "comment": "", "commission": 0.5}
+        {
+          "time": 1,
+          "id": "Long",
+          "type": "entry",
+          "side": "long",
+          "qty": 4.0,
+          "price": 10.0,
+          "position_after": 4.0,
+          "comment": "",
+          "commission": 1.0
+        },
+        {
+          "time": 2,
+          "id": "Long",
+          "type": "close",
+          "side": "flat",
+          "qty": 2.0,
+          "price": 12.0,
+          "position_after": 2.0,
+          "comment": "",
+          "commission": 0.5
+        },
+        {
+          "time": 3,
+          "id": "close_all",
+          "type": "close_all",
+          "side": "flat",
+          "qty": 2.0,
+          "price": 13.0,
+          "position_after": 0.0,
+          "comment": "",
+          "commission": 0.5
+        }
       ],
       "lifecycle": [
-        {"id": "Long", "type": "entry", "status": "filled", "phase": "market_fill", "submitted_time": 1, "filled_time": 1, "canceled_time": null, "rejected_time": null, "side": "long", "qty": 4.0, "price": 10.0, "position_after": 4.0, "comment": "", "commission": 1.0, "requested_qty": 4.0, "filled_qty": 4.0},
-        {"id": "Long", "type": "close", "status": "filled", "phase": "close_fill", "submitted_time": 2, "filled_time": 2, "canceled_time": null, "rejected_time": null, "side": "flat", "qty": 2.0, "price": 12.0, "position_after": 2.0, "comment": "", "commission": 0.5, "requested_qty": 2.0, "filled_qty": 2.0, "target_qty": 4.0, "qty_percent": 50.0},
-        {"id": "close_all", "type": "close_all", "status": "filled", "phase": "close_all_fill", "submitted_time": 3, "filled_time": 3, "canceled_time": null, "rejected_time": null, "side": "flat", "qty": 2.0, "price": 13.0, "position_after": 0.0, "comment": "", "commission": 0.5, "requested_qty": 2.0, "filled_qty": 2.0, "target_qty": 2.0}
+        {
+          "id": "Long",
+          "type": "entry",
+          "status": "filled",
+          "phase": "market_fill",
+          "submitted_time": 1,
+          "filled_time": 1,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "long",
+          "qty": 4.0,
+          "price": 10.0,
+          "position_after": 4.0,
+          "comment": "",
+          "commission": 1.0,
+          "requested_qty": 4.0,
+          "filled_qty": 4.0
+        },
+        {
+          "id": "Long",
+          "type": "close",
+          "status": "filled",
+          "phase": "close_fill",
+          "submitted_time": 2,
+          "filled_time": 2,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "flat",
+          "qty": 2.0,
+          "price": 12.0,
+          "position_after": 2.0,
+          "comment": "",
+          "commission": 0.5,
+          "requested_qty": 2.0,
+          "filled_qty": 2.0,
+          "target_qty": 4.0,
+          "qty_percent": 50.0
+        },
+        {
+          "id": "close_all",
+          "type": "close_all",
+          "status": "filled",
+          "phase": "close_all_fill",
+          "submitted_time": 3,
+          "filled_time": 3,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "flat",
+          "qty": 2.0,
+          "price": 13.0,
+          "position_after": 0.0,
+          "comment": "",
+          "commission": 0.5,
+          "requested_qty": 2.0,
+          "filled_qty": 2.0,
+          "target_qty": 2.0
+        }
       ],
       "closedtrades": [
-        {"entry_time": 1, "exit_time": 2, "entry_id": "Long", "exit_id": "Long", "side": "long", "qty": 2.0, "entry_price": 10.0, "exit_price": 12.0, "profit": 4.0, "commission": 1.0, "net_profit": 3.0},
-        {"entry_time": 1, "exit_time": 3, "entry_id": "Long", "exit_id": "close_all", "side": "long", "qty": 2.0, "entry_price": 10.0, "exit_price": 13.0, "profit": 6.0, "commission": 1.0, "net_profit": 5.0}
+        {
+          "entry_time": 1,
+          "exit_time": 2,
+          "entry_id": "Long",
+          "exit_id": "Long",
+          "side": "long",
+          "qty": 2.0,
+          "entry_price": 10.0,
+          "exit_price": 12.0,
+          "profit": 4.0,
+          "commission": 1.0,
+          "net_profit": 3.0
+        },
+        {
+          "entry_time": 1,
+          "exit_time": 3,
+          "entry_id": "Long",
+          "exit_id": "close_all",
+          "side": "long",
+          "qty": 2.0,
+          "entry_price": 10.0,
+          "exit_price": 13.0,
+          "profit": 6.0,
+          "commission": 1.0,
+          "net_profit": 5.0
+        }
       ],
       "opentrades": [],
       "values": {
-        "Position": [4.0, 2.0, 0.0],
-        "Equity": [999.0, 1006.5, 1008.0],
-        "Net Profit": [-1.0, 2.5, 8.0],
-        "Open Profit": [0.0, 4.0, 0.0],
-        "Closed Trades": [0.0, 1.0, 2.0],
-        "First Closed Profit": [4.0, 4.0, 4.0],
-        "First Closed Commission": [1.0, 1.0, 1.0],
-        "First Closed Net Profit": [3.0, 3.0, 3.0],
-        "Last Closed Profit": [6.0, 6.0, 6.0],
-        "Last Closed Commission": [1.0, 1.0, 1.0],
-        "Last Closed Net Profit": [5.0, 5.0, 5.0]
+        "Position": [
+          4.0,
+          2.0,
+          0.0
+        ],
+        "Equity": [
+          999.0,
+          1006.5,
+          1008.0
+        ],
+        "Net Profit": [
+          -1.0,
+          2.5,
+          8.0
+        ],
+        "Open Profit": [
+          0.0,
+          4.0,
+          0.0
+        ],
+        "Closed Trades": [
+          0.0,
+          1.0,
+          2.0
+        ],
+        "First Closed Profit": [
+          4.0,
+          4.0,
+          4.0
+        ],
+        "First Closed Commission": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "First Closed Net Profit": [
+          3.0,
+          3.0,
+          3.0
+        ],
+        "Last Closed Profit": [
+          6.0,
+          6.0,
+          6.0
+        ],
+        "Last Closed Commission": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Last Closed Net Profit": [
+          5.0,
+          5.0,
+          5.0
+        ]
       },
       "summary": {
         "initial_capital": 1000.0,
