@@ -231,7 +231,7 @@
     {
       "name": "order_net_position_reduces_and_reverses",
       "source": "Pyne-defined lower-level strategy.order net-position fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent Order Net Position\", overlay=True, initial_capital=1000)\nstrategy.order(\"Buy\", strategy.long, qty=2, when=bar_index == 0, price=close)\nstrategy.order(\"Reduce\", strategy.short, qty=1, when=bar_index == 1, price=close)\nstrategy.order(\"Reverse\", strategy.short, qty=3, when=bar_index == 2, price=close)\nstrategy.close_all(when=bar_index == 3, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\n",
+      "script": "strategy(\"Pine Equivalent Order Net Position\", overlay=True, initial_capital=1000, process_orders_on_close=True)\nstrategy.order(\"Buy\", strategy.long, qty=2, when=bar_index == 0, price=close)\nstrategy.order(\"Reduce\", strategy.short, qty=1, when=bar_index == 1, price=close)\nstrategy.order(\"Reverse\", strategy.short, qty=3, when=bar_index == 2, price=close)\nstrategy.close_all(when=bar_index == 3, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Order Net Position\", overlay=true, initial_capital=1000, process_orders_on_close=true)\nif bar_index == 0\n    strategy.order(\"Buy\", strategy.long, qty=2)\nif bar_index == 1\n    strategy.order(\"Reduce\", strategy.short, qty=1)\nif bar_index == 2\n    strategy.order(\"Reverse\", strategy.short, qty=3)\nif bar_index == 3\n    strategy.close_all()\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\n",
       "pine_equivalent_notes": [
         "strategy.order is lower-level net-position arithmetic rather than Pine-style entry pyramiding.",
@@ -515,10 +515,10 @@
       "opentrades": [],
       "values": {
         "Position": [
+          0.0,
           2.0,
           1.0,
-          -2.0,
-          0.0
+          -2.0
         ],
         "Equity": [
           1000.0,
@@ -528,32 +528,32 @@
         ],
         "Net Profit": [
           0.0,
-          1.0,
           0.0,
-          2.0
+          1.0,
+          0.0
         ],
         "Open Profit": [
           0.0,
-          1.0,
-          0.0,
-          0.0
+          2.0,
+          -1.0,
+          2.0
         ],
         "Closed Trades": [
           0.0,
+          0.0,
           1.0,
-          2.0,
-          3.0
+          2.0
         ],
         "First Closed Profit": [
-          1.0,
-          1.0,
+          0.0,
+          0.0,
           1.0,
           1.0
         ],
         "Last Closed Profit": [
-          -1.0,
-          -1.0,
-          -1.0,
+          0.0,
+          0.0,
+          0.0,
           -1.0
         ]
       },
@@ -561,8 +561,8 @@
         "initial_capital": 1000.0,
         "currency": "",
         "equity": 1002.0,
-        "netprofit": 2.0,
-        "openprofit": 0.0,
+        "netprofit": 0.0,
+        "openprofit": 2.0,
         "grossprofit": 3.0,
         "grossloss": -1.0,
         "commission": 0.0,

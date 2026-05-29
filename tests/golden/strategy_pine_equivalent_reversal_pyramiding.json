@@ -3,7 +3,7 @@
     {
       "name": "reversal_long_to_short_then_flat",
       "source": "Pyne-defined reversal strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent Reversal\", overlay=True, initial_capital=1000, pyramiding=0)\nstrategy.entry(\"Long\", strategy.long, qty=2, when=bar_index == 0, price=close)\nstrategy.entry(\"Short\", strategy.short, qty=1, when=bar_index == 1, price=close)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\n",
+      "script": "strategy(\"Pine Equivalent Reversal\", overlay=True, initial_capital=1000, pyramiding=0, process_orders_on_close=True)\nstrategy.entry(\"Long\", strategy.long, qty=2, when=bar_index == 0, price=close)\nstrategy.entry(\"Short\", strategy.short, qty=1, when=bar_index == 1, price=close)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Reversal\", overlay=true, initial_capital=1000, pyramiding=0, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=2)\nif bar_index == 1\n    strategy.entry(\"Short\", strategy.short, qty=1)\nif bar_index == 2\n    strategy.close_all()\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\n",
       "pine_equivalent_notes": [
         "The opposite-direction entry closes the existing long lot and opens a new short target in one replayed fill.",
@@ -225,9 +225,9 @@
       "opentrades": [],
       "values": {
         "Position": [
+          0.0,
           2.0,
-          -1.0,
-          0.0
+          -1.0
         ],
         "Equity": [
           1000.0,
@@ -236,36 +236,36 @@
         ],
         "Net Profit": [
           0.0,
-          -2.0,
-          -1.0
+          0.0,
+          -2.0
         ],
         "Open Profit": [
           0.0,
-          0.0,
-          0.0
+          -2.0,
+          1.0
         ],
         "Closed Trades": [
           0.0,
-          1.0,
-          2.0
+          0.0,
+          1.0
         ],
         "First Closed Profit": [
-          -2.0,
-          -2.0,
+          0.0,
+          0.0,
           -2.0
         ],
         "Last Closed Profit": [
-          1.0,
-          1.0,
-          1.0
+          0.0,
+          0.0,
+          0.0
         ]
       },
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
         "equity": 999.0,
-        "netprofit": -1.0,
-        "openprofit": 0.0,
+        "netprofit": -2.0,
+        "openprofit": 1.0,
         "grossprofit": 1.0,
         "grossloss": -2.0,
         "commission": 0.0,
@@ -288,7 +288,7 @@
     {
       "name": "pyramiding_two_entries_then_flat",
       "source": "Pyne-defined pyramiding strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent Pyramiding\", overlay=True, initial_capital=1000, pyramiding=1)\nstrategy.entry(\"A\", strategy.long, qty=1, when=bar_index == 0, price=close)\nstrategy.entry(\"B\", strategy.long, qty=1, when=bar_index == 1, price=close)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\n",
+      "script": "strategy(\"Pine Equivalent Pyramiding\", overlay=True, initial_capital=1000, pyramiding=1, process_orders_on_close=True)\nstrategy.entry(\"A\", strategy.long, qty=1, when=bar_index == 0, price=close)\nstrategy.entry(\"B\", strategy.long, qty=1, when=bar_index == 1, price=close)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Pyramiding\", overlay=true, initial_capital=1000, pyramiding=1, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"A\", strategy.long, qty=1)\nif bar_index == 1\n    strategy.entry(\"B\", strategy.long, qty=1)\nif bar_index == 2\n    strategy.close_all()\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.profit(0), \"First Closed Profit\")\nplot(strategy.closedtrades.profit(1), \"Last Closed Profit\")\n",
       "pine_equivalent_notes": [
         "pyramiding=1 permits one additional same-direction entry after the first open long lot.",
@@ -509,9 +509,9 @@
       "opentrades": [],
       "values": {
         "Position": [
+          0.0,
           1.0,
-          2.0,
-          0.0
+          2.0
         ],
         "Equity": [
           1000.0,
@@ -521,35 +521,35 @@
         "Net Profit": [
           0.0,
           0.0,
-          5.0
+          0.0
         ],
         "Open Profit": [
           0.0,
           1.0,
-          0.0
+          5.0
         ],
         "Closed Trades": [
           0.0,
           0.0,
-          2.0
+          0.0
         ],
         "First Closed Profit": [
-          3.0,
-          3.0,
-          3.0
+          0.0,
+          0.0,
+          0.0
         ],
         "Last Closed Profit": [
-          2.0,
-          2.0,
-          2.0
+          0.0,
+          0.0,
+          0.0
         ]
       },
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
         "equity": 1005.0,
-        "netprofit": 5.0,
-        "openprofit": 0.0,
+        "netprofit": 0.0,
+        "openprofit": 5.0,
         "grossprofit": 5.0,
         "grossloss": 0.0,
         "commission": 0.0,
