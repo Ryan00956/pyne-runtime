@@ -20,7 +20,7 @@ python -m ruff check .
 python -m pytest tests/test_architecture.py -q
 python -m pytest -q
 python scripts/strategy_capture_scaffold.py --check
-python scripts/strategy_capture_diff.py
+python scripts/strategy_capture_diff.py --assertion parity
 git diff --check
 ```
 
@@ -60,10 +60,11 @@ The strategy capture gates protect the TradingView external-evidence workflow:
 `strategy_capture_scaffold.py --check` ensures every strategy pine-equivalent
 case keeps an `external_capture` contract. Captured TradingView data can be used
 in two assertion modes: `reference` captures are preserved as external evidence
-and inspected with `strategy_capture_diff.py`, while `parity` captures are
-expected to match current Pyne output in the golden tests. Use
-`strategy_capture_diff.py --summary` when you need a grouped case/plot view of
-the remaining reference differences.
+and inspected with `strategy_capture_diff.py --assertion reference` or
+`strategy_capture_diff.py --assertion all`, while `parity` captures are expected
+to match current Pyne output in the golden tests and the package quality gate.
+Use `strategy_capture_diff.py --assertion all --summary` when you need a grouped
+case/plot view of captured differences across both modes.
 
 ## Phase-Focused Checks
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -45,10 +46,19 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print grouped difference counts instead of point-level rows.",
     )
+    parser.add_argument(
+        "--assertion",
+        choices=["parity", "reference", "all"],
+        default="parity",
+        help=(
+            "Which captured assertion mode to inspect. Defaults to parity so "
+            "quality gates do not fail on newly imported reference evidence."
+        ),
+    )
     args = parser.parse_args(argv)
 
     fixture_paths = args.fixtures or sorted(args.golden_dir.glob(STRATEGY_FIXTURE_GLOB))
-    report = build_report(fixture_paths, set(args.case))
+    report = build_report(fixture_paths, set(args.case), args.assertion)
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     elif args.summary:
@@ -56,16 +66,38 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print_table(report)
 
+    for error in report["case_filter_errors"]:
+        if error["reason"] == "not_found":
+            print(
+                f"Case filter error: no fixture case named {error['case']!r}",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "Case filter error: "
+                f"no captured {args.assertion!r} case inspected for {error['case']!r}",
+                file=sys.stderr,
+            )
+
     counts = report["counts"]
-    return 1 if counts["differences"] or counts["runtime_errors"] else 0
+    return (
+        1
+        if counts["differences"]
+        or counts["runtime_errors"]
+        or report["case_filter_errors"]
+        else 0
+    )
 
 
 def build_report(
     fixture_paths: list[Path],
     case_filter: set[str],
+    assertion_filter: str,
 ) -> dict[str, Any]:
     cases: list[dict[str, Any]] = []
     differences: list[dict[str, Any]] = []
+    matched_case_names: set[str] = set()
+    inspected_case_names: set[str] = set()
     runtime_errors = 0
     plot_count = 0
     point_count = 0
@@ -74,21 +106,37 @@ def build_report(
     for fixture_path in fixture_paths:
         fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
         for case in fixture.get("cases", []):
-            if case_filter and case.get("name") not in case_filter:
+            case_name = case.get("name")
+            if case_filter and case_name not in case_filter:
                 continue
+            if case_filter:
+                matched_case_names.add(case_name)
 
             capture = case.get("external_capture")
             if capture is None or capture.get("status") != "captured":
                 skipped += 1
                 continue
 
+            assertion = capture.get("assertion", "parity")
+            if assertion_filter != "all" and assertion != assertion_filter:
+                skipped += 1
+                continue
+
             case_report = diff_case(fixture_path, case, capture)
+            case_report["assertion"] = assertion
             cases.append(case_report)
+            inspected_case_names.add(case_name)
             plot_count += case_report["plot_count"]
             point_count += case_report["point_count"]
             differences.extend(case_report["differences"])
             if case_report["runtime_error"] is not None:
                 runtime_errors += 1
+
+    case_filter_errors = build_case_filter_errors(
+        case_filter,
+        matched_case_names,
+        inspected_case_names,
+    )
 
     return {
         "counts": {
@@ -102,7 +150,24 @@ def build_report(
         "cases": cases,
         "differences": differences,
         "summary": build_summary(cases, differences),
+        "case_filter_errors": case_filter_errors,
     }
+
+
+def build_case_filter_errors(
+    case_filter: set[str],
+    matched_case_names: set[str],
+    inspected_case_names: set[str],
+) -> list[dict[str, str]]:
+    if not case_filter:
+        return []
+
+    errors: list[dict[str, str]] = []
+    for case_name in sorted(case_filter - matched_case_names):
+        errors.append({"case": case_name, "reason": "not_found"})
+    for case_name in sorted(matched_case_names - inspected_case_names):
+        errors.append({"case": case_name, "reason": "not_inspected"})
+    return errors
 
 
 def build_summary(

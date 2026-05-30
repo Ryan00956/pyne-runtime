@@ -124,7 +124,8 @@ def build_task(
             '--tolerance 1e-9 --note "TradingView export YYYY-MM-DD"'
         ),
         "diff_command": (
-            f"python scripts/strategy_capture_diff.py tests/golden/{fixture} "
+            "python scripts/strategy_capture_diff.py "
+            f"--assertion {capture_diff_assertion(status_case)} tests/golden/{fixture} "
             f"--case {case_name}"
         ),
     }
@@ -144,6 +145,12 @@ def build_task(
             }
         )
     return task
+
+
+def capture_diff_assertion(status_case: dict[str, Any]) -> str:
+    if status_case["status"] == "captured":
+        return status_case.get("assertion", "parity")
+    return "reference"
 
 
 def print_task(task: dict[str, Any]) -> None:

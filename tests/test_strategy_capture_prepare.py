@@ -47,6 +47,7 @@ def test_strategy_capture_prepare_priority_manifest(tmp_path: Path) -> None:
         "Open Profit",
         "Closed Trades",
     ]
+    assert "--assertion parity" in first["diff_command"]
     pine_text = (out_dir / first["pine_file"]).read_text(encoding="utf-8")
     assert pine_text.startswith("//@version=5\n_pyne_capture_bars = 4\n")
     assert "if _pyne_capture_bar(0)\n    strategy.entry" in pine_text
@@ -84,6 +85,10 @@ def test_strategy_capture_prepare_all_cases(tmp_path: Path) -> None:
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["default_scope"] == "all"
     assert manifest["case_count"] == 27
+    pending = next(
+        entry for entry in manifest["entries"] if entry["status"] == "not_captured"
+    )
+    assert "--assertion reference" in pending["diff_command"]
 
 
 def test_strategy_capture_prepare_case_filter(tmp_path: Path) -> None:

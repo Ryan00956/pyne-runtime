@@ -80,6 +80,122 @@ def test_strategy_capture_diff_reports_value_mismatch(tmp_path: Path) -> None:
     }
 
 
+def test_strategy_capture_diff_requires_named_case_to_exist(tmp_path: Path) -> None:
+    fixture = write_fixture(tmp_path, captured_values={"Position": [1.0]})
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "strategy_capture_diff.py"),
+            str(fixture),
+            "--case",
+            "missing",
+            "--json",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 1
+    report = json.loads(completed.stdout)
+    assert report["counts"]["captured_cases"] == 0
+    assert report["case_filter_errors"] == [
+        {"case": "missing", "reason": "not_found"}
+    ]
+    assert "no fixture case named 'missing'" in completed.stderr
+
+
+def test_strategy_capture_diff_requires_named_case_to_be_inspected(
+    tmp_path: Path,
+) -> None:
+    fixture = write_fixture(
+        tmp_path,
+        captured_values={"Position": [1.0]},
+        assertion="reference",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "strategy_capture_diff.py"),
+            str(fixture),
+            "--case",
+            "sample",
+            "--json",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 1
+    report = json.loads(completed.stdout)
+    assert report["counts"]["captured_cases"] == 0
+    assert report["counts"]["skipped_cases"] == 1
+    assert report["case_filter_errors"] == [
+        {"case": "sample", "reason": "not_inspected"}
+    ]
+    assert "no captured 'parity' case inspected for 'sample'" in completed.stderr
+
+
+def test_strategy_capture_diff_reference_mismatch_does_not_fail_default_gate(
+    tmp_path: Path,
+) -> None:
+    fixture = write_fixture(
+        tmp_path,
+        captured_values={"Position": [2.0]},
+        assertion="reference",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "strategy_capture_diff.py"),
+            str(fixture),
+            "--json",
+        ],
+        check=True,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    report = json.loads(completed.stdout)
+    assert report["counts"]["captured_cases"] == 0
+    assert report["counts"]["skipped_cases"] == 1
+    assert report["counts"]["differences"] == 0
+
+
+def test_strategy_capture_diff_reference_filter_reports_reference_mismatch(
+    tmp_path: Path,
+) -> None:
+    fixture = write_fixture(
+        tmp_path,
+        captured_values={"Position": [2.0]},
+        assertion="reference",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "strategy_capture_diff.py"),
+            str(fixture),
+            "--assertion",
+            "reference",
+            "--json",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 1
+    report = json.loads(completed.stdout)
+    assert report["counts"]["captured_cases"] == 1
+    assert report["counts"]["differences"] == 1
+
+
 def test_strategy_capture_diff_skips_not_captured_cases(tmp_path: Path) -> None:
     fixture = write_fixture(tmp_path, captured_values=None)
 
@@ -129,6 +245,7 @@ def write_fixture(
     tmp_path: Path,
     *,
     captured_values: dict[str, list[float]] | None,
+    assertion: str | None = None,
 ) -> Path:
     capture = {
         "provider": "tradingview",
@@ -141,6 +258,8 @@ def write_fixture(
             "status": "captured",
             "values": captured_values,
         }
+        if assertion is not None:
+            capture["assertion"] = assertion
 
     fixture = tmp_path / "fixture.json"
     fixture.write_text(

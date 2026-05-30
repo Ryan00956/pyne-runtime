@@ -32,7 +32,7 @@ parity 修复范围。
 - capture import 已保存 TradingView active window 的真实 `bars`，diff replay 使用 TV bars 而不是原 synthetic bars。
 - focused capture tests 和全量测试通过。
 
-当前聚合 diff：
+执行前聚合 diff：
 
 ```text
 10 captured case(s)
@@ -45,9 +45,9 @@ parity 修复范围。
 
 这说明 capture 链路已经成立，但 Pyne strategy runtime 尚未达到 TradingView parity。
 
-## 10 份 Reference 的语义结论
+## 执行前 10 份 Reference 的语义结论
 
-| Fixture | Case | TV reference 观察 | Pyne 当前差异 | 归类 |
+| Fixture | Case | TV reference 观察 | Pyne 执行前差异 | 归类 |
 | --- | --- | --- | --- | --- |
 | `strategy_pine_equivalent_smoke.json` | `market_round_trip_process_on_close` | market entry 后 TV 持仓、权益、open profit、最终 closed trade 均变化 | Pyne 多数点仍为空仓/权益不变 | market fill、默认保证金/下单准入、close timing |
 | `strategy_pine_equivalent_bracket_exit.json` | `bracket_limit_exit` | 第 2 根 TV 已生成 1 笔 closed trade | Pyne `Closed Trades` 仍为 0 | bracket exit closed-trade 更新 |
@@ -85,11 +85,14 @@ parity 修复范围。
 
 任务：
 
-- 保留当前 10 份 capture 的 `assertion = "reference"`，不要急着改成 `parity`。
+- 执行初期先保留 10 份 capture 的 `assertion = "reference"`，各 case 修到
+   0 diff 后再按升级规则改为 `parity`；当前 10 个 priority case 已完成升级。
 - 增加一个可选的 diff 摘要输出，按 `case` 和 `plot` 聚合差异数量，方便判断每个修复消掉了哪些差异。
 - 在文档或测试输出中明确区分：
   - `reference`: 真实 TV 数据已收录，但不阻断 pytest parity。
   - `parity`: TV 数据必须与 Pyne 输出一致。
+   - `strategy_capture_diff.py` 默认检查 `parity` gate；查看 reference 差异时显式
+      使用 `--assertion reference` 或 `--assertion all`。
 
 涉及文件：
 
@@ -100,7 +103,7 @@ parity 修复范围。
 验收：
 
 ```powershell
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py `
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion all --summary `
   tests\golden\strategy_pine_equivalent_smoke.json `
   tests\golden\strategy_pine_equivalent_bracket_exit.json `
   tests\golden\strategy_pine_equivalent_cost_allocation.json `
@@ -127,7 +130,7 @@ parity 修复范围。
 - first/last closed trade profit
 - `strategy.opentrades`
 
-当前证据：
+执行前证据：
 
 - `percent_commission_round_trip` 的 `Closed Profit / Closed Commission / Closed Net Profit` 为 `None`。
 - `cash_per_contract_partial_close_allocation` 的 First/Last closed cost 字段多为 `None`。
@@ -152,7 +155,7 @@ parity 修复范围。
 ```powershell
 .venv\Scripts\python.exe -m pytest tests\test_strategy_runtime.py -q
 .venv\Scripts\python.exe -m pytest tests\test_golden_strategy.py -q
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_margin_order_cancel.json --case margin_long_rejects_then_small_fill
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_margin_order_cancel.json --case margin_long_rejects_then_small_fill
 ```
 
 退出标准：
@@ -164,7 +167,7 @@ parity 修复范围。
 
 目的：解决真实 BTC 价格下，TV 已持仓而 Pyne 仍为空仓的问题。
 
-当前证据：
+执行前证据：
 
 - `market_round_trip_process_on_close` 中 TV 第 1、2 根持仓 2，Pyne 为 0。
 - `percent_commission_round_trip` 中 TV 第 2 根持仓 2，Pyne 为 0。
@@ -192,9 +195,9 @@ parity 修复范围。
 阶段验收：
 
 ```powershell
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_smoke.json
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_cost_allocation.json --case percent_commission_round_trip
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_margin_order_cancel.json --case margin_long_rejects_then_small_fill
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_smoke.json
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_cost_allocation.json --case percent_commission_round_trip
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_margin_order_cancel.json --case margin_long_rejects_then_small_fill
 ```
 
 退出标准：
@@ -206,7 +209,7 @@ parity 修复范围。
 
 目的：对齐 market entry、`strategy.close()`、`process_orders_on_close=true` 的 bar timing。
 
-当前证据：
+执行前证据：
 
 - smoke case 中 TV 在中间 bar 已持仓并计算 open profit，最终 bar 生成 closed trade。
 - cost allocation case 中 TV 第 2 根已有 position/open profit，而 Pyne 仍为空仓。
@@ -234,8 +237,8 @@ parity 修复范围。
 阶段验收：
 
 ```powershell
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_smoke.json
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_margin_order_cancel.json --case cancel_and_cancel_all_clear_pending
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_smoke.json
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_margin_order_cancel.json --case cancel_and_cancel_all_clear_pending
 .venv\Scripts\python.exe -m pytest tests\test_strategy_runtime.py -q
 ```
 
@@ -248,7 +251,7 @@ parity 修复范围。
 
 目的：修复 `strategy.exit()` bracket limit/stop 已触发但 Pyne 未更新 closed trade 的问题。
 
-当前证据：
+执行前证据：
 
 - `bracket_limit_exit` 第 2 根 TV `Closed Trades = 1`，Pyne 为 0。
 - `bracket_stop_exit` 第 2 根 TV `Closed Trades = 1`，Pyne 为 0。
@@ -270,7 +273,7 @@ parity 修复范围。
 阶段验收：
 
 ```powershell
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_bracket_exit.json
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_bracket_exit.json
 .venv\Scripts\python.exe -m pytest tests\test_strategy_runtime.py -q
 ```
 
@@ -282,7 +285,7 @@ parity 修复范围。
 
 目的：对齐 percent commission、cash per contract、partial close 的权益、净利润、手续费分摊。
 
-当前证据：
+执行前证据：
 
 - `percent_commission_round_trip` TV 第 2 根 `Equity = -780.638`、`Net Profit = -1472.038`、`Open Profit = -308.6`。
 - `cash_per_contract_partial_close_allocation` TV 第 2 根 `Net Profit = -1`，第 3 根 `First Closed Commission = 1`、`First Closed Net Profit = -213.8`。
@@ -304,7 +307,7 @@ parity 修复范围。
 阶段验收：
 
 ```powershell
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_cost_allocation.json
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_cost_allocation.json
 .venv\Scripts\python.exe -m pytest tests\test_strategy_runtime.py -q
 ```
 
@@ -317,7 +320,7 @@ parity 修复范围。
 
 目的：对齐反手、同向加仓、`strategy.order` 净持仓减少/反转。
 
-当前证据：
+执行前证据：
 
 - `reversal_long_to_short_then_flat` TV 从多头反手为空头，并生成 closed trade。
 - `pyramiding_two_entries_then_flat` TV 允许同向持仓并计 open profit。
@@ -343,8 +346,8 @@ parity 修复范围。
 阶段验收：
 
 ```powershell
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_reversal_pyramiding.json
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_margin_order_cancel.json --case order_net_position_reduces_and_reverses
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_reversal_pyramiding.json
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_margin_order_cancel.json --case order_net_position_reduces_and_reverses
 .venv\Scripts\python.exe -m pytest tests\test_strategy_runtime.py -q
 ```
 
@@ -357,7 +360,7 @@ parity 修复范围。
 
 目的：对齐 `strategy.cancel()` 与 `strategy.cancel_all()` 清理 pending order 后不复活的语义。
 
-当前证据：
+执行前证据：
 
 - `cancel_and_cancel_all_clear_pending` 中 TV 第 0 根空仓，第 1 根后持仓 1。
 - Pyne 当前第 0 根已经持仓，并把 BTC 价格级 open profit 写入 equity/open profit。
@@ -379,7 +382,7 @@ parity 修复范围。
 阶段验收：
 
 ```powershell
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py tests\golden\strategy_pine_equivalent_margin_order_cancel.json --case cancel_and_cancel_all_clear_pending
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity tests\golden\strategy_pine_equivalent_margin_order_cancel.json --case cancel_and_cancel_all_clear_pending
 .venv\Scripts\python.exe -m pytest tests\test_strategy_runtime.py -q
 ```
 
@@ -394,7 +397,8 @@ parity 修复范围。
 
 升级条件：
 
-- `strategy_capture_diff.py <fixture> --case <case>` 返回 0。
+- `strategy_capture_diff.py --assertion parity <fixture> --case <case>` 返回 0；
+   若 case 名拼错或没有实际检查到 captured parity case，脚本必须返回非零。
 - `external_capture.assertion` 从 `reference` 改为 `parity`。
 - `tests/test_golden_strategy.py` 在该 case 上恢复外部 TV 值断言。
 - 对应 runtime 单元测试覆盖 root cause，而不是只改 golden。
@@ -421,7 +425,7 @@ parity 修复范围。
 ```powershell
 .venv\Scripts\python.exe -m pytest tests\test_strategy_runtime.py -q
 .venv\Scripts\python.exe -m pytest tests\test_golden_strategy.py -q
-.venv\Scripts\python.exe scripts\strategy_capture_diff.py `
+.venv\Scripts\python.exe scripts\strategy_capture_diff.py --assertion parity `
   tests\golden\strategy_pine_equivalent_smoke.json `
   tests\golden\strategy_pine_equivalent_bracket_exit.json `
   tests\golden\strategy_pine_equivalent_cost_allocation.json `
@@ -433,7 +437,7 @@ parity 修复范围。
 
 ```powershell
 .venv\Scripts\python.exe -m compileall src tests scripts -q
-.venv\Scripts\python.exe -m ruff check scripts tests
+.venv\Scripts\python.exe -m ruff check .
 .venv\Scripts\python.exe -m pytest -q
 git diff --check
 ```

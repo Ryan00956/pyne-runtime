@@ -68,6 +68,7 @@ def build_report(golden_dir: Path) -> dict[str, Any]:
                     "priority": fixture_path.name in PRIORITY_FIXTURES,
                     "provider": None if capture is None else capture["provider"],
                     "status": status,
+                    "assertion": None if capture is None else capture.get("assertion"),
                     "captured_plots": sorted(values),
                     "plot_count": len(values),
                 }

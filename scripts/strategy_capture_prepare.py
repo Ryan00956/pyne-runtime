@@ -105,6 +105,7 @@ def build_entry(fixture_path: Path, case: dict[str, Any], index: int) -> dict[st
     fixture_name = fixture_path.name
     case_name = case["name"]
     capture = case.get("external_capture", {})
+    diff_assertion = capture_diff_assertion(capture)
     pine_file = f"{index:02d}_{slugify(fixture_path.stem)}__{slugify(case_name)}.pine"
     bars_file = f"{Path(pine_file).stem}_bars.csv"
     export_file = f"{Path(pine_file).stem}.csv"
@@ -127,10 +128,17 @@ def build_entry(fixture_path: Path, case: dict[str, Any], index: int) -> dict[st
             '--tolerance 1e-9 --note "TradingView export YYYY-MM-DD"'
         ),
         "diff_command": (
-            f"python scripts/strategy_capture_diff.py tests/golden/{fixture_name} "
+            "python scripts/strategy_capture_diff.py "
+            f"--assertion {diff_assertion} tests/golden/{fixture_name} "
             f"--case {case_name}"
         ),
     }
+
+
+def capture_diff_assertion(capture: dict[str, Any]) -> str:
+    if capture.get("status") == "captured":
+        return capture.get("assertion", "parity")
+    return "reference"
 
 
 def render_readme(entries: list[dict[str, Any]]) -> str:
@@ -194,7 +202,7 @@ def render_readme(entries: list[dict[str, Any]]) -> str:
             "After importing, run:",
             "",
             "```powershell",
-            "python scripts/strategy_capture_diff.py",
+            "python scripts/strategy_capture_diff.py --assertion reference",
             "python -m pytest tests/test_golden_strategy.py -q",
             "```",
             "",

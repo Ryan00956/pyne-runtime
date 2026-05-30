@@ -124,13 +124,15 @@ preflight 会检查导出文件是否存在、plot 列是否完整、是否包�
 输出的差异：
 
 ```powershell
-python scripts/strategy_capture_diff.py
-python scripts/strategy_capture_diff.py tests/golden/strategy_pine_equivalent_smoke.json --case market_round_trip_process_on_close
-python scripts/strategy_capture_diff.py --json
+python scripts/strategy_capture_diff.py --assertion parity
+python scripts/strategy_capture_diff.py --assertion reference tests/golden/strategy_pine_equivalent_smoke.json --case market_round_trip_process_on_close
+python scripts/strategy_capture_diff.py --assertion all --json
 ```
 
-diff 脚本只检查 `status` 为 `captured` 的 case，`not_captured` 会被跳过；如果发现
-plot 差异或 Pyne 运行错误，脚本会返回非零退出码。
+diff 脚本默认只检查 `assertion="parity"` 的 captured case，`not_captured` 会被跳过。
+新导入但尚未修到 parity 的 TradingView evidence 应使用 `--assertion reference`
+或 `--assertion all` 检查。如果指定 `--case` 但没有找到该 case，或该 case 没有被当前
+assertion filter 实际检查到，脚本会返回非零退出码，避免误把空检查当成通过。
 
 报告中的状态含义：
 

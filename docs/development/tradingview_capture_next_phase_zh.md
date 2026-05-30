@@ -30,7 +30,9 @@ TradingView-backed parity。
 完成标准：
 
 - `python scripts/strategy_capture_status.py` 显示 `Priority captures: 10/10 captured`。
-- `python scripts/strategy_capture_diff.py` 对 captured case 返回 0。
+- `python scripts/strategy_capture_diff.py --assertion reference` 对刚导入的
+  reference evidence 可报告差异；修到 parity 并升级 assertion 后，
+  `python scripts/strategy_capture_diff.py --assertion parity` 返回 0。
 - `python -m pytest tests/test_golden_strategy.py -q` 通过。
 - 每个 captured case 的 `external_capture.notes` 记录导出来源、日期和必要对齐说明。
 
@@ -61,13 +63,15 @@ TradingView-backed parity。
 当前进度：
 
 - `scripts/check.ps1`、`scripts/check.sh` 和 GitHub Actions CI 已显式运行
-  `strategy_capture_scaffold.py --check` 与 `strategy_capture_diff.py`。
-- 当前没有 captured case，因此 diff gate 会跳过 27 个 `not_captured` case；
-  后续一旦导入真实 TradingView 序列，差异会自动进入本地和 CI 质量门。
+  `strategy_capture_scaffold.py --check` 与
+  `strategy_capture_diff.py --assertion parity`。
+- 当前 priority capture 已进入 parity gate；后续新导入的 reference evidence
+  需要先显式用 `--assertion reference` 查看差异，修到 parity 后再升级质量门。
 
 完成标准：
 
-- `python scripts/strategy_capture_diff.py` 在 captured case 上保持 0 difference。
+- `python scripts/strategy_capture_diff.py --assertion parity` 在 parity captured case
+  上保持 0 difference。
 - captured case 的失败会阻断本地完整验证或 CI。
 - `docs/development/tradingview_strategy_capture_zh.md` 与本计划同步更新。
 
@@ -78,7 +82,7 @@ priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。
 完成标准：
 
 - `python scripts/strategy_capture_status.py` 显示 `27/27 captured`。
-- `python scripts/strategy_capture_diff.py` 显示 0 difference。
+- `python scripts/strategy_capture_diff.py --assertion parity` 显示 0 difference。
 - 全量测试通过。
 
 ## Priority 批次
@@ -106,8 +110,8 @@ python scripts/strategy_capture_next.py --manifest .tmp/tradingview-priority/man
 
 ```powershell
 python scripts/strategy_capture_status.py
-python scripts/strategy_capture_diff.py tests/golden/strategy_pine_equivalent_smoke.json
-python scripts/strategy_capture_diff.py tests/golden/strategy_pine_equivalent_bracket_exit.json
+python scripts/strategy_capture_diff.py --assertion reference tests/golden/strategy_pine_equivalent_smoke.json
+python scripts/strategy_capture_diff.py --assertion reference tests/golden/strategy_pine_equivalent_bracket_exit.json
 python -m pytest tests/test_golden_strategy.py -q
 ```
 
@@ -123,7 +127,7 @@ python -m pytest tests/test_golden_strategy.py -q
 完成后必须运行：
 
 ```powershell
-python scripts/strategy_capture_diff.py tests/golden/strategy_pine_equivalent_cost_allocation.json
+python scripts/strategy_capture_diff.py --assertion reference tests/golden/strategy_pine_equivalent_cost_allocation.json
 python -m pytest tests/test_golden_strategy.py -q
 ```
 
@@ -139,7 +143,7 @@ python -m pytest tests/test_golden_strategy.py -q
 完成后必须运行：
 
 ```powershell
-python scripts/strategy_capture_diff.py tests/golden/strategy_pine_equivalent_reversal_pyramiding.json
+python scripts/strategy_capture_diff.py --assertion reference tests/golden/strategy_pine_equivalent_reversal_pyramiding.json
 python -m pytest tests/test_golden_strategy.py -q
 ```
 
@@ -156,7 +160,7 @@ python -m pytest tests/test_golden_strategy.py -q
 完成后必须运行：
 
 ```powershell
-python scripts/strategy_capture_diff.py tests/golden/strategy_pine_equivalent_margin_order_cancel.json
+python scripts/strategy_capture_diff.py --assertion reference tests/golden/strategy_pine_equivalent_margin_order_cancel.json
 python -m pytest tests/test_golden_strategy.py -q
 ```
 
@@ -205,7 +209,7 @@ python scripts/strategy_capture_import.py `
 7. 运行单 case 或单 fixture diff：
 
 ```powershell
-python scripts/strategy_capture_diff.py tests/golden/<fixture>.json --case <case_name>
+python scripts/strategy_capture_diff.py --assertion reference tests/golden/<fixture>.json --case <case_name>
 ```
 
 8. 如果 diff 为 0，运行 strategy golden：
@@ -262,7 +266,7 @@ python -m pytest tests/test_golden_strategy.py -q
 
 ```powershell
 python scripts/strategy_capture_status.py
-python scripts/strategy_capture_diff.py
+python scripts/strategy_capture_diff.py --assertion parity
 python -m pytest tests/test_golden_strategy.py -q
 python -m pytest -q
 ```
@@ -308,7 +312,9 @@ python -m pytest -q
 下一阶段可以视为完成，当且仅当：
 
 - Priority captures 达到 10/10。
-- `strategy_capture_diff.py` 对 priority captured case 保持 0 difference，或所有非零差异都有明确边界记录。
+- `strategy_capture_diff.py --assertion parity` 对 parity captured case 保持
+  0 difference；reference evidence 的非零差异用 `--assertion reference` 或
+  `--assertion all` 显式查看并分类。
 - `tests/test_golden_strategy.py` 与全量测试通过。
 - `docs/development/pine_like_semantics_progress_zh.md` 更新 capture 进度。
 - 若差异暴露 Pyne runtime bug，相关修复和测试已提交。
