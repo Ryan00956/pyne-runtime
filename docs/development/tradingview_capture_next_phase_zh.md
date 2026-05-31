@@ -8,8 +8,11 @@ TradingView-backed parity。
 ## 当前基线
 
 - Strategy pine-equivalent case 总数：27。
-- 当前 capture 状态：0 captured、27 not_captured、0 missing。
+- 当前 capture 状态：11 captured、16 not_captured、0 missing。
 - Priority case 总数：10。
+- Priority case 已完成：10/10 captured，且全部进入 parity gate。
+- 第二批非 priority case 已开始：`cash_per_order_slippage_round_trip` 已进入
+  parity gate。
 - 所有 case 已具备 `external_capture` contract。
 - `strategy_capture_scaffold.py --check` 已被测试保护。
 - 已有工具：
@@ -26,6 +29,8 @@ TradingView-backed parity。
 ### G1: Priority Capture 完成
 
 把 10 个 priority case 从 `not_captured` 推进到 `captured`。
+
+当前状态：已完成。
 
 完成标准：
 
@@ -77,7 +82,7 @@ TradingView-backed parity。
 
 ### G4: 全量 Strategy Capture
 
-priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。
+priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。当前剩余 16 个。
 
 完成标准：
 
@@ -324,7 +329,8 @@ python -m pytest -q
 Priority 完成后，按以下顺序推进剩余 case：
 
 1. `strategy_pine_equivalent_pending_entries.json`
-2. `strategy_pine_equivalent_costs.json`
+2. `strategy_pine_equivalent_costs.json`（`cash_per_order_slippage_round_trip`
+   已 captured/parity）
 3. `strategy_pine_equivalent_exit_path.json`
 4. `strategy_pine_equivalent_oca_risk.json`
 5. `strategy_pine_equivalent_risk_size_limit.json`

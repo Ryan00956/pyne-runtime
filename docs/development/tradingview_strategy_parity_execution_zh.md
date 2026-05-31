@@ -18,9 +18,9 @@
 0 skipped
 ```
 
-当前 capture 状态仍为 `10/27 captured`、`17 not_captured`、`0 missing`。
-剩余 17 个非 priority case 属于下一轮采集扩展，不属于本执行阶段的 runtime
-parity 修复范围。
+当前第一批 priority capture 仍为 `10/10 captured` 且全部 parity；后续第二批
+非 priority 扩展已在独立流程中开始推进。剩余非 priority case 不属于本执行阶段的
+runtime parity 修复范围。
 
 ## 执行前基线
 
