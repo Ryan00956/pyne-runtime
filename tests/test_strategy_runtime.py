@@ -876,6 +876,41 @@ plot(strategy.closedtrades.profit(0), "First Closed Profit")
     ]
 
 
+def test_strategy_process_orders_on_close_carry_exit_uses_previous_close() -> None:
+    result = pn.run(
+        """
+strategy("Process Carry Exit", overlay=True, initial_capital=1000, process_orders_on_close=True)
+strategy.entry("Long", strategy.long, qty=1, when=bar_index == 0, price=close)
+strategy.exit("Bracket", from_entry="Long", limit=1)
+plot(strategy.position_size, "Position")
+plot(strategy.netprofit, "Net Profit")
+plot(strategy.closedtrades, "Closed Trades")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 9.9, "high": 12, "low": 9, "close": 11, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Position") == [0.0, 0.0]
+    assert result.values("Net Profit") == [0.0, 0.0]
+    assert result.values("Closed Trades") == [0.0, 1.0]
+    assert result.output["strategy"]["orders"][-1] == {
+        "time": 2,
+        "id": "Bracket",
+        "from_entry": "Long",
+        "type": "exit",
+        "side": "flat",
+        "qty": 1.0,
+        "price": 10.0,
+        "position_after": 0.0,
+        "reason": "limit",
+        "comment": "",
+    }
+
+
 def test_strategy_margin_allows_leveraged_short_when_margin_percent_is_lower() -> None:
     result = pn.run(
         """

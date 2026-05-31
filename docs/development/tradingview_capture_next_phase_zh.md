@@ -8,11 +8,11 @@ TradingView-backed parity。
 ## 当前基线
 
 - Strategy pine-equivalent case 总数：27。
-- 当前 capture 状态：12 captured、15 not_captured、0 missing。
+- 当前 capture 状态：13 captured、14 not_captured、0 missing。
 - Priority case 总数：10。
 - Priority case 已完成：10/10 captured，且全部进入 parity gate。
-- 第二批非 priority case 已开始：`cash_per_order_slippage_round_trip` 与
-  `exit_partial_then_close_all` 已进入 parity gate。
+- 第二批非 priority case 已开始：`cash_per_order_slippage_round_trip`、
+  `exit_partial_then_close_all` 与 `same_bar_exit_stop_first` 已进入 parity gate。
 - 所有 case 已具备 `external_capture` contract。
 - `strategy_capture_scaffold.py --check` 已被测试保护。
 - 已有工具：
@@ -82,7 +82,7 @@ TradingView-backed parity。
 
 ### G4: 全量 Strategy Capture
 
-priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。当前剩余 15 个。
+priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。当前剩余 14 个。
 
 完成标准：
 

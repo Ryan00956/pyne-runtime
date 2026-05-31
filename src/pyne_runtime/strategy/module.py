@@ -583,9 +583,17 @@ class StrategyModule:
             process_on_close_new_exit = self._process_orders_on_close and (
                 idx == 0 or not flags[idx - 1]
             )
+            process_on_close_carry_exit = (
+                self._process_orders_on_close and idx > 0 and flags[idx - 1]
+            )
+            trigger_open_price = open_values[idx]
+            if process_on_close_new_exit:
+                trigger_open_price = close_values[idx]
+            elif process_on_close_carry_exit:
+                trigger_open_price = close_values[idx - 1]
             trigger = _exit_trigger(
                 current_position=current_position,
-                open_price=close_values[idx] if process_on_close_new_exit else open_values[idx],
+                open_price=trigger_open_price,
                 high=high_values[idx],
                 low=low_values[idx],
                 stop=stops[idx],

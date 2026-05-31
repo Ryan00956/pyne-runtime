@@ -362,16 +362,58 @@
     {
       "name": "same_bar_exit_stop_first",
       "source": "Pyne-defined same-bar bracket strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent Same Bar Stop First\", overlay=True, initial_capital=1000)\nstrategy.entry(\"Long\", strategy.long, qty=1, when=bar_index == 0, price=close)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
+      "script": "strategy(\"Pine Equivalent Same Bar Stop First\", overlay=True, initial_capital=1000, process_orders_on_close=True)\nstrategy.entry(\"Long\", strategy.long, qty=1, when=bar_index == 0, price=close)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Same Bar Stop First\", overlay=true, initial_capital=1000, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=1)\nstrategy.exit(\"Bracket\", from_entry=\"Long\", stop=9, limit=12)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent_notes": [
         "Both bracket prices are touched by the second bar; Pyne's default explicit policy selects the stop side."
       ],
       "external_capture": {
         "provider": "tradingview",
-        "status": "not_captured",
+        "status": "captured",
+        "assertion": "parity",
+        "tolerance": 1e-09,
+        "values": {
+          "Position": [
+            0.0,
+            0.0
+          ],
+          "Equity": [
+            1000.0,
+            1000.0
+          ],
+          "Net Profit": [
+            0.0,
+            0.0
+          ],
+          "Open Profit": [
+            0.0,
+            0.0
+          ],
+          "Closed Trades": [
+            0.0,
+            1.0
+          ]
+        },
+        "bars": [
+          {
+            "time": 1780203600,
+            "open": 74144.3,
+            "high": 74180.1,
+            "low": 74018.1,
+            "close": 74027.9,
+            "volume": 1185.69
+          },
+          {
+            "time": 1780207200,
+            "open": 74027.8,
+            "high": 74077.5,
+            "low": 73958.1,
+            "close": 74020.0,
+            "volume": 1375.184
+          }
+        ],
         "notes": [
-          "Populate values from TradingView's exported plot data when an external capture is available."
+          "TradingView export 2026-05-31, BINANCE:BTCUSDT.P 60m, copied from I:\\sys\\下载\\BINANCE_BTCUSDT.P, 60_6e6dd.csv"
         ]
       },
       "bars": [
@@ -473,7 +515,7 @@
       "opentrades": [],
       "values": {
         "Position": [
-          1.0,
+          0.0,
           0.0
         ],
         "Equity": [
