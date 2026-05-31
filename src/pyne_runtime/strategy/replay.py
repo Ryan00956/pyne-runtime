@@ -348,7 +348,13 @@ def replay_strategy_orders(strategy: Any) -> None:
                     total_commission=total_commission,
                 )
                 order["_active"] = True
-                if order.get("type") == "exit" and self._process_orders_on_close:
+                if order.get("_fifo_close") and next_size != 0:
+                    current_avg = _position_avg_from_open_trades(open_trades, next_size)
+                if (
+                    order.get("type") == "exit"
+                    and self._process_orders_on_close
+                    and not order.get("_process_on_close_new_exit")
+                ):
                     same_bar_visible_fill = True
                 current_size = next_size
                 if current_size == 0:
@@ -711,6 +717,28 @@ def _order_position_after(
         return new_size, float(price)
     weighted = (abs(previous_size) * previous_avg + qty * float(price)) / abs(new_size)
     return new_size, weighted
+
+
+def _position_avg_from_open_trades(
+    open_trades: list[dict[str, Any]],
+    current_size: float,
+) -> float:
+    if current_size == 0:
+        return np.nan
+    side = "long" if current_size > 0 else "short"
+    total_qty = 0.0
+    weighted = 0.0
+    for trade in open_trades:
+        if trade.get("side") != side:
+            continue
+        qty = abs(float(trade.get("qty", 0.0)))
+        if qty <= 0:
+            continue
+        total_qty += qty
+        weighted += qty * float(trade.get("entry_price", np.nan))
+    if total_qty <= 0:
+        return np.nan
+    return weighted / total_qty
 
 
 def _values(value: Any, length: int) -> list[Any]:

@@ -805,6 +805,77 @@ plot(strategy.closedtrades.profit(1), "Next Closed Profit")
     assert result.values("Next Closed Profit") == [0.0, 0.0, 0.0, 0.0]
 
 
+def test_strategy_process_orders_on_close_new_exit_uses_close_and_fifo_visibility() -> None:
+    result = pn.run(
+        """
+strategy("Process Exit", overlay=True, initial_capital=1000, pyramiding=2, process_orders_on_close=True)
+strategy.entry("A", strategy.long, qty=1, when=bar_index == 0, price=close)
+strategy.entry("B", strategy.long, qty=2, when=bar_index == 1, price=close)
+strategy.exit("Exit B Half", from_entry="B", qty_percent=50, limit=1, when=bar_index == 2)
+plot(strategy.position_size, "Position")
+plot(strategy.equity, "Equity")
+plot(strategy.netprofit, "Net Profit")
+plot(strategy.openprofit, "Open Profit")
+plot(strategy.closedtrades, "Closed Trades")
+plot(strategy.opentrades, "Open Trades")
+plot(strategy.closedtrades.profit(0), "First Closed Profit")
+""",
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+            {"time": 2, "open": 10, "high": 12, "low": 9, "close": 11, "volume": 100},
+            {"time": 3, "open": 11, "high": 13, "low": 10, "close": 12, "volume": 100},
+            {"time": 4, "open": 12, "high": 14, "low": 11, "close": 13, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Position") == [0.0, 1.0, 3.0, 2.0]
+    assert result.values("Equity") == [1000.0, 1001.0, 1004.0, 1006.0]
+    assert result.values("Net Profit") == [0.0, 0.0, 0.0, 2.0]
+    assert result.values("Open Profit") == [0.0, 1.0, 4.0, 4.0]
+    assert result.values("Closed Trades") == [0.0, 0.0, 0.0, 1.0]
+    assert result.values("Open Trades") == [0.0, 1.0, 2.0, 1.0]
+    assert result.values("First Closed Profit") == [0.0, 0.0, 0.0, 2.0]
+    assert result.output["strategy"]["orders"][-1] == {
+        "time": 3,
+        "id": "Exit B Half",
+        "from_entry": "B",
+        "type": "exit",
+        "side": "flat",
+        "qty": 1.0,
+        "price": 12.0,
+        "position_after": 2.0,
+        "reason": "limit",
+        "comment": "",
+    }
+    assert result.output["strategy"]["closedtrades"] == [
+        {
+            "entry_time": 1,
+            "exit_time": 3,
+            "entry_id": "A",
+            "exit_id": "Exit B Half",
+            "side": "long",
+            "qty": 1.0,
+            "entry_price": 10.0,
+            "exit_price": 12.0,
+            "profit": 2.0,
+            "commission": 0.0,
+            "net_profit": 2.0,
+        }
+    ]
+    assert result.output["strategy"]["opentrades"] == [
+        {
+            "entry_time": 2,
+            "entry_id": "B",
+            "side": "long",
+            "qty": 2.0,
+            "entry_price": 11.0,
+            "profit": 4.0,
+        }
+    ]
+
+
 def test_strategy_margin_allows_leveraged_short_when_margin_percent_is_lower() -> None:
     result = pn.run(
         """

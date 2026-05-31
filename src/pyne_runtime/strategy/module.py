@@ -572,6 +572,7 @@ class StrategyModule:
         high_values = _price_values(self._context.high, self._context.high, self._context.bar_count)
         low_values = _price_values(self._context.low, self._context.low, self._context.bar_count)
         open_values = _price_values(self._context.open, self._context.open, self._context.bar_count)
+        close_values = _price_values(self._context.close, self._context.close, self._context.bar_count)
 
         for idx, flag in enumerate(flags):
             if not flag:
@@ -579,9 +580,12 @@ class StrategyModule:
             current_position = float(self._position_size[idx])
             if current_position == 0:
                 continue
+            process_on_close_new_exit = self._process_orders_on_close and (
+                idx == 0 or not flags[idx - 1]
+            )
             trigger = _exit_trigger(
                 current_position=current_position,
-                open_price=open_values[idx],
+                open_price=close_values[idx] if process_on_close_new_exit else open_values[idx],
                 high=high_values[idx],
                 low=low_values[idx],
                 stop=stops[idx],
@@ -618,6 +622,8 @@ class StrategyModule:
                 "_base_price": float(event_price),
                 "_requested_qty": qty_values[idx],
                 "_qty_percent": qty_percent_values[idx],
+                "_fifo_close": process_on_close_new_exit,
+                "_process_on_close_new_exit": process_on_close_new_exit,
                 "_seq": self._next_event_seq(),
             })
             self._touched = True

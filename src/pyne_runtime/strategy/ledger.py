@@ -149,7 +149,7 @@ def _record_fill(
     remaining_order_commission = float(commission)
     fill_side = "long" if signed_qty > 0 else "short"
     previous_side = "long" if previous_size > 0 else "short" if previous_size < 0 else ""
-    target_entry = _target_entry_id(order)
+    target_entry = "" if order.get("_fifo_close") else _target_entry_id(order)
     closes_existing = bool(previous_side and previous_side != fill_side)
 
     if closes_existing:
