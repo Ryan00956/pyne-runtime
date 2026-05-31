@@ -100,6 +100,7 @@ def replay_strategy_orders(strategy: Any) -> None:
             )
         risk_locked = drawdown_locked or intraday_locked or filled_orders_locked
         same_bar_visible_fill = False
+        bar_open_size = current_size
         if self._process_orders_on_close:
             _write_strategy_snapshot(
                 self,
@@ -356,6 +357,8 @@ def replay_strategy_orders(strategy: Any) -> None:
                     and not order.get("_process_on_close_new_exit")
                 ):
                     same_bar_visible_fill = True
+                if self._process_orders_on_close and order.get("_risk_liquidation"):
+                    same_bar_visible_fill = True
                 current_size = next_size
                 if current_size == 0:
                     current_avg = np.nan
@@ -557,6 +560,52 @@ def replay_strategy_orders(strategy: Any) -> None:
                         risk_locked = True
                 _apply_oca_after_fill(order, pending_orders)
             pending_orders = [item for item in remaining_pending if not item.get("_canceled")]
+        risk_liquidation = _risk_liquidation_reason(
+            self,
+            idx=idx,
+            current_size=current_size,
+            current_avg=current_avg,
+            bar_open_size=bar_open_size,
+            gross_profit=gross_profit,
+            gross_loss=gross_loss,
+            total_commission=total_commission,
+            peak_equity=peak_equity,
+            intraday_peak_equity=intraday_peak_equity,
+        )
+        if risk_liquidation is not None:
+            if risk_liquidation == "risk.max_drawdown":
+                drawdown_locked = True
+            else:
+                intraday_locked = True
+            risk_locked = True
+            if pending_orders:
+                for pending in pending_orders:
+                    pending["_canceled"] = True
+                    pending["_canceled_time"] = timestamp
+                    pending["_canceled_by"] = risk_liquidation
+                pending_orders = []
+            if current_size != 0:
+                (
+                    current_size,
+                    current_avg,
+                    gross_profit,
+                    gross_loss,
+                    total_commission,
+                    open_trades,
+                ) = _force_close_for_risk(
+                    self,
+                    idx=idx,
+                    timestamp=timestamp,
+                    reason=risk_liquidation,
+                    current_size=current_size,
+                    gross_profit=gross_profit,
+                    gross_loss=gross_loss,
+                    total_commission=total_commission,
+                    open_trades=open_trades,
+                    closed_trades=closed_trades,
+                )
+                same_direction_entry_count = 0
+                same_bar_visible_fill = True
         if not self._process_orders_on_close or same_bar_visible_fill:
             _write_strategy_snapshot(
                 self,
@@ -602,6 +651,110 @@ def replay_strategy_orders(strategy: Any) -> None:
         gross_loss=gross_loss,
         total_commission=total_commission,
     )
+
+
+def _risk_liquidation_reason(
+    strategy: Any,
+    *,
+    idx: int,
+    current_size: float,
+    current_avg: float,
+    bar_open_size: float,
+    gross_profit: float,
+    gross_loss: float,
+    total_commission: float,
+    peak_equity: float,
+    intraday_peak_equity: float,
+) -> str | None:
+    if current_size == 0:
+        return None
+
+    if strategy._process_orders_on_close and bar_open_size == 0:
+        risk_price = float(strategy._context.close.values[idx])
+    else:
+        risk_price = (
+            float(strategy._context.low.values[idx])
+            if current_size > 0
+            else float(strategy._context.high.values[idx])
+        )
+    net_profit = gross_profit + gross_loss - total_commission
+    equity = strategy._initial_capital + net_profit + _open_profit(
+        current_size,
+        current_avg,
+        risk_price,
+    )
+    if strategy._max_drawdown_value is not None and _max_drawdown_hit(
+        equity=float(equity),
+        peak_equity=peak_equity,
+        threshold=strategy._max_drawdown_value,
+        risk_type=strategy._max_drawdown_type,
+    ):
+        return "risk.max_drawdown"
+    if strategy._max_intraday_loss_value is not None and _max_drawdown_hit(
+        equity=float(equity),
+        peak_equity=intraday_peak_equity,
+        threshold=strategy._max_intraday_loss_value,
+        risk_type=strategy._max_intraday_loss_type,
+    ):
+        return "risk.max_intraday_loss"
+    return None
+
+
+def _force_close_for_risk(
+    strategy: Any,
+    *,
+    idx: int,
+    timestamp: int,
+    reason: str,
+    current_size: float,
+    gross_profit: float,
+    gross_loss: float,
+    total_commission: float,
+    open_trades: list[dict[str, Any]],
+    closed_trades: list[dict[str, Any]],
+) -> tuple[float, float, float, float, float, list[dict[str, Any]]]:
+    fill_qty = abs(current_size)
+    fill_side = "sell" if current_size > 0 else "buy"
+    risk_price = (
+        float(strategy._context.low.values[idx])
+        if current_size > 0
+        else float(strategy._context.high.values[idx])
+    )
+    fill_price = strategy._fill_price(risk_price, fill_side)
+    order = {
+        "time": timestamp,
+        "id": reason,
+        "type": "close_all",
+        "side": "flat",
+        "qty": round(fill_qty, 8),
+        "price": round(float(fill_price), 8),
+        "position_after": 0.0,
+        "comment": "",
+        "_active": True,
+        "_filled_qty": round(fill_qty, 8),
+        "_requested_fill_qty": round(fill_qty, 8),
+        "_target_qty": round(fill_qty, 8),
+        "_risk_liquidation": True,
+        "_submit_time": timestamp,
+        "_seq": strategy._next_event_seq(),
+    }
+    strategy._collector.strategy_orders.append(order)
+    commission = strategy._apply_commission(order, qty=fill_qty, price=fill_price)
+    signed_qty = -fill_qty if current_size > 0 else fill_qty
+    gross_profit, gross_loss, total_commission, open_trades = _record_fill(
+        order=order,
+        signed_qty=signed_qty,
+        previous_size=current_size,
+        fill_price=fill_price,
+        next_size=0.0,
+        commission=commission,
+        open_trades=open_trades,
+        closed_trades=closed_trades,
+        gross_profit=gross_profit,
+        gross_loss=gross_loss,
+        total_commission=total_commission,
+    )
+    return 0.0, np.nan, gross_profit, gross_loss, total_commission, open_trades
 
 
 def _write_strategy_snapshot(

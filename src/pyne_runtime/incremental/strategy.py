@@ -207,6 +207,7 @@ class IncrementalStrategyNamespace:
         self._drawdown_locked = False
         self._intraday_locked = False
         self._filled_orders_locked = False
+        self._risk_liquidating = False
         self._peak_equity = self._initial_capital
         self._intraday_peak_equity = self._initial_capital
         self._intraday_filled_orders = 0
@@ -223,8 +224,8 @@ class IncrementalStrategyNamespace:
             self._pyramiding = max(int(kwargs["pyramiding"]), 0)
         if "initial_capital" in kwargs:
             self._initial_capital = float(kwargs["initial_capital"])
-            self._peak_equity = max(self._peak_equity, self._initial_capital)
-            self._intraday_peak_equity = max(self._intraday_peak_equity, self._initial_capital)
+            self._peak_equity = self._initial_capital
+            self._intraday_peak_equity = self._initial_capital
         if "currency" in kwargs:
             self._currency = str(kwargs["currency"] or "")
         if "slippage" in kwargs:
@@ -257,7 +258,8 @@ class IncrementalStrategyNamespace:
 
     @property
     def position_size(self) -> float:
-        return _round8(sum(_signed_trade_qty(trade) for trade in self._open_trades))
+        self._sync_risk_liquidation()
+        return self._raw_position_size()
 
     @property
     def position_avg_price(self) -> float | None:
@@ -280,16 +282,19 @@ class IncrementalStrategyNamespace:
 
     @property
     def netprofit(self) -> float:
+        self._sync_risk_liquidation()
         return _round8(self._grossprofit + self._grossloss - self._commission)
 
     @property
     def openprofit(self) -> float:
+        self._sync_risk_liquidation()
         return _round8(
             sum(_trade_open_profit(trade, self._current_price()) for trade in self._open_trades)
         )
 
     @property
     def equity(self) -> float:
+        self._sync_risk_liquidation()
         return _round8(self._initial_capital + self.netprofit + self.openprofit)
 
     @property
@@ -323,6 +328,7 @@ class IncrementalStrategyNamespace:
         self._pending_exit_orders = still_pending_exits
 
     def end_bar(self) -> None:
+        self._sync_risk_liquidation()
         equity = self.equity
         self._peak_equity = max(self._peak_equity, equity)
         self._intraday_peak_equity = max(self._intraday_peak_equity, equity)
@@ -1003,6 +1009,104 @@ class IncrementalStrategyNamespace:
         self._risk_locked = (
             self._drawdown_locked or self._intraday_locked or self._filled_orders_locked
         )
+
+    def _raw_position_size(self) -> float:
+        return _round8(sum(_signed_trade_qty(trade) for trade in self._open_trades))
+
+    def _sync_risk_liquidation(self) -> None:
+        if self._risk_liquidating:
+            return
+        self._risk_liquidating = True
+        try:
+            risk_liquidation = self._risk_liquidation_reason()
+            if risk_liquidation is None:
+                return
+            if risk_liquidation == "risk.max_drawdown":
+                self._drawdown_locked = True
+            else:
+                self._intraday_locked = True
+            self._cancel_pending(lambda order: True, canceled_by=risk_liquidation)
+            self._pending_exit_orders = []
+            self._force_close_for_risk(risk_liquidation)
+            self._sync_risk_locked()
+        finally:
+            self._risk_liquidating = False
+
+    def _risk_liquidation_reason(self) -> str | None:
+        position_size = self._raw_position_size()
+        if position_size == 0 or self._context.current_bar is None:
+            return None
+        risk_price = (
+            float(self._context.current_bar.low)
+            if position_size > 0
+            else float(self._context.current_bar.high)
+        )
+        equity = _round8(
+            self._initial_capital
+            + self._grossprofit
+            + self._grossloss
+            - self._commission
+            + sum(_trade_open_profit(trade, risk_price) for trade in self._open_trades)
+        )
+        if self._max_drawdown_value is not None and _max_drawdown_hit(
+            equity=equity,
+            peak_equity=self._peak_equity,
+            threshold=self._max_drawdown_value,
+            risk_type=self._max_drawdown_type,
+        ):
+            return "risk.max_drawdown"
+        if self._max_intraday_loss_value is not None and _max_drawdown_hit(
+            equity=equity,
+            peak_equity=self._intraday_peak_equity,
+            threshold=self._max_intraday_loss_value,
+            risk_type=self._max_intraday_loss_type,
+        ):
+            return "risk.max_intraday_loss"
+        return None
+
+    def _force_close_for_risk(self, reason: str) -> None:
+        if not self._open_trades or self._context.current_bar is None:
+            return
+        current_size = self._raw_position_size()
+        fill_qty = abs(current_size)
+        fill_side = "sell" if current_size > 0 else "buy"
+        risk_price = (
+            float(self._context.current_bar.low)
+            if current_size > 0
+            else float(self._context.current_bar.high)
+        )
+        fill_price = self._fill_price(risk_price, fill_side)
+        order_commission = self._commission_amount(qty=fill_qty, price=fill_price)
+        if order_commission > 0:
+            self._commission += order_commission
+        closed_qty, _ = self._close_lots(
+            id="",
+            exit_id=reason,
+            target_qty=fill_qty,
+            fill_price=fill_price,
+            order_commission=order_commission,
+            order_fill_qty=fill_qty,
+        )
+        if abs(closed_qty) <= 0:
+            return
+        order = {
+            "time": self._current_time(),
+            "id": reason,
+            "type": "close_all",
+            "side": "flat",
+            "qty": _round8(abs(closed_qty)),
+            "price": _round8(fill_price),
+            "position_after": self._raw_position_size(),
+            "comment": "",
+            "_seq": self._next_seq(),
+            "_target_qty": _round8(fill_qty),
+            "_requested_fill_qty": _round8(fill_qty),
+            "_filled_qty": _round8(abs(closed_qty)),
+            "_risk_liquidation": True,
+        }
+        if order_commission > 0:
+            order["commission"] = _round8(order_commission)
+        self._orders.append(order)
 
     def _position_after_fill(
         self,

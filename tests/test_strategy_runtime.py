@@ -240,18 +240,18 @@ plot(strategy.equity, "Equity")
             "comment": "",
         },
         {
-            "time": 3,
-            "id": "close_all",
+            "time": 2,
+            "id": "risk.max_drawdown",
             "type": "close_all",
             "side": "flat",
             "qty": 10.0,
-            "price": 90.0,
+            "price": 89.0,
             "position_after": 0.0,
             "comment": "",
         },
     ]
-    assert result.values("Position") == [10.0, 10.0, 0.0, 0.0]
-    assert result.values("Equity") == [1000.0, 900.0, 900.0, 900.0]
+    assert result.values("Position") == [10.0, 0.0, 0.0, 0.0]
+    assert result.values("Equity") == [1000.0, 890.0, 890.0, 890.0]
     assert result.output["strategy"]["risk"] == {
         "locked": True,
         "max_drawdown": 5.0,
@@ -281,8 +281,11 @@ plot(strategy.position_size, "Position")
     )
 
     assert result.ok
-    assert [order["id"] for order in result.output["strategy"]["orders"]] == ["Long"]
-    assert result.values("Position") == [1.0, 1.0, 1.0]
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == [
+        "Long",
+        "risk.max_drawdown",
+    ]
+    assert result.values("Position") == [1.0, 0.0, 0.0]
     assert result.output["strategy"]["risk"]["max_drawdown_type"] == "cash"
 
 
@@ -326,10 +329,10 @@ plot(strategy.position_size, "Position")
     assert result.ok
     assert [order["id"] for order in result.output["strategy"]["orders"]] == [
         "Long",
-        "close_all",
+        "risk.max_intraday_loss",
         "Reset Long",
     ]
-    assert result.values("Position") == [10.0, 10.0, 0.0, 1.0, 1.0]
+    assert result.values("Position") == [10.0, 0.0, 0.0, 1.0, 1.0]
     assert result.output["strategy"]["risk"] == {
         "locked": False,
         "max_drawdown": None,
@@ -359,8 +362,11 @@ plot(strategy.position_size, "Position")
     )
 
     assert result.ok
-    assert [order["id"] for order in result.output["strategy"]["orders"]] == ["Long"]
-    assert result.values("Position") == [1.0, 1.0, 1.0]
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == [
+        "Long",
+        "risk.max_intraday_loss",
+    ]
+    assert result.values("Position") == [1.0, 0.0, 0.0]
     assert result.output["strategy"]["risk"]["max_intraday_loss_type"] == "cash"
 
 
