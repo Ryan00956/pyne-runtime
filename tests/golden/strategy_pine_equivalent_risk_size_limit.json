@@ -542,9 +542,83 @@
       ],
       "external_capture": {
         "provider": "tradingview",
-        "status": "not_captured",
+        "status": "captured",
+        "assertion": "parity",
+        "tolerance": 1e-09,
+        "values": {
+          "Position": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Equity": [
+            1000.0,
+            1000.0,
+            1000.0,
+            1000.0
+          ],
+          "Net Profit": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Open Profit": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Closed Trades": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Closed Commission": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "bars": [
+          {
+            "time": 1780282800,
+            "open": 73766.2,
+            "high": 73998.8,
+            "low": 73692.9,
+            "close": 73731.3,
+            "volume": 3361.378
+          },
+          {
+            "time": 1780286400,
+            "open": 73731.4,
+            "high": 73815.9,
+            "low": 73307.7,
+            "close": 73497.6,
+            "volume": 4968.162
+          },
+          {
+            "time": 1780290000,
+            "open": 73497.5,
+            "high": 73507.9,
+            "low": 73283.5,
+            "close": 73319.5,
+            "volume": 2267.135
+          },
+          {
+            "time": 1780293600,
+            "open": 73319.5,
+            "high": 73339.3,
+            "low": 72917.0,
+            "close": 73106.6,
+            "volume": 7954.82
+          }
+        ],
         "notes": [
-          "Populate values from TradingView's exported plot data when an external capture is available."
+          "TradingView export 2026-06-01, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_2f5b3.csv"
         ]
       },
       "bars": [
