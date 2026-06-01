@@ -328,7 +328,7 @@
     {
       "name": "oca_reduce_waits_for_intraday_risk_reset",
       "source": "Pyne-defined OCA reduce plus intraday-risk strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent OCA Reduce Risk Reset\", overlay=True, initial_capital=1000)\nstrategy.risk.max_intraday_loss(5, strategy.percent_of_equity)\nstrategy.entry(\"Long\", strategy.long, qty=10, when=bar_index == 0, price=close)\nstrategy.entry(\"First\", strategy.long, qty=1, when=bar_index == 0, stop=120, oca_name=\"scale\", oca_type=strategy.oca.reduce)\nstrategy.order(\"Second\", strategy.long, qty=2, when=bar_index == 0, stop=125, oca_name=\"scale\", oca_type=strategy.oca.reduce)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.opentrades, \"Open Trades\")\n",
+      "script": "strategy(\"Pine Equivalent OCA Reduce Risk Reset\", overlay=True, initial_capital=1000, process_orders_on_close=True)\nstrategy.risk.max_intraday_loss(5, strategy.percent_of_equity)\nstrategy.entry(\"Long\", strategy.long, qty=10, when=bar_index == 0, price=close)\nstrategy.entry(\"First\", strategy.long, qty=1, when=bar_index == 0, stop=120, oca_name=\"scale\", oca_type=strategy.oca.reduce)\nstrategy.order(\"Second\", strategy.long, qty=2, when=bar_index == 0, stop=125, oca_name=\"scale\", oca_type=strategy.oca.reduce)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.opentrades, \"Open Trades\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent OCA Reduce Risk Reset\", overlay=true, initial_capital=1000, process_orders_on_close=true)\nstrategy.risk.max_intraday_loss(5, strategy.percent_of_equity)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=10)\n    strategy.entry(\"First\", strategy.long, qty=1, stop=120, oca_name=\"scale\", oca_type=strategy.oca.reduce)\n    strategy.order(\"Second\", strategy.long, qty=2, stop=125, oca_name=\"scale\", oca_type=strategy.oca.reduce)\nif bar_index == 2\n    strategy.close_all()\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.opentrades, \"Open Trades\")\n",
       "pine_equivalent_notes": [
         "The pending OCA reduce group is submitted before the intraday risk lock.",
@@ -337,9 +337,97 @@
       ],
       "external_capture": {
         "provider": "tradingview",
-        "status": "not_captured",
+        "status": "captured",
+        "assertion": "parity",
+        "tolerance": 1e-09,
+        "values": {
+          "Position": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Equity": [
+            1000.0,
+            -41.600000000034925,
+            -41.600000000034925,
+            -41.600000000034925,
+            -41.600000000034925
+          ],
+          "Net Profit": [
+            0.0,
+            -1041.600000000035,
+            -1041.600000000035,
+            -1041.600000000035,
+            -1041.600000000035
+          ],
+          "Open Profit": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Closed Trades": [
+            0.0,
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "Open Trades": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "bars": [
+          {
+            "time": 1780275600,
+            "open": 73854.9,
+            "high": 73890.0,
+            "low": 73235.0,
+            "close": 73257.8,
+            "volume": 5614.578
+          },
+          {
+            "time": 1780279200,
+            "open": 73257.9,
+            "high": 73865.0,
+            "low": 73171.0,
+            "close": 73766.3,
+            "volume": 5651.739
+          },
+          {
+            "time": 1780282800,
+            "open": 73766.2,
+            "high": 73998.8,
+            "low": 73692.9,
+            "close": 73731.3,
+            "volume": 3361.378
+          },
+          {
+            "time": 1780286400,
+            "open": 73731.4,
+            "high": 73815.9,
+            "low": 73307.7,
+            "close": 73497.6,
+            "volume": 4968.162
+          },
+          {
+            "time": 1780290000,
+            "open": 73497.5,
+            "high": 73507.9,
+            "low": 73283.5,
+            "close": 73319.5,
+            "volume": 2267.135
+          }
+        ],
         "notes": [
-          "Populate values from TradingView's exported plot data when an external capture is available."
+          "TradingView export 2026-06-01, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_26b78.csv"
         ]
       },
       "bars": [
@@ -548,18 +636,18 @@
       ],
       "values": {
         "Position": [
-          10.0,
           0.0,
           0.0,
-          1.0,
-          2.0
+          0.0,
+          0.0,
+          1.0
         ],
         "Equity": [
           1000.0,
           890.0,
           890.0,
           890.0,
-          897.0
+          896.0
         ],
         "Net Profit": [
           0.0,
@@ -573,7 +661,7 @@
           0.0,
           0.0,
           0.0,
-          7.0
+          6.0
         ],
         "Closed Trades": [
           0.0,
@@ -583,19 +671,19 @@
           1.0
         ],
         "Open Trades": [
-          1.0,
           0.0,
           0.0,
-          1.0,
-          2.0
+          0.0,
+          0.0,
+          1.0
         ]
       },
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
-        "equity": 897.0,
+        "equity": 896.0,
         "netprofit": -110.0,
-        "openprofit": 7.0,
+        "openprofit": 6.0,
         "grossprofit": 0.0,
         "grossloss": -110.0,
         "commission": 0.0,
