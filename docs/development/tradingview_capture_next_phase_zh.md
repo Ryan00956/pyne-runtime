@@ -8,7 +8,7 @@ TradingView-backed parity。
 ## 当前基线
 
 - Strategy pine-equivalent case 总数：27。
-- 当前 capture 状态：21 captured、6 not_captured、0 missing。
+- 当前 capture 状态：22 captured、5 not_captured、0 missing。
 - Priority case 总数：10。
 - Priority case 已完成：10/10 captured，且全部进入 parity gate。
 - 第二批非 priority case 已开始：`cash_per_order_slippage_round_trip`、
@@ -16,7 +16,8 @@ TradingView-backed parity。
   `same_bar_exit_limit_first`、`intrabar_path_high_low_exit`、
   `intrabar_path_low_high_exit`、`oca_cancel_waits_for_intraday_risk_reset`、
   `oca_reduce_waits_for_intraday_risk_reset`、`limit_entry_then_close` 与
-  `stop_entry_then_close`、`global_drawdown_lock_rejects_entries` 已进入 parity gate。
+  `stop_entry_then_close`、`global_drawdown_lock_rejects_entries` 与
+  `max_position_size_caps_entry` 已进入 parity gate。
 - 所有 case 已具备 `external_capture` contract。
 - `strategy_capture_scaffold.py --check` 已被测试保护。
 - 已有工具：
@@ -86,7 +87,7 @@ TradingView-backed parity。
 
 ### G4: 全量 Strategy Capture
 
-priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。当前剩余 6 个。
+priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。当前剩余 5 个。
 
 完成标准：
 
@@ -338,7 +339,7 @@ Priority 完成后，按以下顺序推进剩余 case：
 3. `strategy_pine_equivalent_exit_path.json`
 4. `strategy_pine_equivalent_oca_risk.json`
 5. `strategy_pine_equivalent_risk_size_limit.json`（`global_drawdown_lock_rejects_entries`
-   已 captured/parity）
+   与 `max_position_size_caps_entry` 已 captured/parity）
 6. `strategy_pine_equivalent_short_paths.json`
 
 全量 27/27 captured 后，再回到非 strategy 方向：

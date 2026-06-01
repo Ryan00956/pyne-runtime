@@ -277,17 +277,78 @@
     {
       "name": "max_position_size_caps_entry",
       "source": "Pyne-defined max position size strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent Max Position Size\", overlay=True, initial_capital=1000, pyramiding=2, commission_type=strategy.commission.cash_per_contract, commission_value=0.25)\nstrategy.risk.max_position_size(3)\nstrategy.entry(\"Long\", strategy.long, qty=5, when=bar_index == 0, price=close)\nstrategy.entry(\"More\", strategy.long, qty=2, when=bar_index == 1, price=close)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
+      "script": "strategy(\"Pine Equivalent Max Position Size\", overlay=True, initial_capital=1000, pyramiding=2, commission_type=strategy.commission.cash_per_contract, commission_value=0.25, process_orders_on_close=True)\nstrategy.risk.max_position_size(3)\nstrategy.entry(\"Long\", strategy.long, qty=5, when=bar_index == 0, price=close)\nstrategy.entry(\"More\", strategy.long, qty=2, when=bar_index == 1, price=close)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Max Position Size\", overlay=true, initial_capital=1000, pyramiding=2, commission_type=strategy.commission.cash_per_contract, commission_value=0.25, process_orders_on_close=true)\nstrategy.risk.max_position_size(3)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=5)\nif bar_index == 1\n    strategy.entry(\"More\", strategy.long, qty=2)\nif bar_index == 2\n    strategy.close_all()\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
       "pine_equivalent_notes": [
         "max_position_size caps the first requested entry from 5 contracts to 3 contracts.",
-        "The later same-direction entry is rejected because the capped position is already at the configured maximum."
+        "The later same-direction entry is rejected because the capped position is already at the configured maximum.",
+        "process_orders_on_close=true delays market order visibility to the next plotted bar."
       ],
       "external_capture": {
         "provider": "tradingview",
-        "status": "not_captured",
+        "status": "captured",
+        "assertion": "parity",
+        "tolerance": 1e-09,
+        "values": {
+          "Position": [
+            0.0,
+            3.0,
+            3.0
+          ],
+          "Equity": [
+            1000.0,
+            464.94999999998254,
+            -173.75
+          ],
+          "Net Profit": [
+            0.0,
+            -0.75,
+            -0.75
+          ],
+          "Open Profit": [
+            0.0,
+            -534.3000000000175,
+            -1173.0
+          ],
+          "Closed Trades": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Closed Commission": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "bars": [
+          {
+            "time": 1780286400,
+            "open": 73731.4,
+            "high": 73815.9,
+            "low": 73307.7,
+            "close": 73497.6,
+            "volume": 4968.162
+          },
+          {
+            "time": 1780290000,
+            "open": 73497.5,
+            "high": 73507.9,
+            "low": 73283.5,
+            "close": 73319.5,
+            "volume": 2267.135
+          },
+          {
+            "time": 1780293600,
+            "open": 73319.5,
+            "high": 73339.3,
+            "low": 72917.0,
+            "close": 73106.6,
+            "volume": 7954.82
+          }
+        ],
         "notes": [
-          "Populate values from TradingView's exported plot data when an external capture is available."
+          "TradingView export 2026-06-01, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_7fafe.csv"
         ]
       },
       "bars": [
@@ -415,42 +476,42 @@
       "opentrades": [],
       "values": {
         "Position": [
+          0.0,
           3.0,
-          3.0,
-          0.0
+          3.0
         ],
         "Equity": [
-          999.25,
+          1000.0,
           1002.25,
-          1004.5
+          1005.25
         ],
         "Net Profit": [
+          0.0,
           -0.75,
-          -0.75,
-          4.5
+          -0.75
         ],
         "Open Profit": [
           0.0,
           3.0,
-          0.0
+          6.0
         ],
         "Closed Trades": [
           0.0,
           0.0,
-          1.0
+          0.0
         ],
         "Closed Commission": [
-          1.5,
-          1.5,
-          1.5
+          0.0,
+          0.0,
+          0.0
         ]
       },
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
-        "equity": 1004.5,
-        "netprofit": 4.5,
-        "openprofit": 0.0,
+        "equity": 1005.25,
+        "netprofit": -0.75,
+        "openprofit": 6.0,
         "grossprofit": 6.0,
         "grossloss": 0.0,
         "commission": 1.5,
