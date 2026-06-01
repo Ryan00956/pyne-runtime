@@ -25,8 +25,8 @@ def test_strategy_capture_status_json_report() -> None:
     report = json.loads(completed.stdout)
 
     assert report["counts"]["total"] == 27
-    assert report["counts"]["captured"] == 19
-    assert report["counts"]["not_captured"] == 8
+    assert report["counts"]["captured"] == 20
+    assert report["counts"]["not_captured"] == 7
     assert report["counts"]["missing"] == 0
     assert report["counts"]["priority_total"] == 10
     assert report["counts"]["priority_captured"] == 10

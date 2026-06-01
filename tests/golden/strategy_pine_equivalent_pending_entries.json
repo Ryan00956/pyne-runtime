@@ -230,7 +230,7 @@
     {
       "name": "stop_entry_then_close",
       "source": "Pyne-defined pending stop-entry strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent Stop Entry\", overlay=True, initial_capital=1000, pyramiding=0)\nstrategy.entry(\"StopLong\", strategy.long, qty=1, when=bar_index == 0, stop=12)\nstrategy.close(\"StopLong\", when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
+      "script": "strategy(\"Pine Equivalent Stop Entry\", overlay=True, initial_capital=1000, pyramiding=0, process_orders_on_close=True)\nstrategy.entry(\"StopLong\", strategy.long, qty=1, when=bar_index == 0, stop=12)\nstrategy.close(\"StopLong\", when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Stop Entry\", overlay=true, initial_capital=1000, pyramiding=0, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"StopLong\", strategy.long, qty=1, stop=12)\nif bar_index == 2\n    strategy.close(\"StopLong\")\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\n",
       "pine_equivalent_notes": [
         "Uses process_orders_on_close=true and a close pinned with price=close on the Pyne side to keep the exit deterministic.",
@@ -238,9 +238,64 @@
       ],
       "external_capture": {
         "provider": "tradingview",
-        "status": "not_captured",
+        "status": "captured",
+        "assertion": "parity",
+        "tolerance": 1e-09,
+        "values": {
+          "Position": [
+            0.0,
+            1.0,
+            1.0
+          ],
+          "Equity": [
+            1000.0,
+            821.8999999999942,
+            609.0
+          ],
+          "Net Profit": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Open Profit": [
+            0.0,
+            -178.10000000000582,
+            -391.0
+          ],
+          "Closed Trades": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "bars": [
+          {
+            "time": 1780286400,
+            "open": 73731.4,
+            "high": 73815.9,
+            "low": 73307.7,
+            "close": 73497.6,
+            "volume": 4968.162
+          },
+          {
+            "time": 1780290000,
+            "open": 73497.5,
+            "high": 73507.9,
+            "low": 73283.5,
+            "close": 73319.5,
+            "volume": 2267.135
+          },
+          {
+            "time": 1780293600,
+            "open": 73319.5,
+            "high": 73339.3,
+            "low": 72917.0,
+            "close": 73106.6,
+            "volume": 7954.82
+          }
+        ],
         "notes": [
-          "Populate values from TradingView's exported plot data when an external capture is available."
+          "TradingView export 2026-06-01, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_6570e.csv"
         ]
       },
       "bars": [
@@ -350,36 +405,36 @@
       "values": {
         "Position": [
           0.0,
-          1.0,
-          0.0
+          0.0,
+          1.0
         ],
         "Equity": [
           1000.0,
-          1000.1,
+          1000.0,
           1001.0
         ],
         "Net Profit": [
           0.0,
           0.0,
-          1.0
+          0.0
         ],
         "Open Profit": [
           0.0,
-          0.1,
-          0.0
+          0.0,
+          1.0
         ],
         "Closed Trades": [
           0.0,
           0.0,
-          1.0
+          0.0
         ]
       },
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
         "equity": 1001.0,
-        "netprofit": 1.0,
-        "openprofit": 0.0,
+        "netprofit": 0.0,
+        "openprofit": 1.0,
         "grossprofit": 1.0,
         "grossloss": 0.0,
         "commission": 0.0,
