@@ -36,7 +36,7 @@ def test_ta_capture_prepare_priority_manifest(tmp_path: Path) -> None:
     assert first["status"] == "captured"
     assert first["bar_count"] == 10
     assert first["capture_index_title"] == "Pyne Capture Index"
-    assert "--assertion reference" in first["diff_command"]
+    assert "--assertion parity" in first["diff_command"]
 
     pine_text = (out_dir / first["pine_file"]).read_text(encoding="utf-8")
     assert pine_text.startswith("//@version=5\n_pyne_capture_bars = 10\n")

@@ -71,6 +71,18 @@ def test_highest_lowest_ignore_invalid_period_without_empty_window_error() -> No
     assert all(math.isnan(value) for value in lowest.values)
 
 
+def test_highest_lowest_use_available_warmup_history() -> None:
+    source = pn.PyneSeries([3.0, 1.0, 5.0, 2.0], name="close")
+
+    highest = utils.highest(source, 3)
+    lowest = utils.lowest(source, 3)
+
+    assert isinstance(highest, pn.PyneSeries)
+    assert isinstance(lowest, pn.PyneSeries)
+    assert list(highest.values) == [3.0, 3.0, 5.0, 5.0]
+    assert list(lowest.values) == [3.0, 1.0, 1.0, 1.0]
+
+
 def test_macd_and_bollinger_outputs_are_structured() -> None:
     result = pn.run(
         """
@@ -216,9 +228,9 @@ plot(highestbars(close, 3), "Top Level Highest Bars")
     )
 
     assert result.ok, result.error
-    assert _series_values(result, "Highest Bars") == [0.0, 0.0, 1.0, 2.0, 1.0]
-    assert _series_values(result, "Lowest Bars") == [1.0, 2.0, 0.0, 1.0, 0.0]
+    assert _series_values(result, "Highest Bars") == [0.0, -1.0, 0.0, 0.0, -1.0, -2.0, -1.0]
+    assert _series_values(result, "Lowest Bars") == [0.0, 0.0, -1.0, -2.0, 0.0, -1.0, 0.0]
     assert _series_values(result, "Bars Since") == [0.0, 0.0, 1.0, 0.0, 1.0]
     assert _series_values(result, "Last Condition Close") == [5.0, 5.0, 5.0, 4.0, 4.0]
     assert _series_values(result, "Previous Condition Close") == [5.0, 5.0, 5.0, 5.0]
-    assert _series_values(result, "Top Level Highest Bars") == [0.0, 0.0, 1.0, 2.0, 1.0]
+    assert _series_values(result, "Top Level Highest Bars") == [0.0, -1.0, 0.0, 0.0, -1.0, -2.0, -1.0]

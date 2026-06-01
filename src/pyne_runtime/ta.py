@@ -236,20 +236,24 @@ class TaModule:
 
         alpha = 1.0 / period
 
-        # Seed with SMA
-        window = source[:period]
-        valid = window[~np.isnan(window)]
-        if len(valid) == 0:
-            return wrap_like(result, src)
-        seed = float(np.mean(valid))
-        result[period - 1] = seed
-
-        for i in range(period, n):
+        count = 0
+        seed_sum = 0.0
+        rma_value = np.nan
+        for i in range(n):
             val = source[i]
             if np.isnan(val):
-                result[i] = result[i - 1]
-            else:
-                result[i] = alpha * val + (1 - alpha) * result[i - 1]
+                if not np.isnan(rma_value):
+                    result[i] = rma_value
+                continue
+            if count < period:
+                count += 1
+                seed_sum += val
+                if count == period:
+                    rma_value = seed_sum / period
+                    result[i] = rma_value
+                continue
+            rma_value = alpha * val + (1 - alpha) * rma_value
+            result[i] = rma_value
 
         return wrap_like(result, src)
 
@@ -264,11 +268,8 @@ class TaModule:
         """
         source = to_numpy(src, dtype=np.float64)
         delta = to_numpy(utils.change(source, 1), dtype=np.float64)
-        gain = np.where(delta > 0, delta, 0.0)
-        loss = np.where(delta < 0, -delta, 0.0)
-        # First values are NaN from change()
-        gain[0] = 0.0
-        loss[0] = 0.0
+        gain = np.where(np.isnan(delta), np.nan, np.where(delta > 0, delta, 0.0))
+        loss = np.where(np.isnan(delta), np.nan, np.where(delta < 0, -delta, 0.0))
 
         avg_gain = self.rma(gain, period)
         avg_loss = self.rma(loss, period)
@@ -808,7 +809,8 @@ class TaModule:
         tr1 = high_arr - low_arr
         tr2 = np.abs(high_arr - prev_close)
         tr3 = np.abs(low_arr - prev_close)
-        return wrap_like(np.maximum(tr1, np.maximum(tr2, tr3)), high, low, close)
+        result = np.where(np.isnan(prev_close), tr1, np.maximum(tr1, np.maximum(tr2, tr3)))
+        return wrap_like(result, high, low, close)
 
     def atr(
         self,

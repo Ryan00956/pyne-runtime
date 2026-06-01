@@ -182,16 +182,19 @@ def highest(src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarra
         period: Lookback window size.
 
     Returns:
-        Array of rolling maximums. NaN for the first ``period-1`` bars.
+        Array of rolling maximums over the available history up to ``period`` bars.
     """
     source = to_numpy(src, dtype=np.float64)
     n = len(source)
     result = np.full(n, np.nan)
     if period <= 0:
         return wrap_like(result, src)
-    for i in range(period - 1, n):
-        window = source[i - period + 1: i + 1]
-        result[i] = np.nanmax(window)
+    for i in range(n):
+        start = max(0, i - period + 1)
+        window = source[start: i + 1]
+        valid = ~np.isnan(window)
+        if np.any(valid):
+            result[i] = np.nanmax(window)
     return wrap_like(result, src)
 
 
@@ -205,16 +208,19 @@ def lowest(src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray
         period: Lookback window size.
 
     Returns:
-        Array of rolling minimums. NaN for the first ``period-1`` bars.
+        Array of rolling minimums over the available history up to ``period`` bars.
     """
     source = to_numpy(src, dtype=np.float64)
     n = len(source)
     result = np.full(n, np.nan)
     if period <= 0:
         return wrap_like(result, src)
-    for i in range(period - 1, n):
-        window = source[i - period + 1: i + 1]
-        result[i] = np.nanmin(window)
+    for i in range(n):
+        start = max(0, i - period + 1)
+        window = source[start: i + 1]
+        valid = ~np.isnan(window)
+        if np.any(valid):
+            result[i] = np.nanmin(window)
     return wrap_like(result, src)
 
 
@@ -222,7 +228,8 @@ def highestbars(src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.nd
     """Bars back to the highest value in the last ``period`` bars.
 
     Pine equivalent: ``ta.highestbars(source, length)``.
-    Returns ``0`` when the current bar is the highest value. If the highest
+    Returns ``0`` when the current bar is the highest value, or a negative
+    offset when the most recent highest value is in the past. If the highest
     value appears more than once in the window, the most recent occurrence wins.
     """
     return _extreme_bars(src, period, highest=True)
@@ -232,7 +239,8 @@ def lowestbars(src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.nda
     """Bars back to the lowest value in the last ``period`` bars.
 
     Pine equivalent: ``ta.lowestbars(source, length)``.
-    Returns ``0`` when the current bar is the lowest value. If the lowest value
+    Returns ``0`` when the current bar is the lowest value, or a negative
+    offset when the most recent lowest value is in the past. If the lowest value
     appears more than once in the window, the most recent occurrence wins.
     """
     return _extreme_bars(src, period, highest=False)
@@ -245,15 +253,16 @@ def _extreme_bars(src: PyneSeries | np.ndarray, period: int, *, highest: bool) -
     if period <= 0:
         return wrap_like(result, src)
 
-    for idx in range(period - 1, n):
-        window = source[idx - period + 1: idx + 1]
+    for idx in range(n):
+        start = max(0, idx - period + 1)
+        window = source[start: idx + 1]
         valid = ~np.isnan(window)
         if not np.any(valid):
             continue
         target = np.nanmax(window) if highest else np.nanmin(window)
-        matches = np.where(window == target)[0]
+        matches = np.where((window == target) & valid)[0]
         if len(matches):
-            result[idx] = float(period - 1 - matches[-1])
+            result[idx] = float(matches[-1] - (len(window) - 1))
     return wrap_like(result, src)
 
 
