@@ -85,10 +85,8 @@ def test_strategy_capture_prepare_all_cases(tmp_path: Path) -> None:
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["default_scope"] == "all"
     assert manifest["case_count"] == 27
-    pending = next(
-        entry for entry in manifest["entries"] if entry["status"] == "not_captured"
-    )
-    assert "--assertion reference" in pending["diff_command"]
+    assert all(entry["status"] == "captured" for entry in manifest["entries"])
+    assert all("--assertion parity" in entry["diff_command"] for entry in manifest["entries"])
     for entry in manifest["entries"]:
         pine_text = (out_dir / entry["pine_file"]).read_text(encoding="utf-8")
         assert "mintick=" not in pine_text

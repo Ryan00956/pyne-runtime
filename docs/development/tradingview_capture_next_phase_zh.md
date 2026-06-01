@@ -8,7 +8,7 @@ TradingView-backed parity。
 ## 当前基线
 
 - Strategy pine-equivalent case 总数：27。
-- 当前 capture 状态：26 captured、1 not_captured、0 missing。
+- 当前 capture 状态：27 captured、0 not_captured、0 missing。
 - Priority case 总数：10。
 - Priority case 已完成：10/10 captured，且全部进入 parity gate。
 - 第二批非 priority case 已开始：`cash_per_order_slippage_round_trip`、
@@ -19,7 +19,7 @@ TradingView-backed parity。
   `stop_entry_then_close`、`global_drawdown_lock_rejects_entries`、
   `max_position_size_caps_entry` 与 `limit_verification_waits_for_tick_assumption`
   以及 `short_bracket_stop_first_costs`、`short_bracket_limit_first_costs`、
-  `short_max_position_size_caps_entry`
+  `short_max_position_size_caps_entry`、`short_oca_reduce_costs_use_reduced_quantity`
   已进入 parity gate。
 - 所有 case 已具备 `external_capture` contract。
 - `strategy_capture_scaffold.py --check` 已被测试保护。
@@ -90,7 +90,7 @@ TradingView-backed parity。
 
 ### G4: 全量 Strategy Capture
 
-priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。当前剩余 1 个。
+priority 10 个完成后，继续把剩余 17 个 case 推进到 captured。当前已完成。
 
 完成标准：
 
@@ -346,7 +346,7 @@ Priority 完成后，按以下顺序推进剩余 case：
    已 captured/parity）
 6. `strategy_pine_equivalent_short_paths.json`（`short_bracket_stop_first_costs`
    与 `short_bracket_limit_first_costs`、`short_max_position_size_caps_entry`
-   已 captured/parity）
+   和 `short_oca_reduce_costs_use_reduced_quantity` 已 captured/parity）
 
 全量 27/27 captured 后，再回到非 strategy 方向：
 

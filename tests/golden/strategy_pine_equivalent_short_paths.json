@@ -696,9 +696,89 @@
       ],
       "external_capture": {
         "provider": "tradingview",
-        "status": "not_captured",
+        "status": "captured",
+        "assertion": "parity",
+        "tolerance": 1e-09,
+        "values": {
+          "Position": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Equity": [
+            1000.0,
+            1000.0,
+            1000.0,
+            1000.0
+          ],
+          "Net Profit": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Open Profit": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Closed Trades": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "First Closed Commission": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Last Closed Commission": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "bars": [
+          {
+            "time": 1780293600,
+            "open": 73319.5,
+            "high": 73339.3,
+            "low": 72917.0,
+            "close": 73106.6,
+            "volume": 7954.82
+          },
+          {
+            "time": 1780297200,
+            "open": 73106.6,
+            "high": 73177.8,
+            "low": 72668.0,
+            "close": 72776.1,
+            "volume": 6817.045
+          },
+          {
+            "time": 1780300800,
+            "open": 72776.1,
+            "high": 72907.8,
+            "low": 72573.5,
+            "close": 72875.7,
+            "volume": 6995.32
+          },
+          {
+            "time": 1780304400,
+            "open": 72875.8,
+            "high": 73084.0,
+            "low": 72801.1,
+            "close": 72855.2,
+            "volume": 5876.471
+          }
+        ],
         "notes": [
-          "Populate values from TradingView's exported plot data when an external capture is available."
+          "TradingView export 2026-06-01, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_d910f.csv"
         ]
       },
       "bars": [

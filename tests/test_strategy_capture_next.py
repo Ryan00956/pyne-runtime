@@ -72,7 +72,7 @@ def test_strategy_capture_next_text_output() -> None:
     assert completed.stdout.strip() == "no pending capture task"
 
 
-def test_strategy_capture_next_all_uses_reference_diff_for_pending_case() -> None:
+def test_strategy_capture_next_all_reports_complete_when_all_cases_are_captured() -> None:
     completed = subprocess.run(
         [
             sys.executable,
@@ -87,6 +87,4 @@ def test_strategy_capture_next_all_uses_reference_diff_for_pending_case() -> Non
     )
 
     task = json.loads(completed.stdout)
-    assert task["status"] == "pending"
-    assert task["capture_status"] == "not_captured"
-    assert "--assertion reference" in task["diff_command"]
+    assert task == {"status": "complete", "message": "no pending capture task"}
