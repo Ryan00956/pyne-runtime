@@ -306,6 +306,10 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   `process_orders_on_close=true` 下 OCA reduce pending order 与 intraday risk
   reset 的组合行为；该 case 已提升为 `parity`。当前 strategy capture 聚合 diff 为
   `18 captured case(s), 115 plot(s), 337 point(s), 0 difference(s)`。
+- `limit_entry_then_close` 已导入 TradingView 60m export；在 BTCUSDT.P 60m
+  采集窗口内 limit entry 未触发，Pyne 与 TradingView 的空仓序列一致。该 case
+  已提升为 `parity`。当前 strategy capture 聚合 diff 为
+  `19 captured case(s), 120 plot(s), 352 point(s), 0 difference(s)`。
 - strategy pine-equivalent fixture 已加入 `external_capture` 可选字段约定；
   当 `status="captured"` 且包含 TradingView 导出的 plot `values` 时，golden
   runner 会把外部序列纳入断言。
@@ -332,8 +336,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议继续第二批 strategy capture 扩展：在已有 `18/27 captured`、
-`9 not_captured`、`0 missing` 的 contract 上，优先采集仍未被真实 TradingView
+下一步建议继续第二批 strategy capture 扩展：在已有 `19/27 captured`、
+`8 not_captured`、`0 missing` 的 contract 上，优先采集仍未被真实 TradingView
 导出覆盖的 pending entry、exit path、OCA/risk、risk/size/limit 与 short-side
 case。采集前仍使用 `strategy_capture_next.py`、`strategy_capture_prepare.py`、
 `strategy_capture_preflight.py`、`strategy_capture_import.py` 和
