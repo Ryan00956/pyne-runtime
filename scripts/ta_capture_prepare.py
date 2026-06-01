@@ -157,6 +157,7 @@ def render_capture_pine(fixture: dict[str, Any]) -> str:
         "_pyne_close = _pyne_capture_active ? close : na",
         "_pyne_volume = _pyne_capture_active ? volume : na",
         f'plot(_pyne_capture_active ? _pyne_capture_index : na, "{CAPTURE_INDEX_TITLE}")',
+        *render_pine_helpers(),
     ]
     for line in fixture.get("script", "").splitlines():
         translated = translate_script_line(line)
@@ -209,7 +210,146 @@ def replace_sources(expression: str) -> str:
     updated = expression
     for source, replacement in replacements.items():
         updated = re.sub(rf"\b{source}\b", replacement, updated)
+    updated = replace_implicit_context_calls(updated)
     return updated
+
+
+def replace_implicit_context_calls(expression: str) -> str:
+    updated = re.sub(
+        r"\bta\.atr\(([^()]*)\)",
+        r"_pyne_atr(_pyne_high, _pyne_low, _pyne_close, \1)",
+        expression,
+    )
+    updated = re.sub(
+        r"\bta\.dmi\(([^()]*)\)",
+        r"_pyne_dmi(_pyne_high, _pyne_low, _pyne_close, \1)",
+        updated,
+    )
+    updated = re.sub(
+        r"\bta\.sar\(([^()]*)\)",
+        r"_pyne_sar(_pyne_high, _pyne_low, _pyne_close, \1)",
+        updated,
+    )
+    updated = re.sub(
+        r"\bta\.supertrend\(([^()]*)\)",
+        r"_pyne_supertrend(_pyne_high, _pyne_low, _pyne_close, \1)",
+        updated,
+    )
+    updated = re.sub(
+        r"\bta\.vwma\(([^,()]+),\s*([^()]*)\)",
+        r"_pyne_vwma(\1, _pyne_volume, \2)",
+        updated,
+    )
+    updated = re.sub(
+        r"\bta\.mfi\(([^,()]+),\s*([^()]*)\)",
+        r"_pyne_mfi(\1, _pyne_volume, \2)",
+        updated,
+    )
+    return updated
+
+
+def render_pine_helpers() -> list[str]:
+    return [
+        "_pyne_tr(h, l, c) =>",
+        "    na(c[1]) ? h - l : math.max(h - l, math.max(math.abs(h - c[1]), math.abs(l - c[1])))",
+        "_pyne_atr(h, l, c, length) =>",
+        "    ta.rma(_pyne_tr(h, l, c), length)",
+        "_pyne_dmi(h, l, c, di_length, adx_smoothing) =>",
+        "    up = ta.change(h)",
+        "    down = -ta.change(l)",
+        "    plus_dm = na(up) ? na : (up > down and up > 0 ? up : 0)",
+        "    minus_dm = na(down) ? na : (down > up and down > 0 ? down : 0)",
+        "    trur = ta.rma(_pyne_tr(h, l, c), di_length)",
+        "    plus = fixnan(100 * ta.rma(plus_dm, di_length) / trur)",
+        "    minus = fixnan(100 * ta.rma(minus_dm, di_length) / trur)",
+        "    total = plus + minus",
+        "    adx = 100 * ta.rma(math.abs(plus - minus) / (total == 0 ? 1 : total), adx_smoothing)",
+        "    [plus, minus, adx]",
+        "_pyne_vwma(src, vol, length) =>",
+        "    ta.sma(src * vol, length) / ta.sma(vol, length)",
+        "_pyne_mfi(src, vol, length) =>",
+        "    raw_mf = src * vol",
+        "    pos_mf = ta.change(src) > 0 ? raw_mf : 0",
+        "    neg_mf = ta.change(src) < 0 ? raw_mf : 0",
+        "    pos_sum = math.sum(pos_mf, length)",
+        "    neg_sum = math.sum(neg_mf, length)",
+        "    neg_sum != 0 ? 100 - 100 / (1 + pos_sum / neg_sum) : 100",
+        "_pyne_supertrend(h, l, c, factor, atr_period) =>",
+        "    atr = _pyne_atr(h, l, c, atr_period)",
+        "    src = (h + l) / 2",
+        "    upper_band = src + factor * atr",
+        "    lower_band = src - factor * atr",
+        "    prev_lower_band = nz(lower_band[1])",
+        "    prev_upper_band = nz(upper_band[1])",
+        "    lower_band := lower_band > prev_lower_band or c[1] < prev_lower_band ? lower_band : prev_lower_band",
+        "    upper_band := upper_band < prev_upper_band or c[1] > prev_upper_band ? upper_band : prev_upper_band",
+        "    int direction = na",
+        "    float supertrend = na",
+        "    prev_supertrend = supertrend[1]",
+        "    if na(atr[1])",
+        "        direction := 1",
+        "    else if prev_supertrend == prev_upper_band",
+        "        direction := c > upper_band ? -1 : 1",
+        "    else",
+        "        direction := c < lower_band ? 1 : -1",
+        "    supertrend := direction == -1 ? lower_band : upper_band",
+        "    [supertrend, direction]",
+        "_pyne_sar(h, l, c, start, inc, max_af) =>",
+        "    var float result = na",
+        "    var float max_min = na",
+        "    var float acceleration = na",
+        "    var bool is_below = false",
+        "    bool is_first_trend_bar = false",
+        "    if na(h) or na(l) or na(c)",
+        "        result := na",
+        "        max_min := na",
+        "        acceleration := na",
+        "    else if na(result[1]) and not na(c[1])",
+        "        if c > c[1]",
+        "            is_below := true",
+        "            max_min := h",
+        "            result := l[1]",
+        "        else",
+        "            is_below := false",
+        "            max_min := l",
+        "            result := h[1]",
+        "        is_first_trend_bar := true",
+        "        acceleration := start",
+        "    else if not na(result[1])",
+        "        result := result[1] + acceleration * (max_min - result[1])",
+        "        if is_below",
+        "            if result > l",
+        "                is_first_trend_bar := true",
+        "                is_below := false",
+        "                result := math.max(h, max_min)",
+        "                max_min := l",
+        "                acceleration := start",
+        "        else",
+        "            if result < h",
+        "                is_first_trend_bar := true",
+        "                is_below := true",
+        "                result := math.min(l, max_min)",
+        "                max_min := h",
+        "                acceleration := start",
+        "        if not is_first_trend_bar",
+        "            if is_below",
+        "                if h > max_min",
+        "                    max_min := h",
+        "                    acceleration := math.min(acceleration + inc, max_af)",
+        "            else",
+        "                if l < max_min",
+        "                    max_min := l",
+        "                    acceleration := math.min(acceleration + inc, max_af)",
+        "        if is_below",
+        "            result := math.min(result, l[1])",
+        "            if not na(l[2])",
+        "                result := math.min(result, l[2])",
+        "        else",
+        "            result := math.max(result, h[1])",
+        "            if not na(h[2])",
+        "                result := math.max(result, h[2])",
+        "    result",
+    ]
 
 
 def write_bars_csv(path: Path, bars: list[dict[str, Any]]) -> None:

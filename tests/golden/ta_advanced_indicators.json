@@ -559,7 +559,7 @@
   },
   "external_capture": {
     "provider": "tradingview",
-    "status": "captured",
+    "status": "not_captured",
     "assertion": "reference",
     "tolerance": 1e-07,
     "series": {
@@ -1091,7 +1091,8 @@
     ],
     "notes": [
       "TradingView export 2026-06-01, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_daa1d.csv",
-      "Stored with 1e-7 tolerance to screen sub-display-precision float noise in non-parity reference diffs."
+      "Stored with 1e-7 tolerance to screen sub-display-precision float noise in non-parity reference diffs.",
+      "Invalidated on 2026-06-01 after discovering that the old capture Pine let implicit OHLC helpers such as ta.dmi() and ta.sar() read TradingView chart history instead of the isolated _pyne_* capture window."
     ]
   }
 }
