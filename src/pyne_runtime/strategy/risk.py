@@ -125,7 +125,7 @@ def _normalize_allowed_entry_direction(value: str) -> str:
         return StrategyDirection.short
     if normalized in {"none", "false", "off", "strategy.direction.none"}:
         return StrategyDirection.none
-    return StrategyDirection.all
+    raise ValueError("strategy.risk.allow_entry_in() direction is invalid")
 
 
 def _normalize_risk_mode(value: str) -> str:
@@ -139,7 +139,7 @@ def _normalize_risk_mode(value: str) -> str:
         return StrategyRiskMode.percent_of_equity
     if normalized in {"cash", "money", "strategy.cash", "strategy.risk.cash"}:
         return StrategyRiskMode.cash
-    return StrategyRiskMode.percent_of_equity
+    raise ValueError("strategy risk mode must be strategy.percent_of_equity or strategy.cash")
 
 
 def _max_drawdown_hit(

@@ -32,3 +32,40 @@ plot(src * mult, kind, color=col)
     assert names == {"Length", "Multiplier", "Show", "Type", "Color", "Source"}
     assert result.lines[0]["name"] == "SMA"
     assert result.lines[0]["data"][-1]["value"] == 10.5
+
+
+def test_params_namespace_is_read_only_and_separate_from_input_params() -> None:
+    result = pn.run(
+        """
+try:
+    params["Length"] = 9
+    readonly = 0
+except Exception:
+    readonly = 1
+length = input.int(2, "Length")
+plot(readonly, "Read Only")
+plot(length, "Length")
+""",
+        _bars(),
+        params={"Length": 5},
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Read Only") == [1.0, 1.0, 1.0]
+    assert result.values("Length") == [5.0, 5.0, 5.0]
+
+
+def test_input_source_identifies_named_derived_series() -> None:
+    result = pn.run(
+        """
+src = input.source(hlcc4, "Source")
+plot(src, "Selected")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.param_schema[0]["default"] == "hlcc4"
+    assert result.values("Selected")[-1] == (4 + 2.5 + 3.5 + 3.5) / 4

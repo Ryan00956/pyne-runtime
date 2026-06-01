@@ -20,8 +20,8 @@ from .series import wrap_like
 class PyneMath:
     """Pine-style math namespace. Injected as ``math`` in scripts."""
 
-    def __init__(self, *, mintick: float = 0.01) -> None:
-        self.mintick = float(mintick) if float(mintick) > 0 else 0.01
+    def __init__(self, *, mintick: float = 1.0) -> None:
+        self.mintick = float(mintick) if float(mintick) > 0 else 1.0
 
     def abs(self, x):
         return wrap_like(np.abs(x), x)

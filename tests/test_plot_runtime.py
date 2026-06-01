@@ -250,6 +250,22 @@ plot(volume, "Volume Columns", style=plot.style_columns, display=display.data_wi
     assert result.output["histograms"][0]["display"] == "data_window"
 
 
+def test_plot_color_series_is_serialized_per_point() -> None:
+    result = pn.run(
+        """
+colors = when(close > open, color.green, color.red)
+plot(close, "Close", color=colors)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    line = result.output["lines"][0]
+    assert line["per_bar_color"] is True
+    assert [point["color"] for point in line["data"]] == ["#26a69a", "#26a69a", "#26a69a"]
+
+
 def test_xloc_and_yloc_namespaces_are_injected_for_drawing_objects() -> None:
     result = pn.run(
         """
@@ -445,5 +461,5 @@ box.new(bar_index[1], high[1], bar_index, low)
     )
 
     assert not result.ok
-    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert result.code == "PYNE_OUTPUT_LIMIT_EXCEEDED"
     assert "Drawing object limit exceeded" in str(result.error)

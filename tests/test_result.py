@@ -68,3 +68,16 @@ def test_result_series_helpers_raise_for_unknown_name() -> None:
         assert "Missing" in str(exc)
     else:
         raise AssertionError("Expected KeyError for missing series")
+
+
+def test_result_to_frame_disambiguates_duplicate_series_names() -> None:
+    result = PyneResult(lines=[
+        {"name": "Close", "data": [{"time": 1, "value": 1.0}]},
+        {"name": "Close", "data": [{"time": 1, "value": 2.0}]},
+    ])
+
+    frame = result.to_frame()
+
+    assert frame.to_dict(orient="records") == [
+        {"time": 1, "Close": 1.0, "Close_2": 2.0},
+    ]

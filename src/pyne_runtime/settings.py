@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .metadata import normalize_session_info, normalize_symbol_info, normalize_timeframe_info
@@ -93,28 +93,13 @@ class PyneSettings:
         """Return a copy with a requested security mode override."""
         if security_mode is None:
             return self
-        return PyneSettings(
-            security_mode=security_mode,
-            executor_mode=self.executor_mode,
-            timeout_seconds=self.timeout_seconds,
-            process_grace_seconds=self.process_grace_seconds,
-            max_bars=self.max_bars,
-            max_output_series=self.max_output_series,
-            max_output_points=self.max_output_points,
-            max_drawing_objects=self.max_drawing_objects,
-            cache_max_items=self.cache_max_items,
-            allowed_imports=self.allowed_imports,
-            data_provider=self.data_provider,
-            syminfo=self.syminfo,
-            timeframe=self.timeframe,
-            session=self.session,
-        )
+        return replace(self, security_mode=security_mode)
 
 
 def normalize_security_mode(mode: str | None) -> str:
     normalized = (mode or "safe").strip().lower()
     if normalized not in SECURITY_MODES:
-        return "safe"
+        raise ValueError("security_mode must be 'safe', 'research', or 'unsafe'")
     return normalized
 
 

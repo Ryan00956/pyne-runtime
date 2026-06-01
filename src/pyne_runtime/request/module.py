@@ -239,18 +239,42 @@ class RequestModule:
                 )
             requested = []
             ignored_invalid_symbol = True
+        if not isinstance(requested, list):
+            raise PyneRequestError(
+                "request data provider must return a list of OHLCV bars",
+                code="PYNE_RUNTIME_ERROR",
+            )
+        for index, item in enumerate(requested):
+            if not isinstance(item, dict):
+                raise PyneRequestError(
+                    f"request data provider returned non-mapping bar at row {index}",
+                    code="PYNE_RUNTIME_ERROR",
+                )
+            if "time" not in item:
+                raise PyneRequestError(
+                    f"request data provider returned OHLCV bar without time at row {index}",
+                    code="PYNE_RUNTIME_ERROR",
+                )
         requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
         request_metadata = (
             _default_request_metadata(symbol, timeframe)
             if ignored_invalid_symbol
             else _request_metadata(self._provider, symbol, timeframe)
         )
-        requested_ctx = PyneContext.from_ohlcv(
-            requested,
-            syminfo=request_metadata["syminfo"],
-            timeframe=request_metadata["timeframe"],
-            session=request_metadata["session"],
-        )
+        try:
+            requested_ctx = PyneContext.from_ohlcv(
+                requested,
+                syminfo=request_metadata["syminfo"],
+                timeframe=request_metadata["timeframe"],
+                session=request_metadata["session"],
+                allow_empty=True,
+                require_unique_times=False,
+            )
+        except (TypeError, ValueError) as exc:
+            raise PyneRequestError(
+                f"request data provider returned invalid OHLCV: {exc}",
+                code="PYNE_RUNTIME_ERROR",
+            ) from exc
         cached = (requested, requested_ctx)
         if not ignored_invalid_symbol:
             self._requested_context_cache[key] = cached

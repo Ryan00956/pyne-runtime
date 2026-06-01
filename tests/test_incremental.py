@@ -7,7 +7,7 @@ def _bars() -> list[dict[str, float]]:
     return [
         {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.0, "volume": 100},
         {"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100},
-        {"time": 3, "open": 1, "high": 2, "low": 1, "close": 3.0, "volume": 100},
+        {"time": 3, "open": 1, "high": 3, "low": 1, "close": 3.0, "volume": 100},
     ]
 
 
@@ -28,6 +28,10 @@ def on_bar(ctx, bar):
     assert result.ok
     assert len(result.lines) == 1
     assert len(result.lines[0]["data"]) == 2
+
+
+def test_incremental_detection_ignores_invalid_syntax() -> None:
+    assert pn.is_incremental_pyne_script("if") is False
 
 
 def _line_values(result: object, line_id: str) -> list[float]:

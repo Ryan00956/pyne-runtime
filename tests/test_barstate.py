@@ -28,7 +28,7 @@ plot(time_close, "Time Close")
     assert result.values("Bar Index") == [0.0, 1.0, 2.0, 3.0]
     assert result.values("Last Bar Index") == [3.0, 3.0, 3.0, 3.0]
     assert result.values("Previous Time") == [10.0, 20.0, 30.0]
-    assert result.values("Time Close") == [20.0, 30.0, 40.0]
+    assert result.values("Time Close") == [20.0, 30.0, 40.0, 100.0]
 
 
 def test_explicit_time_close_is_preserved() -> None:

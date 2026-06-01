@@ -41,10 +41,18 @@ class PyneData:
     _ohlcv: tuple[dict[str, Any], ...]
 
     @classmethod
-    def from_ohlcv(cls, items: Iterable[dict[str, Any]], *, time_unit: str = "s") -> "PyneData":
+    def from_ohlcv(
+        cls,
+        items: Iterable[dict[str, Any]],
+        *,
+        time_unit: str = "s",
+        allow_empty: bool = False,
+        require_unique_times: bool = True,
+    ) -> "PyneData":
         bars = tuple(_normalize_bar(item, time_unit=time_unit) for item in items)
-        if not bars:
+        if not bars and not allow_empty:
             raise ValueError("PyneData requires at least one OHLCV bar")
+        _validate_bars(bars, require_unique_times=require_unique_times)
         return cls(bars)
 
     @classmethod
@@ -160,7 +168,7 @@ class PyneData:
 def coerce_ohlcv(data: Any) -> list[dict[str, Any]]:
     if isinstance(data, PyneData):
         return data.to_ohlcv()
-    if hasattr(data, "to_dict") and data.__class__.__module__.startswith("pandas"):
+    if _is_pandas_dataframe(data):
         return PyneData.from_pandas(data).to_ohlcv()
     if isinstance(data, (str, Path)):
         return PyneData.from_csv(data).to_ohlcv()
@@ -193,6 +201,38 @@ def _normalize_bar(item: dict[str, Any], *, time_unit: str) -> dict[str, Any]:
     return normalized
 
 
+def _validate_bars(
+    bars: tuple[dict[str, Any], ...],
+    *,
+    require_unique_times: bool,
+) -> None:
+    previous_time: int | None = None
+    seen_times: set[int] = set()
+    for index, bar in enumerate(bars):
+        timestamp = int(bar["time"])
+        if require_unique_times:
+            if timestamp in seen_times:
+                raise ValueError(f"OHLCV time values must be unique; duplicate at row {index}")
+            if previous_time is not None and timestamp <= previous_time:
+                raise ValueError("OHLCV time values must be strictly increasing")
+            seen_times.add(timestamp)
+            previous_time = timestamp
+
+        open_value = float(bar["open"])
+        high_value = float(bar["high"])
+        low_value = float(bar["low"])
+        close_value = float(bar["close"])
+        volume_value = float(bar["volume"])
+        if high_value < low_value:
+            raise ValueError(f"OHLCV high must be greater than or equal to low at row {index}")
+        if high_value < max(open_value, close_value):
+            raise ValueError(f"OHLCV high must cover open and close at row {index}")
+        if low_value > min(open_value, close_value):
+            raise ValueError(f"OHLCV low must cover open and close at row {index}")
+        if volume_value < 0:
+            raise ValueError(f"OHLCV volume must be non-negative at row {index}")
+
+
 def _normalize_session_value(value: Any) -> Any:
     if isinstance(value, dict):
         return {str(key): _normalize_session_value(item) for key, item in value.items()}
@@ -214,3 +254,11 @@ def _require_pandas() -> Any:
             "pip install pyne-runtime[pandas]"
         ) from exc
     return pd
+
+
+def _is_pandas_dataframe(value: Any) -> bool:
+    try:
+        import pandas as pd
+    except ImportError:  # pragma: no cover - depends on optional env
+        return False
+    return isinstance(value, pd.DataFrame)

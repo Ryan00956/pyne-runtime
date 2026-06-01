@@ -170,10 +170,18 @@ def _split_history_name(name: str) -> tuple[str, int]:
     if "[" not in name:
         return name, 0
     field, raw_offset = name.split("[", 1)
+    if not raw_offset.endswith("]"):
+        raise PyneRequestError(
+            f"Invalid request.security() history offset in expression '{name}'",
+            code="PYNE_UNSUPPORTED_FEATURE",
+        )
     try:
         return field, int(raw_offset.rstrip("]"))
     except ValueError:
-        return field, 0
+        raise PyneRequestError(
+            f"Invalid request.security() history offset in expression '{name}'",
+            code="PYNE_UNSUPPORTED_FEATURE",
+        ) from None
 
 def _apply_history_offset(values: list[float], offset: int) -> list[float]:
     if offset <= 0:

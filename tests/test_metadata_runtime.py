@@ -62,6 +62,61 @@ plot(session.ismarket, "Market")
     assert result.values("Market") == [0.0, 0.0, 0.0]
 
 
+def test_runtime_rejects_missing_ohlcv_fields() -> None:
+    result = pn.PyneRuntime().execute(
+        'plot(close, "Close")',
+        [{"time": 1, "open": 1, "high": 2, "low": 1, "volume": 100}],
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "missing required fields" in str(result.error)
+
+
+def test_time_close_last_bar_uses_timeframe_duration() -> None:
+    result = pn.run(
+        """
+plot(time_close, "Close Time")
+""",
+        _bars()[:2],
+        timeframe="1h",
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Close Time") == [2.0, 3602.0]
+
+
+def test_time_close_last_bar_supports_minute_suffix_timeframe() -> None:
+    result = pn.run(
+        """
+plot(time_close, "Close Time")
+""",
+        _bars()[:2],
+        timeframe="15m",
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Close Time") == [2.0, 902.0]
+
+
+def test_derived_series_names_are_stable() -> None:
+    result = pn.run(
+        """
+plot(hl2, hl2.name)
+plot(hlc3, hlc3.name)
+plot(ohlc4, ohlc4.name)
+plot(hlcc4, hlcc4.name)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [line["name"] for line in result.lines] == ["hl2", "hlc3", "ohlc4", "hlcc4"]
+
+
 def test_session_namespace_uses_bar_level_host_flags() -> None:
     bars = [
         {**_bars()[0], "session_ismarket": True, "session_isfirstbar": True},

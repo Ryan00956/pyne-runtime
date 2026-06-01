@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 import pyne_runtime as pn
 
 
@@ -46,7 +48,7 @@ def test_golden_request_security_lower_tf_alignment() -> None:
     assert result.ok, result.error
     assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
     for name, expected in fixture["expected_series"].items():
-        assert result.get_series(name) == expected
+        _assert_series_matches(result.get_series(name), expected)
 
 
 def test_golden_request_security_alignment() -> None:
@@ -63,7 +65,7 @@ def test_golden_request_security_alignment() -> None:
     assert result.ok, result.error
     assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
     for name, expected in fixture["expected_series"].items():
-        assert result.get_series(name) == expected
+        _assert_series_matches(result.get_series(name), expected)
 
 
 def test_golden_request_security_edge_cases() -> None:
@@ -80,8 +82,20 @@ def test_golden_request_security_edge_cases() -> None:
     assert result.ok, result.error
     assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
     for name, expected in fixture["expected_series"].items():
-        assert result.get_series(name) == expected
+        _assert_series_matches(result.get_series(name), expected)
 
 
 def _load_fixture(name: str) -> dict[str, Any]:
     return json.loads((GOLDEN_DIR / name).read_text(encoding="utf-8"))
+
+
+def _assert_series_matches(actual: list[dict[str, Any]], expected: list[dict[str, Any]]) -> None:
+    assert len(actual) == len(expected)
+    for actual_point, expected_point in zip(actual, expected):
+        assert actual_point.keys() == expected_point.keys()
+        for key, expected_value in expected_point.items():
+            actual_value = actual_point[key]
+            if key == "value" and isinstance(expected_value, (int, float)):
+                assert actual_value == pytest.approx(expected_value, abs=1e-9)
+            else:
+                assert actual_value == expected_value

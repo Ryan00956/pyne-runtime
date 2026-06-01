@@ -370,7 +370,7 @@ def _normalize_oca_type(value: str | None) -> str:
         return StrategyOca.reduce
     if normalized in {"none", "", "strategy.oca.none"}:
         return StrategyOca.none
-    return normalized
+    raise ValueError("oca_type must be strategy.oca.none, strategy.oca.cancel, or strategy.oca.reduce")
 
 
 def _apply_oca_after_fill(

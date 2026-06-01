@@ -5,7 +5,10 @@ import ast
 
 
 def is_incremental_pyne_script(script: str) -> bool:
-    tree = ast.parse(script)
+    try:
+        tree = ast.parse(script)
+    except SyntaxError:
+        return False
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in {
             "on_bar",

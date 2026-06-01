@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..security import PyneSecurityError
+
 
 class OutputCollector:
     """Collects all drawing outputs from a script execution.
@@ -52,7 +54,7 @@ class OutputCollector:
             + len(self._object_tables)
         )
         if total >= self.max_drawing_objects:
-            raise RuntimeError(
+            raise PyneSecurityError(
                 f"Drawing object limit exceeded (max {self.max_drawing_objects})"
             )
 

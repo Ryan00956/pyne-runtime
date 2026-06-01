@@ -10,7 +10,7 @@ class PyneArray:
     """Mutable Pine-like array value."""
 
     def __init__(self, values: Iterable[Any] | None = None) -> None:
-        self._values = list(values or [])
+        self._values = list(values) if values is not None else []
 
     def __len__(self) -> int:
         return len(self._values)
@@ -65,17 +65,17 @@ class PyneArray:
         self._values.clear()
 
     def includes(self, value: Any) -> bool:
-        return value in self._values
+        return any(_values_equal(item, value) for item in self._values)
 
     def indexof(self, value: Any) -> int:
-        try:
-            return self._values.index(value)
-        except ValueError:
-            return -1
+        for idx, item in enumerate(self._values):
+            if _values_equal(item, value):
+                return idx
+        return -1
 
     def lastindexof(self, value: Any) -> int:
         for idx in range(len(self._values) - 1, -1, -1):
-            if self._values[idx] == value:
+            if _values_equal(self._values[idx], value):
                 return idx
         return -1
 
@@ -580,3 +580,9 @@ def _numeric_values(values: Iterable[Any]) -> list[float]:
 def _sum_values(values: Iterable[Any]) -> float | None:
     numbers = _numeric_values(values)
     return float(sum(numbers)) if numbers else None
+
+
+def _values_equal(left: Any, right: Any) -> bool:
+    if is_na_value(left) and is_na_value(right):
+        return True
+    return left == right

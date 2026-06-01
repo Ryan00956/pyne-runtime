@@ -8,6 +8,7 @@ from .errors import PyneRequestError
 
 _REQUEST_SECURITY_CAPABILITIES = ("request.security", "security", "ohlcv")
 _REQUEST_LOWER_TF_CAPABILITIES = ("request.security_lower_tf", "security_lower_tf", "lower_tf")
+_MISSING = object()
 
 class DataProvider(Protocol):
     """Host interface used by ``request.security()``.
@@ -26,16 +27,18 @@ class DataProvider(Protocol):
 
 
 def _provider_supports(provider: DataProvider, capability_names: tuple[str, ...]) -> bool:
-    declared_capabilities = getattr(provider, "capabilities", None)
+    declared_capabilities = getattr(provider, "capabilities", _MISSING)
+    if declared_capabilities is _MISSING:
+        return True
     if callable(declared_capabilities):
         declared_capabilities = declared_capabilities()
     if declared_capabilities is None:
-        return True
+        return False
     if isinstance(declared_capabilities, dict):
         for capability in capability_names:
             if capability in declared_capabilities:
                 return bool(declared_capabilities[capability])
-        return True
+        return False
     if isinstance(declared_capabilities, (set, list, tuple)):
         declared = set(declared_capabilities)
         return any(capability in declared for capability in capability_names)

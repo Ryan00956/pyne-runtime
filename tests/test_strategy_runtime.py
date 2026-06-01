@@ -176,6 +176,30 @@ plot(strategy.position_size, "Position")
     assert result.values("Position") == [0.0, 1.0, 1.0, 1.0]
 
 
+def test_strategy_rejects_invalid_risk_direction_and_mode_values() -> None:
+    invalid_direction = pn.run(
+        """
+strategy("Invalid Risk Direction", overlay=True)
+strategy.risk.allow_entry_in("sideways")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+    invalid_mode = pn.run(
+        """
+strategy("Invalid Risk Mode", overlay=True)
+strategy.risk.max_drawdown(5, "points")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not invalid_direction.ok
+    assert "direction is invalid" in str(invalid_direction.error)
+    assert not invalid_mode.ok
+    assert "risk mode" in str(invalid_mode.error)
+
+
 def test_strategy_risk_allow_entry_in_does_not_block_order_namespace() -> None:
     result = pn.run(
         """
@@ -1163,6 +1187,30 @@ plot(strategy.position_size, "Position")
         },
     ]
     assert result.values("Position") == [0.0, 0.0, 1.0, 1.0]
+
+
+def test_strategy_rejects_invalid_direction_and_oca_type_values() -> None:
+    invalid_direction = pn.run(
+        """
+strategy("Invalid Direction", overlay=True)
+strategy.entry("Bad", "sideways", qty=1, when=bar_index == 0, price=close)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+    invalid_oca = pn.run(
+        """
+strategy("Invalid OCA", overlay=True)
+strategy.entry("Bad", strategy.long, qty=1, when=bar_index == 0, oca_type="mystery")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not invalid_direction.ok
+    assert "strategy direction" in str(invalid_direction.error)
+    assert not invalid_oca.ok
+    assert "oca_type" in str(invalid_oca.error)
 
 
 def test_strategy_oca_reduce_decreases_sibling_pending_quantity() -> None:

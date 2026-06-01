@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import math
+
+import numpy as np
+
 import pyne_runtime as pn
 
 
@@ -42,6 +46,15 @@ plot(array.includes(prices, 2.5), "Includes")
     assert result.values("Popped") == [3.5, 3.5, 3.5]
     assert result.values("Index") == [2.0, 2.0, 2.0]
     assert result.values("Includes") == [1.0, 1.0, 1.0]
+
+
+def test_array_accepts_numpy_values_and_matches_nan_members() -> None:
+    values = pn.PyneArray(np.array([1.0, math.nan, 3.0]))
+
+    assert values.to_list()[0] == 1.0
+    assert values.includes(math.nan)
+    assert values.indexof(math.nan) == 1
+    assert values.lastindexof(math.nan) == 1
 
 
 def test_array_object_methods_copy_slice_fill_and_numeric_reducers() -> None:

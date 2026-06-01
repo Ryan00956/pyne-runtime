@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 
 import pyne_runtime as pn
+import pyne_runtime.utils as utils
+from pyne_runtime.ta import TaModule
 
 
 def _bars(count: int = 40) -> list[dict[str, float]]:
@@ -43,6 +45,30 @@ plot(ta.rma(close, 3), "RMA")
     assert len(result.lines) == 4
     assert _series_values(result, "SMA")[-1] == 138.0
     assert _series_values(result, "WMA")[-1] > _series_values(result, "SMA")[-1]
+
+
+def test_sma_returns_nan_for_windows_containing_nan() -> None:
+    source = pn.PyneSeries([1.0, float("nan"), 3.0, 4.0], name="close")
+
+    result = TaModule().sma(source, 2)
+
+    assert isinstance(result, pn.PyneSeries)
+    assert math.isnan(result.values[0])
+    assert math.isnan(result.values[1])
+    assert math.isnan(result.values[2])
+    assert result.values[3] == 3.5
+
+
+def test_highest_lowest_ignore_invalid_period_without_empty_window_error() -> None:
+    source = pn.PyneSeries([1.0, 2.0, 3.0], name="close")
+
+    highest = utils.highest(source, 0)
+    lowest = utils.lowest(source, 0)
+
+    assert isinstance(highest, pn.PyneSeries)
+    assert isinstance(lowest, pn.PyneSeries)
+    assert all(math.isnan(value) for value in highest.values)
+    assert all(math.isnan(value) for value in lowest.values)
 
 
 def test_macd_and_bollinger_outputs_are_structured() -> None:

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from types import SimpleNamespace
+from types import MappingProxyType, SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -59,13 +59,29 @@ class RuntimeServices:
 def build_script_namespace(services: RuntimeServices) -> dict[str, Any]:
     """Build the global namespace injected into user scripts."""
     namespace: dict[str, Any] = {}
-    install_data_namespace(namespace, services)
-    install_api_namespace(namespace, services)
-    install_plot_namespace(namespace, services)
-    install_utility_namespace(namespace, services)
-    install_compat_namespace(namespace, services)
-    install_builtins_namespace(namespace, services)
+    for installer in (
+        install_data_namespace,
+        install_api_namespace,
+        install_plot_namespace,
+        install_utility_namespace,
+        install_compat_namespace,
+        install_builtins_namespace,
+    ):
+        _run_namespace_installer(namespace, services, installer)
     return namespace
+
+
+def _run_namespace_installer(
+    namespace: dict[str, Any],
+    services: RuntimeServices,
+    installer: Any,
+) -> None:
+    before = dict(namespace)
+    installer(namespace, services)
+    overwritten = [key for key, value in before.items() if namespace.get(key) is not value]
+    if overwritten:
+        names = ", ".join(sorted(overwritten))
+        raise RuntimeError(f"Pyne namespace installer overwrote existing keys: {names}")
 
 
 def install_data_namespace(namespace: dict[str, Any], services: RuntimeServices) -> None:
@@ -105,7 +121,7 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
     namespace["str"] = string_namespace
     namespace["ticker"] = TickerNamespace(ctx.syminfo)
     namespace["color"] = color_singleton
-    namespace["math"] = PyneMath(mintick=getattr(ctx.syminfo, "mintick", 0.01))
+    namespace["math"] = PyneMath(mintick=getattr(ctx.syminfo, "mintick", 1.0))
     namespace["pyne"] = _pyne_namespace(services)
     namespace["cache"] = namespace["pyne"].cache
     namespace["cache_clear"] = namespace["pyne"].cache_clear
@@ -162,7 +178,7 @@ def install_compat_namespace(namespace: dict[str, Any], services: RuntimeService
     """Install Python and legacy compatibility names."""
     namespace["np"] = np
     namespace["numpy"] = np
-    namespace["params"] = services.params
+    namespace["params"] = MappingProxyType(dict(services.params))
 
 
 def install_builtins_namespace(namespace: dict[str, Any], services: RuntimeServices) -> None:

@@ -277,7 +277,10 @@ class InputModule:
         """Try to identify which source a numpy array corresponds to."""
         if self._ctx is None:
             return "close"
-        for name in ["close", "open", "high", "low", "hl2", "hlc3", "ohlc4"]:
+        names = ["close", "open", "high", "low", "hl2", "hlc3", "ohlc4", "hlcc4"]
+        if isinstance(arr, PyneSeries) and arr.name in names:
+            return arr.name
+        for name in names:
             ctx_arr = self._ctx.resolve_source(name)
             if arr is ctx_arr:
                 return name

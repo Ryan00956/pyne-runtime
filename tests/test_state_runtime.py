@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import pyne_runtime as pn
 
 
@@ -76,3 +78,17 @@ plot(trend, "Trend")
 
     assert result.ok
     assert result.values("Trend") == [0.0, 1.0, 1.0, 1.0]
+
+
+def test_var_reset_normalizes_na_like_set() -> None:
+    cell = pn.PyneVar("cell", pn.na)
+
+    assert math.isnan(cell.reset())
+
+
+def test_var_private_state_is_not_a_constructor_argument() -> None:
+    try:
+        pn.PyneVar("cell", 0, _value=5)
+    except TypeError:
+        return
+    raise AssertionError("PyneVar should not expose private state constructor args")

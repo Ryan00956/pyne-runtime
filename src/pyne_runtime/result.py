@@ -79,14 +79,17 @@ class PyneResult:
             ) from exc
 
         rows: dict[int, dict[str, Any]] = {}
+        name_counts: dict[str, int] = {}
         for line in self.lines:
-            name = line.get("name") or line.get("title") or line.get("id") or "value"
+            raw_name = str(line.get("name") or line.get("title") or line.get("id") or "value")
+            name_counts[raw_name] = name_counts.get(raw_name, 0) + 1
+            name = raw_name if name_counts[raw_name] == 1 else f"{raw_name}_{name_counts[raw_name]}"
             for point in line.get("data") or []:
                 timestamp = point.get("time")
                 if timestamp is None:
                     continue
                 row = rows.setdefault(timestamp, {"time": timestamp})
-                row[str(name)] = point.get("value")
+                row[name] = point.get("value")
         return pd.DataFrame(rows.values()).sort_values("time").reset_index(drop=True)
 
     def plot(self) -> Any:

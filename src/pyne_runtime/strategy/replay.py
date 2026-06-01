@@ -914,4 +914,6 @@ def _normalize_direction(direction: str) -> str:
     normalized = str(direction or "long").lower()
     if normalized in {"short", "-1", "sell"}:
         return "short"
-    return "long"
+    if normalized in {"long", "1", "buy"}:
+        return "long"
+    raise ValueError("strategy direction must be strategy.long or strategy.short")

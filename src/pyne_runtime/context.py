@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 
 from .barstate import PyneBarState
+from .data import PyneData
 from .metadata import SessionNamespace, SymbolInfo, TimeframeInfo
 from .metadata import build_session_namespace, normalize_symbol_info, normalize_timeframe_info
 from .series import PyneSeries
@@ -66,18 +67,26 @@ class PyneContext:
         syminfo: Any = None,
         timeframe: Any = None,
         session: Any = None,
+        allow_empty: bool = False,
+        require_unique_times: bool = True,
     ) -> PyneContext:
         """Create context from a list of OHLCV dicts.
 
         Each dict must have: time, open, high, low, close, volume.
         """
+        ohlcv = PyneData.from_ohlcv(
+            ohlcv,
+            allow_empty=allow_empty,
+            require_unique_times=require_unique_times,
+        ).to_ohlcv()
+        timeframe_info = normalize_timeframe_info(timeframe)
         times = [int(d.get("time", 0)) for d in ohlcv]
         opens = np.array([float(d.get("open", 0)) for d in ohlcv], dtype=np.float64)
         highs = np.array([float(d.get("high", 0)) for d in ohlcv], dtype=np.float64)
         lows = np.array([float(d.get("low", 0)) for d in ohlcv], dtype=np.float64)
         closes = np.array([float(d.get("close", 0)) for d in ohlcv], dtype=np.float64)
         volumes = np.array([float(d.get("volume", 0)) for d in ohlcv], dtype=np.float64)
-        time_closes = np.array(_derive_time_close(ohlcv, times), dtype=np.float64)
+        time_closes = np.array(_derive_time_close(ohlcv, times, timeframe_info), dtype=np.float64)
 
         return cls(
             open=PyneSeries(opens, name="open"),
@@ -89,7 +98,7 @@ class PyneContext:
             time_close=PyneSeries(time_closes, name="time_close"),
             times=times,
             syminfo=normalize_symbol_info(syminfo),
-            timeframe=normalize_timeframe_info(timeframe),
+            timeframe=timeframe_info,
             session=build_session_namespace(ohlcv, session),
             bar_count=len(ohlcv),
         )
@@ -98,28 +107,34 @@ class PyneContext:
     def hl2(self) -> PyneSeries:
         """(high + low) / 2"""
         if self._hl2 is None:
-            self._hl2 = (self.high + self.low) / 2
+            self._hl2 = PyneSeries(((self.high + self.low) / 2).values, name="hl2")
         return self._hl2
 
     @property
     def hlc3(self) -> PyneSeries:
         """(high + low + close) / 3"""
         if self._hlc3 is None:
-            self._hlc3 = (self.high + self.low + self.close) / 3
+            self._hlc3 = PyneSeries(((self.high + self.low + self.close) / 3).values, name="hlc3")
         return self._hlc3
 
     @property
     def ohlc4(self) -> PyneSeries:
         """(open + high + low + close) / 4"""
         if self._ohlc4 is None:
-            self._ohlc4 = (self.open + self.high + self.low + self.close) / 4
+            self._ohlc4 = PyneSeries(
+                ((self.open + self.high + self.low + self.close) / 4).values,
+                name="ohlc4",
+            )
         return self._ohlc4
 
     @property
     def hlcc4(self) -> PyneSeries:
         """(high + low + close + close) / 4"""
         if self._hlcc4 is None:
-            self._hlcc4 = (self.high + self.low + self.close + self.close) / 4
+            self._hlcc4 = PyneSeries(
+                ((self.high + self.low + self.close + self.close) / 4).values,
+                name="hlcc4",
+            )
         return self._hlcc4
 
     @property
@@ -184,14 +199,43 @@ class PyneContext:
         return mapping[source_name]
 
 
-def _derive_time_close(ohlcv: list[dict[str, Any]], times: list[int]) -> list[float]:
+def _derive_time_close(
+    ohlcv: list[dict[str, Any]],
+    times: list[int],
+    timeframe: TimeframeInfo,
+) -> list[float]:
     values: list[float] = []
+    duration = _timeframe_seconds(timeframe)
     for index, item in enumerate(ohlcv):
         explicit = item.get("time_close")
         if explicit is not None:
             values.append(float(explicit))
         elif index + 1 < len(times):
             values.append(float(times[index + 1]))
+        elif duration is not None:
+            values.append(float(times[index] + duration))
         else:
             values.append(float("nan"))
     return values
+
+
+def _timeframe_seconds(timeframe: TimeframeInfo) -> int | None:
+    period = timeframe.period.strip()
+    if not period:
+        return None
+    suffix = period[-1]
+    if suffix.isdigit():
+        return timeframe.multiplier * 60
+    if suffix in {"s", "S"}:
+        return timeframe.multiplier
+    if suffix == "m":
+        return timeframe.multiplier * 60
+    if suffix in {"h", "H"}:
+        return timeframe.multiplier * 60
+    if suffix in {"d", "D"}:
+        return timeframe.multiplier * 86_400
+    if suffix in {"w", "W"}:
+        return timeframe.multiplier * 7 * 86_400
+    if suffix == "M":
+        return timeframe.multiplier * 30 * 86_400
+    return None

@@ -7,6 +7,7 @@ who prefer performance or long-lived ML/library state over isolation.
 from __future__ import annotations
 
 import multiprocessing as mp
+import pickle
 import queue
 import time
 from dataclasses import replace
@@ -75,6 +76,16 @@ def execute_pyne_script_in_process(
     policy = PyneSecurityPolicy.from_settings(settings, security_mode)
     timeout = policy.timeout_seconds if timeout_seconds is None else max(float(timeout_seconds), 0.0)
     grace = settings.process_grace_seconds
+    serialization_error = _process_serialization_error(
+        script,
+        ohlcv,
+        params or {},
+        security_mode,
+        settings,
+    )
+    if serialization_error is not None:
+        return serialization_error
+
     ctx = _multiprocessing_context()
     result_queue = ctx.Queue(maxsize=1)
     process = ctx.Process(
@@ -154,6 +165,23 @@ def _read_process_result(result_queue, process, timeout_seconds: float | None) -
 
         if deadline is not None and time.monotonic() >= deadline:
             return None
+
+
+def _process_serialization_error(*payloads: Any) -> PyneResult | None:
+    try:
+        pickle.dumps(payloads)
+    except Exception as exc:
+        code = "PYNE_PROCESS_SERIALIZATION_ERROR"
+        return PyneResult(
+            ok=False,
+            code=code,
+            error=(
+                "Pyne process executor arguments must be pickle-serializable "
+                f"({type(exc).__name__})"
+            ),
+            hint=error_hint(code),
+        )
+    return None
 
 
 def _multiprocessing_context():

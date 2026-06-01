@@ -40,6 +40,10 @@ ERROR_HINTS: dict[str, str] = {
         "The worker process exited unexpectedly. Check third-party imports, native "
         "extensions, and resource usage."
     ),
+    "PYNE_PROCESS_SERIALIZATION_ERROR": (
+        "Process mode can only receive pickle-serializable scripts, data, params, "
+        "settings, and host-provided objects such as data providers."
+    ),
     "PYNE_SECURITY_ERROR": "The selected Pyne security policy rejected the script.",
 }
 
@@ -103,7 +107,7 @@ def error_docs_url(code: str) -> str | None:
 
 
 def classify_security_error(message: str) -> str:
-    if "output series" in message or "output points" in message:
+    if "output series" in message or "output points" in message or "Drawing object limit" in message:
         return "PYNE_OUTPUT_LIMIT_EXCEEDED"
     if "Import" in message or "import" in message:
         return "PYNE_IMPORT_BLOCKED"

@@ -92,15 +92,13 @@ def shift(src: PyneSeries | np.ndarray, periods: int = 1) -> PyneSeries | np.nda
         prev_close = shift(close, 1)  # previous bar's close
         two_bars_ago = shift(close, 2)
     """
+    periods = int(periods)
+    if periods < 0:
+        raise IndexError("shift() does not support forward history references")
     source = to_numpy(src, dtype=np.float64)
     result = np.full_like(source, np.nan, dtype=np.float64)
-    if periods >= 0:
-        if periods < len(source):
-            result[periods:] = source[:len(source) - periods]
-    else:
-        n = abs(periods)
-        if n < len(source):
-            result[:len(source) - n] = source[n:]
+    if periods < len(source):
+        result[periods:] = source[:len(source) - periods]
     return wrap_like(result, src)
 
 
@@ -189,6 +187,8 @@ def highest(src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarra
     source = to_numpy(src, dtype=np.float64)
     n = len(source)
     result = np.full(n, np.nan)
+    if period <= 0:
+        return wrap_like(result, src)
     for i in range(period - 1, n):
         window = source[i - period + 1: i + 1]
         result[i] = np.nanmax(window)
@@ -210,6 +210,8 @@ def lowest(src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray
     source = to_numpy(src, dtype=np.float64)
     n = len(source)
     result = np.full(n, np.nan)
+    if period <= 0:
+        return wrap_like(result, src)
     for i in range(period - 1, n):
         window = source[i - period + 1: i + 1]
         result[i] = np.nanmin(window)

@@ -118,6 +118,27 @@ plot(higher, "Higher")
     ]
 
 
+def test_request_security_rejects_invalid_history_offset_expression() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Bad History", overlay=True)
+higher = request.security("BTCUSDT", "2", "close[bad]")
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert "history offset" in str(result.error)
+
+
 def test_request_security_accepts_barmerge_alignment_constants() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
@@ -329,6 +350,50 @@ plot(higher, "Higher")
     assert not result.ok
     assert result.code == "PYNE_UNSUPPORTED_FEATURE"
     assert "provider capability" in str(result.error)
+    assert provider.calls == []
+
+
+def test_request_security_rejects_explicit_missing_provider_capabilities() -> None:
+    provider = CapabilityProvider(
+        [{"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}],
+        capabilities=None,
+    )
+
+    result = pn.run(
+        """
+indicator("Missing Capabilities", overlay=True)
+higher = request.security("BTCUSDT", "2", close)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert provider.calls == []
+
+
+def test_request_security_rejects_capability_dict_without_matching_key() -> None:
+    provider = CapabilityProvider(
+        [{"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}],
+        capabilities={"orders": True},
+    )
+
+    result = pn.run(
+        """
+indicator("Missing Capability Key", overlay=True)
+higher = request.security("BTCUSDT", "2", close)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
     assert provider.calls == []
 
 
@@ -708,6 +773,27 @@ plot(bad, "Bad")
     assert not result.ok
     assert result.code == "PYNE_RUNTIME_ERROR"
     assert "expression failed" in str(result.error)
+
+
+def test_request_security_wraps_invalid_provider_ohlcv_contract() -> None:
+    provider = StaticProvider([
+        {"open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Bad Provider Bars", overlay=True)
+higher = request.security("BTCUSDT", "2", close)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "without time" in str(result.error)
 
 
 def test_request_security_rejects_nested_requests() -> None:

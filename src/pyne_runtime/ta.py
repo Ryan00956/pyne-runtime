@@ -60,11 +60,16 @@ class TaModule:
         result = np.full(n, np.nan)
         if period <= 0 or period > n:
             return wrap_like(result, src)
-        # Cumulative sum approach for O(n) performance
-        cs = np.nancumsum(source)
-        result[period - 1] = cs[period - 1] / period
+        clean = np.where(np.isnan(source), 0.0, source)
+        sums = np.cumsum(clean)
+        counts = np.cumsum(~np.isnan(source))
+        window_sums = sums[period - 1:].copy()
+        window_counts = counts[period - 1:].copy()
         if period < n:
-            result[period:] = (cs[period:] - cs[:n - period]) / period
+            window_sums[1:] -= sums[: n - period]
+            window_counts[1:] -= counts[: n - period]
+        valid = window_counts == period
+        result[period - 1:][valid] = window_sums[valid] / period
         return wrap_like(result, src)
 
     def ema(self, src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray:

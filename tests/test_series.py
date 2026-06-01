@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 import pyne_runtime as pn
+import pyne_runtime.utils as utils
 from pyne_runtime import PyneSeries
 
 
@@ -35,6 +36,10 @@ def test_series_bars_back_indexing_and_numpy_escape_hatch() -> None:
 
     with pytest.raises(IndexError):
         _ = close[-1]
+    with pytest.raises(IndexError):
+        close.shift(-1)
+    with pytest.raises(IndexError):
+        utils.shift(close, -1)
 
 
 def test_series_arithmetic_and_boolean_operators() -> None:
@@ -51,6 +56,17 @@ def test_series_arithmetic_and_boolean_operators() -> None:
 
     with pytest.raises(TypeError):
         bool(condition)
+
+
+def test_na_left_arithmetic_preserves_series_shape() -> None:
+    close = PyneSeries(np.array([1.0, 2.0, 3.0]), name="close")
+
+    result = pn.na + close
+
+    assert isinstance(result, PyneSeries)
+    assert result.name == "close"
+    assert len(result) == 3
+    assert np.isnan(result.values).all()
 
 
 def test_runtime_supports_pine_like_history_reference() -> None:
@@ -77,6 +93,20 @@ marker((fast > slow) & (close > prev), text="Signal", color=color.green)
     assert _values(result, "Previous Close") == [1.5, 2.5, 3.5, 4.5, 5.5]
     assert _values(result, "Mid")[-1] == 6.25
     assert result.output["markers"][0]["data"]
+
+
+def test_runtime_rejects_forward_shift_helper_reference() -> None:
+    result = pn.run(
+        """
+indicator("Forward Shift", overlay=True)
+plot(shift(close, -1), "Future Close")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert "forward history references" in str(result.error)
 
 
 def test_input_source_accepts_pyne_series() -> None:

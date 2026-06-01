@@ -62,6 +62,12 @@ plot(math.round_to_mintick(close + 0.125), "Rounded Tie")
     assert _series_values(result, "Rounded Tie") == [100.25, 101.25, 102.25]
 
 
+def test_math_default_mintick_matches_symbol_metadata_default() -> None:
+    assert pn.SymbolInfo().mintick == 1.0
+    assert pn.PyneMath().mintick == 1.0
+    assert pn.PyneMath(mintick=0).mintick == 1.0
+
+
 def test_math_random_seed_is_deterministic_for_scalar_script_values() -> None:
     result = pn.run(
         """

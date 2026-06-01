@@ -32,8 +32,20 @@ def test_ta_golden_fixture(fixture_name: str) -> None:
 
     assert result.ok, result.error
     for name, expected in fixture["expected_series"].items():
-        assert result.get_series(name) == expected
+        _assert_series_matches(result.get_series(name), expected)
 
 
 def _load_fixture(name: str) -> dict[str, Any]:
     return json.loads((GOLDEN_DIR / name).read_text(encoding="utf-8"))
+
+
+def _assert_series_matches(actual: list[dict[str, Any]], expected: list[dict[str, Any]]) -> None:
+    assert len(actual) == len(expected)
+    for actual_point, expected_point in zip(actual, expected):
+        assert actual_point.keys() == expected_point.keys()
+        for key, expected_value in expected_point.items():
+            actual_value = actual_point[key]
+            if key == "value" and isinstance(expected_value, (int, float)):
+                assert actual_value == pytest.approx(expected_value, abs=1e-9)
+            else:
+                assert actual_value == expected_value

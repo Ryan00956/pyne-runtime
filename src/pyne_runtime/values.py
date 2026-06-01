@@ -37,7 +37,11 @@ class PyneNA:
     def __str__(self) -> str:
         return "na"
 
-    def _nan(self, *_: Any) -> float:
+    def _nan(self, other: Any = None) -> Any:
+        from .series import PyneSeries
+
+        if isinstance(other, PyneSeries):
+            return PyneSeries(np.full(len(other), np.nan, dtype=np.float64), name=other.name)
         return float("nan")
 
     __add__ = _nan

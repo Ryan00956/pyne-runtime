@@ -156,12 +156,14 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
 
         # Build data points: [{time, value}, ...]
         points = []
+        per_bar_color_source = color_array if color_array is not None else color
+        has_per_bar_color = color_array is not None or isinstance(color, (np.ndarray, PyneSeries, list))
         for i, (t, v) in enumerate(zip(collector.times, values)):
             if _is_valid_value(v):
                 point: dict[str, Any] = {"time": t, "value": round(float(v), 8)}
                 # Per-bar coloring
-                if color_array is not None:
-                    point_color = _color_for_index(color_array, i, t)
+                if has_per_bar_color:
+                    point_color = _color_for_index(per_bar_color_source, i, t)
                     if point_color:
                         point["color"] = point_color
                 points.append(point)
@@ -223,7 +225,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             **_display_options(display=display, format=format, precision=precision),
         }
 
-        if color_array is not None or isinstance(color, (np.ndarray, PyneSeries)):
+        if has_per_bar_color:
             line_entry["per_bar_color"] = True
 
         collector.lines.append(line_entry)

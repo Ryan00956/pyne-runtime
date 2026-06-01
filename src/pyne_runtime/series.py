@@ -59,16 +59,14 @@ class PyneSeries:
 
     def shift(self, periods: int = 1) -> "PyneSeries":
         periods = int(periods)
+        if periods < 0:
+            raise IndexError("PyneSeries does not support forward history references")
         result = np.full(len(self.values), np.nan, dtype=np.float64)
         values = np.asarray(self.values, dtype=np.float64)
         if periods == 0:
             result = values.copy()
         elif periods > 0 and periods < len(values):
             result[periods:] = values[: len(values) - periods]
-        elif periods < 0:
-            n = abs(periods)
-            if n < len(values):
-                result[: len(values) - n] = values[n:]
         return PyneSeries(result, name=f"{self.name}[{periods}]" if self.name else None)
 
     def with_values(self, values: Any, name: str | None = None) -> "PyneSeries":

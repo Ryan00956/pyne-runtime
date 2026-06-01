@@ -1,7 +1,7 @@
 """Runtime-scoped Pine-like state helpers."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import numpy as np
@@ -21,8 +21,8 @@ class PyneVar:
 
     name: str
     default: Any = None
-    _value: Any = None
-    _initialized: bool = False
+    _value: Any = field(default=None, init=False)
+    _initialized: bool = field(default=False, init=False)
 
     def __post_init__(self) -> None:
         if not self._initialized:
@@ -84,8 +84,7 @@ class PyneVar:
         return wrapped
 
     def reset(self, value: Any | None = None) -> Any:
-        self._value = self.default if value is None else value
-        return self._value
+        return self.set(self.default if value is None else value)
 
     def __array__(self, dtype: Any = None, copy: bool | None = None) -> np.ndarray:
         if isinstance(self._value, PyneSeries):
