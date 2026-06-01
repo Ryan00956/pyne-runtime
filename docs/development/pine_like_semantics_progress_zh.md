@@ -341,6 +341,11 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
   窗口中 short bracket 输出仍与 Pyne 当前序列一致。该 case 已提升为 `parity`。
   当前 strategy capture 聚合 diff 为
   `25 captured case(s), 155 plot(s), 451 point(s), 0 difference(s)`。
+- `short_max_position_size_caps_entry` 已导入 TradingView 60m export，并确认
+  short 方向同样会被 `strategy.risk.max_position_size(3)` 截断到 3 手；
+  后续同方向 entry 因达到上限被拒绝。该 case 已提升为 `parity`。当前
+  strategy capture 聚合 diff 为
+  `26 captured case(s), 161 plot(s), 469 point(s), 0 difference(s)`。
 - strategy pine-equivalent fixture 已加入 `external_capture` 可选字段约定；
   当 `status="captured"` 且包含 TradingView 导出的 plot `values` 时，golden
   runner 会把外部序列纳入断言。
@@ -367,8 +372,8 @@ TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数
 
 ## 下一步建议
 
-下一步建议继续第二批 strategy capture 扩展：在已有 `25/27 captured`、
-`2 not_captured`、`0 missing` 的 contract 上，优先采集仍未被真实 TradingView
+下一步建议继续第二批 strategy capture 扩展：在已有 `26/27 captured`、
+`1 not_captured`、`0 missing` 的 contract 上，优先采集仍未被真实 TradingView
 导出覆盖的 pending entry、exit path、OCA/risk、risk/size/limit 与 short-side
 case。采集前仍使用 `strategy_capture_next.py`、`strategy_capture_prepare.py`、
 `strategy_capture_preflight.py`、`strategy_capture_import.py` 和
