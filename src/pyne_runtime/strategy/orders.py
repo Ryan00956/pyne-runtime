@@ -22,7 +22,7 @@ def _exit_trigger(
         stop_hit = stop is not None and low <= stop
         limit_hit = limit is not None and high >= limit + tick_verify
         if stop_hit and limit_hit:
-            return _same_bar_trigger(
+            reason, price = _same_bar_trigger(
                 stop=stop,
                 limit=limit,
                 stop_path="low",
@@ -30,15 +30,26 @@ def _exit_trigger(
                 same_bar_fill_priority=same_bar_fill_priority,
                 intrabar_path=intrabar_path,
             )
+            return reason, _exit_fill_price(
+                current_position=current_position,
+                reason=reason,
+                trigger_price=price,
+                open_price=open_price,
+            )
         if stop_hit:
-            return "stop", stop
+            return "stop", _exit_fill_price(
+                current_position=current_position,
+                reason="stop",
+                trigger_price=float(stop),
+                open_price=open_price,
+            )
         if limit_hit:
             return "limit", max(float(limit), float(open_price))
         return None
     stop_hit = stop is not None and high >= stop
     limit_hit = limit is not None and low <= limit - tick_verify
     if stop_hit and limit_hit:
-        return _same_bar_trigger(
+        reason, price = _same_bar_trigger(
             stop=stop,
             limit=limit,
             stop_path="high",
@@ -46,8 +57,19 @@ def _exit_trigger(
             same_bar_fill_priority=same_bar_fill_priority,
             intrabar_path=intrabar_path,
         )
+        return reason, _exit_fill_price(
+            current_position=current_position,
+            reason=reason,
+            trigger_price=price,
+            open_price=open_price,
+        )
     if stop_hit:
-        return "stop", stop
+        return "stop", _exit_fill_price(
+            current_position=current_position,
+            reason="stop",
+            trigger_price=float(stop),
+            open_price=open_price,
+        )
     if limit_hit:
         return "limit", min(float(limit), float(open_price))
     return None
@@ -292,6 +314,20 @@ def _pending_fill_price(
     if side == "long":
         return max(trigger, opened) if reason == "stop" else min(trigger, opened)
     return min(trigger, opened) if reason == "stop" else max(trigger, opened)
+
+
+def _exit_fill_price(
+    *,
+    current_position: float,
+    reason: str,
+    trigger_price: float,
+    open_price: float,
+) -> float:
+    trigger = float(trigger_price)
+    opened = float(open_price)
+    if current_position > 0:
+        return min(trigger, opened) if reason == "stop" else max(trigger, opened)
+    return max(trigger, opened) if reason == "stop" else min(trigger, opened)
 
 
 def _same_bar_trigger(

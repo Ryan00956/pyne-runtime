@@ -45,6 +45,24 @@ def test_incremental_strategy_reuses_shared_order_helpers() -> None:
         stop=9.5,
         same_bar_fill_priority=StrategySameBarPriority.stop_first,
     ) == ("stop", 9.5)
+    assert orders._exit_trigger(
+        current_position=-1.0,
+        open_price=73319.5,
+        high=73339.3,
+        low=72917.0,
+        limit=9.0,
+        stop=11.0,
+        same_bar_fill_priority=StrategySameBarPriority.stop_first,
+    ) == ("stop", 73319.5)
+    assert orders._exit_trigger(
+        current_position=1.0,
+        open_price=8.5,
+        high=10.0,
+        low=8.0,
+        limit=None,
+        stop=9.0,
+        same_bar_fill_priority=StrategySameBarPriority.stop_first,
+    ) == ("stop", 8.5)
 
 
 def test_incremental_strategy_reuses_shared_cost_and_risk_helpers() -> None:
