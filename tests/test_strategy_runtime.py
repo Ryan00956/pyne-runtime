@@ -264,18 +264,18 @@ plot(strategy.equity, "Equity")
             "comment": "",
         },
         {
-            "time": 2,
-            "id": "risk.max_drawdown",
+            "time": 3,
+            "id": "close_all",
             "type": "close_all",
             "side": "flat",
             "qty": 10.0,
-            "price": 89.0,
+            "price": 90.0,
             "position_after": 0.0,
             "comment": "",
         },
     ]
-    assert result.values("Position") == [10.0, 0.0, 0.0, 0.0]
-    assert result.values("Equity") == [1000.0, 890.0, 890.0, 890.0]
+    assert result.values("Position") == [10.0, 10.0, 0.0, 0.0]
+    assert result.values("Equity") == [1000.0, 900.0, 900.0, 900.0]
     assert result.output["strategy"]["risk"] == {
         "locked": True,
         "max_drawdown": 5.0,
@@ -305,11 +305,8 @@ plot(strategy.position_size, "Position")
     )
 
     assert result.ok
-    assert [order["id"] for order in result.output["strategy"]["orders"]] == [
-        "Long",
-        "risk.max_drawdown",
-    ]
-    assert result.values("Position") == [1.0, 0.0, 0.0]
+    assert [order["id"] for order in result.output["strategy"]["orders"]] == ["Long"]
+    assert result.values("Position") == [1.0, 1.0, 1.0]
     assert result.output["strategy"]["risk"]["max_drawdown_type"] == "cash"
 
 

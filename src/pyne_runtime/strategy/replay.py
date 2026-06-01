@@ -573,10 +573,7 @@ def replay_strategy_orders(strategy: Any) -> None:
             intraday_peak_equity=intraday_peak_equity,
         )
         if risk_liquidation is not None:
-            if risk_liquidation == "risk.max_drawdown":
-                drawdown_locked = True
-            else:
-                intraday_locked = True
+            intraday_locked = True
             risk_locked = True
             if pending_orders:
                 for pending in pending_orders:
@@ -683,13 +680,6 @@ def _risk_liquidation_reason(
         current_avg,
         risk_price,
     )
-    if strategy._max_drawdown_value is not None and _max_drawdown_hit(
-        equity=float(equity),
-        peak_equity=peak_equity,
-        threshold=strategy._max_drawdown_value,
-        risk_type=strategy._max_drawdown_type,
-    ):
-        return "risk.max_drawdown"
     if strategy._max_intraday_loss_value is not None and _max_drawdown_hit(
         equity=float(equity),
         peak_equity=intraday_peak_equity,

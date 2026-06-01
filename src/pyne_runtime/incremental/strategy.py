@@ -1021,10 +1021,7 @@ class IncrementalStrategyNamespace:
             risk_liquidation = self._risk_liquidation_reason()
             if risk_liquidation is None:
                 return
-            if risk_liquidation == "risk.max_drawdown":
-                self._drawdown_locked = True
-            else:
-                self._intraday_locked = True
+            self._intraday_locked = True
             self._cancel_pending(lambda order: True, canceled_by=risk_liquidation)
             self._pending_exit_orders = []
             self._force_close_for_risk(risk_liquidation)
@@ -1048,13 +1045,6 @@ class IncrementalStrategyNamespace:
             - self._commission
             + sum(_trade_open_profit(trade, risk_price) for trade in self._open_trades)
         )
-        if self._max_drawdown_value is not None and _max_drawdown_hit(
-            equity=equity,
-            peak_equity=self._peak_equity,
-            threshold=self._max_drawdown_value,
-            risk_type=self._max_drawdown_type,
-        ):
-            return "risk.max_drawdown"
         if self._max_intraday_loss_value is not None and _max_drawdown_hit(
             equity=equity,
             peak_equity=self._intraday_peak_equity,

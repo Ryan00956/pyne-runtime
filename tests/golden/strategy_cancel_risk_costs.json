@@ -51,17 +51,6 @@
           "commission": 1.0
         },
         {
-          "time": 2,
-          "id": "risk.max_drawdown",
-          "type": "close_all",
-          "side": "flat",
-          "qty": 10.0,
-          "price": 89.0,
-          "position_after": 0.0,
-          "comment": "",
-          "commission": 1.0
-        },
-        {
           "time": 3,
           "id": "Breakout",
           "type": "cancel",
@@ -126,25 +115,6 @@
           "stop": 80.0
         },
         {
-          "id": "risk.max_drawdown",
-          "type": "close_all",
-          "status": "filled",
-          "phase": "close_all_fill",
-          "submitted_time": 2,
-          "filled_time": 2,
-          "canceled_time": null,
-          "rejected_time": null,
-          "side": "flat",
-          "qty": 10.0,
-          "price": 89.0,
-          "position_after": 0.0,
-          "comment": "",
-          "commission": 1.0,
-          "requested_qty": 10.0,
-          "filled_qty": 10.0,
-          "target_qty": 10.0
-        },
-        {
           "id": "Breakout",
           "type": "cancel",
           "status": "canceled",
@@ -161,55 +131,51 @@
           "canceled": 1
         }
       ],
-      "closedtrades": [
+      "closedtrades": [],
+      "opentrades": [
         {
           "entry_time": 1,
-          "exit_time": 2,
           "entry_id": "Long",
-          "exit_id": "risk.max_drawdown",
           "side": "long",
           "qty": 10.0,
           "entry_price": 100.0,
-          "exit_price": 89.0,
-          "profit": -110.0,
-          "commission": 2.0,
-          "net_profit": -112.0
+          "commission": 1.0,
+          "profit": 200.0
         }
       ],
-      "opentrades": [],
       "position": [
         10.0,
-        0.0,
-        0.0,
-        0.0
+        10.0,
+        10.0,
+        10.0
       ],
       "equity": [
         999.0,
-        888.0,
-        888.0,
-        888.0
+        899.0,
+        899.0,
+        1199.0
       ],
       "netprofit": [
         -1.0,
-        -112.0,
-        -112.0,
-        -112.0
+        -1.0,
+        -1.0,
+        -1.0
       ],
       "open_commission": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
+        1.0,
+        1.0,
+        1.0,
+        1.0
       ],
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
-        "equity": 888.0,
-        "netprofit": -112.0,
-        "openprofit": 0.0,
+        "equity": 1199.0,
+        "netprofit": -1.0,
+        "openprofit": 200.0,
         "grossprofit": 0.0,
-        "grossloss": -110.0,
-        "commission": 2.0,
+        "grossloss": 0.0,
+        "commission": 1.0,
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
         "intrabar_path": "same_bar_priority",

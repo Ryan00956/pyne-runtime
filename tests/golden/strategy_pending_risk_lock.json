@@ -216,12 +216,12 @@
           "comment": ""
         },
         {
-          "time": 2,
-          "id": "risk.max_drawdown",
+          "time": 3,
+          "id": "close_all",
           "type": "close_all",
           "side": "flat",
           "qty": 10.0,
-          "price": 89.0,
+          "price": 90.0,
           "position_after": 0.0,
           "comment": ""
         }
@@ -261,17 +261,17 @@
           "stop": 120.0
         },
         {
-          "id": "risk.max_drawdown",
+          "id": "close_all",
           "type": "close_all",
           "status": "filled",
           "phase": "close_all_fill",
-          "submitted_time": 2,
-          "filled_time": 2,
+          "submitted_time": 3,
+          "filled_time": 3,
           "canceled_time": null,
           "rejected_time": null,
           "side": "flat",
           "qty": 10.0,
-          "price": 89.0,
+          "price": 90.0,
           "position_after": 0.0,
           "comment": "",
           "requested_qty": 10.0,
@@ -281,24 +281,24 @@
       ],
       "position": [
         10.0,
-        0.0,
+        10.0,
         0.0,
         0.0
       ],
       "equity": [
         1000.0,
-        890.0,
-        890.0,
-        890.0
+        900.0,
+        900.0,
+        900.0
       ],
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
-        "equity": 890.0,
-        "netprofit": -110.0,
+        "equity": 900.0,
+        "netprofit": -100.0,
         "openprofit": 0.0,
         "grossprofit": 0.0,
-        "grossloss": -110.0,
+        "grossloss": -100.0,
         "commission": 0.0,
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",

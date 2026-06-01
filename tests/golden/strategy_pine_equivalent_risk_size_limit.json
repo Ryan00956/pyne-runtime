@@ -3,17 +3,77 @@
     {
       "name": "global_drawdown_lock_rejects_entries",
       "source": "Pyne-defined global drawdown lock strategy fixture with a Pine-equivalent scaffold for external TradingView export comparison.",
-      "script": "strategy(\"Pine Equivalent Global Drawdown Lock\", overlay=True, initial_capital=1000, commission_type=strategy.commission.cash_per_order, commission_value=1)\nstrategy.risk.max_drawdown(5, strategy.percent_of_equity)\nstrategy.entry(\"Long\", strategy.long, qty=10, when=bar_index == 0, price=close)\nstrategy.entry(\"Blocked Entry\", strategy.long, qty=1, when=bar_index == 2, price=close)\nstrategy.order(\"Blocked Order\", strategy.long, qty=1, when=bar_index == 2, price=close)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
+      "script": "strategy(\"Pine Equivalent Global Drawdown Lock\", overlay=True, initial_capital=1000, commission_type=strategy.commission.cash_per_order, commission_value=1, process_orders_on_close=True)\nstrategy.risk.max_drawdown(5, strategy.percent_of_equity)\nstrategy.entry(\"Long\", strategy.long, qty=10, when=bar_index == 0, price=close)\nstrategy.entry(\"Blocked Entry\", strategy.long, qty=1, when=bar_index == 2, price=close)\nstrategy.order(\"Blocked Order\", strategy.long, qty=1, when=bar_index == 2, price=close)\nstrategy.close_all(when=bar_index == 2, price=close)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Global Drawdown Lock\", overlay=true, initial_capital=1000, commission_type=strategy.commission.cash_per_order, commission_value=1, process_orders_on_close=true)\nstrategy.risk.max_drawdown(5, strategy.percent_of_equity)\nif bar_index == 0\n    strategy.entry(\"Long\", strategy.long, qty=10)\nif bar_index == 2\n    strategy.entry(\"Blocked Entry\", strategy.long, qty=1)\n    strategy.order(\"Blocked Order\", strategy.long, qty=1)\n    strategy.close_all()\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
       "pine_equivalent_notes": [
         "The drawdown lock is triggered by marked-to-market equity falling more than 5% from the replayed peak.",
-        "Entry and order submissions after the lock are rejected without commission, while close_all remains allowed to flatten the existing position."
+        "Entry and order submissions after the lock are rejected without commission, while process_orders_on_close delays same-bar close_all visibility until the next plotted bar."
       ],
       "external_capture": {
         "provider": "tradingview",
-        "status": "not_captured",
+        "status": "captured",
+        "assertion": "parity",
+        "tolerance": 1e-09,
+        "values": {
+          "Position": [
+            0.0,
+            10.0,
+            10.0
+          ],
+          "Equity": [
+            1000.0,
+            -782.0000000000582,
+            -2911.0
+          ],
+          "Net Profit": [
+            0.0,
+            -1.0,
+            -1.0
+          ],
+          "Open Profit": [
+            0.0,
+            -1781.0000000000582,
+            -3910.0
+          ],
+          "Closed Trades": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Closed Commission": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "bars": [
+          {
+            "time": 1780286400,
+            "open": 73731.4,
+            "high": 73815.9,
+            "low": 73307.7,
+            "close": 73497.6,
+            "volume": 4968.162
+          },
+          {
+            "time": 1780290000,
+            "open": 73497.5,
+            "high": 73507.9,
+            "low": 73283.5,
+            "close": 73319.5,
+            "volume": 2267.135
+          },
+          {
+            "time": 1780293600,
+            "open": 73319.5,
+            "high": 73339.3,
+            "low": 72917.0,
+            "close": 73106.6,
+            "volume": 7954.82
+          }
+        ],
         "notes": [
-          "Populate values from TradingView's exported plot data when an external capture is available."
+          "TradingView export 2026-06-01, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_e6721.csv"
         ]
       },
       "bars": [
@@ -55,12 +115,12 @@
           "commission": 1.0
         },
         {
-          "time": 2,
-          "id": "risk.max_drawdown",
+          "time": 3,
+          "id": "close_all",
           "type": "close_all",
           "side": "flat",
           "qty": 10.0,
-          "price": 89.0,
+          "price": 90.0,
           "position_after": 0.0,
           "comment": "",
           "commission": 1.0
@@ -84,25 +144,6 @@
           "commission": 1.0,
           "requested_qty": 10.0,
           "filled_qty": 10.0
-        },
-        {
-          "id": "risk.max_drawdown",
-          "type": "close_all",
-          "status": "filled",
-          "phase": "close_all_fill",
-          "submitted_time": 2,
-          "filled_time": 2,
-          "canceled_time": null,
-          "rejected_time": null,
-          "side": "flat",
-          "qty": 10.0,
-          "price": 89.0,
-          "position_after": 0.0,
-          "comment": "",
-          "commission": 1.0,
-          "requested_qty": 10.0,
-          "filled_qty": 10.0,
-          "target_qty": 10.0
         },
         {
           "id": "Blocked Entry",
@@ -139,64 +180,83 @@
           "requested_qty": 1.0,
           "filled_qty": 0.0,
           "rejected_reason": "risk_locked"
+        },
+        {
+          "id": "close_all",
+          "type": "close_all",
+          "status": "filled",
+          "phase": "close_all_fill",
+          "submitted_time": 3,
+          "filled_time": 3,
+          "canceled_time": null,
+          "rejected_time": null,
+          "side": "flat",
+          "qty": 10.0,
+          "price": 90.0,
+          "position_after": 0.0,
+          "comment": "",
+          "commission": 1.0,
+          "requested_qty": 10.0,
+          "filled_qty": 10.0,
+          "target_qty": 10.0
         }
       ],
       "closedtrades": [
         {
           "entry_time": 1,
-          "exit_time": 2,
+          "exit_time": 3,
           "entry_id": "Long",
-          "exit_id": "risk.max_drawdown",
+          "exit_id": "close_all",
           "side": "long",
           "qty": 10.0,
           "entry_price": 100.0,
-          "exit_price": 89.0,
-          "profit": -110.0,
+          "exit_price": 90.0,
+          "profit": -100.0,
           "commission": 2.0,
-          "net_profit": -112.0
+          "net_profit": -102.0
         }
       ],
       "opentrades": [],
       "values": {
         "Position": [
-          10.0,
           0.0,
-          0.0
+          10.0,
+          10.0
         ],
         "Equity": [
-          999.0,
-          888.0,
-          888.0
+          1000.0,
+          899.0,
+          899.0
         ],
         "Net Profit": [
+          0.0,
           -1.0,
-          -112.0,
-          -112.0
+          -1.0
         ],
         "Open Profit": [
           0.0,
-          0.0,
-          0.0
+          -100.0,
+          -100.0
         ],
         "Closed Trades": [
           0.0,
-          1.0,
-          1.0
+          0.0,
+          0.0
         ],
         "Closed Commission": [
-          2.0,
-          2.0,
-          2.0
+          0.0,
+          0.0,
+          0.0
         ]
       },
       "summary": {
         "initial_capital": 1000.0,
         "currency": "",
-        "equity": 888.0,
-        "netprofit": -112.0,
-        "openprofit": 0.0,
+        "equity": 899.0,
+        "netprofit": -1.0,
+        "openprofit": -100.0,
         "grossprofit": 0.0,
-        "grossloss": -110.0,
+        "grossloss": -100.0,
         "commission": 2.0,
         "backtest_fill_limits_assumption": 0,
         "same_bar_fill_priority": "stop_first",
