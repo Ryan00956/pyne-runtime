@@ -33,6 +33,7 @@ def test_ta_golden_fixture(fixture_name: str) -> None:
     assert result.ok, result.error
     for name, expected in fixture["expected_series"].items():
         _assert_series_matches(result.get_series(name), expected)
+    _assert_external_capture(fixture)
 
 
 def _load_fixture(name: str) -> dict[str, Any]:
@@ -49,3 +50,22 @@ def _assert_series_matches(actual: list[dict[str, Any]], expected: list[dict[str
                 assert actual_value == pytest.approx(expected_value, abs=1e-9)
             else:
                 assert actual_value == expected_value
+
+
+def _assert_external_capture(fixture: dict[str, Any]) -> None:
+    capture = fixture.get("external_capture")
+    if capture is None:
+        return
+    if capture.get("status") != "captured":
+        return
+    if capture.get("assertion") != "parity":
+        return
+
+    result = pn.run(
+        fixture["script"],
+        capture.get("bars") or fixture["chart_bars"],
+        executor_mode="inline",
+    )
+    assert result.ok, result.error
+    for name, expected in capture.get("series", {}).items():
+        _assert_series_matches(result.get_series(name), expected)

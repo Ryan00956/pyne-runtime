@@ -18,6 +18,7 @@ cd "$ROOT"
 "$PYTHON" -m pytest
 "$PYTHON" scripts/strategy_capture_scaffold.py --check
 "$PYTHON" scripts/strategy_capture_diff.py --assertion parity
+"$PYTHON" scripts/ta_capture_diff.py --assertion parity
 rm -rf "$DIST"
 "$PYTHON" -m build --outdir "$DIST"
 "$PYTHON" -m twine check "$DIST"/*
