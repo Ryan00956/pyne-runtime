@@ -221,13 +221,60 @@
       "pine_equivalent": "//@version=5\nstrategy(\"Pine Equivalent Short Limit First\", overlay=true, initial_capital=1000, slippage=1, commission_type=strategy.commission.cash_per_order, commission_value=0.5, process_orders_on_close=true)\nif bar_index == 0\n    strategy.entry(\"Short\", strategy.short, qty=1)\nstrategy.exit(\"Bracket\", from_entry=\"Short\", stop=11, limit=9)\nplot(strategy.position_size, \"Position\")\nplot(strategy.equity, \"Equity\")\nplot(strategy.netprofit, \"Net Profit\")\nplot(strategy.openprofit, \"Open Profit\")\nplot(strategy.closedtrades, \"Closed Trades\")\nplot(strategy.closedtrades.commission(0), \"Closed Commission\")\n",
       "pine_equivalent_notes": [
         "Both stop and limit are touched on the exit bar; this Pyne fixture selects the limit side through an explicit deterministic policy.",
-        "Short entry sell fills subtract slippage ticks, while the limit exit buy fill adds slippage ticks."
+        "TradingView does not expose Pyne's same_bar_fill_priority knob, so the external capture records the closest Pine-equivalent bracket on the same bars.",
+        "Short entry sell fills subtract slippage ticks, while the selected exit buy fill adds slippage ticks."
       ],
       "external_capture": {
         "provider": "tradingview",
-        "status": "not_captured",
+        "status": "captured",
+        "assertion": "parity",
+        "tolerance": 1e-09,
+        "values": {
+          "Position": [
+            0.0,
+            0.0
+          ],
+          "Equity": [
+            1000.0,
+            998.8000000000029
+          ],
+          "Net Profit": [
+            0.0,
+            -1.1999999999970896
+          ],
+          "Open Profit": [
+            0.0,
+            0.0
+          ],
+          "Closed Trades": [
+            0.0,
+            1.0
+          ],
+          "Closed Commission": [
+            0.0,
+            1.0
+          ]
+        },
+        "bars": [
+          {
+            "time": 1780290000,
+            "open": 73497.5,
+            "high": 73507.9,
+            "low": 73283.5,
+            "close": 73319.5,
+            "volume": 2267.135
+          },
+          {
+            "time": 1780293600,
+            "open": 73319.5,
+            "high": 73339.3,
+            "low": 72917.0,
+            "close": 73106.6,
+            "volume": 7954.82
+          }
+        ],
         "notes": [
-          "Populate values from TradingView's exported plot data when an external capture is available."
+          "TradingView export 2026-06-01, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_3104c.csv"
         ]
       },
       "bars": [
