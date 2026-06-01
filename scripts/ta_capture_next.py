@@ -80,7 +80,7 @@ def find_next_task(
 
     fixture = pending[0]
     entry = find_manifest_entry(manifest, fixture["fixture"])
-    return build_task(fixture, entry)
+    return build_task(fixture, entry, include_all=include_all)
 
 
 def find_manifest_entry(
@@ -98,9 +98,12 @@ def find_manifest_entry(
 def build_task(
     status_fixture: dict[str, Any],
     manifest_entry: dict[str, Any] | None,
+    *,
+    include_all: bool,
 ) -> dict[str, Any]:
     fixture = status_fixture["fixture"]
     export_dir = DEFAULT_EXPORT_DIR.as_posix()
+    prepare_flags = " --all" if include_all else ""
     task = {
         "status": "pending",
         "fixture": fixture,
@@ -109,7 +112,7 @@ def build_task(
         "capture_status": status_fixture["status"],
         "prepare_command": (
             "python scripts/ta_capture_prepare.py "
-            f"--out-dir {export_dir} --clean"
+            f"--out-dir {export_dir} --clean{prepare_flags}"
         ),
         "preflight_command": (
             "python scripts/ta_capture_preflight.py "
