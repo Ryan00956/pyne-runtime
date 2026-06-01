@@ -33,7 +33,7 @@ def test_ta_capture_prepare_priority_manifest(tmp_path: Path) -> None:
     first = manifest["entries"][0]
     assert first["fixture"] == "ta_core_indicators.json"
     assert first["priority"] is True
-    assert first["status"] == "missing"
+    assert first["status"] == "captured"
     assert first["bar_count"] == 10
     assert first["capture_index_title"] == "Pyne Capture Index"
     assert "--assertion reference" in first["diff_command"]
@@ -67,4 +67,6 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["default_scope"] == "all"
     assert manifest["fixture_count"] == 4
-    assert all(entry["status"] == "missing" for entry in manifest["entries"])
+    statuses = {entry["fixture"]: entry["status"] for entry in manifest["entries"]}
+    assert statuses["ta_core_indicators.json"] == "captured"
+    assert sum(status == "missing" for status in statuses.values()) == 3

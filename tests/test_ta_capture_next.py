@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_ta_capture_next_json_default_priority() -> None:
+def test_ta_capture_next_json_default_priority_is_complete() -> None:
     completed = subprocess.run(
         [
             sys.executable,
@@ -23,10 +23,7 @@ def test_ta_capture_next_json_default_priority() -> None:
     )
 
     task = json.loads(completed.stdout)
-    assert task["status"] == "pending"
-    assert task["fixture"] == "ta_core_indicators.json"
-    assert task["capture_status"] == "missing"
-    assert "--assertion reference" in task["diff_command"]
+    assert task == {"status": "complete", "message": "no pending TA capture task"}
 
 
 def test_ta_capture_next_uses_manifest(tmp_path: Path) -> None:
@@ -37,6 +34,7 @@ def test_ta_capture_next_uses_manifest(tmp_path: Path) -> None:
             str(ROOT / "scripts" / "ta_capture_prepare.py"),
             "--out-dir",
             str(pack_dir),
+            "--all",
         ],
         check=True,
         cwd=ROOT,
@@ -48,6 +46,7 @@ def test_ta_capture_next_uses_manifest(tmp_path: Path) -> None:
             str(ROOT / "scripts" / "ta_capture_next.py"),
             "--manifest",
             str(pack_dir / "manifest.json"),
+            "--all",
             "--json",
         ],
         check=True,
@@ -57,8 +56,9 @@ def test_ta_capture_next_uses_manifest(tmp_path: Path) -> None:
     )
 
     task = json.loads(completed.stdout)
-    assert task["pine_file"] == "01_ta_core_indicators.pine"
-    assert task["expected_export_file"] == "01_ta_core_indicators.csv"
+    assert task["fixture"] == "ta_advanced_indicators.json"
+    assert task["pine_file"] == "02_ta_advanced_indicators.pine"
+    assert task["expected_export_file"] == "02_ta_advanced_indicators.csv"
     assert task["capture_index_title"] == "Pyne Capture Index"
 
 
@@ -74,5 +74,4 @@ def test_ta_capture_next_text_output() -> None:
         text=True,
     )
 
-    assert "Next TA TradingView capture task" in completed.stdout
-    assert "fixture: ta_core_indicators.json" in completed.stdout
+    assert completed.stdout.strip() == "no pending TA capture task"

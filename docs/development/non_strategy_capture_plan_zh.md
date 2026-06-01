@@ -7,6 +7,9 @@ TA、`request.security()` 与集合历史边界。目标仍然不是运行 Pine 
 ## 当前基线
 
 - Strategy pine-equivalent capture 已完成：27/27 captured，parity diff 为 0。
+- TA capture 已开始：`ta_core_indicators.json` 已导入 TradingView reference
+  evidence；当前仍不是 parity，主要差异集中在 warm-up 输出、`highestbars` /
+  `lowestbars` offset 符号，以及 RSI 初始 RMA 口径。
 - 下一阶段优先级：
   1. TA golden 的真实 TradingView 输出对照。
   2. `request.security()` edge-case 的真实 Pine 输出对照。
