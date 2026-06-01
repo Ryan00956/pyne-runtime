@@ -89,6 +89,9 @@ def test_strategy_capture_prepare_all_cases(tmp_path: Path) -> None:
         entry for entry in manifest["entries"] if entry["status"] == "not_captured"
     )
     assert "--assertion reference" in pending["diff_command"]
+    for entry in manifest["entries"]:
+        pine_text = (out_dir / entry["pine_file"]).read_text(encoding="utf-8")
+        assert "mintick=" not in pine_text
 
 
 def test_strategy_capture_prepare_case_filter(tmp_path: Path) -> None:
