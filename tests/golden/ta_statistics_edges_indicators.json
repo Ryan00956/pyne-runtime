@@ -1,0 +1,1029 @@
+{
+  "name": "ta_statistics_edges_indicators",
+  "source": "pyne-defined TA statistics and percentile edge capture fixture",
+  "chart_bars": [
+    {
+      "time": 1,
+      "open": 100.0,
+      "high": 101.5,
+      "low": 99.5,
+      "close": 100.0,
+      "volume": 1000.0
+    },
+    {
+      "time": 2,
+      "open": 100.0,
+      "high": 102.0,
+      "low": 98.0,
+      "close": 99.0,
+      "volume": 1100.0
+    },
+    {
+      "time": 3,
+      "open": 99.0,
+      "high": 100.0,
+      "low": 96.5,
+      "close": 97.5,
+      "volume": 1050.0
+    },
+    {
+      "time": 4,
+      "open": 97.5,
+      "high": 103.0,
+      "low": 97.0,
+      "close": 102.5,
+      "volume": 1600.0
+    },
+    {
+      "time": 5,
+      "open": 102.5,
+      "high": 104.0,
+      "low": 101.0,
+      "close": 102.5,
+      "volume": 1250.0
+    },
+    {
+      "time": 6,
+      "open": 102.5,
+      "high": 108.0,
+      "low": 102.0,
+      "close": 107.0,
+      "volume": 1900.0
+    },
+    {
+      "time": 7,
+      "open": 107.0,
+      "high": 108.5,
+      "low": 103.0,
+      "close": 104.0,
+      "volume": 1750.0
+    },
+    {
+      "time": 8,
+      "open": 104.0,
+      "high": 105.0,
+      "low": 99.0,
+      "close": 100.0,
+      "volume": 1800.0
+    },
+    {
+      "time": 9,
+      "open": 100.0,
+      "high": 100.5,
+      "low": 94.0,
+      "close": 95.0,
+      "volume": 2100.0
+    },
+    {
+      "time": 10,
+      "open": 95.0,
+      "high": 98.0,
+      "low": 92.5,
+      "close": 97.5,
+      "volume": 1500.0
+    },
+    {
+      "time": 11,
+      "open": 97.5,
+      "high": 103.0,
+      "low": 97.0,
+      "close": 102.5,
+      "volume": 1320.0
+    },
+    {
+      "time": 12,
+      "open": 102.5,
+      "high": 106.0,
+      "low": 101.5,
+      "close": 105.0,
+      "volume": 1450.0
+    },
+    {
+      "time": 13,
+      "open": 105.0,
+      "high": 106.5,
+      "low": 103.0,
+      "close": 104.0,
+      "volume": 1150.0
+    },
+    {
+      "time": 14,
+      "open": 104.0,
+      "high": 104.5,
+      "low": 100.0,
+      "close": 101.0,
+      "volume": 1420.0
+    },
+    {
+      "time": 15,
+      "open": 101.0,
+      "high": 101.5,
+      "low": 96.0,
+      "close": 97.5,
+      "volume": 1680.0
+    },
+    {
+      "time": 16,
+      "open": 97.5,
+      "high": 99.0,
+      "low": 93.0,
+      "close": 94.0,
+      "volume": 2200.0
+    },
+    {
+      "time": 17,
+      "open": 94.0,
+      "high": 98.5,
+      "low": 93.5,
+      "close": 98.0,
+      "volume": 1700.0
+    },
+    {
+      "time": 18,
+      "open": 98.0,
+      "high": 104.0,
+      "low": 97.5,
+      "close": 103.5,
+      "volume": 1850.0
+    },
+    {
+      "time": 19,
+      "open": 103.5,
+      "high": 109.0,
+      "low": 103.0,
+      "close": 108.0,
+      "volume": 1950.0
+    },
+    {
+      "time": 20,
+      "open": 108.0,
+      "high": 109.5,
+      "low": 104.0,
+      "close": 105.5,
+      "volume": 1600.0
+    }
+  ],
+  "script": "plot(ta.percentile_nearest_rank(close, 4, 25), \"PNR 4 25\")\nplot(ta.percentile_nearest_rank(close, 4, 50), \"PNR 4 50\")\nplot(ta.percentile_nearest_rank(close, 7, 75), \"PNR 7 75\")\nplot(ta.percentile_linear_interpolation(close, 4, 25), \"PLI 4 25\")\nplot(ta.percentile_linear_interpolation(close, 4, 50), \"PLI 4 50\")\nplot(ta.percentile_linear_interpolation(close, 7, 75), \"PLI 7 75\")\nplot(ta.variance(close, 4), \"VAR 4 biased\")\nplot(ta.variance(close, 4, false), \"VAR 4 unbiased\")\nplot(ta.stdev(close, 4), \"STDEV 4\")\nplot(ta.dev(close, 4), \"DEV 4\")\nplot(ta.variance(close, 7), \"VAR 7 biased\")\nplot(ta.stdev(close, 7), \"STDEV 7\")\nplot(ta.dev(close, 7), \"DEV 7\")\n",
+  "pine_equivalent": "//@version=5\nindicator(\"TA Statistics Edges Golden\")\nplot(ta.percentile_nearest_rank(close, 4, 25), \"PNR 4 25\")\nplot(ta.percentile_nearest_rank(close, 4, 50), \"PNR 4 50\")\nplot(ta.percentile_nearest_rank(close, 7, 75), \"PNR 7 75\")\nplot(ta.percentile_linear_interpolation(close, 4, 25), \"PLI 4 25\")\nplot(ta.percentile_linear_interpolation(close, 4, 50), \"PLI 4 50\")\nplot(ta.percentile_linear_interpolation(close, 7, 75), \"PLI 7 75\")\nplot(ta.variance(close, 4), \"VAR 4 biased\")\nplot(ta.variance(close, 4, false), \"VAR 4 unbiased\")\nplot(ta.stdev(close, 4), \"STDEV 4\")\nplot(ta.dev(close, 4), \"DEV 4\")\nplot(ta.variance(close, 7), \"VAR 7 biased\")\nplot(ta.stdev(close, 7), \"STDEV 7\")\nplot(ta.dev(close, 7), \"DEV 7\")\n",
+  "expected_series": {
+    "PNR 4 25": [
+      {
+        "time": 4,
+        "value": 97.5
+      },
+      {
+        "time": 5,
+        "value": 97.5
+      },
+      {
+        "time": 6,
+        "value": 97.5
+      },
+      {
+        "time": 7,
+        "value": 102.5
+      },
+      {
+        "time": 8,
+        "value": 100.0
+      },
+      {
+        "time": 9,
+        "value": 95.0
+      },
+      {
+        "time": 10,
+        "value": 95.0
+      },
+      {
+        "time": 11,
+        "value": 95.0
+      },
+      {
+        "time": 12,
+        "value": 95.0
+      },
+      {
+        "time": 13,
+        "value": 97.5
+      },
+      {
+        "time": 14,
+        "value": 101.0
+      },
+      {
+        "time": 15,
+        "value": 97.5
+      },
+      {
+        "time": 16,
+        "value": 94.0
+      },
+      {
+        "time": 17,
+        "value": 94.0
+      },
+      {
+        "time": 18,
+        "value": 94.0
+      },
+      {
+        "time": 19,
+        "value": 94.0
+      },
+      {
+        "time": 20,
+        "value": 98.0
+      }
+    ],
+    "PNR 4 50": [
+      {
+        "time": 4,
+        "value": 99.0
+      },
+      {
+        "time": 5,
+        "value": 99.0
+      },
+      {
+        "time": 6,
+        "value": 102.5
+      },
+      {
+        "time": 7,
+        "value": 102.5
+      },
+      {
+        "time": 8,
+        "value": 102.5
+      },
+      {
+        "time": 9,
+        "value": 100.0
+      },
+      {
+        "time": 10,
+        "value": 97.5
+      },
+      {
+        "time": 11,
+        "value": 97.5
+      },
+      {
+        "time": 12,
+        "value": 97.5
+      },
+      {
+        "time": 13,
+        "value": 102.5
+      },
+      {
+        "time": 14,
+        "value": 102.5
+      },
+      {
+        "time": 15,
+        "value": 101.0
+      },
+      {
+        "time": 16,
+        "value": 97.5
+      },
+      {
+        "time": 17,
+        "value": 97.5
+      },
+      {
+        "time": 18,
+        "value": 97.5
+      },
+      {
+        "time": 19,
+        "value": 98.0
+      },
+      {
+        "time": 20,
+        "value": 103.5
+      }
+    ],
+    "PNR 7 75": [
+      {
+        "time": 7,
+        "value": 104.0
+      },
+      {
+        "time": 8,
+        "value": 104.0
+      },
+      {
+        "time": 9,
+        "value": 104.0
+      },
+      {
+        "time": 10,
+        "value": 104.0
+      },
+      {
+        "time": 11,
+        "value": 104.0
+      },
+      {
+        "time": 12,
+        "value": 105.0
+      },
+      {
+        "time": 13,
+        "value": 104.0
+      },
+      {
+        "time": 14,
+        "value": 104.0
+      },
+      {
+        "time": 15,
+        "value": 104.0
+      },
+      {
+        "time": 16,
+        "value": 104.0
+      },
+      {
+        "time": 17,
+        "value": 104.0
+      },
+      {
+        "time": 18,
+        "value": 104.0
+      },
+      {
+        "time": 19,
+        "value": 104.0
+      },
+      {
+        "time": 20,
+        "value": 105.5
+      }
+    ],
+    "PLI 4 25": [
+      {
+        "time": 4,
+        "value": 98.25
+      },
+      {
+        "time": 5,
+        "value": 98.25
+      },
+      {
+        "time": 6,
+        "value": 100.0
+      },
+      {
+        "time": 7,
+        "value": 102.5
+      },
+      {
+        "time": 8,
+        "value": 101.25
+      },
+      {
+        "time": 9,
+        "value": 97.5
+      },
+      {
+        "time": 10,
+        "value": 96.25
+      },
+      {
+        "time": 11,
+        "value": 96.25
+      },
+      {
+        "time": 12,
+        "value": 96.25
+      },
+      {
+        "time": 13,
+        "value": 100.0
+      },
+      {
+        "time": 14,
+        "value": 101.75
+      },
+      {
+        "time": 15,
+        "value": 99.25
+      },
+      {
+        "time": 16,
+        "value": 95.75
+      },
+      {
+        "time": 17,
+        "value": 95.75
+      },
+      {
+        "time": 18,
+        "value": 95.75
+      },
+      {
+        "time": 19,
+        "value": 96.0
+      },
+      {
+        "time": 20,
+        "value": 100.75
+      }
+    ],
+    "PLI 4 50": [
+      {
+        "time": 4,
+        "value": 99.5
+      },
+      {
+        "time": 5,
+        "value": 100.75
+      },
+      {
+        "time": 6,
+        "value": 102.5
+      },
+      {
+        "time": 7,
+        "value": 103.25
+      },
+      {
+        "time": 8,
+        "value": 103.25
+      },
+      {
+        "time": 9,
+        "value": 102.0
+      },
+      {
+        "time": 10,
+        "value": 98.75
+      },
+      {
+        "time": 11,
+        "value": 98.75
+      },
+      {
+        "time": 12,
+        "value": 100.0
+      },
+      {
+        "time": 13,
+        "value": 103.25
+      },
+      {
+        "time": 14,
+        "value": 103.25
+      },
+      {
+        "time": 15,
+        "value": 102.5
+      },
+      {
+        "time": 16,
+        "value": 99.25
+      },
+      {
+        "time": 17,
+        "value": 97.75
+      },
+      {
+        "time": 18,
+        "value": 97.75
+      },
+      {
+        "time": 19,
+        "value": 100.75
+      },
+      {
+        "time": 20,
+        "value": 104.5
+      }
+    ],
+    "PLI 7 75": [
+      {
+        "time": 7,
+        "value": 103.25
+      },
+      {
+        "time": 8,
+        "value": 103.25
+      },
+      {
+        "time": 9,
+        "value": 103.25
+      },
+      {
+        "time": 10,
+        "value": 103.25
+      },
+      {
+        "time": 11,
+        "value": 103.25
+      },
+      {
+        "time": 12,
+        "value": 104.5
+      },
+      {
+        "time": 13,
+        "value": 104.0
+      },
+      {
+        "time": 14,
+        "value": 103.25
+      },
+      {
+        "time": 15,
+        "value": 103.25
+      },
+      {
+        "time": 16,
+        "value": 103.25
+      },
+      {
+        "time": 17,
+        "value": 103.25
+      },
+      {
+        "time": 18,
+        "value": 103.75
+      },
+      {
+        "time": 19,
+        "value": 103.75
+      },
+      {
+        "time": 20,
+        "value": 104.5
+      }
+    ],
+    "VAR 4 biased": [
+      {
+        "time": 4,
+        "value": 3.3125
+      },
+      {
+        "time": 5,
+        "value": 4.796875
+      },
+      {
+        "time": 6,
+        "value": 11.296875
+      },
+      {
+        "time": 7,
+        "value": 3.375
+      },
+      {
+        "time": 8,
+        "value": 6.421875
+      },
+      {
+        "time": 9,
+        "value": 20.25
+      },
+      {
+        "time": 10,
+        "value": 11.046875
+      },
+      {
+        "time": 11,
+        "value": 7.8125
+      },
+      {
+        "time": 12,
+        "value": 15.625
+      },
+      {
+        "time": 13,
+        "value": 8.3125
+      },
+      {
+        "time": 14,
+        "value": 2.296875
+      },
+      {
+        "time": 15,
+        "value": 8.546875
+      },
+      {
+        "time": 16,
+        "value": 14.046875
+      },
+      {
+        "time": 17,
+        "value": 6.171875
+      },
+      {
+        "time": 18,
+        "value": 11.5625
+      },
+      {
+        "time": 19,
+        "value": 28.296875
+      },
+      {
+        "time": 20,
+        "value": 13.5625
+      }
+    ],
+    "VAR 4 unbiased": [
+      {
+        "time": 4,
+        "value": 4.41666667
+      },
+      {
+        "time": 5,
+        "value": 6.39583333
+      },
+      {
+        "time": 6,
+        "value": 15.0625
+      },
+      {
+        "time": 7,
+        "value": 4.5
+      },
+      {
+        "time": 8,
+        "value": 8.5625
+      },
+      {
+        "time": 9,
+        "value": 27.0
+      },
+      {
+        "time": 10,
+        "value": 14.72916667
+      },
+      {
+        "time": 11,
+        "value": 10.41666667
+      },
+      {
+        "time": 12,
+        "value": 20.83333333
+      },
+      {
+        "time": 13,
+        "value": 11.08333333
+      },
+      {
+        "time": 14,
+        "value": 3.0625
+      },
+      {
+        "time": 15,
+        "value": 11.39583333
+      },
+      {
+        "time": 16,
+        "value": 18.72916667
+      },
+      {
+        "time": 17,
+        "value": 8.22916667
+      },
+      {
+        "time": 18,
+        "value": 15.41666667
+      },
+      {
+        "time": 19,
+        "value": 37.72916667
+      },
+      {
+        "time": 20,
+        "value": 18.08333333
+      }
+    ],
+    "STDEV 4": [
+      {
+        "time": 4,
+        "value": 1.82002747
+      },
+      {
+        "time": 5,
+        "value": 2.19017693
+      },
+      {
+        "time": 6,
+        "value": 3.36108241
+      },
+      {
+        "time": 7,
+        "value": 1.83711731
+      },
+      {
+        "time": 8,
+        "value": 2.53414187
+      },
+      {
+        "time": 9,
+        "value": 4.5
+      },
+      {
+        "time": 10,
+        "value": 3.32368395
+      },
+      {
+        "time": 11,
+        "value": 2.79508497
+      },
+      {
+        "time": 12,
+        "value": 3.95284708
+      },
+      {
+        "time": 13,
+        "value": 2.88314065
+      },
+      {
+        "time": 14,
+        "value": 1.51554446
+      },
+      {
+        "time": 15,
+        "value": 2.92350389
+      },
+      {
+        "time": 16,
+        "value": 3.74791609
+      },
+      {
+        "time": 17,
+        "value": 2.48432586
+      },
+      {
+        "time": 18,
+        "value": 3.40036763
+      },
+      {
+        "time": 19,
+        "value": 5.31948071
+      },
+      {
+        "time": 20,
+        "value": 3.68272997
+      }
+    ],
+    "DEV 4": [
+      {
+        "time": 4,
+        "value": 1.5
+      },
+      {
+        "time": 5,
+        "value": 2.125
+      },
+      {
+        "time": 6,
+        "value": 2.4375
+      },
+      {
+        "time": 7,
+        "value": 1.5
+      },
+      {
+        "time": 8,
+        "value": 2.125
+      },
+      {
+        "time": 9,
+        "value": 4.0
+      },
+      {
+        "time": 10,
+        "value": 2.875
+      },
+      {
+        "time": 11,
+        "value": 2.5
+      },
+      {
+        "time": 12,
+        "value": 3.75
+      },
+      {
+        "time": 13,
+        "value": 2.375
+      },
+      {
+        "time": 14,
+        "value": 1.375
+      },
+      {
+        "time": 15,
+        "value": 2.625
+      },
+      {
+        "time": 16,
+        "value": 3.375
+      },
+      {
+        "time": 17,
+        "value": 1.875
+      },
+      {
+        "time": 18,
+        "value": 2.625
+      },
+      {
+        "time": 19,
+        "value": 4.875
+      },
+      {
+        "time": 20,
+        "value": 3.0
+      }
+    ],
+    "VAR 7 biased": [
+      {
+        "time": 7,
+        "value": 8.91836735
+      },
+      {
+        "time": 8,
+        "value": 8.91836735
+      },
+      {
+        "time": 9,
+        "value": 14.06122449
+      },
+      {
+        "time": 10,
+        "value": 14.06122449
+      },
+      {
+        "time": 11,
+        "value": 14.06122449
+      },
+      {
+        "time": 12,
+        "value": 15.74489796
+      },
+      {
+        "time": 13,
+        "value": 12.19387755
+      },
+      {
+        "time": 14,
+        "value": 10.84693878
+      },
+      {
+        "time": 15,
+        "value": 12.12244898
+      },
+      {
+        "time": 16,
+        "value": 13.7755102
+      },
+      {
+        "time": 17,
+        "value": 13.41836735
+      },
+      {
+        "time": 18,
+        "value": 14.17346939
+      },
+      {
+        "time": 19,
+        "value": 19.19387755
+      },
+      {
+        "time": 20,
+        "value": 20.81632653
+      }
+    ],
+    "STDEV 7": [
+      {
+        "time": 7,
+        "value": 2.98636357
+      },
+      {
+        "time": 8,
+        "value": 2.98636357
+      },
+      {
+        "time": 9,
+        "value": 3.74982993
+      },
+      {
+        "time": 10,
+        "value": 3.74982993
+      },
+      {
+        "time": 11,
+        "value": 3.74982993
+      },
+      {
+        "time": 12,
+        "value": 3.96798412
+      },
+      {
+        "time": 13,
+        "value": 3.4919733
+      },
+      {
+        "time": 14,
+        "value": 3.29346911
+      },
+      {
+        "time": 15,
+        "value": 3.48173074
+      },
+      {
+        "time": 16,
+        "value": 3.71153744
+      },
+      {
+        "time": 17,
+        "value": 3.66310897
+      },
+      {
+        "time": 18,
+        "value": 3.76476684
+      },
+      {
+        "time": 19,
+        "value": 4.38108178
+      },
+      {
+        "time": 20,
+        "value": 4.56249126
+      }
+    ],
+    "DEV 7": [
+      {
+        "time": 7,
+        "value": 2.53061224
+      },
+      {
+        "time": 8,
+        "value": 2.53061224
+      },
+      {
+        "time": 9,
+        "value": 3.18367347
+      },
+      {
+        "time": 10,
+        "value": 3.18367347
+      },
+      {
+        "time": 11,
+        "value": 3.18367347
+      },
+      {
+        "time": 12,
+        "value": 3.48979592
+      },
+      {
+        "time": 13,
+        "value": 3.12244898
+      },
+      {
+        "time": 14,
+        "value": 2.75510204
+      },
+      {
+        "time": 15,
+        "value": 3.16326531
+      },
+      {
+        "time": 16,
+        "value": 3.32653061
+      },
+      {
+        "time": 17,
+        "value": 3.24489796
+      },
+      {
+        "time": 18,
+        "value": 3.36734694
+      },
+      {
+        "time": 19,
+        "value": 3.73469388
+      },
+      {
+        "time": 20,
+        "value": 3.93877551
+      }
+    ]
+  },
+  "external_capture": {
+    "provider": "tradingview",
+    "status": "not_captured",
+    "assertion": "reference",
+    "tolerance": 1e-09,
+    "notes": [
+      "Pending TradingView export for statistics and percentile edge indicators."
+    ]
+  }
+}

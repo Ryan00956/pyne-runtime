@@ -24,9 +24,9 @@ def test_ta_capture_status_json_report() -> None:
 
     report = json.loads(completed.stdout)
 
-    assert report["counts"]["total"] == 7
+    assert report["counts"]["total"] == 8
     assert report["counts"]["captured"] == 7
-    assert report["counts"]["not_captured"] == 0
+    assert report["counts"]["not_captured"] == 1
     assert report["counts"]["missing"] == 0
     assert report["counts"]["priority_total"] == 1
     assert report["counts"]["priority_captured"] == 1
@@ -56,12 +56,17 @@ def test_ta_capture_status_json_report() -> None:
     assert fifth["status"] == "captured"
     assert fifth["assertion"] == "parity"
     sixth = report["fixtures"][5]
-    assert sixth["fixture"] == "ta_trend_switch_indicators.json"
+    assert sixth["fixture"] == "ta_statistics_edges_indicators.json"
     assert sixth["priority"] is False
-    assert sixth["status"] == "captured"
-    assert sixth["assertion"] == "parity"
+    assert sixth["status"] == "not_captured"
+    assert sixth["assertion"] == "reference"
     seventh = report["fixtures"][6]
-    assert seventh["fixture"] == "ta_warmup_boundaries_indicators.json"
+    assert seventh["fixture"] == "ta_trend_switch_indicators.json"
     assert seventh["priority"] is False
     assert seventh["status"] == "captured"
     assert seventh["assertion"] == "parity"
+    eighth = report["fixtures"][7]
+    assert eighth["fixture"] == "ta_warmup_boundaries_indicators.json"
+    assert eighth["priority"] is False
+    assert eighth["status"] == "captured"
+    assert eighth["assertion"] == "parity"
