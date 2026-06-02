@@ -25,8 +25,8 @@ def test_ta_capture_status_json_report() -> None:
     report = json.loads(completed.stdout)
 
     assert report["counts"]["total"] == 6
-    assert report["counts"]["captured"] == 5
-    assert report["counts"]["not_captured"] == 1
+    assert report["counts"]["captured"] == 6
+    assert report["counts"]["not_captured"] == 0
     assert report["counts"]["missing"] == 0
     assert report["counts"]["priority_total"] == 1
     assert report["counts"]["priority_captured"] == 1
@@ -53,7 +53,7 @@ def test_ta_capture_status_json_report() -> None:
     fifth = report["fixtures"][4]
     assert fifth["fixture"] == "ta_trend_switch_indicators.json"
     assert fifth["priority"] is False
-    assert fifth["status"] == "not_captured"
+    assert fifth["status"] == "captured"
     assert fifth["assertion"] == "reference"
     sixth = report["fixtures"][5]
     assert sixth["fixture"] == "ta_warmup_boundaries_indicators.json"
