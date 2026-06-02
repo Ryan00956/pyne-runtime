@@ -149,7 +149,10 @@ def build_provider_bars(
     provider_bars: list[dict[str, Any]] = []
     seen_provider_times: set[int] = set()
     for chart_time in sorted(by_chart_time["time"]):
-        provider_time = int(float(by_chart_time["time"][chart_time]))
+        provider_time = normalize_provider_time(
+            float(by_chart_time["time"][chart_time]),
+            chart_time,
+        )
         if provider_time in seen_provider_times:
             continue
         missing = [
@@ -172,6 +175,13 @@ def build_provider_bars(
             }
         )
     return provider_bars
+
+
+def normalize_provider_time(raw_provider_time: float, chart_time: int) -> int:
+    provider_time = int(raw_provider_time)
+    if abs(provider_time) >= 100_000_000_000 and abs(chart_time) < 100_000_000_000:
+        return int(provider_time / 1000)
+    return provider_time
 
 
 def validate_capture_series(

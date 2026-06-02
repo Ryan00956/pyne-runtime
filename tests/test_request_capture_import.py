@@ -14,9 +14,9 @@ def test_request_capture_import_rebuilds_provider_bars(tmp_path: Path) -> None:
     csv_path = tmp_path / "export.csv"
     csv_path.write_text(
         "time,open,high,low,close,HTF Close,HTF Time,HTF Open,HTF High,HTF Low,HTF Provider Close,HTF Volume,Pyne Capture Index,Volume\n"
-        "1,10,11,9,10,100,1000,90,110,80,100,5000,0,100\n"
+        "1,10,11,9,10,100,1700000000000,90,110,80,100,5000,0,100\n"
         "2,11,12,10,11,100,,,,,,5000,1,200\n"
-        "3,12,13,11,12,200,2000,190,210,180,200,6000,2,300\n",
+        "3,12,13,11,12,200,1700003600000,190,210,180,200,6000,2,300\n",
         encoding="utf-8",
     )
 
@@ -48,8 +48,8 @@ def test_request_capture_import_rebuilds_provider_bars(tmp_path: Path) -> None:
         {"time": 3, "value": 200.0},
     ]
     assert capture["provider_bars"] == [
-        {"time": 1000, "open": 90.0, "high": 110.0, "low": 80.0, "close": 100.0, "volume": 5000.0},
-        {"time": 2000, "open": 190.0, "high": 210.0, "low": 180.0, "close": 200.0, "volume": 6000.0},
+        {"time": 1700000000, "open": 90.0, "high": 110.0, "low": 80.0, "close": 100.0, "volume": 5000.0},
+        {"time": 1700003600, "open": 190.0, "high": 210.0, "low": 180.0, "close": 200.0, "volume": 6000.0},
     ]
 
 

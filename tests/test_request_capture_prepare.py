@@ -33,7 +33,7 @@ def test_request_capture_prepare_priority_manifest(tmp_path: Path) -> None:
     first = manifest["entries"][0]
     assert first["fixture"] == "request_security_htf_capture.json"
     assert first["priority"] is True
-    assert first["status"] == "not_captured"
+    assert first["status"] == "captured"
     assert first["bar_count"] == 12
     assert first["capture_index_title"] == "Pyne Capture Index"
     assert first["plot_titles"] == [

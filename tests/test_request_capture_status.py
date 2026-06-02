@@ -26,14 +26,14 @@ def test_request_capture_status_json_report() -> None:
 
     assert report["counts"] == {
         "total": 1,
-        "captured": 0,
-        "not_captured": 1,
+        "captured": 1,
+        "not_captured": 0,
         "missing": 0,
         "priority_total": 1,
-        "priority_captured": 0,
+        "priority_captured": 1,
     }
     first = report["fixtures"][0]
     assert first["fixture"] == "request_security_htf_capture.json"
     assert first["priority"] is True
-    assert first["status"] == "not_captured"
+    assert first["status"] == "captured"
     assert first["assertion"] == "reference"

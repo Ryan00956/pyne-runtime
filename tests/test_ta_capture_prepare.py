@@ -76,7 +76,7 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
     assert statuses["ta_remaining_indicators.json"] == "captured"
     assert statuses["ta_statistics_edges_indicators.json"] == "captured"
     assert statuses["ta_trend_switch_indicators.json"] == "captured"
-    assert statuses["ta_tuple_outputs_indicators.json"] == "not_captured"
+    assert statuses["ta_tuple_outputs_indicators.json"] == "captured"
     assert statuses["ta_warmup_boundaries_indicators.json"] == "captured"
     assert sum(status == "missing" for status in statuses.values()) == 0
 

@@ -37,12 +37,4 @@ def test_request_capture_next_uses_manifest(tmp_path: Path) -> None:
     )
 
     task = json.loads(completed.stdout)
-    assert task["status"] == "pending"
-    assert task["fixture"] == "request_security_htf_capture.json"
-    assert task["pine_file"] == "01_request_security_htf_capture.pine"
-    assert task["bars_file"] == "01_request_security_htf_capture_bars.csv"
-    assert task["expected_export_file"] == "01_request_security_htf_capture.csv"
-    assert task["capture_index_title"] == "Pyne Capture Index"
-    assert task["bar_count"] == 12
-    assert "request_capture_import.py" in task["import_command"]
-    assert "request_capture_diff.py" in task["diff_command"]
+    assert task == {"status": "complete", "message": "no pending request capture task"}

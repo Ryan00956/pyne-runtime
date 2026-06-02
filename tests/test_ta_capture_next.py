@@ -56,44 +56,7 @@ def test_ta_capture_next_uses_manifest_for_all_scope(tmp_path: Path) -> None:
     )
 
     task = json.loads(completed.stdout)
-    assert task == {
-        "status": "pending",
-        "fixture": "ta_tuple_outputs_indicators.json",
-        "name": "ta_tuple_outputs_indicators",
-        "priority": False,
-        "capture_status": "not_captured",
-        "prepare_command": "python scripts/ta_capture_prepare.py --out-dir .tmp/tradingview-ta --clean --all",
-        "preflight_command": (
-            "python scripts/ta_capture_preflight.py "
-            ".tmp/tradingview-ta/manifest.json --fixture ta_tuple_outputs_indicators.json"
-        ),
-        "import_command": (
-            "python scripts/ta_capture_import.py tests/golden/ta_tuple_outputs_indicators.json "
-            "--values .tmp/tradingview-ta/08_ta_tuple_outputs_indicators.csv "
-            "--tolerance 1e-9 --note \"TradingView export YYYY-MM-DD\""
-        ),
-        "diff_command": "python scripts/ta_capture_diff.py --assertion reference tests/golden/ta_tuple_outputs_indicators.json",
-        "pine_file": "08_ta_tuple_outputs_indicators.pine",
-        "bars_file": "08_ta_tuple_outputs_indicators_bars.csv",
-        "expected_export_file": "08_ta_tuple_outputs_indicators.csv",
-        "plot_titles": [
-            "MACD 4 8 Line",
-            "MACD 4 8 Signal",
-            "MACD 4 8 Hist",
-            "MACD Line Minus Signal",
-            "BB 5 Mid",
-            "BB 5 Upper",
-            "BB 5 Lower",
-            "BB 5 Width",
-            "BB 5 Relative",
-            "Plus DI 5",
-            "Minus DI 5",
-            "ADX 5 4",
-            "DI Spread 5",
-        ],
-        "capture_index_title": "Pyne Capture Index",
-        "bar_count": 24,
-    }
+    assert task == {"status": "complete", "message": "no pending TA capture task"}
 
 
 def test_ta_capture_next_text_output() -> None:
