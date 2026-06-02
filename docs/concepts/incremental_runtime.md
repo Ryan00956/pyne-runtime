@@ -83,6 +83,11 @@ strategy ledger. If a preview for the same `time` was already seen,
 `ctx.barstate.isnew` is false during the confirmed callback; if the host sends
 only a closed bar, it is true.
 
+`ctx.state()` cells keep committed history snapshots. Use `cell[1]` to read the
+previous confirmed bar's value. If the cell stores an `array`, `map`, or
+`matrix`, the historical value is a collection snapshot, so mutating the
+current collection does not alter previous-bar state.
+
 `snapshot_result()` returns the current committed session without replaying the
 script:
 

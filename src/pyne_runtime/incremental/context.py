@@ -99,7 +99,10 @@ class IncrementalContext(IncrementalDrawingMixin):
         key = str(name)
         if key not in self._states:
             self._ensure_state_key_available()
-            self._states[key] = StateCell(copy.deepcopy(default))
+            self._states[key] = StateCell(
+                copy.deepcopy(default),
+                max_history=self._limits.max_state_history,
+            )
         return self._states[key]
 
     def varip(self, name: str, default: Any = None) -> StateCell:
@@ -113,8 +116,15 @@ class IncrementalContext(IncrementalDrawingMixin):
         key = str(name)
         if key not in self._varip_states:
             self._ensure_state_key_available()
-            self._varip_states[key] = StateCell(copy.deepcopy(default))
+            self._varip_states[key] = StateCell(
+                copy.deepcopy(default),
+                max_history=self._limits.max_state_history,
+            )
         return self._varip_states[key]
+
+    def commit_state_history(self) -> None:
+        for cell in self._states.values():
+            cell.commit_history()
 
     def _ensure_state_key_available(self) -> None:
         if not self._limits.enabled:

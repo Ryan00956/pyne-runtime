@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from ..barstate import PyneIncrementalBarState
 from ..cache import pyne as pyne_cache_namespace
+from ..collections import ArrayNamespace, MapNamespace, MatrixNamespace
 from ..color import color as color_singleton
 from ..math_ext import PyneMath
 from ..security import (
@@ -216,6 +217,8 @@ class PyneIncrementalSession:
         finally:
             self._active_ctx = previous_ctx
         ctx.strategy.end_bar()
+        if barstate.isconfirmed and not preview:
+            ctx.commit_state_history()
 
     def _build_namespace(self) -> dict[str, Any]:
         def indicator(title: str = "", overlay: bool = True, **kwargs: Any) -> None:
@@ -253,6 +256,20 @@ class PyneIncrementalSession:
             "false": False,
             "color": color_singleton,
             "math": PyneMath(mintick=getattr(self.settings.syminfo, "mintick", 0.01)),
+            "array": ArrayNamespace(
+                max_size=self.policy.max_array_size,
+                max_depth=self.policy.max_collection_depth,
+            ),
+            "map": MapNamespace(
+                max_size=self.policy.max_map_size,
+                array_max_size=self.policy.max_array_size,
+                max_depth=self.policy.max_collection_depth,
+            ),
+            "matrix": MatrixNamespace(
+                max_cells=self.policy.max_matrix_cells,
+                array_max_size=self.policy.max_array_size,
+                max_depth=self.policy.max_collection_depth,
+            ),
             "pyne": pyne_namespace,
             "cache": pyne_cache_namespace.cache,
             "cache_clear": pyne_cache_namespace.cache_clear,

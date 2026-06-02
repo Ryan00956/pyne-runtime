@@ -1,22 +1,43 @@
 """Incremental runtime safe-mode limits and state containers."""
 from __future__ import annotations
 
+import copy
 from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
+from ..collections import PyneArray, PyneMap, PyneMatrix
 from ..security import PyneSecurityError, PyneSecurityPolicy
 
 SAFE_MAX_WINDOW_SIZE = 10_000
 SAFE_MAX_TOTAL_WINDOW_ITEMS = 50_000
 SAFE_MAX_STATE_KEYS = 100
+SAFE_MAX_STATE_HISTORY = 50_000
 
 
 class StateCell:
     """Mutable state value exposed to incremental scripts."""
 
-    def __init__(self, value: Any) -> None:
+    def __init__(self, value: Any, *, max_history: int | None = None) -> None:
         self.value = value
+        history_limit = None if max_history is None else max(int(max_history), 1)
+        self._history: deque[Any] = deque(maxlen=history_limit)
+
+    def __getitem__(self, offset: int | slice) -> Any:
+        if isinstance(offset, slice):
+            return list(self._history)[offset]
+        if not isinstance(offset, int):
+            raise TypeError("StateCell history offset must be a non-negative bars-back integer")
+        if offset < 0:
+            raise IndexError("StateCell does not support forward history references")
+        if offset == 0:
+            return self.value
+        if offset > len(self._history):
+            return None
+        return list(self._history)[-offset]
+
+    def commit_history(self) -> None:
+        self._history.append(_snapshot_state_value(self.value))
 
 
 class Window:
@@ -52,10 +73,14 @@ class IncrementalLimits:
     max_window_size: int = SAFE_MAX_WINDOW_SIZE
     max_total_window_items: int = SAFE_MAX_TOTAL_WINDOW_ITEMS
     max_state_keys: int = SAFE_MAX_STATE_KEYS
+    max_state_history: int = SAFE_MAX_STATE_HISTORY
 
     @classmethod
     def for_policy(cls, policy: PyneSecurityPolicy) -> "IncrementalLimits":
-        return cls(enabled=policy.mode == "safe")
+        return cls(
+            enabled=policy.mode == "safe",
+            max_state_history=policy.max_bars,
+        )
 
 
 class _LimitTracker:
@@ -79,3 +104,9 @@ class _LimitTracker:
                 f"limit {self.limits.max_total_window_items}"
             )
         self.total_window_items = next_total
+
+
+def _snapshot_state_value(value: Any) -> Any:
+    if isinstance(value, (PyneArray, PyneMap, PyneMatrix)):
+        return value.snapshot()
+    return copy.deepcopy(value)

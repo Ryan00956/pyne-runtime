@@ -33,6 +33,20 @@ colors, drawing object handles, and nested `array`/`map`/`matrix` values.
 Callable objects and Python modules are rejected because they are executable
 runtime values rather than serializable script state.
 
+In incremental scripts, `ctx.state()` cells keep committed snapshot history.
+When a state cell stores an array, map, or matrix, `cell[1]` returns the
+previous confirmed bar's collection snapshot. Mutating the current collection
+does not mutate that historical snapshot:
+
+```python
+def on_bar(ctx, bar):
+    values = ctx.state("values", array.new())
+    previous = values[1]
+    array.push(values.value, bar.close)
+    previous_size = array.size(previous) if previous is not None else 0
+    ctx.plot("Previous Size", previous_size)
+```
+
 ## Constructors
 
 - `array.new(size=0, initial_value=None)`

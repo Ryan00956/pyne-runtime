@@ -161,6 +161,55 @@ def on_bar(ctx, bar):
     assert _line_values(incremental, "index") == batch.values("Index")
 
 
+def test_incremental_state_collection_history_snapshots_mutation_boundary() -> None:
+    script = """
+indicator("Collection History", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    array_cell = ctx.state("array_values", array.new())
+    map_cell = ctx.state("map_values", map.new())
+    matrix_cell = ctx.state("matrix_values", matrix.new_float(1, 1, 0.0))
+
+    previous_array = array_cell[1]
+    previous_map = map_cell[1]
+    previous_matrix = matrix_cell[1]
+
+    values = array_cell.value
+    levels = map_cell.value
+    grid = matrix_cell.value
+
+    array.push(values, bar.close)
+    map.put(levels, str(bar.bar_index), bar.close)
+    matrix.set(grid, 0, 0, bar.close)
+
+    ctx.plot("Array Size", array.size(values))
+    ctx.plot("Map Size", map.size(levels))
+    ctx.plot("Matrix Cell", matrix.get(grid, 0, 0))
+    ctx.plot("Previous Array Size", array.size(previous_array) if previous_array is not None else 0)
+    ctx.plot("Previous Map Size", map.size(previous_map) if previous_map is not None else 0)
+    ctx.plot(
+        "Previous Matrix Cell",
+        matrix.get(previous_matrix, 0, 0) if previous_matrix is not None else -1,
+    )
+    array.push(values, 99)
+    ctx.plot(
+        "Previous Array After Mutation",
+        array.size(previous_array) if previous_array is not None else 0,
+    )
+"""
+
+    result = pn.run(script, _bars(), executor_mode="inline")
+
+    assert result.ok, result.error
+    assert _line_values(result, "array_size") == [1.0, 3.0, 5.0]
+    assert _line_values(result, "map_size") == [1.0, 2.0, 3.0]
+    assert _line_values(result, "matrix_cell") == [1.0, 2.0, 3.0]
+    assert _line_values(result, "previous_array_size") == [0.0, 2.0, 4.0]
+    assert _line_values(result, "previous_map_size") == [0.0, 1.0, 2.0]
+    assert _line_values(result, "previous_matrix_cell") == [-1.0, 1.0, 2.0]
+    assert _line_values(result, "previous_array_after_mutation") == [0.0, 2.0, 4.0]
+
+
 def test_incremental_ta_helpers_match_batch_committed_bars() -> None:
     bars = [
         {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.0, "volume": 100},
