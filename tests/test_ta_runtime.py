@@ -226,7 +226,7 @@ plot(ta.mfi(close, 4), "MFI")
     assert _series_values(result, "MFI") == [100.0, 100.0, 100.0, 67.84452297]
 
 
-def test_percentile_linear_interpolation_uses_nearest_rank_midpoint() -> None:
+def test_percentile_linear_interpolation_uses_hazen_interpolation() -> None:
     bars = [
         {"time": 1, "open": 4, "high": 4, "low": 4, "close": 4, "volume": 100},
         {"time": 2, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 100},
@@ -241,6 +241,23 @@ def test_percentile_linear_interpolation_uses_nearest_rank_midpoint() -> None:
 
     assert result.ok, result.error
     assert _series_values(result, "PLI") == [3.5]
+
+    result = pn.run(
+        'plot(ta.percentile_linear_interpolation(close, 7, 75), "PLI")',
+        [
+            {"time": 1, "open": 71099.4, "high": 71099.4, "low": 71099.4, "close": 71099.4, "volume": 100},
+            {"time": 2, "open": 71470.1, "high": 71470.1, "low": 71470.1, "close": 71470.1, "volume": 100},
+            {"time": 3, "open": 71537.7, "high": 71537.7, "low": 71537.7, "close": 71537.7, "volume": 100},
+            {"time": 4, "open": 71548.5, "high": 71548.5, "low": 71548.5, "close": 71548.5, "volume": 100},
+            {"time": 5, "open": 71571.0, "high": 71571.0, "low": 71571.0, "close": 71571.0, "volume": 100},
+            {"time": 6, "open": 71617.9, "high": 71617.9, "low": 71617.9, "close": 71617.9, "volume": 100},
+            {"time": 7, "open": 71698.7, "high": 71698.7, "low": 71698.7, "close": 71698.7, "volume": 100},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert _series_values(result, "PLI") == [71606.175]
 
 
 def test_supertrend_uses_pine_initial_direction_and_first_atr_band() -> None:

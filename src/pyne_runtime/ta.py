@@ -1027,7 +1027,7 @@ class TaModule:
         for idx in range(period - 1, n):
             window = source[idx - period + 1: idx + 1]
             if not np.any(np.isnan(window)):
-                result[idx] = float(np.percentile(window, pct, method="midpoint"))
+                result[idx] = float(np.percentile(window, pct, method="hazen"))
 
         return wrap_like(result, src)
 

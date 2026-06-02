@@ -59,7 +59,7 @@ def test_ta_capture_status_json_report() -> None:
     assert sixth["fixture"] == "ta_statistics_edges_indicators.json"
     assert sixth["priority"] is False
     assert sixth["status"] == "captured"
-    assert sixth["assertion"] == "reference"
+    assert sixth["assertion"] == "parity"
     seventh = report["fixtures"][6]
     assert seventh["fixture"] == "ta_trend_switch_indicators.json"
     assert seventh["priority"] is False

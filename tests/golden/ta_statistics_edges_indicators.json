@@ -507,27 +507,27 @@
     "PLI 7 75": [
       {
         "time": 7,
-        "value": 103.25
+        "value": 103.625
       },
       {
         "time": 8,
-        "value": 103.25
+        "value": 103.625
       },
       {
         "time": 9,
-        "value": 103.25
+        "value": 103.625
       },
       {
         "time": 10,
-        "value": 103.25
+        "value": 103.625
       },
       {
         "time": 11,
-        "value": 103.25
+        "value": 103.625
       },
       {
         "time": 12,
-        "value": 104.5
+        "value": 104.75
       },
       {
         "time": 13,
@@ -535,31 +535,31 @@
       },
       {
         "time": 14,
-        "value": 103.25
+        "value": 103.625
       },
       {
         "time": 15,
-        "value": 103.25
+        "value": 103.625
       },
       {
         "time": 16,
-        "value": 103.25
+        "value": 103.625
       },
       {
         "time": 17,
-        "value": 103.25
+        "value": 103.625
       },
       {
         "time": 18,
-        "value": 103.75
+        "value": 103.875
       },
       {
         "time": 19,
-        "value": 103.75
+        "value": 103.875
       },
       {
         "time": 20,
-        "value": 104.5
+        "value": 105.0
       }
     ],
     "VAR 4 biased": [
@@ -1020,8 +1020,8 @@
   "external_capture": {
     "provider": "tradingview",
     "status": "captured",
-    "assertion": "reference",
-    "tolerance": 1e-09,
+    "assertion": "parity",
+    "tolerance": 1e-05,
     "series": {
       "PNR 4 25": [
         {
@@ -2037,7 +2037,8 @@
       }
     ],
     "notes": [
-      "TradingView export 2026-06-02, BINANCE:BTCUSDT.P 60m, statistics edge TA capture"
+      "TradingView export 2026-06-02, BINANCE:BTCUSDT.P 60m, statistics edge TA capture",
+      "Promoted to parity after aligning percentile linear interpolation with TradingView Hazen interpolation and allowing 1e-5 variance float tolerance."
     ]
   }
 }
