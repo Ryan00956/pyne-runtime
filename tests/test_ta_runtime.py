@@ -243,6 +243,28 @@ def test_percentile_linear_interpolation_uses_nearest_rank_midpoint() -> None:
     assert _series_values(result, "PLI") == [3.5]
 
 
+def test_supertrend_uses_pine_initial_direction_and_first_atr_band() -> None:
+    bars = [
+        {"time": 1, "open": 8, "high": 10, "low": 6, "close": 8, "volume": 100},
+        {"time": 2, "open": 9, "high": 11, "low": 7, "close": 9, "volume": 100},
+        {"time": 3, "open": 10, "high": 12, "low": 8, "close": 10, "volume": 100},
+        {"time": 4, "open": 11, "high": 13, "low": 9, "close": 11, "volume": 100},
+    ]
+    result = pn.run(
+        """
+line, direction = ta.supertrend(2, 3)
+plot(line, "Line")
+plot(direction, "Direction")
+""",
+        bars,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert _series_values(result, "Line") == [0.0, 18.0, 18.0]
+    assert _series_values(result, "Direction") == [1.0, 1.0, 1.0, 1.0]
+
+
 def test_state_lookup_ta_helpers_match_pine_like_offsets() -> None:
     bars = [
         {"time": 1, "open": 3, "high": 3, "low": 3, "close": 3, "volume": 100},

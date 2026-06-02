@@ -280,6 +280,14 @@
     ],
     "Supertrend 2 3": [
       {
+        "time": 1,
+        "value": 0.0
+      },
+      {
+        "time": 3,
+        "value": 28.5
+      },
+      {
         "time": 4,
         "value": 28.0
       },
@@ -331,39 +339,39 @@
       },
       {
         "time": 4,
-        "value": -1.0
+        "value": 1.0
       },
       {
         "time": 5,
-        "value": -1.0
+        "value": 1.0
       },
       {
         "time": 6,
-        "value": -1.0
+        "value": 1.0
       },
       {
         "time": 7,
-        "value": -1.0
+        "value": 1.0
       },
       {
         "time": 8,
-        "value": -1.0
+        "value": 1.0
       },
       {
         "time": 9,
-        "value": -1.0
+        "value": 1.0
       },
       {
         "time": 10,
-        "value": -1.0
+        "value": 1.0
       },
       {
         "time": 11,
-        "value": -1.0
+        "value": 1.0
       },
       {
         "time": 12,
-        "value": -1.0
+        "value": 1.0
       }
     ]
   },

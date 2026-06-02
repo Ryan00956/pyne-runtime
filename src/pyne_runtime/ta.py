@@ -727,7 +727,7 @@ class TaModule:
 
         Returns:
             Tuple of (supertrend_line, direction) arrays.
-            direction: 1 = uptrend (bullish), -1 = downtrend (bearish).
+            direction follows Pine's convention: 1 = downtrend, -1 = uptrend.
         """
         if period is not None:
             atr_period = period
@@ -753,42 +753,35 @@ class TaModule:
         upper_band = hl2 + factor * atr_val
         lower_band = hl2 - factor * atr_val
         supertrend = np.full(n, np.nan)
-        direction = np.ones(n)  # 1 = up, -1 = down
+        direction = np.full(n, np.nan)
 
-        for i in range(atr_period, n):
-            if np.isnan(upper_band[i]) or np.isnan(lower_band[i]):
-                continue
+        if n:
+            supertrend[0] = 0.0
 
-            if i == atr_period:
-                supertrend[i] = upper_band[i]
-                direction[i] = -1 if close_arr[i] < upper_band[i] else 1
-                continue
+        for i in range(n):
+            prev_lower_band = 0.0 if i == 0 or np.isnan(lower_band[i - 1]) else lower_band[i - 1]
+            prev_upper_band = 0.0 if i == 0 or np.isnan(upper_band[i - 1]) else upper_band[i - 1]
+            prev_close = np.nan if i == 0 else close_arr[i - 1]
 
-            # Adjust bands
-            if lower_band[i] > lower_band[i - 1] or close_arr[i - 1] < lower_band[i - 1]:
-                pass
+            if not np.isnan(lower_band[i]):
+                if not (lower_band[i] > prev_lower_band or prev_close < prev_lower_band):
+                    lower_band[i] = prev_lower_band
+
+            if not np.isnan(upper_band[i]):
+                if not (upper_band[i] < prev_upper_band or prev_close > prev_upper_band):
+                    upper_band[i] = prev_upper_band
+
+            if i == 0 or np.isnan(atr_val[i - 1]):
+                direction[i] = 1.0
             else:
-                lower_band[i] = lower_band[i - 1]
-
-            if upper_band[i] < upper_band[i - 1] or close_arr[i - 1] > upper_band[i - 1]:
-                pass
-            else:
-                upper_band[i] = upper_band[i - 1]
-
-            if direction[i - 1] == 1:  # was uptrend
-                if close_arr[i] < lower_band[i]:
-                    direction[i] = -1
-                    supertrend[i] = upper_band[i]
+                prev_supertrend = supertrend[i - 1]
+                if not np.isnan(prev_supertrend) and prev_supertrend == prev_upper_band:
+                    direction[i] = -1.0 if close_arr[i] > upper_band[i] else 1.0
                 else:
-                    direction[i] = 1
-                    supertrend[i] = lower_band[i]
-            else:  # was downtrend
-                if close_arr[i] > upper_band[i]:
-                    direction[i] = 1
-                    supertrend[i] = lower_band[i]
-                else:
-                    direction[i] = -1
-                    supertrend[i] = upper_band[i]
+                    direction[i] = 1.0 if close_arr[i] < lower_band[i] else -1.0
+
+            if not np.isnan(upper_band[i]) and not np.isnan(lower_band[i]):
+                supertrend[i] = lower_band[i] if direction[i] == -1.0 else upper_band[i]
 
         return wrap_like(supertrend, high, low, close), wrap_like(direction, high, low, close)
 
