@@ -56,10 +56,10 @@ def test_ta_capture_next_uses_manifest(tmp_path: Path) -> None:
     )
 
     task = json.loads(completed.stdout)
-    assert task["fixture"] == "ta_context_indicators.json"
+    assert task["fixture"] == "ta_remaining_indicators.json"
     assert task["prepare_command"].endswith("--clean --all")
-    assert task["pine_file"] == "03_ta_context_indicators.pine"
-    assert task["expected_export_file"] == "03_ta_context_indicators.csv"
+    assert task["pine_file"] == "04_ta_remaining_indicators.pine"
+    assert task["expected_export_file"] == "04_ta_remaining_indicators.csv"
     assert task["capture_index_title"] == "Pyne Capture Index"
 
 
