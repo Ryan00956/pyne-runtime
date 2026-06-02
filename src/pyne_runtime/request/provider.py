@@ -27,11 +27,19 @@ class DataProvider(Protocol):
 
 
 def _provider_supports(provider: DataProvider, capability_names: tuple[str, ...]) -> bool:
-    declared_capabilities = getattr(provider, "capabilities", _MISSING)
+    try:
+        declared_capabilities = getattr(provider, "capabilities", _MISSING)
+        if callable(declared_capabilities):
+            declared_capabilities = declared_capabilities()
+    except PyneRequestError:
+        raise
+    except Exception as exc:
+        raise PyneRequestError(
+            f"request capability provider failed: {exc}",
+            code="PYNE_RUNTIME_ERROR",
+        ) from exc
     if declared_capabilities is _MISSING:
         return True
-    if callable(declared_capabilities):
-        declared_capabilities = declared_capabilities()
     if declared_capabilities is None:
         return False
     if isinstance(declared_capabilities, dict):

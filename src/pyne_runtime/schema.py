@@ -7,7 +7,7 @@ from typing import Any
 PYNE_INPUT_SCHEMA_VERSION = 1
 PYNE_OUTPUT_SCHEMA_VERSION = 1
 PYNE_PARAM_SCHEMA_VERSION = 1
-PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 2
+PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 3
 
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
 OUTPUT_KEYS = (
@@ -154,6 +154,7 @@ def request_provider_schema() -> dict[str, Any]:
         "errors": {
             "invalidSymbol": "raise PyneInvalidSymbolError to support ignore_invalid_symbol",
             "unsupportedCapability": "PYNE_UNSUPPORTED_FEATURE before get_ohlcv is called",
+            "capabilityFailure": "PYNE_RUNTIME_ERROR",
             "invalidOhlcv": "PYNE_RUNTIME_ERROR",
             "providerFailure": "PYNE_RUNTIME_ERROR",
         },

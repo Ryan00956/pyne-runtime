@@ -86,7 +86,8 @@ If no capabilities are declared, Pyne assumes the provider can answer both
 request types. If `capabilities` is `None`, Pyne treats the provider as
 supporting no request capabilities. For dict capabilities, at least one matching
 alias must be present and truthy. For list/set/tuple capabilities, the
-capability must be present.
+capability must be present. If a `capabilities()` method or property raises,
+Pyne returns `PYNE_RUNTIME_ERROR` with a request-capability-specific message.
 
 Providers may also supply metadata for requested contexts. This is optional;
 without it, Pyne uses the requested `symbol` as `syminfo.ticker` /

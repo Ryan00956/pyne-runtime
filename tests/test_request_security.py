@@ -397,6 +397,33 @@ plot(higher, "Higher")
     assert provider.calls == []
 
 
+def test_request_security_wraps_capability_provider_failures() -> None:
+    class BrokenCapabilityProvider(StaticProvider):
+        def capabilities(self) -> set[str]:
+            raise RuntimeError("capability service offline")
+
+    provider = BrokenCapabilityProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Capability Failure", overlay=True)
+higher = request.security("BTCUSDT", "2", close)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "request capability provider failed" in str(result.error)
+    assert "capability service offline" in str(result.error)
+    assert provider.calls == []
+
+
 def test_request_security_wraps_provider_failures() -> None:
     class BrokenProvider(StaticProvider):
         def get_ohlcv(

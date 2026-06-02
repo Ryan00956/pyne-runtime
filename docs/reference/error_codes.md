@@ -8,7 +8,8 @@ The script is not valid Python/Pyne syntax.
 
 ## PYNE_RUNTIME_ERROR
 
-The script raised an exception while running.
+The script raised an exception while running, or a host request provider
+callback such as `get_ohlcv()`, `capabilities()`, or request metadata failed.
 
 ## PYNE_IMPORT_BLOCKED
 
