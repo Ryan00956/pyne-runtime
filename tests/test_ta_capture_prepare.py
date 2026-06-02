@@ -70,7 +70,7 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
     assert manifest["fixture_count"] == 4
     statuses = {entry["fixture"]: entry["status"] for entry in manifest["entries"]}
     assert statuses["ta_core_indicators.json"] == "captured"
-    assert statuses["ta_advanced_indicators.json"] == "not_captured"
+    assert statuses["ta_advanced_indicators.json"] == "captured"
     assert sum(status == "missing" for status in statuses.values()) == 2
 
     advanced = next(entry for entry in manifest["entries"] if entry["fixture"] == "ta_advanced_indicators.json")
