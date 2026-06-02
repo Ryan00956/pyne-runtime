@@ -115,14 +115,19 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
     namespace["request"] = RequestModule(ctx, provider=services.settings.data_provider)
     namespace["barmerge"] = barmerge
     namespace["strategy"] = services.strategy
-    namespace["array"] = ArrayNamespace(max_size=services.policy.max_array_size)
+    namespace["array"] = ArrayNamespace(
+        max_size=services.policy.max_array_size,
+        max_depth=services.policy.max_collection_depth,
+    )
     namespace["map"] = MapNamespace(
         max_size=services.policy.max_map_size,
         array_max_size=services.policy.max_array_size,
+        max_depth=services.policy.max_collection_depth,
     )
     namespace["matrix"] = MatrixNamespace(
         max_cells=services.policy.max_matrix_cells,
         array_max_size=services.policy.max_array_size,
+        max_depth=services.policy.max_collection_depth,
     )
     namespace["str"] = string_namespace
     namespace["ticker"] = TickerNamespace(ctx.syminfo)

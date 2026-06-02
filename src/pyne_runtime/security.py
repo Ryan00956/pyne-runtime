@@ -59,6 +59,7 @@ class PyneSecurityPolicy:
     max_array_size: int = 100_000
     max_map_size: int = 100_000
     max_matrix_cells: int = 100_000
+    max_collection_depth: int = 8
 
     @classmethod
     def from_settings(
@@ -78,6 +79,7 @@ class PyneSecurityPolicy:
             max_array_size=settings.max_array_size,
             max_map_size=settings.max_map_size,
             max_matrix_cells=settings.max_matrix_cells,
+            max_collection_depth=settings.max_collection_depth,
         )
 
     @classmethod
@@ -96,6 +98,7 @@ class PyneSecurityPolicy:
             "maxArraySize": self.max_array_size,
             "maxMapSize": self.max_map_size,
             "maxMatrixCells": self.max_matrix_cells,
+            "maxCollectionDepth": self.max_collection_depth,
         }
 
 

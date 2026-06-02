@@ -10,10 +10,19 @@ from .values import is_na_value
 class PyneArray:
     """Mutable Pine-like array value."""
 
-    def __init__(self, values: Iterable[Any] | None = None, *, max_size: int | None = None) -> None:
+    def __init__(
+        self,
+        values: Iterable[Any] | None = None,
+        *,
+        max_size: int | None = None,
+        max_depth: int | None = None,
+    ) -> None:
         self._max_size = _normalize_limit(max_size)
+        self._max_depth = _normalize_limit(max_depth)
         self._values = list(values) if values is not None else []
         _enforce_limit("array size", len(self._values), self._max_size)
+        for item in self._values:
+            _enforce_child_depth(item, self._max_depth)
 
     def __len__(self) -> int:
         return len(self._values)
@@ -28,7 +37,7 @@ class PyneArray:
         return list(self._values)
 
     def copy(self) -> PyneArray:
-        return PyneArray(self._values, max_size=self._max_size)
+        return PyneArray(self._values, max_size=self._max_size, max_depth=self._max_depth)
 
     def size(self) -> int:
         return len(self._values)
@@ -37,10 +46,12 @@ class PyneArray:
         return self._values[_resolve_index(index, len(self._values))]
 
     def set(self, index: int, value: Any) -> None:
+        _enforce_child_depth(value, self._max_depth)
         self._values[_resolve_index(index, len(self._values))] = value
 
     def push(self, value: Any) -> None:
         _enforce_limit("array size", len(self._values) + 1, self._max_size)
+        _enforce_child_depth(value, self._max_depth)
         self._values.append(value)
 
     def pop(self) -> Any:
@@ -50,6 +61,7 @@ class PyneArray:
 
     def unshift(self, value: Any) -> None:
         _enforce_limit("array size", len(self._values) + 1, self._max_size)
+        _enforce_child_depth(value, self._max_depth)
         self._values.insert(0, value)
 
     def shift(self) -> Any:
@@ -62,6 +74,7 @@ class PyneArray:
         if idx < 0 or idx > len(self._values):
             raise IndexError(f"array index {idx} is out of bounds")
         _enforce_limit("array size", len(self._values) + 1, self._max_size)
+        _enforce_child_depth(value, self._max_depth)
         self._values.insert(idx, value)
 
     def remove(self, index: int) -> Any:
@@ -88,9 +101,14 @@ class PyneArray:
     def slice(self, index_from: int, index_to: int | None = None) -> PyneArray:
         start = int(index_from)
         stop = None if index_to is None else int(index_to)
-        return PyneArray(self._values[start:stop], max_size=self._max_size)
+        return PyneArray(
+            self._values[start:stop],
+            max_size=self._max_size,
+            max_depth=self._max_depth,
+        )
 
     def fill(self, value: Any, index_from: int = 0, index_to: int | None = None) -> None:
+        _enforce_child_depth(value, self._max_depth)
         start = max(int(index_from), 0)
         stop = len(self._values) if index_to is None else min(int(index_to), len(self._values))
         for idx in range(start, stop):
@@ -131,11 +149,15 @@ class PyneMap:
         *,
         max_size: int | None = None,
         array_max_size: int | None = None,
+        max_depth: int | None = None,
     ) -> None:
         self._max_size = _normalize_limit(max_size)
         self._array_max_size = _normalize_limit(array_max_size)
+        self._max_depth = _normalize_limit(max_depth)
         self._values = dict(values or {})
         _enforce_limit("map size", len(self._values), self._max_size)
+        for value in self._values.values():
+            _enforce_child_depth(value, self._max_depth)
 
     def __len__(self) -> int:
         return len(self._values)
@@ -154,6 +176,7 @@ class PyneMap:
             self._values,
             max_size=self._max_size,
             array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
         )
 
     def size(self) -> int:
@@ -162,6 +185,7 @@ class PyneMap:
     def put(self, key: Any, value: Any) -> None:
         if key not in self._values:
             _enforce_limit("map size", len(self._values) + 1, self._max_size)
+        _enforce_child_depth(value, self._max_depth)
         self._values[key] = value
 
     def get(self, key: Any, default: Any = None) -> Any:
@@ -177,10 +201,18 @@ class PyneMap:
         self._values.clear()
 
     def keys(self) -> PyneArray:
-        return PyneArray(self._values.keys(), max_size=self._array_max_size)
+        return PyneArray(
+            self._values.keys(),
+            max_size=self._array_max_size,
+            max_depth=self._max_depth,
+        )
 
     def values(self) -> PyneArray:
-        return PyneArray(self._values.values(), max_size=self._array_max_size)
+        return PyneArray(
+            self._values.values(),
+            max_size=self._array_max_size,
+            max_depth=self._max_depth,
+        )
 
 
 class PyneMatrix:
@@ -194,12 +226,15 @@ class PyneMatrix:
         *,
         max_cells: int | None = None,
         array_max_size: int | None = None,
+        max_depth: int | None = None,
     ) -> None:
         self._max_cells = _normalize_limit(max_cells)
         self._array_max_size = _normalize_limit(array_max_size)
+        self._max_depth = _normalize_limit(max_depth)
         row_count = max(int(rows), 0)
         column_count = max(int(columns), 0)
         _enforce_limit("matrix cells", row_count * column_count, self._max_cells)
+        _enforce_child_depth(initial_value, self._max_depth)
         self._values = [
             [initial_value for _ in range(column_count)]
             for _ in range(row_count)
@@ -212,6 +247,7 @@ class PyneMatrix:
         *,
         max_cells: int | None = None,
         array_max_size: int | None = None,
+        max_depth: int | None = None,
     ) -> PyneMatrix:
         values = [list(row) for row in rows]
         if values:
@@ -220,8 +256,16 @@ class PyneMatrix:
                 raise ValueError("matrix rows must all have the same length")
         cell_count = len(values) * (len(values[0]) if values else 0)
         normalized_limit = _normalize_limit(max_cells)
+        normalized_depth = _normalize_limit(max_depth)
         _enforce_limit("matrix cells", cell_count, normalized_limit)
-        matrix = cls(max_cells=normalized_limit, array_max_size=array_max_size)
+        for row in values:
+            for item in row:
+                _enforce_child_depth(item, normalized_depth)
+        matrix = cls(
+            max_cells=normalized_limit,
+            array_max_size=array_max_size,
+            max_depth=normalized_depth,
+        )
         matrix._values = values
         return matrix
 
@@ -236,6 +280,7 @@ class PyneMatrix:
             self._values,
             max_cells=self._max_cells,
             array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
         )
 
     def rows(self) -> int:
@@ -253,28 +298,43 @@ class PyneMatrix:
 
     def set(self, row: int, column: int, value: Any) -> None:
         row_idx, column_idx = self._resolve_cell(row, column)
+        _enforce_child_depth(value, self._max_depth)
         self._values[row_idx][column_idx] = value
 
     def fill(self, value: Any) -> None:
+        _enforce_child_depth(value, self._max_depth)
         for row_idx in range(self.rows()):
             for column_idx in range(self.columns()):
                 self._values[row_idx][column_idx] = value
 
     def row(self, row: int) -> PyneArray:
         row_idx = _resolve_index(row, self.rows(), name="matrix row")
-        return PyneArray(self._values[row_idx], max_size=self._array_max_size)
+        return PyneArray(
+            self._values[row_idx],
+            max_size=self._array_max_size,
+            max_depth=self._max_depth,
+        )
 
     def col(self, column: int) -> PyneArray:
         column_idx = _resolve_index(column, self.columns(), name="matrix column")
-        return PyneArray((row[column_idx] for row in self._values), max_size=self._array_max_size)
+        return PyneArray(
+            (row[column_idx] for row in self._values),
+            max_size=self._array_max_size,
+            max_depth=self._max_depth,
+        )
 
     def transpose(self) -> PyneMatrix:
         if not self._values:
-            return PyneMatrix(max_cells=self._max_cells, array_max_size=self._array_max_size)
+            return PyneMatrix(
+                max_cells=self._max_cells,
+                array_max_size=self._array_max_size,
+                max_depth=self._max_depth,
+            )
         return PyneMatrix.from_rows(
             zip(*self._values),
             max_cells=self._max_cells,
             array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
         )
 
     def reshape(self, rows: int, columns: int) -> PyneMatrix:
@@ -292,6 +352,7 @@ class PyneMatrix:
             rebuilt,
             max_cells=self._max_cells,
             array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
         )
 
     def add(self, other: Any) -> PyneMatrix:
@@ -341,11 +402,13 @@ class PyneMatrix:
                 ],
                 max_cells=self._max_cells,
                 array_max_size=self._array_max_size,
+                max_depth=self._max_depth,
             )
         return PyneMatrix.from_rows(
             [[op(item, other) for item in row] for row in self._values],
             max_cells=self._max_cells,
             array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
         )
 
     def _matrix_mult(self, other: PyneMatrix) -> PyneMatrix:
@@ -364,19 +427,22 @@ class PyneMatrix:
             values,
             max_cells=self._max_cells,
             array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
         )
 
 
 class ArrayNamespace:
     """Pine-like ``array.*`` namespace."""
 
-    def __init__(self, *, max_size: int | None = None) -> None:
+    def __init__(self, *, max_size: int | None = None, max_depth: int | None = None) -> None:
         self._max_size = _normalize_limit(max_size)
+        self._max_depth = _normalize_limit(max_depth)
 
     def new(self, size: int = 0, initial_value: Any = None) -> PyneArray:
         return PyneArray(
             [initial_value for _ in range(max(int(size), 0))],
             max_size=self._max_size,
+            max_depth=self._max_depth,
         )
 
     def new_float(self, size: int = 0, initial_value: float | None = None) -> PyneArray:
@@ -395,10 +461,10 @@ class ArrayNamespace:
         return self.new(size, initial_value)
 
     def from_values(self, *values: Any) -> PyneArray:
-        return PyneArray(values, max_size=self._max_size)
+        return PyneArray(values, max_size=self._max_size, max_depth=self._max_depth)
 
     def from_list(self, values: Iterable[Any]) -> PyneArray:
-        return PyneArray(values, max_size=self._max_size)
+        return PyneArray(values, max_size=self._max_size, max_depth=self._max_depth)
 
     def copy(self, arr: PyneArray) -> PyneArray:
         return _array(arr).copy()
@@ -479,17 +545,32 @@ class ArrayNamespace:
 class MapNamespace:
     """Pine-like ``map.*`` namespace."""
 
-    def __init__(self, *, max_size: int | None = None, array_max_size: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        max_size: int | None = None,
+        array_max_size: int | None = None,
+        max_depth: int | None = None,
+    ) -> None:
         self._max_size = _normalize_limit(max_size)
         self._array_max_size = _normalize_limit(array_max_size)
+        self._max_depth = _normalize_limit(max_depth)
 
     def new(self) -> PyneMap:
-        return PyneMap(max_size=self._max_size, array_max_size=self._array_max_size)
+        return PyneMap(
+            max_size=self._max_size,
+            array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
+        )
 
     def from_values(self, *items: Any) -> PyneMap:
         if len(items) % 2 != 0:
             raise ValueError("map.from_values() expects key/value pairs")
-        result = PyneMap(max_size=self._max_size, array_max_size=self._array_max_size)
+        result = PyneMap(
+            max_size=self._max_size,
+            array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
+        )
         for idx in range(0, len(items), 2):
             result.put(items[idx], items[idx + 1])
         return result
@@ -499,6 +580,7 @@ class MapNamespace:
             values,
             max_size=self._max_size,
             array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
         )
 
     def copy(self, m: PyneMap) -> PyneMap:
@@ -537,9 +619,11 @@ class MatrixNamespace:
         *,
         max_cells: int | None = None,
         array_max_size: int | None = None,
+        max_depth: int | None = None,
     ) -> None:
         self._max_cells = _normalize_limit(max_cells)
         self._array_max_size = _normalize_limit(array_max_size)
+        self._max_depth = _normalize_limit(max_depth)
 
     def new(self, rows: int = 0, columns: int = 0, initial_value: Any = None) -> PyneMatrix:
         return PyneMatrix(
@@ -548,6 +632,7 @@ class MatrixNamespace:
             initial_value,
             max_cells=self._max_cells,
             array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
         )
 
     def new_float(
@@ -571,6 +656,7 @@ class MatrixNamespace:
             rows,
             max_cells=self._max_cells,
             array_max_size=self._array_max_size,
+            max_depth=self._max_depth,
         )
 
     def copy(self, m: PyneMatrix) -> PyneMatrix:
@@ -664,6 +750,44 @@ def _normalize_limit(limit: int | None) -> int | None:
 def _enforce_limit(label: str, size: int, limit: int | None) -> None:
     if limit is not None and size > limit:
         raise PyneSecurityError(f"{label} {size} exceeds limit {limit}")
+
+
+def _enforce_child_depth(value: Any, limit: int | None) -> None:
+    if limit is None:
+        return
+    depth = 1 + _collection_depth(value)
+    if depth > limit:
+        raise PyneSecurityError(f"collection nesting depth {depth} exceeds limit {limit}")
+
+
+def _collection_depth(value: Any, seen: set[int] | None = None) -> int:
+    seen = seen or set()
+    if isinstance(value, PyneArray):
+        identity = id(value)
+        if identity in seen:
+            return 1
+        seen.add(identity)
+        children = value.to_list()
+        return 1 + _max_collection_depth(children, seen)
+    if isinstance(value, PyneMap):
+        identity = id(value)
+        if identity in seen:
+            return 1
+        seen.add(identity)
+        children = value.to_dict().values()
+        return 1 + _max_collection_depth(children, seen)
+    if isinstance(value, PyneMatrix):
+        identity = id(value)
+        if identity in seen:
+            return 1
+        seen.add(identity)
+        children = (item for row in value.to_list() for item in row)
+        return 1 + _max_collection_depth(children, seen)
+    return 0
+
+
+def _max_collection_depth(values: Iterable[Any], seen: set[int] | None = None) -> int:
+    return max((_collection_depth(value, set(seen or set())) for value in values), default=0)
 
 
 def _numeric_values(values: Iterable[Any]) -> list[float]:

@@ -12,6 +12,7 @@ settings = pn.PyneSettings(
     max_array_size=100_000,
     max_map_size=100_000,
     max_matrix_cells=100_000,
+    max_collection_depth=8,
     data_provider=None,
     syminfo={"tickerid": "NASDAQ:AAPL", "mintick": 0.01},
     timeframe="1h",
@@ -122,6 +123,8 @@ Collection limits:
 - `max_array_size`: maximum elements in an `array.*` value created by a script.
 - `max_map_size`: maximum entries in a `map.*` value created by a script.
 - `max_matrix_cells`: maximum cells in a `matrix.*` value created by a script.
+- `max_collection_depth`: maximum nested collection depth for values stored in
+  `array.*`, `map.*`, and `matrix.*` containers.
 - Environment variables: `PYNE_MAX_ARRAY_SIZE`, `PYNE_MAX_MAP_SIZE`,
-  `PYNE_MAX_MATRIX_CELLS`.
+  `PYNE_MAX_MATRIX_CELLS`, `PYNE_MAX_COLLECTION_DEPTH`.
 

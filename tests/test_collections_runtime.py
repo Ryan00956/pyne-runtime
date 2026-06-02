@@ -142,6 +142,25 @@ array.push(values, 3.0)
     assert "array size 3 exceeds limit 2" in str(result.error)
 
 
+def test_collection_depth_limit_allows_nested_values_within_limit() -> None:
+    result = pn.run(
+        """
+inner = array.from_values(1, 2)
+outer = array.new()
+array.push(outer, inner)
+nested = array.get(outer, 0)
+
+plot(array.size(nested), "Nested Size")
+""",
+        _bars(),
+        executor_mode="inline",
+        settings=pn.PyneSettings(max_collection_depth=2),
+    )
+
+    assert result.ok, result.error
+    assert result.values("Nested Size") == [2.0, 2.0, 2.0]
+
+
 def test_map_namespace_core_key_value_semantics() -> None:
     result = pn.run(
         """
@@ -227,6 +246,25 @@ map.put(levels, "slow", 20)
     assert not result.ok
     assert result.code == "PYNE_SECURITY_ERROR"
     assert "map size 2 exceeds limit 1" in str(result.error)
+
+
+def test_map_limit_rejects_nested_values_past_depth_limit() -> None:
+    result = pn.run(
+        """
+leaf = array.from_values(1)
+middle = array.new()
+array.push(middle, leaf)
+levels = map.new()
+map.put(levels, "too_deep", middle)
+""",
+        _bars(),
+        executor_mode="inline",
+        settings=pn.PyneSettings(max_collection_depth=2),
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "collection nesting depth 3 exceeds limit 2" in str(result.error)
 
 
 def test_matrix_namespace_core_accessors_and_mutations() -> None:
@@ -345,3 +383,21 @@ matrix.new_float(2, 2, 0.0)
     assert not result.ok
     assert result.code == "PYNE_SECURITY_ERROR"
     assert "matrix cells 4 exceeds limit 3" in str(result.error)
+
+
+def test_matrix_limit_rejects_initial_value_past_depth_limit() -> None:
+    result = pn.run(
+        """
+leaf = array.from_values(1)
+middle = array.new()
+array.push(middle, leaf)
+matrix.new(1, 1, middle)
+""",
+        _bars(),
+        executor_mode="inline",
+        settings=pn.PyneSettings(max_collection_depth=2),
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "collection nesting depth 3 exceeds limit 2" in str(result.error)

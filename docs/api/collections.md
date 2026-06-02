@@ -4,8 +4,8 @@ Pyne exposes Pine-like mutable collections as script globals. The currently
 supported namespaces are `array.*`, `map.*`, and `matrix.*`.
 
 Scripts run with `PyneSettings` collection limits. Defaults are 100,000 array
-elements, 100,000 map entries, and 100,000 matrix cells. Exceeding a configured
-limit returns `PYNE_SECURITY_ERROR`.
+elements, 100,000 map entries, 100,000 matrix cells, and nesting depth 8.
+Exceeding a configured limit returns `PYNE_SECURITY_ERROR`.
 
 Pyne arrays are Python objects created by `array.new_*()` or `array.from_*()`.
 They can be used with Pine-style namespace functions:
