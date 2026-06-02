@@ -221,7 +221,28 @@ class PyneIncrementalSession:
         def indicator(title: str = "", overlay: bool = True, **kwargs: Any) -> None:
             self._meta = {"title": title, "overlay": overlay, **kwargs}
 
+        def active_ctx(feature: str) -> IncrementalContext:
+            if self._active_ctx is None:
+                raise PyneSecurityError(
+                    f"{feature} can only be used inside incremental callbacks"
+                )
+            return self._active_ctx
+
+        def state(name: str, default: Any = None):
+            return active_ctx("state()").state(name, default)
+
+        def varip(name: str, default: Any = None):
+            return active_ctx("varip()").varip(name, default)
+
         drawing_namespaces = self._drawing_namespaces()
+        pyne_namespace = SimpleNamespace(
+            cache=pyne_cache_namespace.cache,
+            cache_clear=pyne_cache_namespace.cache_clear,
+            cache_stats=pyne_cache_namespace.cache_stats,
+            state=state,
+            var=state,
+            varip=varip,
+        )
         return {
             "indicator": indicator,
             "params": self.params,
@@ -232,10 +253,13 @@ class PyneIncrementalSession:
             "false": False,
             "color": color_singleton,
             "math": PyneMath(mintick=getattr(self.settings.syminfo, "mintick", 0.01)),
-            "pyne": pyne_cache_namespace,
+            "pyne": pyne_namespace,
             "cache": pyne_cache_namespace.cache,
             "cache_clear": pyne_cache_namespace.cache_clear,
             "cache_stats": pyne_cache_namespace.cache_stats,
+            "state": state,
+            "var": state,
+            "varip": varip,
             **drawing_namespaces,
             "__builtins__": build_builtins(self.policy),
         }

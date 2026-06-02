@@ -258,6 +258,64 @@ def on_preview(ctx, bar):
     assert _line_values(snapshot, "confirmed_state") == [1.0, 2.0, 3.0]
 
 
+def test_incremental_global_varip_and_pyne_state_use_active_callback_context() -> None:
+    script = """
+indicator("Varip Namespace", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    committed = state("committed", 0)
+    committed.value += 1
+    direct = varip("ticks", 0)
+    direct.value += 1
+    namespaced = pyne.varip("namespaced", 10)
+    namespaced.value += 1
+    ctx.plot("Committed", committed.value)
+    ctx.plot("Direct Varip", direct.value)
+    ctx.plot("Namespaced Varip", namespaced.value)
+
+def on_preview(ctx, bar):
+    committed = pyne.state("committed", 0)
+    committed.value += 100
+    direct = varip("ticks", 0)
+    direct.value += 1
+    namespaced = pyne.varip("namespaced", 10)
+    namespaced.value += 1
+    ctx.plot("Preview Committed", committed.value)
+    ctx.plot("Preview Direct Varip", direct.value)
+    ctx.plot("Preview Namespaced Varip", namespaced.value)
+"""
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    seed = session.seed(_bars()[:1])
+    first_preview = session.on_bar_updated(
+        {"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100}
+    )
+    second_preview = session.on_bar_updated(
+        {"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.75, "volume": 100}
+    )
+    closed = session.on_bar_closed(
+        {"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100}
+    )
+    snapshot = session.snapshot_result()
+
+    assert _line_values(seed, "committed") == [1.0]
+    assert _line_values(seed, "direct_varip") == [1.0]
+    assert _line_values(seed, "namespaced_varip") == [11.0]
+    assert _line_values(first_preview, "preview_committed") == [101.0]
+    assert _line_values(first_preview, "preview_direct_varip") == [1.0]
+    assert _line_values(first_preview, "preview_namespaced_varip") == [11.0]
+    assert _line_values(second_preview, "preview_committed") == [101.0]
+    assert _line_values(second_preview, "preview_direct_varip") == [2.0]
+    assert _line_values(second_preview, "preview_namespaced_varip") == [12.0]
+    assert _line_values(closed, "committed") == [2.0]
+    assert _line_values(closed, "direct_varip") == [1.0]
+    assert _line_values(closed, "namespaced_varip") == [11.0]
+    assert _line_values(snapshot, "committed") == [1.0, 2.0]
+
+
 def test_incremental_drawing_objects_emit_events_and_snapshot() -> None:
     script = """
 indicator("Incremental Objects", mode="incremental", overlay=True)

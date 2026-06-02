@@ -67,6 +67,10 @@ realtime bar. It resets when a new preview bar starts and before confirmed
 `on_bar()` callbacks, so preview-only state does not mutate the persistent
 session snapshot.
 
+Inside incremental callbacks, `state()` / `var()` and `pyne.state()` /
+`pyne.var()` are aliases for the current callback context's persistent
+`ctx.state()`. `varip()` and `pyne.varip()` are aliases for `ctx.varip()`.
+
 ## API
 
 - `var(name, default=None)`: create or return a runtime-scoped cell.
@@ -82,6 +86,10 @@ session snapshot.
   incremental callbacks.
 - Incremental `ctx.varip(name, default=None)`: intrabar preview state for the
   current realtime bar.
+- Incremental `state(name, default=None)` / `var(name, default=None)` and
+  `pyne.state(...)` / `pyne.var(...)`: callback-local aliases for `ctx.state()`.
+- Incremental `varip(name, default=None)` and `pyne.varip(...)`: callback-local
+  aliases for `ctx.varip()`.
 
 Current scope:
 
