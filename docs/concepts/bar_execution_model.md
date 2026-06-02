@@ -171,3 +171,8 @@ orders are kept as internal strategy state rather than exposed as public pending
 lifecycle rows. Incremental scripts can inspect current closed/open trade
 ledgers during each callback through `ctx.strategy.closedtrades` and
 `ctx.strategy.opentrades`.
+
+For non-strategy indicators, committed incremental callbacks should match
+equivalent batch series logic for bar clock values and persistent state updates;
+for example, a `ctx.state()` trend accumulator is checked against batch
+`state(...).set_each(...)` carry-forward output.

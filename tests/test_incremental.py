@@ -122,6 +122,45 @@ def on_bar(ctx, bar):
     assert _marker_times(result, "last_session") == [3]
 
 
+def test_incremental_stateful_indicator_matches_batch_committed_bars() -> None:
+    bars = [
+        {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.0, "volume": 100},
+        {"time": 2, "open": 1, "high": 3, "low": 1, "close": 2.0, "volume": 100},
+        {"time": 3, "open": 1, "high": 3, "low": 1, "close": 1.5, "volume": 100},
+        {"time": 4, "open": 1, "high": 4, "low": 1, "close": 1.5, "volume": 100},
+        {"time": 5, "open": 1, "high": 4, "low": 1, "close": 2.5, "volume": 100},
+    ]
+    batch_script = """
+trend = state("trend", 0)
+updates = where(close > close[1], 1, where(close < close[1], -1, na))
+plot(trend.set_each(updates), "Trend")
+plot(bar_index, "Index")
+"""
+    incremental_script = """
+indicator("Incremental Trend", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    previous = ctx.state("previous_close")
+    trend = ctx.state("trend", 0)
+    if previous.value is not None:
+        if bar.close > previous.value:
+            trend.value = 1
+        elif bar.close < previous.value:
+            trend.value = -1
+    previous.value = bar.close
+    ctx.plot("Trend", trend.value)
+    ctx.plot("Index", ctx.bar_index)
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    assert _line_values(incremental, "trend") == batch.values("Trend")
+    assert _line_values(incremental, "index") == batch.values("Index")
+
+
 def test_incremental_preview_barstate_does_not_persist() -> None:
     script = """
 indicator("Preview", mode="incremental", overlay=True)
