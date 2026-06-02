@@ -73,7 +73,7 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
     assert statuses["ta_advanced_indicators.json"] == "captured"
     assert statuses["ta_context_indicators.json"] == "captured"
     assert statuses["ta_remaining_indicators.json"] == "captured"
-    assert statuses["ta_warmup_boundaries_indicators.json"] == "not_captured"
+    assert statuses["ta_warmup_boundaries_indicators.json"] == "captured"
     assert sum(status == "missing" for status in statuses.values()) == 0
 
     advanced = next(entry for entry in manifest["entries"] if entry["fixture"] == "ta_advanced_indicators.json")
@@ -110,7 +110,7 @@ def test_ta_capture_prepare_explicit_fixture_bypasses_priority(tmp_path: Path) -
     entry = manifest["entries"][0]
     assert entry["fixture"] == "ta_warmup_boundaries_indicators.json"
     assert entry["priority"] is False
-    assert entry["status"] == "not_captured"
+    assert entry["status"] == "captured"
     assert entry["plot_titles"] == [
         "SMA 1",
         "SMA 12",

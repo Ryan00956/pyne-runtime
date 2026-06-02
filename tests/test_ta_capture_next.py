@@ -56,26 +56,7 @@ def test_ta_capture_next_uses_manifest_for_all_scope(tmp_path: Path) -> None:
     )
 
     task = json.loads(completed.stdout)
-    assert task["status"] == "pending"
-    assert task["fixture"] == "ta_warmup_boundaries_indicators.json"
-    assert task["capture_status"] == "not_captured"
-    assert task["pine_file"].endswith("_ta_warmup_boundaries_indicators.pine")
-    assert task["bar_count"] == 12
-    assert task["plot_titles"] == [
-        "SMA 1",
-        "SMA 12",
-        "EMA 2",
-        "RMA 2",
-        "RSI 2",
-        "Stoch 5",
-        "MFI 5",
-        "VWMA 5",
-        "PNR 80",
-        "PLI 80",
-        "STDEV 5",
-        "VAR 5",
-        "DEV 5",
-    ]
+    assert task == {"status": "complete", "message": "no pending TA capture task"}
 
 
 def test_ta_capture_next_text_output() -> None:
