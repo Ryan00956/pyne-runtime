@@ -72,7 +72,7 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
     assert statuses["ta_core_indicators.json"] == "captured"
     assert statuses["ta_advanced_indicators.json"] == "captured"
     assert statuses["ta_context_indicators.json"] == "captured"
-    assert statuses["ta_oscillator_edges_indicators.json"] == "not_captured"
+    assert statuses["ta_oscillator_edges_indicators.json"] == "captured"
     assert statuses["ta_remaining_indicators.json"] == "captured"
     assert statuses["ta_trend_switch_indicators.json"] == "captured"
     assert statuses["ta_warmup_boundaries_indicators.json"] == "captured"
