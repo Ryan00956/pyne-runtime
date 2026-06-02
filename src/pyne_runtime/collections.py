@@ -157,7 +157,10 @@ class PyneMap:
         self._max_size = _normalize_limit(max_size)
         self._array_max_size = _normalize_limit(array_max_size)
         self._max_depth = _normalize_limit(max_depth)
-        self._values = dict(values or {})
+        self._values: dict[Any, Any] = {}
+        for key, value in dict(values or {}).items():
+            _validate_map_key(key)
+            self._values[key] = value
         _enforce_limit("map size", len(self._values), self._max_size)
         for value in self._values.values():
             _enforce_child_depth(value, self._max_depth)
@@ -189,18 +192,22 @@ class PyneMap:
         return len(self._values)
 
     def put(self, key: Any, value: Any) -> None:
+        _validate_map_key(key)
         if key not in self._values:
             _enforce_limit("map size", len(self._values) + 1, self._max_size)
         _enforce_child_depth(value, self._max_depth)
         self._values[key] = value
 
     def get(self, key: Any, default: Any = None) -> Any:
+        _validate_map_key(key)
         return self._values.get(key, default)
 
     def contains(self, key: Any) -> bool:
+        _validate_map_key(key)
         return key in self._values
 
     def remove(self, key: Any) -> Any:
+        _validate_map_key(key)
         return self._values.pop(key, None)
 
     def clear(self) -> None:
@@ -768,6 +775,15 @@ def _normalize_limit(limit: int | None) -> int | None:
 def _enforce_limit(label: str, size: int, limit: int | None) -> None:
     if limit is not None and size > limit:
         raise PyneSecurityError(f"{label} {size} exceeds limit {limit}")
+
+
+def _validate_map_key(key: Any) -> None:
+    if isinstance(key, (PyneArray, PyneMap, PyneMatrix)):
+        raise ValueError("map keys must be scalar hashable values; collection keys are unsupported")
+    try:
+        hash(key)
+    except TypeError as exc:
+        raise ValueError("map key must be hashable") from exc
 
 
 def _snapshot_value(value: Any, seen: set[int]) -> Any:

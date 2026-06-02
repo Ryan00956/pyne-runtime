@@ -121,6 +121,9 @@ Supported map helpers:
 used directly with `array.*` helpers such as `array.join(map.keys(m), ",")` or
 `array.sum(map.values(m))`.
 
+Map keys must be scalar hashable values. Collection objects such as `PyneArray`,
+`PyneMap`, and `PyneMatrix` are supported as stored values, but not as keys.
+
 ## Matrices
 
 Pyne matrices are mutable two-dimensional containers created by `matrix.new_*()`

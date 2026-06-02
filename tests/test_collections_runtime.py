@@ -275,6 +275,37 @@ map.from_values("fast", 1, "slow")
     assert "map.from_values() expects key/value pairs" in str(result.error)
 
 
+def test_map_rejects_unhashable_keys_with_actionable_error() -> None:
+    result = pn.run(
+        """
+levels = map.new()
+map.put(levels, ["fast"], 10)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "map key must be hashable" in str(result.error)
+
+
+def test_map_rejects_collection_keys_with_actionable_error() -> None:
+    result = pn.run(
+        """
+levels = map.new()
+key = array.from_values("fast")
+map.put(levels, key, 10)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "collection keys are unsupported" in str(result.error)
+
+
 def test_map_limit_rejects_new_keys_past_settings_limit() -> None:
     result = pn.run(
         """
