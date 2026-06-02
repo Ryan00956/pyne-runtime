@@ -686,6 +686,88 @@ plot(market, "Requested Market")
     assert result.values("Requested Market") == [0.0, 0.0, 0.0]
 
 
+def test_request_security_uses_requested_time_close_session_and_timeframe() -> None:
+    class MetadataProvider(StaticProvider):
+        def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
+            return {
+                "timeframe": "2",
+                "session": {"ismarket": False},
+            }
+
+    provider = MetadataProvider([
+        {
+            "time": 1,
+            "time_close": 2,
+            "open": 10,
+            "high": 12,
+            "low": 8,
+            "close": 10,
+            "volume": 1000,
+            "session_isfirstbar": True,
+        },
+        {
+            "time": 3,
+            "time_close": 4,
+            "open": 30,
+            "high": 34,
+            "low": 28,
+            "close": 30,
+            "volume": 3000,
+            "session": {"ismarket": True, "islastbar": True},
+        },
+    ])
+
+    result = pn.run(
+        """
+indicator("MTF Time Session", overlay=True)
+tc, mult, market, first, last = request.security(
+    "BTCUSDT",
+    "2",
+    lambda ctx: (
+        ctx.time_close,
+        ctx.timeframe_info.multiplier,
+        ctx.session.ismarket,
+        ctx.session.isfirstbar,
+        ctx.session.islastbar,
+    ),
+    gaps="on",
+)
+plot(tc, "Requested Time Close")
+plot(mult, "Requested Multiplier")
+plot(market, "Requested Market")
+plot(first, "Requested First")
+plot(last, "Requested Last")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+        timeframe="15",
+        session={"ismarket": True},
+    )
+
+    assert result.ok, result.error
+    assert result.get_series("Requested Time Close") == [
+        {"time": 2, "value": 2.0},
+        {"time": 4, "value": 4.0},
+    ]
+    assert result.get_series("Requested Multiplier") == [
+        {"time": 2, "value": 2.0},
+        {"time": 4, "value": 2.0},
+    ]
+    assert result.get_series("Requested Market") == [
+        {"time": 2, "value": 0.0},
+        {"time": 4, "value": 1.0},
+    ]
+    assert result.get_series("Requested First") == [
+        {"time": 2, "value": 1.0},
+        {"time": 4, "value": 0.0},
+    ]
+    assert result.get_series("Requested Last") == [
+        {"time": 2, "value": 0.0},
+        {"time": 4, "value": 1.0},
+    ]
+
+
 def test_request_security_rejects_invalid_metadata_contract() -> None:
     class BadMetadataProvider(StaticProvider):
         request_metadata = ["not", "a", "mapping"]
@@ -1011,6 +1093,99 @@ plot(lower.last(), "Lower Metadata")
 
     assert result.ok, result.error
     assert result.values("Lower Metadata") == [5.25, 5.25, 5.25, 5.25]
+
+
+def test_request_security_lower_tf_uses_requested_time_close_session_and_timeframe() -> None:
+    class MetadataProvider(StaticProvider):
+        request_metadata = {
+            "timeframe": "5",
+            "session": {"ismarket": False},
+        }
+
+    provider = MetadataProvider([
+        {
+            "time": 1,
+            "time_close": 11,
+            "open": 10,
+            "high": 12,
+            "low": 9,
+            "close": 11,
+            "volume": 1000,
+            "session_isfirstbar": True,
+        },
+        {
+            "time": 1,
+            "time_close": 12,
+            "open": 12,
+            "high": 14,
+            "low": 11,
+            "close": 13,
+            "volume": 1200,
+        },
+        {
+            "time": 2,
+            "time_close": 22,
+            "open": 20,
+            "high": 22,
+            "low": 19,
+            "close": 21,
+            "volume": 2000,
+            "session": {"ismarket": True},
+        },
+        {
+            "time": 3,
+            "time_close": 33,
+            "open": 30,
+            "high": 32,
+            "low": 29,
+            "close": 31,
+            "volume": 3000,
+        },
+        {
+            "time": 4,
+            "time_close": 44,
+            "open": 40,
+            "high": 42,
+            "low": 39,
+            "close": 41,
+            "volume": 4000,
+            "session_islastbar": True,
+        },
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Time Session", overlay=True)
+tc, mult, market, first, last = request.security_lower_tf(
+    "ETHUSD",
+    "5",
+    lambda ctx: (
+        ctx.time_close,
+        ctx.timeframe_info.multiplier,
+        ctx.session.ismarket,
+        ctx.session.isfirstbar,
+        ctx.session.islastbar,
+    ),
+)
+plot(tc.last(), "Lower Time Close")
+plot(mult.last(), "Lower Multiplier")
+plot(market.last(), "Lower Market")
+plot(first.last(), "Lower First")
+plot(last.last(), "Lower Last")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+        timeframe="60",
+        session={"ismarket": True},
+    )
+
+    assert result.ok, result.error
+    assert result.values("Lower Time Close") == [12.0, 22.0, 33.0, 44.0]
+    assert result.values("Lower Multiplier") == [5.0, 5.0, 5.0, 5.0]
+    assert result.values("Lower Market") == [0.0, 1.0, 0.0, 0.0]
+    assert result.values("Lower First") == [0.0, 0.0, 0.0, 0.0]
+    assert result.values("Lower Last") == [0.0, 0.0, 0.0, 1.0]
 
 
 def test_request_security_lower_tf_exposes_array_like_numeric_helpers() -> None:

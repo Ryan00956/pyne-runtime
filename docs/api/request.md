@@ -272,6 +272,8 @@ The request test suite includes deterministic fixtures for:
 - higher-timeframe `gaps` and `lookahead` alignment
 - history references evaluated in the requested context
 - tuple field expressions and tuple callable thunks
+- requested-context `time_close`, `session.*`, and `timeframe_info.*` isolation
+  from chart metadata in both higher-timeframe and lower-timeframe requests
 - lower-timeframe `[chart_time, next_chart_time)` grouping
 - empty lower-timeframe buckets and aggregation defaults
 - invalid-symbol ignore behavior and provider capability rejection before
