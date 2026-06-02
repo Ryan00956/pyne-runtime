@@ -19,6 +19,7 @@ python -m compileall src tests -q
 python -m ruff check .
 python -m pytest tests/test_architecture.py -q
 python -m pytest -q
+python scripts/request_capture_diff.py --assertion parity
 python scripts/strategy_capture_scaffold.py --check
 python scripts/strategy_capture_diff.py --assertion parity
 git diff --check
@@ -55,6 +56,11 @@ the normal pytest suite. Add or update a fixture when a Pine-like compatibility
 claim depends on exact alignment or replay output, especially for
 `request.security` gaps/lookahead alignment, lower-timeframe grouping, strategy
 fills, and barstate flags.
+
+The request capture gate protects TradingView-backed `request.security()`
+evidence. Captured `parity` fixtures must stay at 0 diff with
+`request_capture_diff.py --assertion parity`, and the HTF parity fixture is also
+exercised by `tests/test_golden_request_security.py`.
 
 The strategy capture gates protect the TradingView external-evidence workflow:
 `strategy_capture_scaffold.py --check` ensures every strategy pine-equivalent

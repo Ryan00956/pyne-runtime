@@ -283,6 +283,8 @@ The request test suite includes deterministic fixtures for:
 - requested-context cache reuse within one script run and cache reset across
   separate `pn.run()` executions
 - provider failure and provider metadata contract failures
+- TradingView-backed HTF capture parity for `gaps`, `lookahead`, history,
+  tuple thunks, and requested OHLCV fields
 
 ## Internal Responsibilities
 

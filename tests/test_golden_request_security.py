@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -30,8 +31,10 @@ class GoldenProvider:
     ) -> list[dict[str, Any]]:
         self.calls.append((symbol, timeframe, start, end))
         if isinstance(self._bars, dict):
-            return self._bars.get(f"{symbol}|{timeframe}", self._bars.get(timeframe, []))
-        return self._bars
+            bars = self._bars.get(f"{symbol}|{timeframe}", self._bars.get(timeframe, []))
+        else:
+            bars = self._bars
+        return [_normalize_provider_bar(bar) for bar in bars]
 
 
 def test_golden_request_security_lower_tf_alignment() -> None:
@@ -85,6 +88,27 @@ def test_golden_request_security_htf_capture() -> None:
         _assert_series_matches(result.get_series(name), expected)
 
 
+def test_golden_request_security_tradingview_htf_capture_parity() -> None:
+    fixture = _load_fixture("request_security_htf_capture.json")
+    capture = fixture["external_capture"]
+    provider = GoldenProvider(capture["provider_bars"])
+
+    result = pn.run(
+        fixture["script"],
+        capture["bars"],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    for name, expected in capture["series"].items():
+        _assert_series_matches(
+            result.get_series(name),
+            expected,
+            tolerance=float(capture.get("tolerance", 0.0)),
+        )
+
+
 def test_golden_request_security_edge_cases() -> None:
     fixture = _load_fixture("request_security_edge_cases.json")
     provider = GoldenProvider(fixture["provider_bars"])
@@ -106,13 +130,25 @@ def _load_fixture(name: str) -> dict[str, Any]:
     return json.loads((GOLDEN_DIR / name).read_text(encoding="utf-8"))
 
 
-def _assert_series_matches(actual: list[dict[str, Any]], expected: list[dict[str, Any]]) -> None:
+def _normalize_provider_bar(bar: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: (math.nan if value is None and key != "time" else value)
+        for key, value in bar.items()
+    }
+
+
+def _assert_series_matches(
+    actual: list[dict[str, Any]],
+    expected: list[dict[str, Any]],
+    *,
+    tolerance: float = 1e-9,
+) -> None:
     assert len(actual) == len(expected)
     for actual_point, expected_point in zip(actual, expected):
         assert actual_point.keys() == expected_point.keys()
         for key, expected_value in expected_point.items():
             actual_value = actual_point[key]
             if key == "value" and isinstance(expected_value, (int, float)):
-                assert actual_value == pytest.approx(expected_value, abs=1e-9)
+                assert actual_value == pytest.approx(expected_value, abs=tolerance)
             else:
                 assert actual_value == expected_value
