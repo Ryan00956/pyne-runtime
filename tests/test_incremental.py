@@ -499,6 +499,43 @@ def on_preview(ctx, bar):
     assert closed.output["object_events"][0]["confirmed"] is True
 
 
+def test_incremental_strategy_preview_fill_does_not_persist_until_confirmed() -> None:
+    script = """
+indicator("Preview Strategy", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("Confirmed", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 1)
+    ctx.plot("Position", ctx.strategy.position_size)
+
+def on_preview(ctx, bar):
+    ctx.strategy.entry("Preview", ctx.strategy.long, qty=1, price=bar.close)
+    ctx.plot("Preview Position", ctx.strategy.position_size)
+"""
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    seed = session.seed(_bars()[:1])
+    preview = session.on_bar_updated({"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100})
+    snapshot = session.snapshot_result()
+    closed = session.on_bar_closed({"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100})
+
+    assert _line_values(seed, "position") == [0.0]
+    assert _line_values(preview, "preview_position") == [1.0]
+    assert preview.output["strategy"]["position"]["size"] == 1.0
+    assert preview.output["strategy"]["orders"][0]["id"] == "Preview"
+    assert _line_values(snapshot, "position") == [0.0]
+    assert "strategy" not in snapshot.output
+    assert _line_values(closed, "position") == [1.0]
+    assert closed.output["strategy"]["position"]["size"] == 1.0
+    assert closed.output["strategy"]["orders"][0]["id"] == "Confirmed"
+    assert closed.output["strategy"]["opentrades"][0]["entry_price"] == 2.0
+
+
 def test_incremental_box_and_table_objects_emit_events() -> None:
     script = """
 indicator("Incremental Box Table", mode="incremental", overlay=True)

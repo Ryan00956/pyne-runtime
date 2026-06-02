@@ -90,6 +90,9 @@ During `on_bar_updated(item)`, the bar is a realtime preview:
 - `ctx.varip()` cells persist across preview updates for the same realtime bar,
   then reset when the preview moves to a new bar.
 - Drawing object snapshots and `object_events` emitted by preview callbacks are also scoped to the cloned preview context.
+- Strategy orders and fills emitted by preview callbacks are preview-only; the
+  persistent strategy ledger advances only when the same bar is later delivered
+  through `on_bar_closed()`.
 
 During `on_bar_closed(item)`, the realtime bar is confirmed and committed:
 
