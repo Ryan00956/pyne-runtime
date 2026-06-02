@@ -51,6 +51,22 @@ updates = where(crossover(fast, slow), 1, where(crossunder(fast, slow), -1, na))
 plot(trend.set_each(updates), "Trend")
 ```
 
+## Intrabar Preview State
+
+Incremental callbacks can use `ctx.varip()` for realtime preview state:
+
+```python
+def on_preview(ctx, bar):
+    ticks = ctx.varip("ticks", 0)
+    ticks.value += 1
+    ctx.plot("Preview Ticks", ticks.value)
+```
+
+`ctx.varip()` persists across repeated `on_bar_updated()` calls for the same
+realtime bar. It resets when a new preview bar starts and before confirmed
+`on_bar()` callbacks, so preview-only state does not mutate the persistent
+session snapshot.
+
 ## API
 
 - `var(name, default=None)`: create or return a runtime-scoped cell.
@@ -62,9 +78,15 @@ plot(trend.set_each(updates), "Trend")
 - `cell.update(func)`: update from a callable.
 - `cell.set_each(updates, default=None)`: apply per-bar updates, carrying prior state through `na`.
 - `cell.reset(value=None)`: reset to default or explicit value.
+- Incremental `ctx.state(name, default=None)`: persistent state for committed
+  incremental callbacks.
+- Incremental `ctx.varip(name, default=None)`: intrabar preview state for the
+  current realtime bar.
 
 Current scope:
 
 - `var()` is runtime-scoped and deterministic in batch mode.
 - `set_each()` provides Pine-like carry-forward behavior for series updates.
+- `ctx.varip()` is incremental-only and scoped to preview updates for one
+  realtime bar.
 - Full recursive bar-by-bar assignment semantics will be refined in later runtime phases.

@@ -52,6 +52,7 @@ class PyneIncrementalSession:
         self.last_closed_time: int | None = None
         self._closed_count = 0
         self._active_preview_time: int | None = None
+        self._preview_varip_states: dict[str, Any] = {}
 
     def prepare(self) -> None:
         if self._prepared:
@@ -93,6 +94,7 @@ class PyneIncrementalSession:
         self._call_optional(self._init_func, self._ctx)
         self._closed_count = 0
         self._active_preview_time = None
+        self._preview_varip_states = {}
         last_bar_index = len(ohlcv) - 1
         for index, item in enumerate(ohlcv):
             bar = IncrementalBar.from_dict(item, is_confirmed=True)
@@ -152,6 +154,7 @@ class PyneIncrementalSession:
         self._closed_count = bar_index + 1
         if had_preview:
             self._active_preview_time = None
+            self._preview_varip_states = {}
         return self._ctx.to_result(start_s=bar.time, end_s=bar.time)
 
     def on_bar_updated(self, item: dict[str, Any]) -> IncrementalPyneResult:
@@ -171,6 +174,9 @@ class PyneIncrementalSession:
         preview_ctx = self._ctx.clone_for_preview()
         bar_index = self._closed_count
         is_new = self._active_preview_time != bar.time
+        if is_new:
+            self._preview_varip_states = {}
+        preview_ctx._varip_states = self._preview_varip_states
         self._run_bar(
             preview_ctx,
             bar,

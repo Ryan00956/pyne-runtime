@@ -205,6 +205,59 @@ def on_preview(ctx, bar):
     assert snapshot.meta["barstate"]["isconfirmed"] is True
 
 
+def test_incremental_varip_persists_within_preview_bar_only() -> None:
+    script = """
+indicator("Varip Preview", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    ticks = ctx.varip("ticks", 0)
+    ticks.value += 1
+    state = ctx.state("confirmed", 0)
+    state.value += 1
+    ctx.plot("Committed Varip", ticks.value)
+    ctx.plot("Confirmed State", state.value)
+
+def on_preview(ctx, bar):
+    ticks = ctx.varip("ticks", 0)
+    ticks.value += 1
+    state = ctx.state("confirmed", 0)
+    state.value += 100
+    ctx.plot("Preview Varip", ticks.value)
+    ctx.plot("Preview State", state.value)
+"""
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    seed = session.seed(_bars()[:2])
+    first_preview = session.on_bar_updated(
+        {"time": 3, "open": 1, "high": 3, "low": 1, "close": 2.5, "volume": 100}
+    )
+    second_preview = session.on_bar_updated(
+        {"time": 3, "open": 1, "high": 3, "low": 1, "close": 2.75, "volume": 100}
+    )
+    next_preview = session.on_bar_updated(
+        {"time": 4, "open": 1, "high": 4, "low": 1, "close": 3.5, "volume": 100}
+    )
+    closed = session.on_bar_closed(
+        {"time": 3, "open": 1, "high": 3, "low": 1, "close": 3.0, "volume": 100}
+    )
+    snapshot = session.snapshot_result()
+
+    assert _line_values(seed, "committed_varip") == [1.0, 1.0]
+    assert _line_values(seed, "confirmed_state") == [1.0, 2.0]
+    assert _line_values(first_preview, "preview_varip") == [1.0]
+    assert _line_values(first_preview, "preview_state") == [102.0]
+    assert _line_values(second_preview, "preview_varip") == [2.0]
+    assert _line_values(second_preview, "preview_state") == [102.0]
+    assert _line_values(next_preview, "preview_varip") == [1.0]
+    assert _line_values(closed, "committed_varip") == [1.0]
+    assert _line_values(closed, "confirmed_state") == [3.0]
+    assert _line_values(snapshot, "committed_varip") == [1.0, 1.0, 1.0]
+    assert _line_values(snapshot, "confirmed_state") == [1.0, 2.0, 3.0]
+
+
 def test_incremental_drawing_objects_emit_events_and_snapshot() -> None:
     script = """
 indicator("Incremental Objects", mode="incremental", overlay=True)

@@ -43,6 +43,7 @@ class IncrementalContext(IncrementalDrawingMixin):
         self.session = self._default_session
         self.strategy = IncrementalStrategyNamespace(self)
         self._states: dict[str, StateCell] = {}
+        self._varip_states: dict[str, StateCell] = {}
         self._windows: dict[str, Window] = {}
         self._series: dict[str, dict[str, Any]] = {}
         self._markers: dict[str, dict[str, Any]] = {}
@@ -89,18 +90,40 @@ class IncrementalContext(IncrementalDrawingMixin):
         self.bar_index = bar_index
         self.last_bar_index = last_bar_index
         self.barstate = barstate
+        if barstate.isconfirmed:
+            self._varip_states = {}
         self.session = _session_info_for_bar(bar, self._default_session)
         self.strategy.begin_bar()
 
     def state(self, name: str, default: Any = None) -> StateCell:
         key = str(name)
         if key not in self._states:
-            if self._limits.enabled and len(self._states) >= self._limits.max_state_keys:
-                raise PyneSecurityError(
-                    f"Incremental state keys exceed safe-mode limit {self._limits.max_state_keys}"
-                )
+            self._ensure_state_key_available()
             self._states[key] = StateCell(copy.deepcopy(default))
         return self._states[key]
+
+    def varip(self, name: str, default: Any = None) -> StateCell:
+        """Return an intrabar state cell for realtime preview callbacks.
+
+        ``varip`` cells persist across preview updates for the same realtime
+        bar, but reset before confirmed callbacks and when a new preview bar
+        starts. This mirrors Pine's intrabar-state intent without letting
+        preview state mutate the persistent session context.
+        """
+        key = str(name)
+        if key not in self._varip_states:
+            self._ensure_state_key_available()
+            self._varip_states[key] = StateCell(copy.deepcopy(default))
+        return self._varip_states[key]
+
+    def _ensure_state_key_available(self) -> None:
+        if not self._limits.enabled:
+            return
+        key_count = len(self._states) + len(self._varip_states)
+        if key_count >= self._limits.max_state_keys:
+            raise PyneSecurityError(
+                f"Incremental state keys exceed safe-mode limit {self._limits.max_state_keys}"
+            )
 
     def window(self, name: str, size: int) -> Window:
         key = str(name)
