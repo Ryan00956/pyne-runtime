@@ -161,6 +161,39 @@ def on_bar(ctx, bar):
     assert _line_values(incremental, "index") == batch.values("Index")
 
 
+def test_incremental_ta_helpers_match_batch_committed_bars() -> None:
+    bars = [
+        {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.0, "volume": 100},
+        {"time": 2, "open": 1, "high": 3, "low": 1, "close": 2.0, "volume": 100},
+        {"time": 3, "open": 1, "high": 4, "low": 1, "close": 3.0, "volume": 100},
+        {"time": 4, "open": 1, "high": 5, "low": 1, "close": 4.0, "volume": 100},
+        {"time": 5, "open": 1, "high": 6, "low": 1, "close": 5.0, "volume": 100},
+    ]
+    batch_script = """
+plot(ta.sma(close, 3), "SMA")
+plot(ta.ema(close, 3), "EMA")
+"""
+    incremental_script = """
+indicator("Incremental TA Parity", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.ta.sma("sma", period=3)
+    ctx.ta.ema("ema", period=3)
+
+def on_bar(ctx, bar):
+    ctx.plot("SMA", ctx.ta.sma("sma").update(bar.close))
+    ctx.plot("EMA", ctx.ta.ema("ema").update(bar.close))
+"""
+
+    batch = pn.run(batch_script, bars, executor_mode="inline")
+    incremental = pn.run(incremental_script, bars, executor_mode="inline")
+
+    assert batch.ok
+    assert incremental.ok
+    assert _line_values(incremental, "sma") == batch.values("SMA")
+    assert _line_values(incremental, "ema") == batch.values("EMA")
+
+
 def test_incremental_preview_barstate_does_not_persist() -> None:
     script = """
 indicator("Preview", mode="incremental", overlay=True)

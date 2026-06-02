@@ -175,4 +175,6 @@ ledgers during each callback through `ctx.strategy.closedtrades` and
 For non-strategy indicators, committed incremental callbacks should match
 equivalent batch series logic for bar clock values and persistent state updates;
 for example, a `ctx.state()` trend accumulator is checked against batch
-`state(...).set_each(...)` carry-forward output.
+`state(...).set_each(...)` carry-forward output. Stateful `ctx.ta` helpers such
+as `ctx.ta.sma(...).update()` and `ctx.ta.ema(...).update()` are also checked
+against their batch `ta.sma()` / `ta.ema()` counterparts on committed bars.
