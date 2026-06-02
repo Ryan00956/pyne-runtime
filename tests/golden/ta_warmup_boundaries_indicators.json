@@ -600,7 +600,7 @@
   "external_capture": {
     "provider": "tradingview",
     "status": "captured",
-    "assertion": "reference",
+    "assertion": "parity",
     "tolerance": 1e-08,
     "series": {
       "SMA 1": [
@@ -1198,7 +1198,8 @@
     ],
     "notes": [
       "TradingView export 2026-06-02, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_f7363.csv",
-      "Imported as reference evidence; current differences are floating-point tail deltas covered by capture tolerances."
+      "Imported as reference evidence; current differences are floating-point tail deltas covered by capture tolerances.",
+      "Promoted to parity after warm-up boundary reference matched Pyne within documented float tolerances."
     ],
     "plot_tolerances": {
       "VAR 5": 1e-05
