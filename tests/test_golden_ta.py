@@ -22,6 +22,7 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
         "ta_statistics_edges_indicators.json",
         "ta_context_indicators.json",
         "ta_trend_switch_indicators.json",
+        "ta_tuple_outputs_indicators.json",
         "ta_warmup_boundaries_indicators.json",
     ],
 )
