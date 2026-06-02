@@ -56,6 +56,9 @@ class PyneSecurityPolicy:
     max_bars: int = 50_000
     max_output_series: int = 20
     max_output_points: int = 1_000_000
+    max_array_size: int = 100_000
+    max_map_size: int = 100_000
+    max_matrix_cells: int = 100_000
 
     @classmethod
     def from_settings(
@@ -72,6 +75,9 @@ class PyneSecurityPolicy:
             max_bars=settings.max_bars,
             max_output_series=settings.max_output_series,
             max_output_points=settings.max_output_points,
+            max_array_size=settings.max_array_size,
+            max_map_size=settings.max_map_size,
+            max_matrix_cells=settings.max_matrix_cells,
         )
 
     @classmethod
@@ -87,6 +93,9 @@ class PyneSecurityPolicy:
             "maxBars": self.max_bars,
             "maxOutputSeries": self.max_output_series,
             "maxOutputPoints": self.max_output_points,
+            "maxArraySize": self.max_array_size,
+            "maxMapSize": self.max_map_size,
+            "maxMatrixCells": self.max_matrix_cells,
         }
 
 

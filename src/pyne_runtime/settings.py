@@ -25,6 +25,9 @@ class PyneSettings:
     max_output_series: int = 20
     max_output_points: int = 1_000_000
     max_drawing_objects: int = 500
+    max_array_size: int = 100_000
+    max_map_size: int = 100_000
+    max_matrix_cells: int = 100_000
     cache_max_items: int = 32
     allowed_imports: tuple[str, ...] = DEFAULT_ALLOWED_IMPORTS
     data_provider: Any = None
@@ -47,6 +50,9 @@ class PyneSettings:
         object.__setattr__(self, "max_output_series", max(int(self.max_output_series), 1))
         object.__setattr__(self, "max_output_points", max(int(self.max_output_points), 1))
         object.__setattr__(self, "max_drawing_objects", max(int(self.max_drawing_objects), 1))
+        object.__setattr__(self, "max_array_size", max(int(self.max_array_size), 1))
+        object.__setattr__(self, "max_map_size", max(int(self.max_map_size), 1))
+        object.__setattr__(self, "max_matrix_cells", max(int(self.max_matrix_cells), 1))
         object.__setattr__(self, "cache_max_items", max(int(self.cache_max_items), 1))
         object.__setattr__(
             self,
@@ -74,6 +80,9 @@ class PyneSettings:
             max_output_series=_int_env("PYNE_MAX_OUTPUT_SERIES", 20),
             max_output_points=_int_env("PYNE_MAX_OUTPUT_POINTS", 1_000_000),
             max_drawing_objects=_int_env("PYNE_MAX_DRAWING_OBJECTS", 500),
+            max_array_size=_int_env("PYNE_MAX_ARRAY_SIZE", 100_000),
+            max_map_size=_int_env("PYNE_MAX_MAP_SIZE", 100_000),
+            max_matrix_cells=_int_env("PYNE_MAX_MATRIX_CELLS", 100_000),
             cache_max_items=_int_env("PYNE_CACHE_MAX_ITEMS", 32),
             allowed_imports=allowed_imports,
             syminfo={

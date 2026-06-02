@@ -126,6 +126,22 @@ array.get(values, 3)
     assert "array index 3 is out of bounds" in str(result.error)
 
 
+def test_array_limit_rejects_growth_past_settings_limit() -> None:
+    result = pn.run(
+        """
+values = array.new_float(2, 1.0)
+array.push(values, 3.0)
+""",
+        _bars(),
+        executor_mode="inline",
+        settings=pn.PyneSettings(max_array_size=2),
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "array size 3 exceeds limit 2" in str(result.error)
+
+
 def test_map_namespace_core_key_value_semantics() -> None:
     result = pn.run(
         """
@@ -194,6 +210,23 @@ map.from_values("fast", 1, "slow")
     assert not result.ok
     assert result.code == "PYNE_RUNTIME_ERROR"
     assert "map.from_values() expects key/value pairs" in str(result.error)
+
+
+def test_map_limit_rejects_new_keys_past_settings_limit() -> None:
+    result = pn.run(
+        """
+levels = map.new()
+map.put(levels, "fast", 10)
+map.put(levels, "slow", 20)
+""",
+        _bars(),
+        executor_mode="inline",
+        settings=pn.PyneSettings(max_map_size=1),
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "map size 2 exceeds limit 1" in str(result.error)
 
 
 def test_matrix_namespace_core_accessors_and_mutations() -> None:
@@ -297,3 +330,18 @@ matrix.reshape(m, 3, 3)
     assert not result.ok
     assert result.code == "PYNE_RUNTIME_ERROR"
     assert "matrix.reshape() cannot change element count" in str(result.error)
+
+
+def test_matrix_limit_rejects_cells_past_settings_limit() -> None:
+    result = pn.run(
+        """
+matrix.new_float(2, 2, 0.0)
+""",
+        _bars(),
+        executor_mode="inline",
+        settings=pn.PyneSettings(max_matrix_cells=3),
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "matrix cells 4 exceeds limit 3" in str(result.error)

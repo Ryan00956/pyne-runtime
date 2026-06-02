@@ -3,14 +3,17 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
+from .security import PyneSecurityError
 from .values import is_na_value
 
 
 class PyneArray:
     """Mutable Pine-like array value."""
 
-    def __init__(self, values: Iterable[Any] | None = None) -> None:
+    def __init__(self, values: Iterable[Any] | None = None, *, max_size: int | None = None) -> None:
+        self._max_size = _normalize_limit(max_size)
         self._values = list(values) if values is not None else []
+        _enforce_limit("array size", len(self._values), self._max_size)
 
     def __len__(self) -> int:
         return len(self._values)
@@ -25,7 +28,7 @@ class PyneArray:
         return list(self._values)
 
     def copy(self) -> PyneArray:
-        return PyneArray(self._values)
+        return PyneArray(self._values, max_size=self._max_size)
 
     def size(self) -> int:
         return len(self._values)
@@ -37,6 +40,7 @@ class PyneArray:
         self._values[_resolve_index(index, len(self._values))] = value
 
     def push(self, value: Any) -> None:
+        _enforce_limit("array size", len(self._values) + 1, self._max_size)
         self._values.append(value)
 
     def pop(self) -> Any:
@@ -45,6 +49,7 @@ class PyneArray:
         return self._values.pop()
 
     def unshift(self, value: Any) -> None:
+        _enforce_limit("array size", len(self._values) + 1, self._max_size)
         self._values.insert(0, value)
 
     def shift(self) -> Any:
@@ -56,6 +61,7 @@ class PyneArray:
         idx = int(index)
         if idx < 0 or idx > len(self._values):
             raise IndexError(f"array index {idx} is out of bounds")
+        _enforce_limit("array size", len(self._values) + 1, self._max_size)
         self._values.insert(idx, value)
 
     def remove(self, index: int) -> Any:
@@ -82,7 +88,7 @@ class PyneArray:
     def slice(self, index_from: int, index_to: int | None = None) -> PyneArray:
         start = int(index_from)
         stop = None if index_to is None else int(index_to)
-        return PyneArray(self._values[start:stop])
+        return PyneArray(self._values[start:stop], max_size=self._max_size)
 
     def fill(self, value: Any, index_from: int = 0, index_to: int | None = None) -> None:
         start = max(int(index_from), 0)
@@ -119,8 +125,17 @@ class PyneArray:
 class PyneMap:
     """Mutable Pine-like key/value map."""
 
-    def __init__(self, values: dict[Any, Any] | None = None) -> None:
+    def __init__(
+        self,
+        values: dict[Any, Any] | None = None,
+        *,
+        max_size: int | None = None,
+        array_max_size: int | None = None,
+    ) -> None:
+        self._max_size = _normalize_limit(max_size)
+        self._array_max_size = _normalize_limit(array_max_size)
         self._values = dict(values or {})
+        _enforce_limit("map size", len(self._values), self._max_size)
 
     def __len__(self) -> int:
         return len(self._values)
@@ -135,12 +150,18 @@ class PyneMap:
         return dict(self._values)
 
     def copy(self) -> PyneMap:
-        return PyneMap(self._values)
+        return PyneMap(
+            self._values,
+            max_size=self._max_size,
+            array_max_size=self._array_max_size,
+        )
 
     def size(self) -> int:
         return len(self._values)
 
     def put(self, key: Any, value: Any) -> None:
+        if key not in self._values:
+            _enforce_limit("map size", len(self._values) + 1, self._max_size)
         self._values[key] = value
 
     def get(self, key: Any, default: Any = None) -> Any:
@@ -156,31 +177,51 @@ class PyneMap:
         self._values.clear()
 
     def keys(self) -> PyneArray:
-        return PyneArray(self._values.keys())
+        return PyneArray(self._values.keys(), max_size=self._array_max_size)
 
     def values(self) -> PyneArray:
-        return PyneArray(self._values.values())
+        return PyneArray(self._values.values(), max_size=self._array_max_size)
 
 
 class PyneMatrix:
     """Mutable Pine-like two-dimensional matrix."""
 
-    def __init__(self, rows: int = 0, columns: int = 0, initial_value: Any = None) -> None:
+    def __init__(
+        self,
+        rows: int = 0,
+        columns: int = 0,
+        initial_value: Any = None,
+        *,
+        max_cells: int | None = None,
+        array_max_size: int | None = None,
+    ) -> None:
+        self._max_cells = _normalize_limit(max_cells)
+        self._array_max_size = _normalize_limit(array_max_size)
         row_count = max(int(rows), 0)
         column_count = max(int(columns), 0)
+        _enforce_limit("matrix cells", row_count * column_count, self._max_cells)
         self._values = [
             [initial_value for _ in range(column_count)]
             for _ in range(row_count)
         ]
 
     @classmethod
-    def from_rows(cls, rows: Iterable[Iterable[Any]]) -> PyneMatrix:
+    def from_rows(
+        cls,
+        rows: Iterable[Iterable[Any]],
+        *,
+        max_cells: int | None = None,
+        array_max_size: int | None = None,
+    ) -> PyneMatrix:
         values = [list(row) for row in rows]
         if values:
             width = len(values[0])
             if any(len(row) != width for row in values):
                 raise ValueError("matrix rows must all have the same length")
-        matrix = cls()
+        cell_count = len(values) * (len(values[0]) if values else 0)
+        normalized_limit = _normalize_limit(max_cells)
+        _enforce_limit("matrix cells", cell_count, normalized_limit)
+        matrix = cls(max_cells=normalized_limit, array_max_size=array_max_size)
         matrix._values = values
         return matrix
 
@@ -191,7 +232,11 @@ class PyneMatrix:
         return [list(row) for row in self._values]
 
     def copy(self) -> PyneMatrix:
-        return PyneMatrix.from_rows(self._values)
+        return PyneMatrix.from_rows(
+            self._values,
+            max_cells=self._max_cells,
+            array_max_size=self._array_max_size,
+        )
 
     def rows(self) -> int:
         return len(self._values)
@@ -217,16 +262,20 @@ class PyneMatrix:
 
     def row(self, row: int) -> PyneArray:
         row_idx = _resolve_index(row, self.rows(), name="matrix row")
-        return PyneArray(self._values[row_idx])
+        return PyneArray(self._values[row_idx], max_size=self._array_max_size)
 
     def col(self, column: int) -> PyneArray:
         column_idx = _resolve_index(column, self.columns(), name="matrix column")
-        return PyneArray(row[column_idx] for row in self._values)
+        return PyneArray((row[column_idx] for row in self._values), max_size=self._array_max_size)
 
     def transpose(self) -> PyneMatrix:
         if not self._values:
-            return PyneMatrix()
-        return PyneMatrix.from_rows(zip(*self._values))
+            return PyneMatrix(max_cells=self._max_cells, array_max_size=self._array_max_size)
+        return PyneMatrix.from_rows(
+            zip(*self._values),
+            max_cells=self._max_cells,
+            array_max_size=self._array_max_size,
+        )
 
     def reshape(self, rows: int, columns: int) -> PyneMatrix:
         row_count = max(int(rows), 0)
@@ -234,11 +283,16 @@ class PyneMatrix:
         flat = [item for row in self._values for item in row]
         if row_count * column_count != len(flat):
             raise ValueError("matrix.reshape() cannot change element count")
+        _enforce_limit("matrix cells", row_count * column_count, self._max_cells)
         rebuilt = [
             flat[idx * column_count:(idx + 1) * column_count]
             for idx in range(row_count)
         ]
-        return PyneMatrix.from_rows(rebuilt)
+        return PyneMatrix.from_rows(
+            rebuilt,
+            max_cells=self._max_cells,
+            array_max_size=self._array_max_size,
+        )
 
     def add(self, other: Any) -> PyneMatrix:
         return self._binary(other, lambda left, right: left + right)
@@ -284,10 +338,14 @@ class PyneMatrix:
                     [op(self._values[row][column], other._values[row][column])
                      for column in range(self.columns())]
                     for row in range(self.rows())
-                ]
+                ],
+                max_cells=self._max_cells,
+                array_max_size=self._array_max_size,
             )
         return PyneMatrix.from_rows(
-            [[op(item, other) for item in row] for row in self._values]
+            [[op(item, other) for item in row] for row in self._values],
+            max_cells=self._max_cells,
+            array_max_size=self._array_max_size,
         )
 
     def _matrix_mult(self, other: PyneMatrix) -> PyneMatrix:
@@ -302,14 +360,24 @@ class PyneMatrix:
                     total += float(self._values[row][idx]) * float(other._values[idx][column])
                 output_row.append(total)
             values.append(output_row)
-        return PyneMatrix.from_rows(values)
+        return PyneMatrix.from_rows(
+            values,
+            max_cells=self._max_cells,
+            array_max_size=self._array_max_size,
+        )
 
 
 class ArrayNamespace:
     """Pine-like ``array.*`` namespace."""
 
+    def __init__(self, *, max_size: int | None = None) -> None:
+        self._max_size = _normalize_limit(max_size)
+
     def new(self, size: int = 0, initial_value: Any = None) -> PyneArray:
-        return PyneArray([initial_value for _ in range(max(int(size), 0))])
+        return PyneArray(
+            [initial_value for _ in range(max(int(size), 0))],
+            max_size=self._max_size,
+        )
 
     def new_float(self, size: int = 0, initial_value: float | None = None) -> PyneArray:
         return self.new(size, initial_value)
@@ -327,10 +395,10 @@ class ArrayNamespace:
         return self.new(size, initial_value)
 
     def from_values(self, *values: Any) -> PyneArray:
-        return PyneArray(values)
+        return PyneArray(values, max_size=self._max_size)
 
     def from_list(self, values: Iterable[Any]) -> PyneArray:
-        return PyneArray(values)
+        return PyneArray(values, max_size=self._max_size)
 
     def copy(self, arr: PyneArray) -> PyneArray:
         return _array(arr).copy()
@@ -411,19 +479,27 @@ class ArrayNamespace:
 class MapNamespace:
     """Pine-like ``map.*`` namespace."""
 
+    def __init__(self, *, max_size: int | None = None, array_max_size: int | None = None) -> None:
+        self._max_size = _normalize_limit(max_size)
+        self._array_max_size = _normalize_limit(array_max_size)
+
     def new(self) -> PyneMap:
-        return PyneMap()
+        return PyneMap(max_size=self._max_size, array_max_size=self._array_max_size)
 
     def from_values(self, *items: Any) -> PyneMap:
         if len(items) % 2 != 0:
             raise ValueError("map.from_values() expects key/value pairs")
-        result = PyneMap()
+        result = PyneMap(max_size=self._max_size, array_max_size=self._array_max_size)
         for idx in range(0, len(items), 2):
             result.put(items[idx], items[idx + 1])
         return result
 
     def from_dict(self, values: dict[Any, Any]) -> PyneMap:
-        return PyneMap(values)
+        return PyneMap(
+            values,
+            max_size=self._max_size,
+            array_max_size=self._array_max_size,
+        )
 
     def copy(self, m: PyneMap) -> PyneMap:
         return _map(m).copy()
@@ -456,8 +532,23 @@ class MapNamespace:
 class MatrixNamespace:
     """Pine-like ``matrix.*`` namespace."""
 
+    def __init__(
+        self,
+        *,
+        max_cells: int | None = None,
+        array_max_size: int | None = None,
+    ) -> None:
+        self._max_cells = _normalize_limit(max_cells)
+        self._array_max_size = _normalize_limit(array_max_size)
+
     def new(self, rows: int = 0, columns: int = 0, initial_value: Any = None) -> PyneMatrix:
-        return PyneMatrix(rows, columns, initial_value)
+        return PyneMatrix(
+            rows,
+            columns,
+            initial_value,
+            max_cells=self._max_cells,
+            array_max_size=self._array_max_size,
+        )
 
     def new_float(
         self,
@@ -476,7 +567,11 @@ class MatrixNamespace:
         return self.new(rows, columns, initial_value)
 
     def from_rows(self, rows: Iterable[Iterable[Any]]) -> PyneMatrix:
-        return PyneMatrix.from_rows(rows)
+        return PyneMatrix.from_rows(
+            rows,
+            max_cells=self._max_cells,
+            array_max_size=self._array_max_size,
+        )
 
     def copy(self, m: PyneMatrix) -> PyneMatrix:
         return _matrix(m).copy()
@@ -533,11 +628,6 @@ class MatrixNamespace:
         return _matrix(m).max()
 
 
-array_namespace = ArrayNamespace()
-map_namespace = MapNamespace()
-matrix_namespace = MatrixNamespace()
-
-
 def _array(value: PyneArray) -> PyneArray:
     if not isinstance(value, PyneArray):
         raise TypeError("array.* expects a PyneArray created by array.new_*()")
@@ -565,6 +655,17 @@ def _resolve_index(index: int, length: int, *, name: str = "array index") -> int
     return idx
 
 
+def _normalize_limit(limit: int | None) -> int | None:
+    if limit is None:
+        return None
+    return max(int(limit), 1)
+
+
+def _enforce_limit(label: str, size: int, limit: int | None) -> None:
+    if limit is not None and size > limit:
+        raise PyneSecurityError(f"{label} {size} exceeds limit {limit}")
+
+
 def _numeric_values(values: Iterable[Any]) -> list[float]:
     numbers: list[float] = []
     for item in values:
@@ -586,3 +687,8 @@ def _values_equal(left: Any, right: Any) -> bool:
     if is_na_value(left) and is_na_value(right):
         return True
     return left == right
+
+
+array_namespace = ArrayNamespace()
+map_namespace = MapNamespace()
+matrix_namespace = MatrixNamespace()

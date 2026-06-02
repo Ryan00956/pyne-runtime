@@ -9,6 +9,9 @@ settings = pn.PyneSettings(
     timeout_seconds=5,
     max_bars=50_000,
     max_drawing_objects=500,
+    max_array_size=100_000,
+    max_map_size=100_000,
+    max_matrix_cells=100_000,
     data_provider=None,
     syminfo={"tickerid": "NASDAQ:AAPL", "mintick": 0.01},
     timeframe="1h",
@@ -113,4 +116,12 @@ Object limits:
 - `max_drawing_objects`: maximum active `line`, `label`, `box`, and `table`
   handles in one execution.
 - Environment variable: `PYNE_MAX_DRAWING_OBJECTS`.
+
+Collection limits:
+
+- `max_array_size`: maximum elements in an `array.*` value created by a script.
+- `max_map_size`: maximum entries in a `map.*` value created by a script.
+- `max_matrix_cells`: maximum cells in a `matrix.*` value created by a script.
+- Environment variables: `PYNE_MAX_ARRAY_SIZE`, `PYNE_MAX_MAP_SIZE`,
+  `PYNE_MAX_MATRIX_CELLS`.
 

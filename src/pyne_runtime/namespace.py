@@ -9,7 +9,7 @@ import numpy as np
 
 from . import utils
 from .cache import pyne_cache
-from .collections import array_namespace, map_namespace, matrix_namespace
+from .collections import ArrayNamespace, MapNamespace, MatrixNamespace
 from .color import color as color_singleton
 from .context import PyneContext
 from .input import InputModule
@@ -115,9 +115,15 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
     namespace["request"] = RequestModule(ctx, provider=services.settings.data_provider)
     namespace["barmerge"] = barmerge
     namespace["strategy"] = services.strategy
-    namespace["array"] = array_namespace
-    namespace["map"] = map_namespace
-    namespace["matrix"] = matrix_namespace
+    namespace["array"] = ArrayNamespace(max_size=services.policy.max_array_size)
+    namespace["map"] = MapNamespace(
+        max_size=services.policy.max_map_size,
+        array_max_size=services.policy.max_array_size,
+    )
+    namespace["matrix"] = MatrixNamespace(
+        max_cells=services.policy.max_matrix_cells,
+        array_max_size=services.policy.max_array_size,
+    )
     namespace["str"] = string_namespace
     namespace["ticker"] = TickerNamespace(ctx.syminfo)
     namespace["color"] = color_singleton
