@@ -54,7 +54,7 @@ def test_ta_capture_status_json_report() -> None:
     assert fifth["fixture"] == "ta_trend_switch_indicators.json"
     assert fifth["priority"] is False
     assert fifth["status"] == "captured"
-    assert fifth["assertion"] == "reference"
+    assert fifth["assertion"] == "parity"
     sixth = report["fixtures"][5]
     assert sixth["fixture"] == "ta_warmup_boundaries_indicators.json"
     assert sixth["priority"] is False

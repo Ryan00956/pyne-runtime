@@ -655,6 +655,7 @@ class TaModule:
         maximum: float = 0.2,
         high: PyneSeries | np.ndarray | None = None,
         low: PyneSeries | np.ndarray | None = None,
+        close: PyneSeries | np.ndarray | None = None,
     ) -> PyneSeries | np.ndarray:
         """Parabolic SAR.
 
@@ -666,49 +667,83 @@ class TaModule:
             high = self._ctx.high
         if low is None:
             low = self._ctx.low
+        if close is None and self._ctx is not None:
+            close = self._ctx.close
 
         high_arr = to_numpy(high, dtype=np.float64)
         low_arr = to_numpy(low, dtype=np.float64)
+        close_arr = (
+            to_numpy(close, dtype=np.float64)
+            if close is not None
+            else (high_arr + low_arr) / 2.0
+        )
         n = len(high_arr)
         result = np.full(n, np.nan)
         if n < 2:
             return wrap_like(result, high, low)
 
-        is_long = high_arr[1] >= high_arr[0]
-        af = float(start)
-        ep = high_arr[1] if is_long else low_arr[1]
-        result[1] = low_arr[0] if is_long else high_arr[0]
+        sar_value = np.nan
+        max_min = np.nan
+        acceleration = np.nan
+        is_below = False
 
-        for idx in range(2, n):
-            prev_sar = result[idx - 1]
-            sar = prev_sar + af * (ep - prev_sar)
+        for idx in range(n):
+            is_first_trend_bar = False
+            if np.isnan(high_arr[idx]) or np.isnan(low_arr[idx]) or np.isnan(close_arr[idx]):
+                sar_value = np.nan
+                max_min = np.nan
+                acceleration = np.nan
+                continue
 
-            if is_long:
-                sar = min(sar, low_arr[idx - 1], low_arr[idx - 2])
-                if low_arr[idx] < sar:
-                    is_long = False
-                    sar = ep
-                    ep = low_arr[idx]
-                    af = float(start)
+            if np.isnan(sar_value) and idx > 0 and not np.isnan(close_arr[idx - 1]):
+                if close_arr[idx] > close_arr[idx - 1]:
+                    is_below = True
+                    max_min = high_arr[idx]
+                    sar_value = low_arr[idx - 1]
                 else:
-                    if high_arr[idx] > ep:
-                        ep = high_arr[idx]
-                        af = min(af + increment, maximum)
-            else:
-                sar = max(sar, high_arr[idx - 1], high_arr[idx - 2])
-                if high_arr[idx] > sar:
-                    is_long = True
-                    sar = ep
-                    ep = high_arr[idx]
-                    af = float(start)
+                    is_below = False
+                    max_min = low_arr[idx]
+                    sar_value = high_arr[idx - 1]
+                is_first_trend_bar = True
+                acceleration = float(start)
+            elif not np.isnan(sar_value):
+                sar_value = sar_value + acceleration * (max_min - sar_value)
+                if is_below:
+                    if sar_value > low_arr[idx]:
+                        is_first_trend_bar = True
+                        is_below = False
+                        sar_value = max(high_arr[idx], max_min)
+                        max_min = low_arr[idx]
+                        acceleration = float(start)
                 else:
-                    if low_arr[idx] < ep:
-                        ep = low_arr[idx]
-                        af = min(af + increment, maximum)
+                    if sar_value < high_arr[idx]:
+                        is_first_trend_bar = True
+                        is_below = True
+                        sar_value = min(low_arr[idx], max_min)
+                        max_min = high_arr[idx]
+                        acceleration = float(start)
 
-            result[idx] = sar
+                if not is_first_trend_bar:
+                    if is_below:
+                        if high_arr[idx] > max_min:
+                            max_min = high_arr[idx]
+                            acceleration = min(acceleration + increment, maximum)
+                    elif low_arr[idx] < max_min:
+                        max_min = low_arr[idx]
+                        acceleration = min(acceleration + increment, maximum)
 
-        return wrap_like(result, high, low)
+                if is_below:
+                    sar_value = min(sar_value, low_arr[idx - 1])
+                    if idx > 1 and not np.isnan(low_arr[idx - 2]):
+                        sar_value = min(sar_value, low_arr[idx - 2])
+                else:
+                    sar_value = max(sar_value, high_arr[idx - 1])
+                    if idx > 1 and not np.isnan(high_arr[idx - 2]):
+                        sar_value = max(sar_value, high_arr[idx - 2])
+
+            result[idx] = sar_value
+
+        return wrap_like(result, high, low, close)
 
     def supertrend(
         self,

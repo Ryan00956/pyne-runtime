@@ -265,6 +265,24 @@ plot(direction, "Direction")
     assert _series_values(result, "Direction") == [1.0, 1.0, 1.0, 1.0]
 
 
+def test_sar_uses_close_to_seed_initial_trend() -> None:
+    bars = [
+        {"time": 1, "open": 8, "high": 10, "low": 5, "close": 8, "volume": 100},
+        {"time": 2, "open": 8, "high": 11, "low": 6, "close": 7, "volume": 100},
+        {"time": 3, "open": 7, "high": 9, "low": 4, "close": 5, "volume": 100},
+    ]
+    result = pn.run(
+        """
+plot(ta.sar(0.02, 0.02, 0.2), "SAR")
+""",
+        bars,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.get_series("SAR")[0] == {"time": 2, "value": 10.0}
+
+
 def test_state_lookup_ta_helpers_match_pine_like_offsets() -> None:
     bars = [
         {"time": 1, "open": 3, "high": 3, "low": 3, "close": 3, "volume": 100},

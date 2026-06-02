@@ -1094,8 +1094,8 @@
   "external_capture": {
     "provider": "tradingview",
     "status": "captured",
-    "assertion": "reference",
-    "tolerance": 1e-09,
+    "assertion": "parity",
+    "tolerance": 1e-08,
     "series": {
       "ATR 4": [
         {
@@ -2185,7 +2185,8 @@
       }
     ],
     "notes": [
-      "TradingView export 2026-06-02, BINANCE:BTCUSDT.P 60m, trend switch TA capture"
+      "TradingView export 2026-06-02, BINANCE:BTCUSDT.P 60m, trend switch TA capture",
+      "Promoted to parity after aligning ta.sar() with the TradingView reference helper and allowing 1e-8 float tail tolerance."
     ]
   }
 }
