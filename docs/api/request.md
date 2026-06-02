@@ -278,6 +278,8 @@ The request test suite includes deterministic fixtures for:
 - empty lower-timeframe buckets and aggregation defaults
 - invalid-symbol ignore behavior and provider capability rejection before
   provider calls
+- requested-context cache reuse within one script run and cache reset across
+  separate `pn.run()` executions
 - provider failure and provider metadata contract failures
 
 ## Internal Responsibilities
