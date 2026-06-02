@@ -32,6 +32,18 @@ if TYPE_CHECKING:
     from .context import PyneContext
 
 
+def _fixnan(values: np.ndarray) -> np.ndarray:
+    result = np.array(values, dtype=np.float64, copy=True)
+    last = np.nan
+    for idx, value in enumerate(result):
+        if np.isnan(value):
+            if not np.isnan(last):
+                result[idx] = last
+            continue
+        last = value
+    return result
+
+
 class TaModule:
     """Pine-style technical analysis namespace.
 
@@ -562,28 +574,7 @@ class TaModule:
         if close is None:
             close = self._ctx.close
 
-        high_arr = to_numpy(high, dtype=np.float64)
-        low_arr = to_numpy(low, dtype=np.float64)
-        close_arr = to_numpy(close, dtype=np.float64)
-        up_move = to_numpy(utils.change(high_arr, 1), dtype=np.float64)
-        down_move = -to_numpy(utils.change(low_arr, 1), dtype=np.float64)
-        up_move[0] = 0
-        down_move[0] = 0
-
-        plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
-        minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
-
-        atr_val = to_numpy(self.atr(period, high_arr, low_arr, close_arr), dtype=np.float64)
-        smooth_plus = self.rma(plus_dm, period)
-        smooth_minus = self.rma(minus_dm, period)
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            plus_di = 100.0 * smooth_plus / atr_val
-            minus_di = 100.0 * smooth_minus / atr_val
-            dx = 100.0 * np.abs(plus_di - minus_di) / (plus_di + minus_di)
-
-        dx = np.nan_to_num(dx, nan=0.0)
-        adx_val = self.rma(dx, period)
+        _, _, adx_val = self._dmi_components(high, low, close, period, period)
         return wrap_like(adx_val, high, low, close)
 
     def dmi(
@@ -608,32 +599,56 @@ class TaModule:
         if close is None:
             close = self._ctx.close
 
-        high_arr = to_numpy(high, dtype=np.float64)
-        low_arr = to_numpy(low, dtype=np.float64)
-        close_arr = to_numpy(close, dtype=np.float64)
-        up_move = to_numpy(utils.change(high_arr, 1), dtype=np.float64)
-        down_move = -to_numpy(utils.change(low_arr, 1), dtype=np.float64)
-        up_move[0] = 0.0
-        down_move[0] = 0.0
-
-        plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
-        minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
-        atr_val = to_numpy(self.atr(period, high_arr, low_arr, close_arr), dtype=np.float64)
-        plus_smoothed = to_numpy(self.rma(plus_dm, period), dtype=np.float64)
-        minus_smoothed = to_numpy(self.rma(minus_dm, period), dtype=np.float64)
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            plus_di = 100.0 * plus_smoothed / atr_val
-            minus_di = 100.0 * minus_smoothed / atr_val
-            dx = 100.0 * np.abs(plus_di - minus_di) / (plus_di + minus_di)
-        dx = np.nan_to_num(dx, nan=0.0)
-        adx_val = self.rma(dx, adx_period)
+        plus_di, minus_di, adx_val = self._dmi_components(
+            high,
+            low,
+            close,
+            period,
+            adx_period,
+        )
 
         return (
             wrap_like(plus_di, high, low, close),
             wrap_like(minus_di, high, low, close),
             wrap_like(adx_val, high, low, close),
         )
+
+    def _dmi_components(
+        self,
+        high: PyneSeries | np.ndarray,
+        low: PyneSeries | np.ndarray,
+        close: PyneSeries | np.ndarray,
+        period: int,
+        adx_period: int,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        high_arr = to_numpy(high, dtype=np.float64)
+        low_arr = to_numpy(low, dtype=np.float64)
+        close_arr = to_numpy(close, dtype=np.float64)
+        up_move = to_numpy(utils.change(high_arr, 1), dtype=np.float64)
+        down_move = -to_numpy(utils.change(low_arr, 1), dtype=np.float64)
+
+        plus_dm = np.where(
+            np.isnan(up_move),
+            np.nan,
+            np.where((up_move > down_move) & (up_move > 0), up_move, 0.0),
+        )
+        minus_dm = np.where(
+            np.isnan(down_move),
+            np.nan,
+            np.where((down_move > up_move) & (down_move > 0), down_move, 0.0),
+        )
+        trur = to_numpy(self.atr(period, high_arr, low_arr, close_arr), dtype=np.float64)
+        plus_smoothed = to_numpy(self.rma(plus_dm, period), dtype=np.float64)
+        minus_smoothed = to_numpy(self.rma(minus_dm, period), dtype=np.float64)
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            plus_di = _fixnan(100.0 * plus_smoothed / trur)
+            minus_di = _fixnan(100.0 * minus_smoothed / trur)
+            total = plus_di + minus_di
+            denominator = np.where(total == 0.0, 1.0, total)
+            dx_ratio = np.abs(plus_di - minus_di) / denominator
+            adx_val = 100.0 * to_numpy(self.rma(dx_ratio, adx_period), dtype=np.float64)
+        return plus_di, minus_di, adx_val
 
     def sar(
         self,

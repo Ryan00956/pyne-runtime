@@ -45,10 +45,14 @@ def _assert_series_matches(
     expected: list[dict[str, Any]],
     *,
     abs_tol: float = 1e-9,
+    allow_actual_extra_keys: bool = False,
 ) -> None:
     assert len(actual) == len(expected)
     for actual_point, expected_point in zip(actual, expected):
-        assert actual_point.keys() == expected_point.keys()
+        if allow_actual_extra_keys:
+            assert set(expected_point).issubset(actual_point)
+        else:
+            assert actual_point.keys() == expected_point.keys()
         for key, expected_value in expected_point.items():
             actual_value = actual_point[key]
             if key == "value" and isinstance(expected_value, (int, float)):
@@ -74,4 +78,9 @@ def _assert_external_capture(fixture: dict[str, Any]) -> None:
     assert result.ok, result.error
     tolerance = float(capture.get("tolerance", 1e-9))
     for name, expected in capture.get("series", {}).items():
-        _assert_series_matches(result.get_series(name), expected, abs_tol=tolerance)
+        _assert_series_matches(
+            result.get_series(name),
+            expected,
+            abs_tol=tolerance,
+            allow_actual_extra_keys=True,
+        )

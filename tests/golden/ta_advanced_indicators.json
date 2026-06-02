@@ -386,51 +386,43 @@
     ],
     "Plus DI 3": [
       {
-        "time": 3,
+        "time": 4,
         "value": 22.22222222
       },
       {
-        "time": 4,
-        "value": 14.81481481
-      },
-      {
         "time": 5,
-        "value": 9.35672515
+        "value": 14.03508772
       },
       {
         "time": 6,
-        "value": 6.02636535
+        "value": 9.03954802
       },
       {
         "time": 7,
-        "value": 33.70726496
+        "value": 35.41666667
       },
       {
         "time": 8,
-        "value": 33.60246059
+        "value": 34.83275663
       },
       {
         "time": 9,
-        "value": 21.53239714
+        "value": 22.32076866
       },
       {
         "time": 10,
-        "value": 14.6334317
+        "value": 15.16920952
       },
       {
         "time": 11,
-        "value": 20.07178075
+        "value": 20.37702778
       },
       {
         "time": 12,
-        "value": 35.02378251
+        "value": 35.24016
       }
     ],
     "Minus DI 3": [
-      {
-        "time": 3,
-        "value": 0.0
-      },
       {
         "time": 4,
         "value": 5.55555556
@@ -470,44 +462,32 @@
     ],
     "ADX 3": [
       {
-        "time": 3,
-        "value": 33.33333333
-      },
-      {
-        "time": 4,
-        "value": 37.37373737
-      },
-      {
-        "time": 5,
-        "value": 39.85835365
-      },
-      {
         "time": 6,
-        "value": 44.98715418
+        "value": 42.29845626
       },
       {
         "time": 7,
-        "value": 45.97424191
+        "value": 44.80914033
       },
       {
         "time": 8,
-        "value": 50.4791783
+        "value": 50.08552618
       },
       {
         "time": 9,
-        "value": 35.78843206
+        "value": 36.12210179
       },
       {
         "time": 10,
-        "value": 35.8979375
+        "value": 35.59589591
       },
       {
         "time": 11,
-        "value": 25.96516403
+        "value": 26.01430185
       },
       {
         "time": 12,
-        "value": 33.0132733
+        "value": 33.12578487
       }
     ],
     "SAR": [
@@ -560,7 +540,7 @@
   "external_capture": {
     "provider": "tradingview",
     "status": "captured",
-    "assertion": "reference",
+    "assertion": "parity",
     "tolerance": 1e-07,
     "series": {
       "MACD Line": [
@@ -1092,7 +1072,8 @@
     ],
     "notes": [
       "TradingView export 2026-06-02, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_af28b.csv",
-      "Recaptured with isolated implicit OHLC helpers from commit 5a9a058."
+      "Recaptured with isolated implicit OHLC helpers from commit 5a9a058.",
+      "Promoted to parity after aligning ta.dmi()/ta.adx() na seeding, fixnan, and ADX smoothing to the isolated TradingView reference."
     ]
   }
 }
