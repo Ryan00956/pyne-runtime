@@ -39,6 +39,9 @@ class PyneArray:
     def copy(self) -> PyneArray:
         return PyneArray(self._values, max_size=self._max_size, max_depth=self._max_depth)
 
+    def snapshot(self) -> PyneArray:
+        return _snapshot_array(self, set())
+
     def size(self) -> int:
         return len(self._values)
 
@@ -179,6 +182,9 @@ class PyneMap:
             max_depth=self._max_depth,
         )
 
+    def snapshot(self) -> PyneMap:
+        return _snapshot_map(self, set())
+
     def size(self) -> int:
         return len(self._values)
 
@@ -282,6 +288,9 @@ class PyneMatrix:
             array_max_size=self._array_max_size,
             max_depth=self._max_depth,
         )
+
+    def snapshot(self) -> PyneMatrix:
+        return _snapshot_matrix(self, set())
 
     def rows(self) -> int:
         return len(self._values)
@@ -469,6 +478,9 @@ class ArrayNamespace:
     def copy(self, arr: PyneArray) -> PyneArray:
         return _array(arr).copy()
 
+    def snapshot(self, arr: PyneArray) -> PyneArray:
+        return _array(arr).snapshot()
+
     def size(self, arr: PyneArray) -> int:
         return _array(arr).size()
 
@@ -586,6 +598,9 @@ class MapNamespace:
     def copy(self, m: PyneMap) -> PyneMap:
         return _map(m).copy()
 
+    def snapshot(self, m: PyneMap) -> PyneMap:
+        return _map(m).snapshot()
+
     def size(self, m: PyneMap) -> int:
         return _map(m).size()
 
@@ -661,6 +676,9 @@ class MatrixNamespace:
 
     def copy(self, m: PyneMatrix) -> PyneMatrix:
         return _matrix(m).copy()
+
+    def snapshot(self, m: PyneMatrix) -> PyneMatrix:
+        return _matrix(m).snapshot()
 
     def rows(self, m: PyneMatrix) -> int:
         return _matrix(m).rows()
@@ -750,6 +768,57 @@ def _normalize_limit(limit: int | None) -> int | None:
 def _enforce_limit(label: str, size: int, limit: int | None) -> None:
     if limit is not None and size > limit:
         raise PyneSecurityError(f"{label} {size} exceeds limit {limit}")
+
+
+def _snapshot_value(value: Any, seen: set[int]) -> Any:
+    if isinstance(value, PyneArray):
+        return _snapshot_array(value, seen)
+    if isinstance(value, PyneMap):
+        return _snapshot_map(value, seen)
+    if isinstance(value, PyneMatrix):
+        return _snapshot_matrix(value, seen)
+    return value
+
+
+def _snapshot_array(value: PyneArray, seen: set[int]) -> PyneArray:
+    identity = id(value)
+    if identity in seen:
+        raise PyneSecurityError("recursive collection snapshots are not supported")
+    child_seen = {*seen, identity}
+    return PyneArray(
+        (_snapshot_value(item, child_seen) for item in value.to_list()),
+        max_size=value._max_size,
+        max_depth=value._max_depth,
+    )
+
+
+def _snapshot_map(value: PyneMap, seen: set[int]) -> PyneMap:
+    identity = id(value)
+    if identity in seen:
+        raise PyneSecurityError("recursive collection snapshots are not supported")
+    child_seen = {*seen, identity}
+    return PyneMap(
+        {key: _snapshot_value(item, child_seen) for key, item in value.to_dict().items()},
+        max_size=value._max_size,
+        array_max_size=value._array_max_size,
+        max_depth=value._max_depth,
+    )
+
+
+def _snapshot_matrix(value: PyneMatrix, seen: set[int]) -> PyneMatrix:
+    identity = id(value)
+    if identity in seen:
+        raise PyneSecurityError("recursive collection snapshots are not supported")
+    child_seen = {*seen, identity}
+    return PyneMatrix.from_rows(
+        [
+            [_snapshot_value(item, child_seen) for item in row]
+            for row in value.to_list()
+        ],
+        max_cells=value._max_cells,
+        array_max_size=value._array_max_size,
+        max_depth=value._max_depth,
+    )
 
 
 def _enforce_child_depth(value: Any, limit: int | None) -> None:

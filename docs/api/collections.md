@@ -24,6 +24,10 @@ values.push(4)
 average = values.avg()
 ```
 
+Use `snapshot()` when a script needs a mutation boundary for nested
+collections. It recursively snapshots nested `array`, `map`, and `matrix`
+values, so later mutations to the live collection do not affect the snapshot.
+
 ## Constructors
 
 - `array.new(size=0, initial_value=None)`
@@ -52,6 +56,7 @@ Pine's `array.from(...)` name cannot be written as normal Python syntax because
 - `array.remove(arr, index)`
 - `array.clear(arr)`
 - `array.copy(arr)`
+- `array.snapshot(arr)`
 - `array.slice(arr, index_from, index_to=None)`
 - `array.fill(arr, value, index_from=0, index_to=None)`
 - `array.reverse(arr)`
@@ -109,6 +114,7 @@ Supported map helpers:
 - `map.remove(m, key)`
 - `map.clear(m)`
 - `map.keys(m)`
+- `map.snapshot(m)`
 - `map.values(m)`
 
 `map.keys()` and `map.values()` return `PyneArray` instances, so they can be
@@ -141,6 +147,7 @@ Supported matrix helpers:
 - `matrix.new_int(rows=0, columns=0, initial_value=None)`
 - `matrix.from_rows(rows)`
 - `matrix.copy(m)`
+- `matrix.snapshot(m)`
 - `matrix.rows(m)`
 - `matrix.columns(m)`
 - `matrix.elements_count(m)`

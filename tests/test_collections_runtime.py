@@ -90,6 +90,28 @@ plot(array.lastindexof(copy, 9), "Last Index")
     assert result.values("Last Index") == [2.0, 2.0, 2.0]
 
 
+def test_array_snapshot_freezes_nested_collection_values() -> None:
+    result = pn.run(
+        """
+inner = array.from_values(1)
+outer = array.from_values(inner)
+snap = array.snapshot(outer)
+array.push(inner, 2)
+
+snap_inner = array.get(snap, 0)
+live_inner = array.get(outer, 0)
+plot(array.size(snap_inner), "Snapshot Size")
+plot(array.size(live_inner), "Live Size")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Snapshot Size") == [1.0, 1.0, 1.0]
+    assert result.values("Live Size") == [2.0, 2.0, 2.0]
+
+
 def test_array_join_and_clear_support_non_numeric_payloads() -> None:
     result = pn.run(
         """
@@ -217,6 +239,28 @@ plot(copy.get("signal"), "Signal")
     assert result.values("Signal") == [8.0, 8.0, 8.0]
 
 
+def test_map_snapshot_freezes_nested_collection_values() -> None:
+    result = pn.run(
+        """
+inner = map.from_values("fast", 1)
+outer = map.from_values("child", inner)
+snap = map.snapshot(outer)
+map.put(inner, "slow", 2)
+
+snap_child = map.get(snap, "child")
+live_child = map.get(outer, "child")
+plot(map.size(snap_child), "Snapshot Size")
+plot(map.size(live_child), "Live Size")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Snapshot Size") == [1.0, 1.0, 1.0]
+    assert result.values("Live Size") == [2.0, 2.0, 2.0]
+
+
 def test_map_from_values_requires_key_value_pairs() -> None:
     result = pn.run(
         """
@@ -327,6 +371,28 @@ plot(m.max(), "Max")
     assert result.values("Avg") == [3.5, 3.5, 3.5]
     assert result.values("Min") == [1.0, 1.0, 1.0]
     assert result.values("Max") == [6.0, 6.0, 6.0]
+
+
+def test_matrix_snapshot_freezes_nested_collection_values() -> None:
+    result = pn.run(
+        """
+inner = array.from_values(1)
+m = matrix.new(1, 1, inner)
+snap = matrix.snapshot(m)
+array.push(inner, 2)
+
+snap_inner = matrix.get(snap, 0, 0)
+live_inner = matrix.get(m, 0, 0)
+plot(array.size(snap_inner), "Snapshot Size")
+plot(array.size(live_inner), "Live Size")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Snapshot Size") == [1.0, 1.0, 1.0]
+    assert result.values("Live Size") == [2.0, 2.0, 2.0]
 
 
 def test_matrix_add_sub_and_mult_support_scalars_and_matrices() -> None:
