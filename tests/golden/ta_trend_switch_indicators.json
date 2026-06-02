@@ -1,0 +1,1103 @@
+{
+  "name": "ta_trend_switch_indicators",
+  "source": "pyne-defined TA trend-switch capture fixture",
+  "chart_bars": [
+    {
+      "time": 1,
+      "open": 100.0,
+      "high": 101.0,
+      "low": 99.0,
+      "close": 100.0,
+      "volume": 1000.0
+    },
+    {
+      "time": 2,
+      "open": 100.0,
+      "high": 103.0,
+      "low": 99.5,
+      "close": 102.5,
+      "volume": 1180.0
+    },
+    {
+      "time": 3,
+      "open": 102.5,
+      "high": 106.0,
+      "low": 102.0,
+      "close": 105.0,
+      "volume": 1320.0
+    },
+    {
+      "time": 4,
+      "open": 105.0,
+      "high": 108.0,
+      "low": 104.0,
+      "close": 107.0,
+      "volume": 1410.0
+    },
+    {
+      "time": 5,
+      "open": 107.0,
+      "high": 109.0,
+      "low": 105.5,
+      "close": 106.0,
+      "volume": 1260.0
+    },
+    {
+      "time": 6,
+      "open": 106.0,
+      "high": 107.0,
+      "low": 100.5,
+      "close": 101.0,
+      "volume": 1780.0
+    },
+    {
+      "time": 7,
+      "open": 101.0,
+      "high": 102.0,
+      "low": 95.0,
+      "close": 96.0,
+      "volume": 2100.0
+    },
+    {
+      "time": 8,
+      "open": 96.0,
+      "high": 97.0,
+      "low": 91.0,
+      "close": 92.0,
+      "volume": 2260.0
+    },
+    {
+      "time": 9,
+      "open": 92.0,
+      "high": 94.0,
+      "low": 89.0,
+      "close": 90.5,
+      "volume": 1980.0
+    },
+    {
+      "time": 10,
+      "open": 90.5,
+      "high": 96.0,
+      "low": 90.0,
+      "close": 95.0,
+      "volume": 1840.0
+    },
+    {
+      "time": 11,
+      "open": 95.0,
+      "high": 101.0,
+      "low": 94.0,
+      "close": 100.0,
+      "volume": 2050.0
+    },
+    {
+      "time": 12,
+      "open": 100.0,
+      "high": 105.0,
+      "low": 99.0,
+      "close": 104.0,
+      "volume": 2160.0
+    },
+    {
+      "time": 13,
+      "open": 104.0,
+      "high": 106.0,
+      "low": 101.0,
+      "close": 102.0,
+      "volume": 1640.0
+    },
+    {
+      "time": 14,
+      "open": 102.0,
+      "high": 103.0,
+      "low": 96.0,
+      "close": 97.0,
+      "volume": 1890.0
+    },
+    {
+      "time": 15,
+      "open": 97.0,
+      "high": 98.0,
+      "low": 92.0,
+      "close": 93.0,
+      "volume": 2200.0
+    },
+    {
+      "time": 16,
+      "open": 93.0,
+      "high": 99.0,
+      "low": 92.5,
+      "close": 98.5,
+      "volume": 2140.0
+    },
+    {
+      "time": 17,
+      "open": 98.5,
+      "high": 104.0,
+      "low": 98.0,
+      "close": 103.5,
+      "volume": 2320.0
+    },
+    {
+      "time": 18,
+      "open": 103.5,
+      "high": 110.0,
+      "low": 103.0,
+      "close": 109.0,
+      "volume": 2440.0
+    },
+    {
+      "time": 19,
+      "open": 109.0,
+      "high": 112.0,
+      "low": 106.0,
+      "close": 107.0,
+      "volume": 1990.0
+    },
+    {
+      "time": 20,
+      "open": 107.0,
+      "high": 108.0,
+      "low": 100.0,
+      "close": 101.0,
+      "volume": 2380.0
+    },
+    {
+      "time": 21,
+      "open": 101.0,
+      "high": 102.0,
+      "low": 94.0,
+      "close": 95.0,
+      "volume": 2510.0
+    },
+    {
+      "time": 22,
+      "open": 95.0,
+      "high": 97.0,
+      "low": 90.0,
+      "close": 91.0,
+      "volume": 2630.0
+    },
+    {
+      "time": 23,
+      "open": 91.0,
+      "high": 99.0,
+      "low": 90.0,
+      "close": 98.0,
+      "volume": 2480.0
+    },
+    {
+      "time": 24,
+      "open": 98.0,
+      "high": 106.0,
+      "low": 97.0,
+      "close": 105.0,
+      "volume": 2590.0
+    }
+  ],
+  "script": "supertrend_fast, supertrend_fast_direction = ta.supertrend(1.5, 3)\nsupertrend_slow, supertrend_slow_direction = ta.supertrend(2.5, 4)\nplus_di, minus_di, adx = ta.dmi(4, 3)\nplot(ta.atr(4), \"ATR 4\")\nplot(ta.sar(0.02, 0.02, 0.2), \"SAR 0.02\")\nplot(ta.sar(0.04, 0.04, 0.2), \"SAR 0.04\")\nplot(supertrend_fast, \"Supertrend 1.5 3\")\nplot(supertrend_fast_direction, \"Supertrend 1.5 3 Dir\")\nplot(supertrend_slow, \"Supertrend 2.5 4\")\nplot(supertrend_slow_direction, \"Supertrend 2.5 4 Dir\")\nplot(plus_di, \"Plus DI 4\")\nplot(minus_di, \"Minus DI 4\")\nplot(adx, \"ADX 4 3\")\n",
+  "pine_equivalent": "//@version=5\nindicator(\"TA Trend Switch Indicators Golden\")\n[supertrend_fast, supertrend_fast_direction] = ta.supertrend(1.5, 3)\n[supertrend_slow, supertrend_slow_direction] = ta.supertrend(2.5, 4)\n[plus_di, minus_di, adx] = ta.dmi(4, 3)\nplot(ta.atr(4), \"ATR 4\")\nplot(ta.sar(0.02, 0.02, 0.2), \"SAR 0.02\")\nplot(ta.sar(0.04, 0.04, 0.2), \"SAR 0.04\")\nplot(supertrend_fast, \"Supertrend 1.5 3\")\nplot(supertrend_fast_direction, \"Supertrend 1.5 3 Dir\")\nplot(supertrend_slow, \"Supertrend 2.5 4\")\nplot(supertrend_slow_direction, \"Supertrend 2.5 4 Dir\")\nplot(plus_di, \"Plus DI 4\")\nplot(minus_di, \"Minus DI 4\")\nplot(adx, \"ADX 4 3\")\n",
+  "expected_series": {
+    "ATR 4": [
+      {
+        "time": 4,
+        "value": 3.375
+      },
+      {
+        "time": 5,
+        "value": 3.40625
+      },
+      {
+        "time": 6,
+        "value": 4.1796875
+      },
+      {
+        "time": 7,
+        "value": 4.88476562
+      },
+      {
+        "time": 8,
+        "value": 5.16357422
+      },
+      {
+        "time": 9,
+        "value": 5.12268066
+      },
+      {
+        "time": 10,
+        "value": 5.3420105
+      },
+      {
+        "time": 11,
+        "value": 5.75650787
+      },
+      {
+        "time": 12,
+        "value": 5.81738091
+      },
+      {
+        "time": 13,
+        "value": 5.61303568
+      },
+      {
+        "time": 14,
+        "value": 5.95977676
+      },
+      {
+        "time": 15,
+        "value": 5.96983257
+      },
+      {
+        "time": 16,
+        "value": 6.10237443
+      },
+      {
+        "time": 17,
+        "value": 6.07678082
+      },
+      {
+        "time": 18,
+        "value": 6.30758562
+      },
+      {
+        "time": 19,
+        "value": 6.23068921
+      },
+      {
+        "time": 20,
+        "value": 6.67301691
+      },
+      {
+        "time": 21,
+        "value": 7.00476268
+      },
+      {
+        "time": 22,
+        "value": 7.00357201
+      },
+      {
+        "time": 23,
+        "value": 7.50267901
+      },
+      {
+        "time": 24,
+        "value": 7.87700926
+      }
+    ],
+    "SAR 0.02": [
+      {
+        "time": 2,
+        "value": 99.0
+      },
+      {
+        "time": 3,
+        "value": 99.0
+      },
+      {
+        "time": 4,
+        "value": 99.28
+      },
+      {
+        "time": 5,
+        "value": 99.8032
+      },
+      {
+        "time": 6,
+        "value": 109.0
+      },
+      {
+        "time": 7,
+        "value": 109.0
+      },
+      {
+        "time": 8,
+        "value": 108.44
+      },
+      {
+        "time": 9,
+        "value": 107.3936
+      },
+      {
+        "time": 10,
+        "value": 105.922112
+      },
+      {
+        "time": 11,
+        "value": 104.56834304
+      },
+      {
+        "time": 12,
+        "value": 89.0
+      },
+      {
+        "time": 13,
+        "value": 89.32
+      },
+      {
+        "time": 14,
+        "value": 89.9872
+      },
+      {
+        "time": 15,
+        "value": 90.627712
+      },
+      {
+        "time": 16,
+        "value": 91.24260352
+      },
+      {
+        "time": 17,
+        "value": 91.83289938
+      },
+      {
+        "time": 18,
+        "value": 92.3995834
+      },
+      {
+        "time": 19,
+        "value": 93.4556084
+      },
+      {
+        "time": 20,
+        "value": 94.93915973
+      },
+      {
+        "time": 21,
+        "value": 112.0
+      },
+      {
+        "time": 22,
+        "value": 111.64
+      },
+      {
+        "time": 23,
+        "value": 110.7744
+      },
+      {
+        "time": 24,
+        "value": 109.943424
+      }
+    ],
+    "SAR 0.04": [
+      {
+        "time": 2,
+        "value": 99.0
+      },
+      {
+        "time": 3,
+        "value": 99.0
+      },
+      {
+        "time": 4,
+        "value": 99.5
+      },
+      {
+        "time": 5,
+        "value": 100.52
+      },
+      {
+        "time": 6,
+        "value": 109.0
+      },
+      {
+        "time": 7,
+        "value": 109.0
+      },
+      {
+        "time": 8,
+        "value": 107.88
+      },
+      {
+        "time": 9,
+        "value": 105.8544
+      },
+      {
+        "time": 10,
+        "value": 103.157696
+      },
+      {
+        "time": 11,
+        "value": 89.0
+      },
+      {
+        "time": 12,
+        "value": 89.48
+      },
+      {
+        "time": 13,
+        "value": 90.7216
+      },
+      {
+        "time": 14,
+        "value": 92.555008
+      },
+      {
+        "time": 15,
+        "value": 106.0
+      },
+      {
+        "time": 16,
+        "value": 105.44
+      },
+      {
+        "time": 17,
+        "value": 104.9024
+      },
+      {
+        "time": 18,
+        "value": 92.0
+      },
+      {
+        "time": 19,
+        "value": 92.72
+      },
+      {
+        "time": 20,
+        "value": 94.2624
+      },
+      {
+        "time": 21,
+        "value": 112.0
+      },
+      {
+        "time": 22,
+        "value": 111.28
+      },
+      {
+        "time": 23,
+        "value": 109.5776
+      },
+      {
+        "time": 24,
+        "value": 108.011392
+      }
+    ],
+    "Supertrend 1.5 3": [
+      {
+        "time": 1,
+        "value": 0.0
+      },
+      {
+        "time": 3,
+        "value": 108.75
+      },
+      {
+        "time": 4,
+        "value": 108.75
+      },
+      {
+        "time": 5,
+        "value": 108.75
+      },
+      {
+        "time": 6,
+        "value": 108.75
+      },
+      {
+        "time": 7,
+        "value": 106.47530864
+      },
+      {
+        "time": 8,
+        "value": 102.31687243
+      },
+      {
+        "time": 9,
+        "value": 99.54458162
+      },
+      {
+        "time": 10,
+        "value": 99.54458162
+      },
+      {
+        "time": 11,
+        "value": 88.42463039
+      },
+      {
+        "time": 12,
+        "value": 92.94975359
+      },
+      {
+        "time": 13,
+        "value": 94.9665024
+      },
+      {
+        "time": 14,
+        "value": 94.9665024
+      },
+      {
+        "time": 15,
+        "value": 104.12599893
+      },
+      {
+        "time": 16,
+        "value": 104.12599893
+      },
+      {
+        "time": 17,
+        "value": 104.12599893
+      },
+      {
+        "time": 18,
+        "value": 96.85155587
+      },
+      {
+        "time": 19,
+        "value": 99.56770391
+      },
+      {
+        "time": 20,
+        "value": 99.56770391
+      },
+      {
+        "time": 21,
+        "value": 108.85879826
+      },
+      {
+        "time": 22,
+        "value": 104.23919884
+      },
+      {
+        "time": 23,
+        "value": 104.23919884
+      },
+      {
+        "time": 24,
+        "value": 89.22702274
+      }
+    ],
+    "Supertrend 1.5 3 Dir": [
+      {
+        "time": 1,
+        "value": 1.0
+      },
+      {
+        "time": 2,
+        "value": 1.0
+      },
+      {
+        "time": 3,
+        "value": 1.0
+      },
+      {
+        "time": 4,
+        "value": 1.0
+      },
+      {
+        "time": 5,
+        "value": 1.0
+      },
+      {
+        "time": 6,
+        "value": 1.0
+      },
+      {
+        "time": 7,
+        "value": 1.0
+      },
+      {
+        "time": 8,
+        "value": 1.0
+      },
+      {
+        "time": 9,
+        "value": 1.0
+      },
+      {
+        "time": 10,
+        "value": 1.0
+      },
+      {
+        "time": 11,
+        "value": -1.0
+      },
+      {
+        "time": 12,
+        "value": -1.0
+      },
+      {
+        "time": 13,
+        "value": -1.0
+      },
+      {
+        "time": 14,
+        "value": -1.0
+      },
+      {
+        "time": 15,
+        "value": 1.0
+      },
+      {
+        "time": 16,
+        "value": 1.0
+      },
+      {
+        "time": 17,
+        "value": 1.0
+      },
+      {
+        "time": 18,
+        "value": -1.0
+      },
+      {
+        "time": 19,
+        "value": -1.0
+      },
+      {
+        "time": 20,
+        "value": -1.0
+      },
+      {
+        "time": 21,
+        "value": 1.0
+      },
+      {
+        "time": 22,
+        "value": 1.0
+      },
+      {
+        "time": 23,
+        "value": 1.0
+      },
+      {
+        "time": 24,
+        "value": -1.0
+      }
+    ],
+    "Supertrend 2.5 4": [
+      {
+        "time": 1,
+        "value": 0.0
+      },
+      {
+        "time": 4,
+        "value": 114.4375
+      },
+      {
+        "time": 5,
+        "value": 114.4375
+      },
+      {
+        "time": 6,
+        "value": 114.19921875
+      },
+      {
+        "time": 7,
+        "value": 110.71191406
+      },
+      {
+        "time": 8,
+        "value": 106.90893555
+      },
+      {
+        "time": 9,
+        "value": 104.30670166
+      },
+      {
+        "time": 10,
+        "value": 104.30670166
+      },
+      {
+        "time": 11,
+        "value": 104.30670166
+      },
+      {
+        "time": 12,
+        "value": 104.30670166
+      },
+      {
+        "time": 13,
+        "value": 104.30670166
+      },
+      {
+        "time": 14,
+        "value": 104.30670166
+      },
+      {
+        "time": 15,
+        "value": 104.30670166
+      },
+      {
+        "time": 16,
+        "value": 104.30670166
+      },
+      {
+        "time": 17,
+        "value": 104.30670166
+      },
+      {
+        "time": 18,
+        "value": 90.73103596
+      },
+      {
+        "time": 19,
+        "value": 93.42327697
+      },
+      {
+        "time": 20,
+        "value": 93.42327697
+      },
+      {
+        "time": 21,
+        "value": 93.42327697
+      },
+      {
+        "time": 22,
+        "value": 111.00893003
+      },
+      {
+        "time": 23,
+        "value": 111.00893003
+      },
+      {
+        "time": 24,
+        "value": 111.00893003
+      }
+    ],
+    "Supertrend 2.5 4 Dir": [
+      {
+        "time": 1,
+        "value": 1.0
+      },
+      {
+        "time": 2,
+        "value": 1.0
+      },
+      {
+        "time": 3,
+        "value": 1.0
+      },
+      {
+        "time": 4,
+        "value": 1.0
+      },
+      {
+        "time": 5,
+        "value": 1.0
+      },
+      {
+        "time": 6,
+        "value": 1.0
+      },
+      {
+        "time": 7,
+        "value": 1.0
+      },
+      {
+        "time": 8,
+        "value": 1.0
+      },
+      {
+        "time": 9,
+        "value": 1.0
+      },
+      {
+        "time": 10,
+        "value": 1.0
+      },
+      {
+        "time": 11,
+        "value": 1.0
+      },
+      {
+        "time": 12,
+        "value": 1.0
+      },
+      {
+        "time": 13,
+        "value": 1.0
+      },
+      {
+        "time": 14,
+        "value": 1.0
+      },
+      {
+        "time": 15,
+        "value": 1.0
+      },
+      {
+        "time": 16,
+        "value": 1.0
+      },
+      {
+        "time": 17,
+        "value": 1.0
+      },
+      {
+        "time": 18,
+        "value": -1.0
+      },
+      {
+        "time": 19,
+        "value": -1.0
+      },
+      {
+        "time": 20,
+        "value": -1.0
+      },
+      {
+        "time": 21,
+        "value": -1.0
+      },
+      {
+        "time": 22,
+        "value": 1.0
+      },
+      {
+        "time": 23,
+        "value": 1.0
+      },
+      {
+        "time": 24,
+        "value": 1.0
+      }
+    ],
+    "Plus DI 4": [
+      {
+        "time": 5,
+        "value": 58.71559633
+      },
+      {
+        "time": 6,
+        "value": 35.88785047
+      },
+      {
+        "time": 7,
+        "value": 23.03078768
+      },
+      {
+        "time": 8,
+        "value": 16.34042553
+      },
+      {
+        "time": 9,
+        "value": 12.35315144
+      },
+      {
+        "time": 10,
+        "value": 18.24424297
+      },
+      {
+        "time": 11,
+        "value": 34.41247845
+      },
+      {
+        "time": 12,
+        "value": 42.7291562
+      },
+      {
+        "time": 13,
+        "value": 37.66746643
+      },
+      {
+        "time": 14,
+        "value": 26.60697391
+      },
+      {
+        "time": 15,
+        "value": 19.92161709
+      },
+      {
+        "time": 16,
+        "value": 18.71345987
+      },
+      {
+        "time": 17,
+        "value": 34.66430836
+      },
+      {
+        "time": 18,
+        "value": 48.82780384
+      },
+      {
+        "time": 19,
+        "value": 45.09760563
+      },
+      {
+        "time": 20,
+        "value": 31.58119881
+      },
+      {
+        "time": 21,
+        "value": 22.56413421
+      },
+      {
+        "time": 22,
+        "value": 16.92597774
+      },
+      {
+        "time": 23,
+        "value": 18.51428374
+      },
+      {
+        "time": 24,
+        "value": 35.44239151
+      }
+    ],
+    "Minus DI 4": [
+      {
+        "time": 5,
+        "value": 0.0
+      },
+      {
+        "time": 6,
+        "value": 29.90654206
+      },
+      {
+        "time": 7,
+        "value": 47.34106357
+      },
+      {
+        "time": 8,
+        "value": 52.95508274
+      },
+      {
+        "time": 9,
+        "value": 49.79387585
+      },
+      {
+        "time": 10,
+        "value": 35.81209618
+      },
+      {
+        "time": 11,
+        "value": 24.92508452
+      },
+      {
+        "time": 12,
+        "value": 18.49820147
+      },
+      {
+        "time": 13,
+        "value": 14.37872795
+      },
+      {
+        "time": 14,
+        "value": 31.13056784
+      },
+      {
+        "time": 15,
+        "value": 40.05948631
+      },
+      {
+        "time": 16,
+        "value": 29.39205414
+      },
+      {
+        "time": 17,
+        "value": 22.1368836
+      },
+      {
+        "time": 18,
+        "value": 15.99514432
+      },
+      {
+        "time": 19,
+        "value": 12.14441198
+      },
+      {
+        "time": 20,
+        "value": 30.98314381
+      },
+      {
+        "time": 21,
+        "value": 43.55083759
+      },
+      {
+        "time": 22,
+        "value": 46.9471094
+      },
+      {
+        "time": 23,
+        "value": 32.86800565
+      },
+      {
+        "time": 24,
+        "value": 23.4795423
+      }
+    ],
+    "ADX 4 3": [
+      {
+        "time": 7,
+        "value": 47.87878788
+      },
+      {
+        "time": 8,
+        "value": 49.53200124
+      },
+      {
+        "time": 9,
+        "value": 53.10313375
+      },
+      {
+        "time": 10,
+        "value": 46.23514068
+      },
+      {
+        "time": 11,
+        "value": 36.15304378
+      },
+      {
+        "time": 12,
+        "value": 37.29381995
+      },
+      {
+        "time": 13,
+        "value": 39.77797497
+      },
+      {
+        "time": 14,
+        "value": 29.1302344
+      },
+      {
+        "time": 15,
+        "value": 30.61138599
+      },
+      {
+        "time": 16,
+        "value": 27.80701565
+      },
+      {
+        "time": 17,
+        "value": 25.88963125
+      },
+      {
+        "time": 18,
+        "value": 34.14300331
+      },
+      {
+        "time": 19,
+        "value": 41.95139899
+      },
+      {
+        "time": 20,
+        "value": 28.28623396
+      },
+      {
+        "time": 21,
+        "value": 29.43840253
+      },
+      {
+        "time": 22,
+        "value": 35.29267579
+      },
+      {
+        "time": 23,
+        "value": 32.84016868
+      },
+      {
+        "time": 24,
+        "value": 28.66107228
+      }
+    ]
+  },
+  "external_capture": {
+    "provider": "tradingview",
+    "status": "not_captured",
+    "assertion": "reference",
+    "tolerance": 1e-09,
+    "notes": [
+      "Pending TradingView export for trend-switching TA indicators: supertrend, SAR, DMI/ADX, and ATR."
+    ]
+  }
+}
