@@ -112,6 +112,70 @@ plot(array.size(live_inner), "Live Size")
     assert result.values("Live Size") == [2.0, 2.0, 2.0]
 
 
+def test_collection_value_boundary_allows_supported_script_values() -> None:
+    result = pn.run(
+        """
+values = array.new()
+array.push(values, close)
+array.push(values, color.red)
+level = line.new(0, close[0], 1, close[1])
+array.push(values, level)
+nested = array.from_values(1)
+array.push(values, nested)
+array.push(values, na)
+
+stored_close = array.get(values, 0)
+stored_color = array.get(values, 1)
+stored_line = array.get(values, 2)
+stored_nested = array.get(values, 3)
+stored_na = array.get(values, 4)
+
+line.set_color(stored_line, stored_color)
+plot(stored_close, "Stored Close")
+plot(array.size(stored_nested), "Nested Size")
+plot(nz(stored_na, 9), "Stored Na")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Stored Close") == [1.5, 2.5, 3.5]
+    assert result.values("Nested Size") == [1.0, 1.0, 1.0]
+    assert result.values("Stored Na") == [9.0, 9.0, 9.0]
+    assert result.output["objects"]["lines"][0]["color"] == "#ef5350"
+
+
+def test_collection_rejects_callable_values_with_actionable_error() -> None:
+    result = pn.run(
+        """
+values = array.new()
+array.push(values, lambda x: x)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "callable and module values are unsupported" in str(result.error)
+
+
+def test_collection_rejects_module_values_with_actionable_error() -> None:
+    result = pn.run(
+        """
+values = array.new()
+array.push(values, np)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "callable and module values are unsupported" in str(result.error)
+
+
 def test_array_join_and_clear_support_non_numeric_payloads() -> None:
     result = pn.run(
         """

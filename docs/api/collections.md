@@ -28,6 +28,11 @@ Use `snapshot()` when a script needs a mutation boundary for nested
 collections. It recursively snapshots nested `array`, `map`, and `matrix`
 values, so later mutations to the live collection do not affect the snapshot.
 
+Collections can store stable script values: scalars, `na`, series values,
+colors, drawing object handles, and nested `array`/`map`/`matrix` values.
+Callable objects and Python modules are rejected because they are executable
+runtime values rather than serializable script state.
+
 ## Constructors
 
 - `array.new(size=0, initial_value=None)`

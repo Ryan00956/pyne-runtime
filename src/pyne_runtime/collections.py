@@ -1,6 +1,7 @@
 """Pine-like mutable collection helpers."""
 from __future__ import annotations
 
+from types import ModuleType
 from typing import Any, Iterable
 
 from .security import PyneSecurityError
@@ -22,6 +23,7 @@ class PyneArray:
         self._values = list(values) if values is not None else []
         _enforce_limit("array size", len(self._values), self._max_size)
         for item in self._values:
+            _validate_stored_value(item)
             _enforce_child_depth(item, self._max_depth)
 
     def __len__(self) -> int:
@@ -49,11 +51,13 @@ class PyneArray:
         return self._values[_resolve_index(index, len(self._values))]
 
     def set(self, index: int, value: Any) -> None:
+        _validate_stored_value(value)
         _enforce_child_depth(value, self._max_depth)
         self._values[_resolve_index(index, len(self._values))] = value
 
     def push(self, value: Any) -> None:
         _enforce_limit("array size", len(self._values) + 1, self._max_size)
+        _validate_stored_value(value)
         _enforce_child_depth(value, self._max_depth)
         self._values.append(value)
 
@@ -64,6 +68,7 @@ class PyneArray:
 
     def unshift(self, value: Any) -> None:
         _enforce_limit("array size", len(self._values) + 1, self._max_size)
+        _validate_stored_value(value)
         _enforce_child_depth(value, self._max_depth)
         self._values.insert(0, value)
 
@@ -77,6 +82,7 @@ class PyneArray:
         if idx < 0 or idx > len(self._values):
             raise IndexError(f"array index {idx} is out of bounds")
         _enforce_limit("array size", len(self._values) + 1, self._max_size)
+        _validate_stored_value(value)
         _enforce_child_depth(value, self._max_depth)
         self._values.insert(idx, value)
 
@@ -111,6 +117,7 @@ class PyneArray:
         )
 
     def fill(self, value: Any, index_from: int = 0, index_to: int | None = None) -> None:
+        _validate_stored_value(value)
         _enforce_child_depth(value, self._max_depth)
         start = max(int(index_from), 0)
         stop = len(self._values) if index_to is None else min(int(index_to), len(self._values))
@@ -160,6 +167,7 @@ class PyneMap:
         self._values: dict[Any, Any] = {}
         for key, value in dict(values or {}).items():
             _validate_map_key(key)
+            _validate_stored_value(value)
             self._values[key] = value
         _enforce_limit("map size", len(self._values), self._max_size)
         for value in self._values.values():
@@ -195,6 +203,7 @@ class PyneMap:
         _validate_map_key(key)
         if key not in self._values:
             _enforce_limit("map size", len(self._values) + 1, self._max_size)
+        _validate_stored_value(value)
         _enforce_child_depth(value, self._max_depth)
         self._values[key] = value
 
@@ -247,6 +256,7 @@ class PyneMatrix:
         row_count = _matrix_dimension(rows, "matrix rows")
         column_count = _matrix_dimension(columns, "matrix columns")
         _enforce_limit("matrix cells", row_count * column_count, self._max_cells)
+        _validate_stored_value(initial_value)
         _enforce_child_depth(initial_value, self._max_depth)
         self._values = [
             [initial_value for _ in range(column_count)]
@@ -273,6 +283,7 @@ class PyneMatrix:
         _enforce_limit("matrix cells", cell_count, normalized_limit)
         for row in values:
             for item in row:
+                _validate_stored_value(item)
                 _enforce_child_depth(item, normalized_depth)
         matrix = cls(
             max_cells=normalized_limit,
@@ -314,10 +325,12 @@ class PyneMatrix:
 
     def set(self, row: int, column: int, value: Any) -> None:
         row_idx, column_idx = self._resolve_cell(row, column)
+        _validate_stored_value(value)
         _enforce_child_depth(value, self._max_depth)
         self._values[row_idx][column_idx] = value
 
     def fill(self, value: Any) -> None:
+        _validate_stored_value(value)
         _enforce_child_depth(value, self._max_depth)
         for row_idx in range(self.rows()):
             for column_idx in range(self.columns()):
@@ -791,6 +804,16 @@ def _validate_map_key(key: Any) -> None:
         hash(key)
     except TypeError as exc:
         raise ValueError("map key must be hashable") from exc
+
+
+def _validate_stored_value(value: Any) -> None:
+    if is_na_value(value):
+        return
+    if isinstance(value, ModuleType) or callable(value):
+        raise ValueError(
+            "collection values must be stable script values; "
+            "callable and module values are unsupported"
+        )
 
 
 def _snapshot_value(value: Any, seen: set[int]) -> Any:
