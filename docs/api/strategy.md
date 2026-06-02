@@ -441,6 +441,8 @@ Supported accessors:
 - `exit_price(trade_num)`
 - `entry_time(trade_num)`
 - `exit_time(trade_num)`
+- `entry_bar_index(trade_num)`
+- `exit_bar_index(trade_num)`
 - `entry_id(trade_num)`
 - `exit_id(trade_num)`
 - `side(trade_num)`

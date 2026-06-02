@@ -194,6 +194,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     qty=transaction_qty,
                     price=fill_price,
                 )
+                order["_fill_bar_index"] = idx
                 gross_profit, gross_loss, total_commission, open_trades = _record_fill(
                     order=order,
                     signed_qty=position_after - previous_size,
@@ -270,6 +271,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                 order["position_after"] = round(float(position_after), 8)
                 commission = self._apply_commission(order, qty=qty, price=fill_price)
                 signed_qty = qty if side == self.long else -qty
+                order["_fill_bar_index"] = idx
                 gross_profit, gross_loss, total_commission, open_trades = _record_fill(
                     order=order,
                     signed_qty=signed_qty,
@@ -335,6 +337,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                 order["position_after"] = round(next_size, 8)
                 commission = self._apply_commission(order, qty=fill_qty, price=fill_price)
                 signed_qty = -fill_qty if previous_size > 0 else fill_qty
+                order["_fill_bar_index"] = idx
                 gross_profit, gross_loss, total_commission, open_trades = _record_fill(
                     order=order,
                     signed_qty=signed_qty,
@@ -529,6 +532,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     qty=commission_qty,
                     price=fill_price,
                 )
+                order["_fill_bar_index"] = idx
                 gross_profit, gross_loss, total_commission, open_trades = _record_fill(
                     order=order,
                     signed_qty=(
@@ -731,6 +735,7 @@ def _force_close_for_risk(
     strategy._collector.strategy_orders.append(order)
     commission = strategy._apply_commission(order, qty=fill_qty, price=fill_price)
     signed_qty = -fill_qty if current_size > 0 else fill_qty
+    order["_fill_bar_index"] = idx
     gross_profit, gross_loss, total_commission, open_trades = _record_fill(
         order=order,
         signed_qty=signed_qty,

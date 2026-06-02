@@ -2375,6 +2375,9 @@ plot(strategy.closedtrades, "Closed Count")
 plot(strategy.opentrades, "Open Count")
 plot(strategy.closedtrades.profit(0), "First Closed Profit")
 plot(strategy.opentrades.entry_price(0), "First Open Entry")
+plot(strategy.closedtrades.entry_bar_index(0), "Closed Entry Bar")
+plot(strategy.closedtrades.exit_bar_index(0), "Closed Exit Bar")
+plot(strategy.opentrades.entry_bar_index(0), "Open Entry Bar")
 plot(1 if strategy.closedtrades.entry_id(0) == "A" else 0, "Closed Id Match")
 plot(1 if strategy.opentrades.entry_id(0) == "B" else 0, "Open Id Match")
 """,
@@ -2392,8 +2395,13 @@ plot(1 if strategy.opentrades.entry_id(0) == "B" else 0, "Open Id Match")
     assert result.values("Open Count") == [1.0, 2.0, 1.0, 1.0]
     assert result.values("First Closed Profit") == [2.0, 2.0, 2.0, 2.0]
     assert result.values("First Open Entry") == [11.0, 11.0, 11.0, 11.0]
+    assert result.values("Closed Entry Bar") == [0.0, 0.0, 0.0, 0.0]
+    assert result.values("Closed Exit Bar") == [2.0, 2.0, 2.0, 2.0]
+    assert result.values("Open Entry Bar") == [1.0, 1.0, 1.0, 1.0]
     assert result.values("Closed Id Match") == [1.0, 1.0, 1.0, 1.0]
     assert result.values("Open Id Match") == [1.0, 1.0, 1.0, 1.0]
+    assert "_entry_bar_index" not in result.output["strategy"]["closedtrades"][0]
+    assert "_entry_bar_index" not in result.output["strategy"]["opentrades"][0]
 
 
 def test_strategy_trade_accessors_return_zero_for_empty_default_trade() -> None:

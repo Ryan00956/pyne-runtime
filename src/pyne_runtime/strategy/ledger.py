@@ -59,6 +59,12 @@ class StrategyTradesNamespace:
     def exit_time(self, trade_num: int = -1) -> float | PyneSeries:
         return self._trade_float(trade_num, "exit_time")
 
+    def entry_bar_index(self, trade_num: int = -1) -> float | PyneSeries:
+        return self._trade_float(trade_num, "_entry_bar_index")
+
+    def exit_bar_index(self, trade_num: int = -1) -> float | PyneSeries:
+        return self._trade_float(trade_num, "_exit_bar_index")
+
     def entry_id(self, trade_num: int = -1) -> str:
         return str(self._trade(trade_num).get("entry_id", ""))
 
@@ -255,6 +261,7 @@ def _open_trade_from_order(
 ) -> dict[str, Any]:
     trade = {
         "entry_time": int(order.get("time", 0)),
+        "_entry_bar_index": int(order.get("_fill_bar_index", 0)),
         "entry_id": str(order.get("id", "")),
         "side": side,
         "qty": round(float(qty), 8),
@@ -284,6 +291,8 @@ def _closed_trade(
     return {
         "entry_time": previous_trade.get("entry_time"),
         "exit_time": int(order.get("time", 0)),
+        "_entry_bar_index": previous_trade.get("_entry_bar_index"),
+        "_exit_bar_index": int(order.get("_fill_bar_index", 0)),
         "entry_id": previous_trade.get("entry_id", ""),
         "exit_id": str(order.get("id", "")),
         "side": previous_trade.get("side", ""),

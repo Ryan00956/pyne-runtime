@@ -672,7 +672,7 @@ class StrategyModule:
         final_netprofit = float(self._netprofit[-1]) if len(self._netprofit) else 0.0
         final_equity = float(self._equity[-1]) if len(self._equity) else self._initial_capital
         final_close = float(self._context.close.values[-1]) if self._context.bar_count else np.nan
-        serialized_open_trades = [
+        internal_open_trades = [
             {
                 **trade,
                 "profit": round(_trade_open_profit(trade, final_close), 8),
@@ -680,8 +680,10 @@ class StrategyModule:
             for trade in open_trades
             if float(trade.get("qty", 0.0)) > 0
         ]
+        serialized_open_trades = [_public_trade(trade) for trade in internal_open_trades]
+        serialized_closed_trades = [_public_trade(trade) for trade in closed_trades]
         self._closed_trades = list(closed_trades)
-        self._open_trades = list(serialized_open_trades)
+        self._open_trades = list(internal_open_trades)
         self._collector.strategy_report = {
             "summary": {
                 "initial_capital": round(self._initial_capital, 8),
@@ -719,7 +721,7 @@ class StrategyModule:
                 ),
                 "max_intraday_filled_orders": self._max_intraday_filled_orders,
             },
-            "closedtrades": closed_trades,
+            "closedtrades": serialized_closed_trades,
             "opentrades": serialized_open_trades,
             "lifecycle": _strategy_lifecycle_events(self._collector.strategy_orders),
         }
@@ -768,3 +770,7 @@ class StrategyModule:
             pointvalue=self._context.syminfo.pointvalue,
         )
         return required <= max(float(equity), 0.0)
+
+
+def _public_trade(trade: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in trade.items() if not str(key).startswith("_")}
