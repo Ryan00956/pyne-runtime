@@ -19,7 +19,8 @@ def test_cli_schema_prints_public_schema(capsys: pytest.CaptureFixture[str]) -> 
     assert payload["input"]["schemaVersion"] == 1
     assert payload["output"]["schemaVersion"] == 1
     assert payload["params"]["schemaVersion"] == 1
-    assert payload["requestProvider"]["schemaVersion"] == 1
+    assert payload["requestProvider"]["schemaVersion"] == 2
+    assert payload["requestProvider"]["cache"]["scope"] == "one script run"
 
 
 def test_cli_validate_reports_syntax_error(

@@ -16,3 +16,5 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert schema["params"]["entry"]["id"]
     assert "get_ohlcv" in schema["requestProvider"]["method"]
     assert "request.security" in schema["requestProvider"]["capabilities"]["securityAliases"]
+    assert schema["requestProvider"]["cache"]["key"] == ["symbol", "timeframe", "start", "end"]
+    assert "request.security_lower_tf" in schema["requestProvider"]["cache"]["reusedFor"]

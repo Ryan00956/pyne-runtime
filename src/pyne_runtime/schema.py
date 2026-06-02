@@ -7,7 +7,7 @@ from typing import Any
 PYNE_INPUT_SCHEMA_VERSION = 1
 PYNE_OUTPUT_SCHEMA_VERSION = 1
 PYNE_PARAM_SCHEMA_VERSION = 1
-PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 1
+PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 2
 
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
 OUTPUT_KEYS = (
@@ -139,6 +139,17 @@ def request_provider_schema() -> dict[str, Any]:
                 "requested symbol is used for syminfo ticker/tickerid; requested "
                 "timeframe is used for timeframe.period; session defaults are inferred"
             ),
+        },
+        "cache": {
+            "scope": "one script run",
+            "key": ["symbol", "timeframe", "start", "end"],
+            "reusedFor": [
+                "request.security",
+                "request.security_lower_tf",
+                "requested metadata",
+            ],
+            "separateRuns": "provider data is not cached across pn.run() executions",
+            "ignoredInvalidSymbol": "ignore_invalid_symbol=True empty results are not cached",
         },
         "errors": {
             "invalidSymbol": "raise PyneInvalidSymbolError to support ignore_invalid_symbol",

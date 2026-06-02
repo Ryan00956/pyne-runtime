@@ -116,7 +116,8 @@ the provider-level session default.
 
 The provider contract is also exposed through `pn.schema()["requestProvider"]`.
 That schema lists the required `get_ohlcv(...)` method, required OHLCV fields,
-capability aliases, metadata keys, and stable error categories.
+capability aliases, metadata keys, requested-context cache semantics, and
+stable error categories.
 
 ## `request.security`
 
