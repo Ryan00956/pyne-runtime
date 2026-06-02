@@ -226,6 +226,23 @@ plot(ta.mfi(close, 4), "MFI")
     assert _series_values(result, "MFI") == [100.0, 100.0, 100.0, 67.84452297]
 
 
+def test_percentile_linear_interpolation_uses_nearest_rank_midpoint() -> None:
+    bars = [
+        {"time": 1, "open": 4, "high": 4, "low": 4, "close": 4, "volume": 100},
+        {"time": 2, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 100},
+        {"time": 3, "open": 2, "high": 2, "low": 2, "close": 2, "volume": 100},
+        {"time": 4, "open": 3, "high": 3, "low": 3, "close": 3, "volume": 100},
+    ]
+    result = pn.run(
+        'plot(ta.percentile_linear_interpolation(close, 4, 75), "PLI")',
+        bars,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert _series_values(result, "PLI") == [3.5]
+
+
 def test_state_lookup_ta_helpers_match_pine_like_offsets() -> None:
     bars = [
         {"time": 1, "open": 3, "high": 3, "low": 3, "close": 3, "volume": 100},
