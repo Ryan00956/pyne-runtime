@@ -70,6 +70,9 @@ session snapshot.
 Inside incremental callbacks, `state()` / `var()` and `pyne.state()` /
 `pyne.var()` are aliases for the current callback context's persistent
 `ctx.state()`. `varip()` and `pyne.varip()` are aliases for `ctx.varip()`.
+Using these callback-local aliases at script top level or inside `init()` is a
+security error; use `ctx.state()` from callbacks or initialize ordinary helper
+objects in `init()`.
 
 ## API
 

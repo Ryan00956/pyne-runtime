@@ -316,6 +316,41 @@ def on_preview(ctx, bar):
     assert _line_values(snapshot, "committed") == [1.0, 2.0]
 
 
+def test_incremental_state_alias_rejects_top_level_use() -> None:
+    script = """
+indicator("Bad Top State", mode="incremental", overlay=True)
+
+state("ticks", 0)
+
+def on_bar(ctx, bar):
+    ctx.plot("Close", bar.close)
+"""
+
+    result = pn.run(script, _bars(), executor_mode="inline")
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "state() can only be used inside incremental callbacks" in result.error
+
+
+def test_incremental_varip_alias_rejects_init_use() -> None:
+    script = """
+indicator("Bad Init Varip", mode="incremental", overlay=True)
+
+def init(ctx):
+    pyne.varip("ticks", 0)
+
+def on_bar(ctx, bar):
+    ctx.plot("Close", bar.close)
+"""
+
+    result = pn.run(script, _bars(), executor_mode="inline")
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "varip() can only be used inside incremental callbacks" in result.error
+
+
 def test_incremental_drawing_objects_emit_events_and_snapshot() -> None:
     script = """
 indicator("Incremental Objects", mode="incremental", overlay=True)
