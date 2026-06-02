@@ -172,3 +172,6 @@ Supported matrix helpers:
 `matrix.row()` and `matrix.col()` return `PyneArray` instances. `matrix.add()`
 and `matrix.sub()` support matching matrix dimensions. `matrix.mult()` supports
 scalar multiplication and matrix multiplication.
+
+Matrix row and column counts must be non-negative. `matrix.from_rows()` rejects
+ragged row shapes, and `matrix.reshape()` must keep the same element count.

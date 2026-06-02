@@ -244,8 +244,8 @@ class PyneMatrix:
         self._max_cells = _normalize_limit(max_cells)
         self._array_max_size = _normalize_limit(array_max_size)
         self._max_depth = _normalize_limit(max_depth)
-        row_count = max(int(rows), 0)
-        column_count = max(int(columns), 0)
+        row_count = _matrix_dimension(rows, "matrix rows")
+        column_count = _matrix_dimension(columns, "matrix columns")
         _enforce_limit("matrix cells", row_count * column_count, self._max_cells)
         _enforce_child_depth(initial_value, self._max_depth)
         self._values = [
@@ -354,8 +354,8 @@ class PyneMatrix:
         )
 
     def reshape(self, rows: int, columns: int) -> PyneMatrix:
-        row_count = max(int(rows), 0)
-        column_count = max(int(columns), 0)
+        row_count = _matrix_dimension(rows, "matrix rows")
+        column_count = _matrix_dimension(columns, "matrix columns")
         flat = [item for row in self._values for item in row]
         if row_count * column_count != len(flat):
             raise ValueError("matrix.reshape() cannot change element count")
@@ -764,6 +764,13 @@ def _resolve_index(index: int, length: int, *, name: str = "array index") -> int
     if idx < 0 or idx >= length:
         raise IndexError(f"{name} {int(index)} is out of bounds")
     return idx
+
+
+def _matrix_dimension(value: int, label: str) -> int:
+    normalized = int(value)
+    if normalized < 0:
+        raise ValueError(f"{label} must be non-negative")
+    return normalized
 
 
 def _normalize_limit(limit: int | None) -> int | None:

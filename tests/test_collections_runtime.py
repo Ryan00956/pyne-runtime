@@ -467,6 +467,35 @@ matrix.reshape(m, 3, 3)
     assert "matrix.reshape() cannot change element count" in str(result.error)
 
 
+def test_matrix_rejects_negative_constructor_dimensions() -> None:
+    result = pn.run(
+        """
+matrix.new_float(-1, 2, 0.0)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "matrix rows must be non-negative" in str(result.error)
+
+
+def test_matrix_rejects_negative_reshape_dimensions() -> None:
+    result = pn.run(
+        """
+m = matrix.from_rows([[1, 2], [3, 4]])
+matrix.reshape(m, -1, 4)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "matrix rows must be non-negative" in str(result.error)
+
+
 def test_matrix_limit_rejects_cells_past_settings_limit() -> None:
     result = pn.run(
         """
