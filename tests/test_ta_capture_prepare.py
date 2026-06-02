@@ -72,7 +72,8 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
     assert statuses["ta_core_indicators.json"] == "captured"
     assert statuses["ta_advanced_indicators.json"] == "captured"
     assert statuses["ta_context_indicators.json"] == "captured"
-    assert sum(status == "missing" for status in statuses.values()) == 1
+    assert statuses["ta_remaining_indicators.json"] == "captured"
+    assert sum(status == "missing" for status in statuses.values()) == 0
 
     advanced = next(entry for entry in manifest["entries"] if entry["fixture"] == "ta_advanced_indicators.json")
     advanced_pine = (out_dir / advanced["pine_file"]).read_text(encoding="utf-8")
