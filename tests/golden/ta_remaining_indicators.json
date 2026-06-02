@@ -436,7 +436,7 @@
   "external_capture": {
     "provider": "tradingview",
     "status": "captured",
-    "assertion": "reference",
+    "assertion": "parity",
     "tolerance": 1e-07,
     "series": {
       "HMA 5": [
@@ -870,7 +870,8 @@
     ],
     "notes": [
       "TradingView export 2026-06-02, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_0732a.csv",
-      "Captured with isolated helper-aware TA capture script from commit 5a9a058."
+      "Captured with isolated helper-aware TA capture script from commit 5a9a058.",
+      "Promoted to parity after aligning PLI and Supertrend semantics to the isolated TradingView reference."
     ],
     "plot_tolerances": {
       "VAR 4": 1e-05

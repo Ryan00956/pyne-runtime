@@ -378,7 +378,7 @@
   "external_capture": {
     "provider": "tradingview",
     "status": "captured",
-    "assertion": "reference",
+    "assertion": "parity",
     "tolerance": 1e-07,
     "series": {
       "Stoch 4": [
@@ -754,7 +754,8 @@
     ],
     "notes": [
       "TradingView export 2026-06-02, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_cfda5.csv",
-      "Captured with isolated implicit OHLC and volume helpers from commit 5a9a058."
+      "Captured with isolated implicit OHLC and volume helpers from commit 5a9a058.",
+      "Promoted to parity after aligning PLI and Supertrend semantics to the isolated TradingView reference."
     ]
   }
 }

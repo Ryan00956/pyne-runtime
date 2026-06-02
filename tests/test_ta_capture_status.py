@@ -44,9 +44,9 @@ def test_ta_capture_status_json_report() -> None:
     assert third["fixture"] == "ta_context_indicators.json"
     assert third["priority"] is False
     assert third["status"] == "captured"
-    assert third["assertion"] == "reference"
+    assert third["assertion"] == "parity"
     fourth = report["fixtures"][3]
     assert fourth["fixture"] == "ta_remaining_indicators.json"
     assert fourth["priority"] is False
     assert fourth["status"] == "captured"
-    assert fourth["assertion"] == "reference"
+    assert fourth["assertion"] == "parity"
