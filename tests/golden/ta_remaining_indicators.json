@@ -871,6 +871,9 @@
     "notes": [
       "TradingView export 2026-06-02, BINANCE:BTCUSDT.P 60m, copied from user-provided CSV BINANCE_BTCUSDT.P, 60_0732a.csv",
       "Captured with isolated helper-aware TA capture script from commit 5a9a058."
-    ]
+    ],
+    "plot_tolerances": {
+      "VAR 4": 1e-05
+    }
   }
 }

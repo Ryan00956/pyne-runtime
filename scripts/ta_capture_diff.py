@@ -238,8 +238,10 @@ def diff_fixture(
         ]
         return fixture_report
 
-    tolerance = float(capture.get("tolerance", 0.0))
+    default_tolerance = float(capture.get("tolerance", 0.0))
+    plot_tolerances = capture.get("plot_tolerances", {})
     for title, expected_points in capture.get("series", {}).items():
+        tolerance = float(plot_tolerances.get(title, default_tolerance))
         actual_points = result.get_series(title)
         point_count = max(len(expected_points), len(actual_points))
         fixture_report["point_count"] += point_count

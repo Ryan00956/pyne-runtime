@@ -76,8 +76,10 @@ def _assert_external_capture(fixture: dict[str, Any]) -> None:
         executor_mode="inline",
     )
     assert result.ok, result.error
-    tolerance = float(capture.get("tolerance", 1e-9))
+    default_tolerance = float(capture.get("tolerance", 1e-9))
+    plot_tolerances = capture.get("plot_tolerances", {})
     for name, expected in capture.get("series", {}).items():
+        tolerance = float(plot_tolerances.get(name, default_tolerance))
         _assert_series_matches(
             result.get_series(name),
             expected,
