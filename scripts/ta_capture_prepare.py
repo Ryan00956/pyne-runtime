@@ -85,9 +85,9 @@ def prepare_capture_files(
     entries: list[dict[str, Any]] = []
     fixture_paths = sorted(golden_dir.glob(TA_FIXTURE_GLOB), key=fixture_sort_key)
     for fixture_path in fixture_paths:
-        if not include_all and fixture_path.name not in PRIORITY_FIXTURES:
-            continue
         if fixture_filter and fixture_path.name not in fixture_filter:
+            continue
+        if not fixture_filter and not include_all and fixture_path.name not in PRIORITY_FIXTURES:
             continue
         fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
         entry = build_entry(fixture_path, fixture, len(entries) + 1)

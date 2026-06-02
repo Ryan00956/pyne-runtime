@@ -1,0 +1,607 @@
+{
+  "name": "ta_warmup_boundaries_indicators",
+  "source": "pyne-defined TA warm-up and boundary capture fixture",
+  "chart_bars": [
+    {
+      "time": 1,
+      "open": 100.0,
+      "high": 102.0,
+      "low": 99.0,
+      "close": 101.0,
+      "volume": 1000.0
+    },
+    {
+      "time": 2,
+      "open": 101.0,
+      "high": 103.0,
+      "low": 100.0,
+      "close": 102.0,
+      "volume": 1010.0
+    },
+    {
+      "time": 3,
+      "open": 102.0,
+      "high": 104.0,
+      "low": 99.5,
+      "close": 100.5,
+      "volume": 980.0
+    },
+    {
+      "time": 4,
+      "open": 100.5,
+      "high": 101.0,
+      "low": 96.0,
+      "close": 97.0,
+      "volume": 1200.0
+    },
+    {
+      "time": 5,
+      "open": 97.0,
+      "high": 99.0,
+      "low": 95.0,
+      "close": 98.5,
+      "volume": 1100.0
+    },
+    {
+      "time": 6,
+      "open": 98.5,
+      "high": 105.0,
+      "low": 98.0,
+      "close": 104.0,
+      "volume": 1500.0
+    },
+    {
+      "time": 7,
+      "open": 104.0,
+      "high": 106.0,
+      "low": 103.0,
+      "close": 105.5,
+      "volume": 1300.0
+    },
+    {
+      "time": 8,
+      "open": 105.5,
+      "high": 107.0,
+      "low": 101.0,
+      "close": 102.0,
+      "volume": 900.0
+    },
+    {
+      "time": 9,
+      "open": 102.0,
+      "high": 104.0,
+      "low": 100.0,
+      "close": 103.0,
+      "volume": 950.0
+    },
+    {
+      "time": 10,
+      "open": 103.0,
+      "high": 109.0,
+      "low": 102.0,
+      "close": 108.0,
+      "volume": 1600.0
+    },
+    {
+      "time": 11,
+      "open": 108.0,
+      "high": 110.0,
+      "low": 107.0,
+      "close": 109.5,
+      "volume": 1550.0
+    },
+    {
+      "time": 12,
+      "open": 109.5,
+      "high": 111.0,
+      "low": 105.0,
+      "close": 106.0,
+      "volume": 1400.0
+    }
+  ],
+  "script": "plot(ta.sma(close, 1), \"SMA 1\")\nplot(ta.sma(close, 12), \"SMA 12\")\nplot(ta.ema(close, 2), \"EMA 2\")\nplot(ta.rma(close, 2), \"RMA 2\")\nplot(ta.rsi(close, 2), \"RSI 2\")\nplot(ta.stoch(close, high, low, 5), \"Stoch 5\")\nplot(ta.mfi(close, 5), \"MFI 5\")\nplot(ta.vwma(close, 5), \"VWMA 5\")\nplot(ta.percentile_nearest_rank(close, 5, 80), \"PNR 80\")\nplot(ta.percentile_linear_interpolation(close, 5, 80), \"PLI 80\")\nplot(ta.stdev(close, 5), \"STDEV 5\")\nplot(ta.variance(close, 5), \"VAR 5\")\nplot(ta.dev(close, 5), \"DEV 5\")\n",
+  "pine_equivalent": "//@version=5\nindicator(\"TA Warm-up Boundaries Golden\")\nplot(ta.sma(close, 1), \"SMA 1\")\nplot(ta.sma(close, 12), \"SMA 12\")\nplot(ta.ema(close, 2), \"EMA 2\")\nplot(ta.rma(close, 2), \"RMA 2\")\nplot(ta.rsi(close, 2), \"RSI 2\")\nplot(ta.stoch(close, high, low, 5), \"Stoch 5\")\nplot(ta.mfi(close, 5), \"MFI 5\")\nplot(ta.vwma(close, 5), \"VWMA 5\")\nplot(ta.percentile_nearest_rank(close, 5, 80), \"PNR 80\")\nplot(ta.percentile_linear_interpolation(close, 5, 80), \"PLI 80\")\nplot(ta.stdev(close, 5), \"STDEV 5\")\nplot(ta.variance(close, 5), \"VAR 5\")\nplot(ta.dev(close, 5), \"DEV 5\")\n",
+  "expected_series": {
+    "SMA 1": [
+      {
+        "time": 1,
+        "value": 101.0
+      },
+      {
+        "time": 2,
+        "value": 102.0
+      },
+      {
+        "time": 3,
+        "value": 100.5
+      },
+      {
+        "time": 4,
+        "value": 97.0
+      },
+      {
+        "time": 5,
+        "value": 98.5
+      },
+      {
+        "time": 6,
+        "value": 104.0
+      },
+      {
+        "time": 7,
+        "value": 105.5
+      },
+      {
+        "time": 8,
+        "value": 102.0
+      },
+      {
+        "time": 9,
+        "value": 103.0
+      },
+      {
+        "time": 10,
+        "value": 108.0
+      },
+      {
+        "time": 11,
+        "value": 109.5
+      },
+      {
+        "time": 12,
+        "value": 106.0
+      }
+    ],
+    "SMA 12": [
+      {
+        "time": 12,
+        "value": 103.08333333
+      }
+    ],
+    "EMA 2": [
+      {
+        "time": 2,
+        "value": 101.5
+      },
+      {
+        "time": 3,
+        "value": 100.83333333
+      },
+      {
+        "time": 4,
+        "value": 98.27777778
+      },
+      {
+        "time": 5,
+        "value": 98.42592593
+      },
+      {
+        "time": 6,
+        "value": 102.14197531
+      },
+      {
+        "time": 7,
+        "value": 104.38065844
+      },
+      {
+        "time": 8,
+        "value": 102.79355281
+      },
+      {
+        "time": 9,
+        "value": 102.93118427
+      },
+      {
+        "time": 10,
+        "value": 106.31039476
+      },
+      {
+        "time": 11,
+        "value": 108.43679825
+      },
+      {
+        "time": 12,
+        "value": 106.81226608
+      }
+    ],
+    "RMA 2": [
+      {
+        "time": 2,
+        "value": 101.5
+      },
+      {
+        "time": 3,
+        "value": 101.0
+      },
+      {
+        "time": 4,
+        "value": 99.0
+      },
+      {
+        "time": 5,
+        "value": 98.75
+      },
+      {
+        "time": 6,
+        "value": 101.375
+      },
+      {
+        "time": 7,
+        "value": 103.4375
+      },
+      {
+        "time": 8,
+        "value": 102.71875
+      },
+      {
+        "time": 9,
+        "value": 102.859375
+      },
+      {
+        "time": 10,
+        "value": 105.4296875
+      },
+      {
+        "time": 11,
+        "value": 107.46484375
+      },
+      {
+        "time": 12,
+        "value": 106.73242188
+      }
+    ],
+    "RSI 2": [
+      {
+        "time": 3,
+        "value": 40.0
+      },
+      {
+        "time": 4,
+        "value": 10.52631579
+      },
+      {
+        "time": 5,
+        "value": 45.16129032
+      },
+      {
+        "time": 6,
+        "value": 85.71428571
+      },
+      {
+        "time": 7,
+        "value": 89.82035928
+      },
+      {
+        "time": 8,
+        "value": 38.36317136
+      },
+      {
+        "time": 9,
+        "value": 53.56454721
+      },
+      {
+        "time": 10,
+        "value": 86.6036687
+      },
+      {
+        "time": 11,
+        "value": 90.61160888
+      },
+      {
+        "time": 12,
+        "value": 37.81498943
+      }
+    ],
+    "Stoch 5": [
+      {
+        "time": 1,
+        "value": 66.66666667
+      },
+      {
+        "time": 2,
+        "value": 75.0
+      },
+      {
+        "time": 3,
+        "value": 30.0
+      },
+      {
+        "time": 4,
+        "value": 12.5
+      },
+      {
+        "time": 5,
+        "value": 38.88888889
+      },
+      {
+        "time": 6,
+        "value": 90.0
+      },
+      {
+        "time": 7,
+        "value": 95.45454545
+      },
+      {
+        "time": 8,
+        "value": 58.33333333
+      },
+      {
+        "time": 9,
+        "value": 66.66666667
+      },
+      {
+        "time": 10,
+        "value": 90.90909091
+      },
+      {
+        "time": 11,
+        "value": 95.0
+      },
+      {
+        "time": 12,
+        "value": 54.54545455
+      }
+    ],
+    "MFI 5": [
+      {
+        "time": 1,
+        "value": 100.0
+      },
+      {
+        "time": 2,
+        "value": 100.0
+      },
+      {
+        "time": 3,
+        "value": 100.0
+      },
+      {
+        "time": 4,
+        "value": 100.0
+      },
+      {
+        "time": 5,
+        "value": 49.58710646
+      },
+      {
+        "time": 6,
+        "value": 63.09380689
+      },
+      {
+        "time": 7,
+        "value": 65.13733188
+      },
+      {
+        "time": 8,
+        "value": 65.85205839
+      },
+      {
+        "time": 9,
+        "value": 84.47094646
+      },
+      {
+        "time": 10,
+        "value": 85.99755949
+      },
+      {
+        "time": 11,
+        "value": 86.2846898
+      },
+      {
+        "time": 12,
+        "value": 64.70631451
+      }
+    ],
+    "VWMA 5": [
+      {
+        "time": 5,
+        "value": 99.6710775
+      },
+      {
+        "time": 6,
+        "value": 100.56303972
+      },
+      {
+        "time": 7,
+        "value": 101.37993421
+      },
+      {
+        "time": 8,
+        "value": 101.61666667
+      },
+      {
+        "time": 9,
+        "value": 102.80869565
+      },
+      {
+        "time": 10,
+        "value": 104.896
+      },
+      {
+        "time": 11,
+        "value": 106.24206349
+      },
+      {
+        "time": 12,
+        "value": 106.33984375
+      }
+    ],
+    "PNR 80": [
+      {
+        "time": 5,
+        "value": 101.0
+      },
+      {
+        "time": 6,
+        "value": 102.0
+      },
+      {
+        "time": 7,
+        "value": 104.0
+      },
+      {
+        "time": 8,
+        "value": 104.0
+      },
+      {
+        "time": 9,
+        "value": 104.0
+      },
+      {
+        "time": 10,
+        "value": 105.5
+      },
+      {
+        "time": 11,
+        "value": 108.0
+      },
+      {
+        "time": 12,
+        "value": 108.0
+      }
+    ],
+    "PLI 80": [
+      {
+        "time": 5,
+        "value": 101.5
+      },
+      {
+        "time": 6,
+        "value": 103.0
+      },
+      {
+        "time": 7,
+        "value": 104.75
+      },
+      {
+        "time": 8,
+        "value": 104.75
+      },
+      {
+        "time": 9,
+        "value": 104.75
+      },
+      {
+        "time": 10,
+        "value": 106.75
+      },
+      {
+        "time": 11,
+        "value": 108.75
+      },
+      {
+        "time": 12,
+        "value": 108.75
+      }
+    ],
+    "STDEV 5": [
+      {
+        "time": 5,
+        "value": 1.80554701
+      },
+      {
+        "time": 6,
+        "value": 2.47790234
+      },
+      {
+        "time": 7,
+        "value": 3.21558704
+      },
+      {
+        "time": 8,
+        "value": 3.21558704
+      },
+      {
+        "time": 9,
+        "value": 2.35372046
+      },
+      {
+        "time": 10,
+        "value": 2.0976177
+      },
+      {
+        "time": 11,
+        "value": 2.85306852
+      },
+      {
+        "time": 12,
+        "value": 2.85657137
+      }
+    ],
+    "VAR 5": [
+      {
+        "time": 5,
+        "value": 3.26
+      },
+      {
+        "time": 6,
+        "value": 6.14
+      },
+      {
+        "time": 7,
+        "value": 10.34
+      },
+      {
+        "time": 8,
+        "value": 10.34
+      },
+      {
+        "time": 9,
+        "value": 5.54
+      },
+      {
+        "time": 10,
+        "value": 4.4
+      },
+      {
+        "time": 11,
+        "value": 8.14
+      },
+      {
+        "time": 12,
+        "value": 8.16
+      }
+    ],
+    "DEV 5": [
+      {
+        "time": 5,
+        "value": 1.64
+      },
+      {
+        "time": 6,
+        "value": 2.12
+      },
+      {
+        "time": 7,
+        "value": 2.92
+      },
+      {
+        "time": 8,
+        "value": 2.92
+      },
+      {
+        "time": 9,
+        "value": 1.88
+      },
+      {
+        "time": 10,
+        "value": 1.8
+      },
+      {
+        "time": 11,
+        "value": 2.52
+      },
+      {
+        "time": 12,
+        "value": 2.56
+      }
+    ]
+  },
+  "external_capture": {
+    "provider": "tradingview",
+    "status": "not_captured",
+    "notes": [
+      "Stage 2 warm-up boundary capture target. Export from TradingView before promoting to reference/parity."
+    ]
+  }
+}

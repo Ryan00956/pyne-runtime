@@ -67,12 +67,13 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
 
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["default_scope"] == "all"
-    assert manifest["fixture_count"] == 4
+    assert manifest["fixture_count"] == 5
     statuses = {entry["fixture"]: entry["status"] for entry in manifest["entries"]}
     assert statuses["ta_core_indicators.json"] == "captured"
     assert statuses["ta_advanced_indicators.json"] == "captured"
     assert statuses["ta_context_indicators.json"] == "captured"
     assert statuses["ta_remaining_indicators.json"] == "captured"
+    assert statuses["ta_warmup_boundaries_indicators.json"] == "not_captured"
     assert sum(status == "missing" for status in statuses.values()) == 0
 
     advanced = next(entry for entry in manifest["entries"] if entry["fixture"] == "ta_advanced_indicators.json")
@@ -86,3 +87,48 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
     assert "_pyne_supertrend(_pyne_high, _pyne_low, _pyne_close, 2, 3)" in context_pine
     assert "_pyne_mfi(_pyne_close, _pyne_volume, 4)" in context_pine
     assert "_pyne_vwma(_pyne_close, _pyne_volume, 4)" in context_pine
+
+
+def test_ta_capture_prepare_explicit_fixture_bypasses_priority(tmp_path: Path) -> None:
+    out_dir = tmp_path / "capture-pack"
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "ta_capture_prepare.py"),
+            "--out-dir",
+            str(out_dir),
+            "--fixture",
+            "ta_warmup_boundaries_indicators.json",
+        ],
+        check=True,
+        cwd=ROOT,
+    )
+
+    manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["fixture_count"] == 1
+    entry = manifest["entries"][0]
+    assert entry["fixture"] == "ta_warmup_boundaries_indicators.json"
+    assert entry["priority"] is False
+    assert entry["status"] == "not_captured"
+    assert entry["plot_titles"] == [
+        "SMA 1",
+        "SMA 12",
+        "EMA 2",
+        "RMA 2",
+        "RSI 2",
+        "Stoch 5",
+        "MFI 5",
+        "VWMA 5",
+        "PNR 80",
+        "PLI 80",
+        "STDEV 5",
+        "VAR 5",
+        "DEV 5",
+    ]
+
+    pine_text = (out_dir / entry["pine_file"]).read_text(encoding="utf-8")
+    assert "ta.sma(_pyne_close, 12)" in pine_text
+    assert "ta.stoch(_pyne_close, _pyne_high, _pyne_low, 5)" in pine_text
+    assert "_pyne_mfi(_pyne_close, _pyne_volume, 5)" in pine_text
+    assert "_pyne_vwma(_pyne_close, _pyne_volume, 5)" in pine_text
