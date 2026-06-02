@@ -245,6 +245,11 @@ def replace_implicit_context_calls(expression: str) -> str:
         r"_pyne_mfi(\1, _pyne_volume, \2)",
         updated,
     )
+    updated = re.sub(
+        r"\bta\.wpr\(([^()]*)\)",
+        r"_pyne_wpr(_pyne_high, _pyne_low, _pyne_close, \1)",
+        updated,
+    )
     return updated
 
 
@@ -274,6 +279,11 @@ def render_pine_helpers() -> list[str]:
         "    pos_sum = math.sum(pos_mf, length)",
         "    neg_sum = math.sum(neg_mf, length)",
         "    neg_sum != 0 ? 100 - 100 / (1 + pos_sum / neg_sum) : 100",
+        "_pyne_wpr(h, l, c, length) =>",
+        "    highest_high = ta.highest(h, length)",
+        "    lowest_low = ta.lowest(l, length)",
+        "    range_ = highest_high - lowest_low",
+        "    range_ != 0 ? -100 * (highest_high - c) / range_ : 0",
         "_pyne_supertrend(h, l, c, factor, atr_period) =>",
         "    atr = _pyne_atr(h, l, c, atr_period)",
         "    src = (h + l) / 2",

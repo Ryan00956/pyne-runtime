@@ -67,11 +67,12 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
 
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["default_scope"] == "all"
-    assert manifest["fixture_count"] == 6
+    assert manifest["fixture_count"] == 7
     statuses = {entry["fixture"]: entry["status"] for entry in manifest["entries"]}
     assert statuses["ta_core_indicators.json"] == "captured"
     assert statuses["ta_advanced_indicators.json"] == "captured"
     assert statuses["ta_context_indicators.json"] == "captured"
+    assert statuses["ta_oscillator_edges_indicators.json"] == "not_captured"
     assert statuses["ta_remaining_indicators.json"] == "captured"
     assert statuses["ta_trend_switch_indicators.json"] == "captured"
     assert statuses["ta_warmup_boundaries_indicators.json"] == "captured"
@@ -88,6 +89,12 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
     assert "_pyne_supertrend(_pyne_high, _pyne_low, _pyne_close, 2, 3)" in context_pine
     assert "_pyne_mfi(_pyne_close, _pyne_volume, 4)" in context_pine
     assert "_pyne_vwma(_pyne_close, _pyne_volume, 4)" in context_pine
+
+    oscillator = next(entry for entry in manifest["entries"] if entry["fixture"] == "ta_oscillator_edges_indicators.json")
+    oscillator_pine = (out_dir / oscillator["pine_file"]).read_text(encoding="utf-8")
+    assert "_pyne_wpr(_pyne_high, _pyne_low, _pyne_close, 3)" in oscillator_pine
+    assert "_pyne_mfi(_pyne_close, _pyne_volume, 6)" in oscillator_pine
+    assert "ta.cmo(_pyne_close, 6)" in oscillator_pine
 
     trend_switch = next(entry for entry in manifest["entries"] if entry["fixture"] == "ta_trend_switch_indicators.json")
     trend_switch_pine = (out_dir / trend_switch["pine_file"]).read_text(encoding="utf-8")

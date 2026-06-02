@@ -17,6 +17,7 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
     [
         "ta_core_indicators.json",
         "ta_advanced_indicators.json",
+        "ta_oscillator_edges_indicators.json",
         "ta_remaining_indicators.json",
         "ta_context_indicators.json",
         "ta_trend_switch_indicators.json",
