@@ -195,7 +195,7 @@ plot(ta.cmo(close[1], 5), "Shifted CMO")
     assert result.ok
     assert _series_values(result, "CMO")[-1] == 100.0
     assert math.isclose(_series_values(result, "WPR")[-1], -100.0 / 6.0, abs_tol=1e-8)
-    assert _series_values(result, "TSI")[-1] > 99.0
+    assert _series_values(result, "TSI")[-1] > 0.99
     assert _series_values(result, "Plus DI")[-1] > 0.0
     assert _series_values(result, "Minus DI")[-1] == 0.0
     assert _series_values(result, "ADX")[-1] > 0.0

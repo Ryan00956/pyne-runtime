@@ -357,12 +357,12 @@ class TaModule:
     def tsi(
         self,
         src: PyneSeries | np.ndarray,
-        long: int = 25,
         short: int = 13,
+        long: int = 25,
     ) -> PyneSeries | np.ndarray:
         """True Strength Index.
 
-        Pine-style helper equivalent to double-smoothed momentum ratio.
+        Pine equivalent: ``ta.tsi(source, short_length, long_length)``.
         """
         source = to_numpy(src, dtype=np.float64)
         momentum = to_numpy(utils.change(source, 1), dtype=np.float64)
@@ -370,7 +370,7 @@ class TaModule:
         smooth_mom = _ema_skip_leading_na(_ema_skip_leading_na(momentum, long), short)
         smooth_abs = _ema_skip_leading_na(_ema_skip_leading_na(abs_momentum, long), short)
         with np.errstate(divide="ignore", invalid="ignore"):
-            result = np.where(smooth_abs != 0, 100.0 * smooth_mom / smooth_abs, np.nan)
+            result = np.where(smooth_abs != 0, smooth_mom / smooth_abs, np.nan)
         return wrap_like(result, src)
 
     def stoch(
