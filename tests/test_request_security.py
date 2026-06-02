@@ -397,6 +397,38 @@ plot(higher, "Higher")
     assert provider.calls == []
 
 
+def test_request_security_wraps_provider_failures() -> None:
+    class BrokenProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            raise RuntimeError("database offline")
+
+    provider = BrokenProvider([])
+
+    result = pn.run(
+        """
+indicator("Provider Failure", overlay=True)
+higher = request.security("BTCUSDT", "2", close)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "request data provider failed" in str(result.error)
+    assert "database offline" in str(result.error)
+    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+
+
 def test_request_security_lower_tf_respects_provider_capability_false() -> None:
     provider = CapabilityProvider(
         [{"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}],
@@ -652,6 +684,56 @@ plot(market, "Requested Market")
     assert result.values("Requested Prefix") == [1.0, 1.0, 1.0]
     assert result.values("Requested Daily") == [1.0, 1.0, 1.0]
     assert result.values("Requested Market") == [0.0, 0.0, 0.0]
+
+
+def test_request_security_rejects_invalid_metadata_contract() -> None:
+    class BadMetadataProvider(StaticProvider):
+        request_metadata = ["not", "a", "mapping"]
+
+    provider = BadMetadataProvider([
+        {"time": 1, "open": 10, "high": 12, "low": 8, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Bad Metadata", overlay=True)
+higher = request.security("BTCUSDT", "1D", close)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "request metadata must be a mapping" in str(result.error)
+
+
+def test_request_security_wraps_metadata_provider_failures() -> None:
+    class BrokenMetadataProvider(StaticProvider):
+        def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
+            raise RuntimeError("metadata service offline")
+
+    provider = BrokenMetadataProvider([
+        {"time": 1, "open": 10, "high": 12, "low": 8, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Metadata Failure", overlay=True)
+higher = request.security("BTCUSDT", "1D", close)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "request metadata provider failed" in str(result.error)
+    assert "metadata service offline" in str(result.error)
 
 
 def test_request_security_accepts_tuple_thunk_expression() -> None:

@@ -5,6 +5,7 @@ Pyne results use `schemaVersion = 1`.
 Top-level result keys:
 
 - `schemaVersion`: output schema version.
+- `paramSchemaVersion`: parameter schema version for `param_schema`.
 - `ok`: whether execution succeeded.
 - `error`: error message when execution failed.
 - `code`: stable error code when execution failed.
@@ -13,6 +14,41 @@ Top-level result keys:
 - `output`: structured output collections.
 - `param_schema`: input parameter declarations collected from scripts.
 - `meta`: indicator metadata collected from `indicator()`.
+
+Parameter schema entry:
+
+```json
+{
+  "id": "Length",
+  "key": "Length",
+  "type": "int",
+  "default": 20,
+  "current": 25,
+  "title": "Length",
+  "tooltip": "Moving average period.",
+  "group": "Moving Average",
+  "inline": "ma",
+  "confirm": true,
+  "minval": 1,
+  "maxval": 200,
+  "step": 1
+}
+```
+
+Numeric entries also include backward-compatible `min` and `max` aliases when
+bounds are declared.
+
+`id` currently matches `key`. Hosts should prefer `id` for stable UI identity
+and `key` for parameter override maps.
+
+Supported parameter `type` values are `int`, `float`, `bool`, `string`,
+`color`, `source`, `timeframe`, `symbol`, `session`, and `time`. Timeframe,
+symbol, and session inputs return strings. Time inputs return Unix timestamps in
+seconds.
+
+If params supplied to `pn.run(..., params=...)`, `pyne run --param`, or
+`pyne run --params-json` do not satisfy the declared input schema, the result
+uses `code = "PYNE_INVALID_PARAM"`.
 
 Structured output keys:
 

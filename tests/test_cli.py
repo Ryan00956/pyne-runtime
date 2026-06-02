@@ -69,6 +69,41 @@ if enabled:
     assert payload["lines"][0]["data"][-1]["value"] == 5.0
 
 
+def test_cli_run_reports_invalid_param_payload(tmp_path: Path, capsys) -> None:
+    script = tmp_path / "script.py"
+    script.write_text(
+        """
+length = input.int(2, "Length", minval=1, maxval=10)
+plot(length, "Length")
+""",
+        encoding="utf-8",
+    )
+    csv_path = tmp_path / "bars.csv"
+    csv_path.write_text(
+        "time,open,high,low,close,volume\n"
+        "1,1,2,1,1,100\n",
+        encoding="utf-8",
+    )
+
+    exit_code = main([
+        "run",
+        str(script),
+        "--ohlcv",
+        str(csv_path),
+        "--executor-mode",
+        "inline",
+        "--param",
+        "Length=abc",
+    ])
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 1
+    assert payload["ok"] is False
+    assert payload["code"] == "PYNE_INVALID_PARAM"
+    assert "Length" in payload["error"]
+
+
 def test_cli_run_accepts_params_json_file(tmp_path: Path) -> None:
     script = tmp_path / "script.py"
     script.write_text(

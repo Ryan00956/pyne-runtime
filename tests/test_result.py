@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pyne_runtime import PYNE_OUTPUT_SCHEMA_VERSION, PyneResult
+from pyne_runtime import PYNE_OUTPUT_SCHEMA_VERSION, PYNE_PARAM_SCHEMA_VERSION, PyneResult
 
 
 def test_result_to_dict_includes_schema_version() -> None:
@@ -9,6 +9,7 @@ def test_result_to_dict_includes_schema_version() -> None:
     payload = result.to_dict()
 
     assert payload["schemaVersion"] == PYNE_OUTPUT_SCHEMA_VERSION
+    assert payload["paramSchemaVersion"] == PYNE_PARAM_SCHEMA_VERSION
     assert payload["ok"] is True
     assert payload["lines"][0]["name"] == "Close"
 
@@ -16,6 +17,7 @@ def test_result_to_dict_includes_schema_version() -> None:
 def test_result_from_dict_preserves_schema_version() -> None:
     result = PyneResult.from_dict({
         "schemaVersion": 7,
+        "paramSchemaVersion": 3,
         "ok": True,
         "lines": [],
         "output": {},
@@ -24,6 +26,7 @@ def test_result_from_dict_preserves_schema_version() -> None:
     })
 
     assert result.schema_version == 7
+    assert result.param_schema_version == 3
 
 
 def test_result_error_detail_is_structured() -> None:

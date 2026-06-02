@@ -39,7 +39,12 @@ from .request import (
 )
 from .result import PyneResult
 from .runtime import PyneRuntime
-from .schema import PYNE_INPUT_SCHEMA_VERSION, PYNE_OUTPUT_SCHEMA_VERSION
+from .schema import (
+    PYNE_INPUT_SCHEMA_VERSION,
+    PYNE_OUTPUT_SCHEMA_VERSION,
+    PYNE_PARAM_SCHEMA_VERSION,
+    PYNE_REQUEST_PROVIDER_SCHEMA_VERSION,
+)
 from .series import PyneSeries
 from .settings import PyneSettings
 from .state import PyneStateNamespace, PyneVar
@@ -83,6 +88,8 @@ __all__ = [
     "TimeNamespace",
     "PYNE_INPUT_SCHEMA_VERSION",
     "PYNE_OUTPUT_SCHEMA_VERSION",
+    "PYNE_PARAM_SCHEMA_VERSION",
+    "PYNE_REQUEST_PROVIDER_SCHEMA_VERSION",
     "SharedPyneIncrementalSession",
     "SessionInfo",
     "SessionNamespace",

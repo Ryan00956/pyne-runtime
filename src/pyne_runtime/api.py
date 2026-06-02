@@ -7,6 +7,7 @@ from typing import Any
 from .data import PyneData, coerce_ohlcv
 from .errors import classify_security_error, error_detail
 from .executor import execute_pyne_script
+from .migration_diagnostics import migration_diagnostics, syntax_migration_diagnostics
 from .result import PyneResult
 from .schema import schema as schema_bundle
 from .security import PyneSecurityPolicy, validate_script_security
@@ -68,7 +69,10 @@ def validate(script: str | Path, *, settings: PyneSettings | None = None) -> lis
             line=exc.lineno,
             column=exc.offset,
         ))
+        diagnostics.extend(syntax_migration_diagnostics(script_text))
         return diagnostics
+
+    diagnostics.extend(migration_diagnostics(script_text))
 
     policy = PyneSecurityPolicy.from_settings(settings or PyneSettings.from_env())
     try:

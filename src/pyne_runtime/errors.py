@@ -34,6 +34,7 @@ ERROR_HINTS: dict[str, str] = {
         "Check the requested symbol or use ignore_invalid_symbol=True when missing symbols are expected."
     ),
     "PYNE_INVALID_PARAM": "Check script input declarations and provided params.",
+    "PYNE_MIGRATION_HINT": "Use Pyne's Python-native alternatives for Pine-specific syntax patterns.",
     "PYNE_LENGTH_MISMATCH": "Make sure custom arrays have the same length as the OHLCV input.",
     "PYNE_UNSUPPORTED_FEATURE": "This Pyne feature is not supported by the current runtime.",
     "PYNE_PROCESS_FAILED": (

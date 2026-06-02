@@ -83,8 +83,9 @@ Accepted aliases:
   `request.security_lower_tf()`
 
 If no capabilities are declared, Pyne assumes the provider can answer both
-request types. For dict capabilities, missing keys default to supported and
-explicit `False` disables a capability. For list/set/tuple capabilities, the
+request types. If `capabilities` is `None`, Pyne treats the provider as
+supporting no request capabilities. For dict capabilities, at least one matching
+alias must be present and truthy. For list/set/tuple capabilities, the
 capability must be present.
 
 Providers may also supply metadata for requested contexts. This is optional;
@@ -112,6 +113,10 @@ The same metadata can be exposed as a `request_metadata` mapping or
 `symbol_info`, `timeframe` or `timeframe_info`, and `session` or
 `session_info`. Bar-level session flags in requested OHLCV rows still override
 the provider-level session default.
+
+The provider contract is also exposed through `pn.schema()["requestProvider"]`.
+That schema lists the required `get_ohlcv(...)` method, required OHLCV fields,
+capability aliases, metadata keys, and stable error categories.
 
 ## `request.security`
 
@@ -212,7 +217,11 @@ If no data provider is configured, `request.security()` returns a
 If a provider raises `pn.PyneInvalidSymbolError`, the default behavior is a
 `PYNE_INVALID_SYMBOL` error. With `ignore_invalid_symbol=True`, Pyne returns
 `na` values for that request. Other provider exceptions are not treated as
-invalid symbols.
+invalid symbols; Pyne wraps them as `PYNE_RUNTIME_ERROR` with a
+`request data provider failed` message.
+
+If provider metadata is not a mapping, or a metadata callback raises, Pyne also
+returns `PYNE_RUNTIME_ERROR` with a request-metadata-specific message.
 
 ## `request.security_lower_tf`
 
@@ -267,6 +276,7 @@ The request test suite includes deterministic fixtures for:
 - empty lower-timeframe buckets and aggregation defaults
 - invalid-symbol ignore behavior and provider capability rejection before
   provider calls
+- provider failure and provider metadata contract failures
 
 ## Internal Responsibilities
 

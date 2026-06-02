@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .errors import error_detail, error_hint
-from .schema import PYNE_OUTPUT_SCHEMA_VERSION
+from .schema import PYNE_OUTPUT_SCHEMA_VERSION, PYNE_PARAM_SCHEMA_VERSION
 
 
 @dataclass
@@ -22,6 +22,7 @@ class PyneResult:
     lines: list[dict[str, Any]] = field(default_factory=list)
     output: dict[str, Any] = field(default_factory=dict)
     param_schema: list[dict[str, Any]] = field(default_factory=list)
+    param_schema_version: int = PYNE_PARAM_SCHEMA_VERSION
     meta: dict[str, Any] = field(default_factory=dict)
     schema_version: int = PYNE_OUTPUT_SCHEMA_VERSION
 
@@ -38,6 +39,7 @@ class PyneResult:
             "lines": self.lines,
             "output": self.output,
             "param_schema": self.param_schema,
+            "paramSchemaVersion": self.param_schema_version,
             "meta": self.meta,
         }
 
@@ -134,6 +136,9 @@ class PyneResult:
             lines=data.get("lines") if isinstance(data.get("lines"), list) else [],
             output=data.get("output") if isinstance(data.get("output"), dict) else {},
             param_schema=data.get("param_schema") if isinstance(data.get("param_schema"), list) else [],
+            param_schema_version=int(
+                data.get("paramSchemaVersion") or PYNE_PARAM_SCHEMA_VERSION
+            ),
             meta=data.get("meta") if isinstance(data.get("meta"), dict) else {},
             schema_version=int(data.get("schemaVersion") or PYNE_OUTPUT_SCHEMA_VERSION),
         )

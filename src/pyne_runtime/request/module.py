@@ -231,6 +231,13 @@ class RequestModule:
                 ) from exc
             requested = []
             ignored_invalid_symbol = True
+        except PyneRequestError:
+            raise
+        except Exception as exc:
+            raise PyneRequestError(
+                f"request data provider failed: {exc}",
+                code="PYNE_RUNTIME_ERROR",
+            ) from exc
         if requested is None:
             if not ignore_invalid_symbol:
                 raise PyneRequestError(

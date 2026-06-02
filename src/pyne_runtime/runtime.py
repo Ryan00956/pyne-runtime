@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import Any
 
 from .context import PyneContext
-from .input import InputModule
+from .input import InputModule, PyneInputError
 from .plot import OutputCollector
 from .request import PyneRequestError
 from .incremental import IncrementalPyneResult, PyneIncrementalSession, is_incremental_pyne_script
@@ -153,6 +153,9 @@ class PyneRuntime:
             code = classify_security_error(message)
             return PyneResult(ok=False, code=code, error=message, hint=error_hint(code))
         except PyneRequestError as exc:
+            code = exc.code
+            return PyneResult(ok=False, code=code, error=str(exc), hint=error_hint(code))
+        except PyneInputError as exc:
             code = exc.code
             return PyneResult(ok=False, code=code, error=str(exc), hint=error_hint(code))
         except Exception as exc:

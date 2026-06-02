@@ -33,7 +33,15 @@ symbol or pass `ignore_invalid_symbol=True` when missing symbols are expected.
 
 ## PYNE_INVALID_PARAM
 
-The provided parameter values are invalid.
+The provided parameter values are invalid. This is returned when an `input.*`
+override has the wrong type, falls outside declared numeric bounds, is not in
+declared `options`, names an unknown source, or passes an invalid timestamp.
+
+## PYNE_MIGRATION_HINT
+
+`pyne validate` found a syntactically valid Python expression that commonly
+comes from Pine syntax but does not preserve Pine-like semantics in Python.
+Follow the diagnostic hint or the Pine-to-Pyne cookbook.
 
 ## PYNE_LENGTH_MISMATCH
 

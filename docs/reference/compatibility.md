@@ -14,6 +14,10 @@ The detailed Pine-like feature matrix lives in
 [Pine-Like API Matrix](pine_like_api_matrix.md).
 
 The output schema has its own version: `PYNE_OUTPUT_SCHEMA_VERSION`.
+Script parameter schemas have their own version:
+`PYNE_PARAM_SCHEMA_VERSION`.
+The host request-provider contract has its own version:
+`PYNE_REQUEST_PROVIDER_SCHEMA_VERSION`.
 
 ## Pine-Like Surface
 

@@ -78,6 +78,7 @@ python -m pytest \
   -q
 python -m pytest tests/test_request_security.py tests/test_golden_request_security.py -q
 python -m pytest tests/test_plot_runtime.py tests/test_result.py -q
+python -m pytest tests/test_input_runtime.py tests/test_examples.py -q
 python -m pytest \
   tests/test_smoke.py \
   tests/test_api.py \

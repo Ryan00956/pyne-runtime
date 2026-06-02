@@ -47,11 +47,27 @@ def _provider_supports(provider: DataProvider, capability_names: tuple[str, ...]
 def _request_metadata(provider: DataProvider, symbol: str, timeframe: str) -> dict[str, Any]:
     declared_metadata = getattr(provider, "get_request_metadata", None)
     if callable(declared_metadata):
-        declared_metadata = declared_metadata(symbol, timeframe)
+        try:
+            declared_metadata = declared_metadata(symbol, timeframe)
+        except PyneRequestError:
+            raise
+        except Exception as exc:
+            raise PyneRequestError(
+                f"request metadata provider failed: {exc}",
+                code="PYNE_RUNTIME_ERROR",
+            ) from exc
     else:
         declared_metadata = getattr(provider, "request_metadata", None)
         if callable(declared_metadata):
-            declared_metadata = declared_metadata(symbol, timeframe)
+            try:
+                declared_metadata = declared_metadata(symbol, timeframe)
+            except PyneRequestError:
+                raise
+            except Exception as exc:
+                raise PyneRequestError(
+                    f"request metadata provider failed: {exc}",
+                    code="PYNE_RUNTIME_ERROR",
+                ) from exc
 
     if declared_metadata is None:
         declared_metadata = {}
