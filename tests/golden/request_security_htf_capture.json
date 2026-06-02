@@ -138,32 +138,20 @@
   "expected_series": {
     "HTF Close": [
       {
-        "time": 0,
-        "value": 1005.0
-      },
-      {
-        "time": 60,
-        "value": 1005.0
-      },
-      {
-        "time": 120,
-        "value": 1005.0
-      },
-      {
         "time": 180,
         "value": 1005.0
       },
       {
         "time": 240,
-        "value": 1105.0
+        "value": 1005.0
       },
       {
         "time": 300,
-        "value": 1105.0
+        "value": 1005.0
       },
       {
         "time": 360,
-        "value": 1105.0
+        "value": 1005.0
       },
       {
         "time": 420,
@@ -171,15 +159,15 @@
       },
       {
         "time": 480,
-        "value": 1205.0
+        "value": 1105.0
       },
       {
         "time": 540,
-        "value": 1205.0
+        "value": 1105.0
       },
       {
         "time": 600,
-        "value": 1205.0
+        "value": 1105.0
       },
       {
         "time": 660,
@@ -188,15 +176,15 @@
     ],
     "HTF Close Gapped": [
       {
-        "time": 0,
+        "time": 180,
         "value": 1005.0
       },
       {
-        "time": 240,
+        "time": 420,
         "value": 1105.0
       },
       {
-        "time": 480,
+        "time": 660,
         "value": 1205.0
       }
     ],
@@ -207,15 +195,15 @@
       },
       {
         "time": 60,
-        "value": 1105.0
+        "value": 1005.0
       },
       {
         "time": 120,
-        "value": 1105.0
+        "value": 1005.0
       },
       {
         "time": 180,
-        "value": 1105.0
+        "value": 1005.0
       },
       {
         "time": 240,
@@ -223,49 +211,49 @@
       },
       {
         "time": 300,
-        "value": 1205.0
+        "value": 1105.0
       },
       {
         "time": 360,
-        "value": 1205.0
+        "value": 1105.0
       },
       {
         "time": 420,
-        "value": 1205.0
+        "value": 1105.0
       },
       {
         "time": 480,
+        "value": 1205.0
+      },
+      {
+        "time": 540,
+        "value": 1205.0
+      },
+      {
+        "time": 600,
+        "value": 1205.0
+      },
+      {
+        "time": 660,
         "value": 1205.0
       }
     ],
     "HTF Previous Close": [
       {
-        "time": 240,
-        "value": 1005.0
-      },
-      {
-        "time": 300,
-        "value": 1005.0
-      },
-      {
-        "time": 360,
-        "value": 1005.0
-      },
-      {
         "time": 420,
         "value": 1005.0
       },
       {
         "time": 480,
-        "value": 1105.0
+        "value": 1005.0
       },
       {
         "time": 540,
-        "value": 1105.0
+        "value": 1005.0
       },
       {
         "time": 600,
-        "value": 1105.0
+        "value": 1005.0
       },
       {
         "time": 660,
@@ -274,127 +262,127 @@
     ],
     "HTF Requested Open": [
       {
-        "time": 0,
+        "time": 180,
         "value": 1000.0
       },
       {
-        "time": 240,
+        "time": 420,
         "value": 1100.0
       },
       {
-        "time": 480,
+        "time": 660,
         "value": 1200.0
       }
     ],
     "HTF Requested High": [
       {
-        "time": 0,
+        "time": 180,
         "value": 1020.0
       },
       {
-        "time": 240,
+        "time": 420,
         "value": 1120.0
       },
       {
-        "time": 480,
+        "time": 660,
         "value": 1220.0
       }
     ],
     "HTF Requested Low": [
       {
-        "time": 0,
+        "time": 180,
         "value": 990.0
       },
       {
-        "time": 240,
+        "time": 420,
         "value": 1090.0
       },
       {
-        "time": 480,
+        "time": 660,
         "value": 1190.0
       }
     ],
     "HTF Time": [
       {
-        "time": 0,
+        "time": 180,
         "value": 0.0
       },
       {
-        "time": 240,
+        "time": 420,
         "value": 240.0
       },
       {
-        "time": 480,
+        "time": 660,
         "value": 480.0
       }
     ],
     "HTF Open": [
       {
-        "time": 0,
+        "time": 180,
         "value": 1000.0
       },
       {
-        "time": 240,
+        "time": 420,
         "value": 1100.0
       },
       {
-        "time": 480,
+        "time": 660,
         "value": 1200.0
       }
     ],
     "HTF High": [
       {
-        "time": 0,
+        "time": 180,
         "value": 1020.0
       },
       {
-        "time": 240,
+        "time": 420,
         "value": 1120.0
       },
       {
-        "time": 480,
+        "time": 660,
         "value": 1220.0
       }
     ],
     "HTF Low": [
       {
-        "time": 0,
+        "time": 180,
         "value": 990.0
       },
       {
-        "time": 240,
+        "time": 420,
         "value": 1090.0
       },
       {
-        "time": 480,
+        "time": 660,
         "value": 1190.0
       }
     ],
     "HTF Provider Close": [
       {
-        "time": 0,
+        "time": 180,
         "value": 1005.0
       },
       {
-        "time": 240,
+        "time": 420,
         "value": 1105.0
       },
       {
-        "time": 480,
+        "time": 660,
         "value": 1205.0
       }
     ],
     "HTF Volume": [
       {
-        "time": 0,
+        "time": 180,
         "value": 5000.0
       },
       {
-        "time": 240,
+        "time": 420,
         "value": 5500.0
       },
       {
-        "time": 480,
+        "time": 660,
         "value": 6000.0
       }
     ]
@@ -402,7 +390,7 @@
   "external_capture": {
     "provider": "tradingview",
     "status": "captured",
-    "assertion": "reference",
+    "assertion": "parity",
     "tolerance": 1e-09,
     "series": {
       "HTF Close": [
@@ -614,15 +602,15 @@
       "HTF Time": [
         {
           "time": 1780354800,
-          "value": 1780344000000.0
+          "value": 1780344000
         },
         {
           "time": 1780369200,
-          "value": 1780358400000.0
+          "value": 1780358400
         },
         {
           "time": 1780383600,
-          "value": 1780372800000.0
+          "value": 1780372800
         }
       ],
       "HTF Open": [
@@ -796,6 +784,22 @@
     ],
     "provider_bars": [
       {
+        "time": 1780315200,
+        "open": null,
+        "high": null,
+        "low": null,
+        "close": 71099.4,
+        "volume": null
+      },
+      {
+        "time": 1780329600,
+        "open": null,
+        "high": null,
+        "low": null,
+        "close": 71571.0,
+        "volume": null
+      },
+      {
         "time": 1780344000,
         "open": 71571.0,
         "high": 71670.0,
@@ -818,6 +822,14 @@
         "low": 69666.8,
         "close": 70079.4,
         "volume": 38610.03900000001
+      },
+      {
+        "time": 1780387200,
+        "open": null,
+        "high": null,
+        "low": null,
+        "close": 69688.0,
+        "volume": null
       }
     ],
     "provider_bar_plots": {
@@ -827,6 +839,11 @@
       "low": "HTF Low",
       "close": "HTF Provider Close",
       "volume": "HTF Volume"
+    },
+    "provider_close_plots": {
+      "current": "HTF Close",
+      "previous": "HTF Previous Close",
+      "lookahead": "HTF Close Lookahead"
     },
     "notes": [
       "TradingView export 2026-06-02, BINANCE:BTCUSDT.P 60m chart with 240m request.security capture."

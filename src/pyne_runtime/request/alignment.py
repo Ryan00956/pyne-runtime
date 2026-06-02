@@ -92,10 +92,12 @@ def _align_single_request_values(
     gaps: str,
     lookahead: str,
 ) -> PyneSeries:
+    confirmation_times = _confirmation_times(chart_times, requested_times)
     values = [
         _aligned_value(
             chart_time,
             requested_times,
+            confirmation_times,
             requested_values,
             gaps=gaps,
             lookahead=lookahead,
@@ -110,27 +112,50 @@ def _align_single_request_values(
 def _aligned_value(
     chart_time: int,
     requested_times: list[int],
+    confirmation_times: list[int],
     requested_values: list[float],
     *,
     gaps: str,
     lookahead: str,
 ) -> float:
+    alignment_times = requested_times if lookahead == "on" else confirmation_times
     if gaps == "on":
-        idx = bisect_left(requested_times, chart_time)
-        if idx < len(requested_times) and requested_times[idx] == chart_time:
+        idx = bisect_left(alignment_times, chart_time)
+        if idx < len(alignment_times) and alignment_times[idx] == chart_time:
             value = requested_values[idx]
             return np.nan if is_na_value(value) else float(value)
         return np.nan
 
     if lookahead == "on":
-        idx = bisect_left(requested_times, chart_time)
-    else:
         idx = bisect_right(requested_times, chart_time) - 1
+    else:
+        idx = bisect_right(confirmation_times, chart_time) - 1
 
     if idx < 0 or idx >= len(requested_values):
         return np.nan
     value = requested_values[idx]
     return np.nan if is_na_value(value) else float(value)
+
+
+def _confirmation_times(chart_times: list[int], requested_times: list[int]) -> list[int]:
+    if not requested_times:
+        return []
+    chart_step = _infer_step(chart_times)
+    requested_step = _infer_step(requested_times)
+    if chart_step is None or requested_step is None or requested_step <= chart_step:
+        return list(requested_times)
+    return [time + requested_step - chart_step for time in requested_times]
+
+
+def _infer_step(times: list[int]) -> int | None:
+    steps = [
+        next_time - time
+        for time, next_time in zip(times, times[1:])
+        if next_time > time
+    ]
+    if not steps:
+        return None
+    return min(steps)
 
 def _normalize_request_option(value: Any, *, name: str, aliases: dict[str, str]) -> str:
     raw = "off" if value is None else str(value).strip().lower()

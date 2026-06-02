@@ -56,6 +56,8 @@ def main(argv: list[str] | None = None) -> int:
     }
     if "provider_bar_plots" in previous_capture:
         capture["provider_bar_plots"] = previous_capture["provider_bar_plots"]
+    if "provider_close_plots" in previous_capture:
+        capture["provider_close_plots"] = previous_capture["provider_close_plots"]
     if args.note:
         capture["notes"] = args.note
     fixture["external_capture"] = capture
@@ -108,10 +110,13 @@ def load_csv_capture(path: Path, fixture: dict[str, Any]) -> dict[str, Any]:
             value = parse_scalar(row.get(title, ""))
             if value is not None:
                 series[title].append({"time": bar["time"], "value": value})
+    normalize_provider_time_series(fixture, series)
+    provider_bars = build_provider_bars(fixture, series)
+    provider_bars = augment_provider_bars_from_close_series(fixture, series, provider_bars, bars)
     return {
         "series": series,
         "bars": bars,
-        "provider_bars": build_provider_bars(fixture, series),
+        "provider_bars": provider_bars,
     }
 
 
@@ -177,11 +182,103 @@ def build_provider_bars(
     return provider_bars
 
 
+def normalize_provider_time_series(
+    fixture: dict[str, Any],
+    series: dict[str, list[dict[str, Any]]],
+) -> None:
+    title = fixture.get("external_capture", {}).get("provider_bar_plots", {}).get("time")
+    if not title or title not in series:
+        return
+    chart_times = fixture.get("chart_bars", [])
+    chart_time = int(chart_times[0]["time"]) if chart_times else 0
+    for point in series[title]:
+        point["value"] = normalize_provider_time(float(point["value"]), chart_time)
+
+
 def normalize_provider_time(raw_provider_time: float, chart_time: int) -> int:
     provider_time = int(raw_provider_time)
     if abs(provider_time) >= 100_000_000_000 and abs(chart_time) < 100_000_000_000:
         return int(provider_time / 1000)
     return provider_time
+
+
+def augment_provider_bars_from_close_series(
+    fixture: dict[str, Any],
+    series: dict[str, list[dict[str, Any]]],
+    provider_bars: list[dict[str, Any]],
+    chart_bars: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    close_plots = fixture.get("external_capture", {}).get("provider_close_plots")
+    if not close_plots or len(provider_bars) < 2 or len(chart_bars) < 2:
+        return provider_bars
+
+    interval = provider_bars[1]["time"] - provider_bars[0]["time"]
+    chart_step = chart_bars[1]["time"] - chart_bars[0]["time"]
+    if interval <= 0 or chart_step <= 0:
+        return provider_bars
+
+    bars_by_time = {bar["time"]: dict(bar) for bar in provider_bars}
+    first_provider_time = provider_bars[0]["time"]
+    last_provider_time = provider_bars[-1]["time"]
+    first_confirmation_time = first_provider_time + interval - chart_step
+    known_closes = {bar["close"] for bar in provider_bars}
+
+    current_title = close_plots.get("current")
+    if current_title in series:
+        previous_points = [
+            point for point in series[current_title]
+            if point["time"] < first_confirmation_time
+        ]
+        if previous_points:
+            _add_close_only_provider_bar(
+                bars_by_time,
+                first_provider_time - interval,
+                previous_points[-1]["value"],
+            )
+
+    previous_title = close_plots.get("previous")
+    if previous_title in series:
+        previous_previous_points = [
+            point for point in series[previous_title]
+            if point["time"] < first_confirmation_time
+        ]
+        if previous_previous_points:
+            _add_close_only_provider_bar(
+                bars_by_time,
+                first_provider_time - 2 * interval,
+                previous_previous_points[0]["value"],
+            )
+
+    lookahead_title = close_plots.get("lookahead")
+    if lookahead_title in series:
+        for point in reversed(series[lookahead_title]):
+            if point["value"] not in known_closes:
+                _add_close_only_provider_bar(
+                    bars_by_time,
+                    last_provider_time + interval,
+                    point["value"],
+                )
+                break
+
+    return [bars_by_time[time] for time in sorted(bars_by_time)]
+
+
+def _add_close_only_provider_bar(
+    bars_by_time: dict[int, dict[str, Any]],
+    time: int,
+    close: Any,
+) -> None:
+    bars_by_time.setdefault(
+        time,
+        {
+            "time": time,
+            "open": None,
+            "high": None,
+            "low": None,
+            "close": float(close),
+            "volume": None,
+        },
+    )
 
 
 def validate_capture_series(

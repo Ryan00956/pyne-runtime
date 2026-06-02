@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -28,8 +29,17 @@ class FixtureProvider:
         end: int,
     ) -> list[dict[str, Any]]:
         if isinstance(self._bars, dict):
-            return self._bars.get(f"{symbol}|{timeframe}", self._bars.get(timeframe, []))
-        return self._bars
+            bars = self._bars.get(f"{symbol}|{timeframe}", self._bars.get(timeframe, []))
+        else:
+            bars = self._bars
+        return [normalize_provider_bar(bar) for bar in bars]
+
+
+def normalize_provider_bar(bar: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: (math.nan if value is None and key != "time" else value)
+        for key, value in bar.items()
+    }
 
 
 def main(argv: list[str] | None = None) -> int:

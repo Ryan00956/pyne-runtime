@@ -36,4 +36,4 @@ def test_request_capture_status_json_report() -> None:
     assert first["fixture"] == "request_security_htf_capture.json"
     assert first["priority"] is True
     assert first["status"] == "captured"
-    assert first["assertion"] == "reference"
+    assert first["assertion"] == "parity"

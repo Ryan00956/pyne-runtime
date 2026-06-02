@@ -70,7 +70,7 @@ plot(higher, "Higher")
 
     assert result.ok
     assert provider.calls == [("BTCUSDT", "2", 1, 4)]
-    assert result.values("Higher") == [10, 10, 30, 30]
+    assert result.values("Higher") == [10, 10, 30]
 
 
 def test_request_security_applies_history_in_requested_context() -> None:
@@ -91,7 +91,7 @@ plot(higher_prev, "Higher Previous")
     )
 
     assert result.ok
-    assert result.values("Higher Previous") == [10, 10]
+    assert result.values("Higher Previous") == [10]
 
 
 def test_request_security_gaps_on_requires_exact_requested_bar() -> None:
@@ -113,8 +113,8 @@ plot(higher, "Higher")
 
     assert result.ok
     assert result.get_series("Higher") == [
-        {"time": 1, "value": 10.0},
-        {"time": 3, "value": 30.0},
+        {"time": 2, "value": 10.0},
+        {"time": 4, "value": 30.0},
     ]
 
 
@@ -161,10 +161,10 @@ plot(ahead, "Ahead")
     assert result.ok, result.error
     assert provider.calls == [("BTCUSDT", "2", 1, 4)]
     assert result.get_series("Gapped") == [
-        {"time": 1, "value": 10.0},
-        {"time": 3, "value": 30.0},
+        {"time": 2, "value": 10.0},
+        {"time": 4, "value": 30.0},
     ]
-    assert result.values("Ahead") == [10, 30, 30]
+    assert result.values("Ahead") == [10, 10, 30, 30]
 
 
 def test_request_security_rejects_invalid_gaps_before_provider_call() -> None:
@@ -326,8 +326,8 @@ plot(valid_again, "Valid High")
     assert result.ok, result.error
     assert provider.calls == [("MISSING", "2", 1, 4), ("BTCUSDT", "2", 1, 4)]
     assert result.get_series("Ignored") == []
-    assert result.values("Valid") == [10, 10, 30, 30]
-    assert result.values("Valid High") == [11, 11, 31, 31]
+    assert result.values("Valid") == [10, 10, 30]
+    assert result.values("Valid High") == [11, 11, 31]
 
 
 def test_request_security_respects_provider_capability_false() -> None:
@@ -445,7 +445,7 @@ plot(lower.size(), "Lower Count")
 
     assert result.ok
     assert provider.calls == [("BTCUSDT", "2", 1, 4), ("BTCUSDT", "1", 1, 4)]
-    assert result.values("Higher") == [10, 10, 30, 30]
+    assert result.values("Higher") == [10, 10, 30]
     assert result.values("Lower Count") == [1.0, 0.0, 1.0, 0.0]
 
 
@@ -483,10 +483,10 @@ plot(higher_open, "Higher Open")
     assert result.ok, result.error
     assert provider.calls == [("BTCUSDT", "2", 1, 4)]
     assert provider.metadata_calls == [("BTCUSDT", "2")]
-    assert result.values("Higher Close") == [10, 10, 30, 30]
-    assert result.values("Higher High") == [12, 12, 34, 34]
-    assert result.values("Higher Low") == [8, 8, 28, 28]
-    assert result.values("Higher Open") == [9, 9, 29, 29]
+    assert result.values("Higher Close") == [10, 10, 30]
+    assert result.values("Higher High") == [12, 12, 34]
+    assert result.values("Higher Low") == [8, 8, 28]
+    assert result.values("Higher Open") == [9, 9, 29]
 
 
 def test_request_security_reuses_provider_data_across_request_shapes() -> None:
@@ -537,7 +537,7 @@ plot(higher, "Higher")
     )
 
     assert result.ok
-    assert result.values("Higher") == [10, 10, 30, 30]
+    assert result.values("Higher") == [10, 10, 30]
 
 
 def test_request_security_evaluates_ta_thunk_in_requested_context() -> None:
@@ -558,7 +558,7 @@ plot(higher_sma, "Higher SMA")
     )
 
     assert result.ok
-    assert result.values("Higher SMA") == [20, 20]
+    assert result.values("Higher SMA") == [20]
 
 
 def test_request_security_applies_thunk_history_in_requested_context() -> None:
@@ -579,7 +579,7 @@ plot(higher_prev, "Higher Previous")
     )
 
     assert result.ok
-    assert result.values("Higher Previous") == [10, 10]
+    assert result.values("Higher Previous") == [10]
 
 
 def test_request_security_accepts_composite_thunk_expression() -> None:
@@ -600,7 +600,7 @@ plot(higher_mid, "Higher Mid")
     )
 
     assert result.ok
-    assert result.values("Higher Mid") == [10, 10, 31, 31]
+    assert result.values("Higher Mid") == [10, 10, 31]
 
 
 def test_request_security_injects_provider_metadata_into_requested_context() -> None:
@@ -648,10 +648,10 @@ plot(market, "Requested Market")
     )
 
     assert result.ok, result.error
-    assert result.values("Requested Mintick") == [0.5, 0.5, 0.5, 0.5]
-    assert result.values("Requested Prefix") == [1.0, 1.0, 1.0, 1.0]
-    assert result.values("Requested Daily") == [1.0, 1.0, 1.0, 1.0]
-    assert result.values("Requested Market") == [0.0, 0.0, 0.0, 0.0]
+    assert result.values("Requested Mintick") == [0.5, 0.5, 0.5]
+    assert result.values("Requested Prefix") == [1.0, 1.0, 1.0]
+    assert result.values("Requested Daily") == [1.0, 1.0, 1.0]
+    assert result.values("Requested Market") == [0.0, 0.0, 0.0]
 
 
 def test_request_security_accepts_tuple_thunk_expression() -> None:
@@ -673,8 +673,8 @@ plot(higher_close, "Higher Close")
     )
 
     assert result.ok
-    assert result.values("Higher Open") == [9, 9, 29, 29]
-    assert result.values("Higher Close") == [10, 10, 30, 30]
+    assert result.values("Higher Open") == [9, 9, 29]
+    assert result.values("Higher Close") == [10, 10, 30]
 
 
 def test_request_security_accepts_tuple_field_expression() -> None:
@@ -697,12 +697,12 @@ plot(higher_low, "Higher Low")
 
     assert result.ok
     assert result.get_series("Higher High") == [
-        {"time": 1, "value": 12.0},
-        {"time": 3, "value": 34.0},
+        {"time": 2, "value": 12.0},
+        {"time": 4, "value": 34.0},
     ]
     assert result.get_series("Higher Low") == [
-        {"time": 1, "value": 8.0},
-        {"time": 3, "value": 28.0},
+        {"time": 2, "value": 8.0},
+        {"time": 4, "value": 28.0},
     ]
 
 
@@ -727,10 +727,10 @@ plot(ahead, "Ahead")
 
     assert result.ok
     assert result.get_series("Gapped") == [
-        {"time": 1, "value": 10.0},
-        {"time": 3, "value": 30.0},
+        {"time": 2, "value": 10.0},
+        {"time": 4, "value": 30.0},
     ]
-    assert result.values("Ahead") == [10, 30, 30]
+    assert result.values("Ahead") == [10, 10, 30, 30]
 
 
 def test_request_security_rejects_invalid_thunk_return_type() -> None:

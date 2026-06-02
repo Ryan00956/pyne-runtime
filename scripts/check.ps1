@@ -40,6 +40,11 @@ try {
         "--assertion",
         "parity"
     )
+    Invoke-PyneCheck -Arguments @(
+        "scripts/request_capture_diff.py",
+        "--assertion",
+        "parity"
+    )
     $Dist = Join-Path $env:TEMP "pyne-runtime-dist-check"
     if (Test-Path $Dist) {
         Remove-Item -LiteralPath $Dist -Recurse -Force
