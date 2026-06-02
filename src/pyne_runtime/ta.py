@@ -352,7 +352,6 @@ class TaModule:
                 -100.0 * (highest - close_arr) / (highest - lowest),
                 0.0,
             )
-        result[:period - 1] = np.nan
         return wrap_like(result, high, low, close)
 
     def tsi(
@@ -407,7 +406,6 @@ class TaModule:
                 100.0 * (source_arr - ll) / (hh - ll),
                 50.0,
             )
-        result[:length - 1] = np.nan
 
         return wrap_like(result, source, high, low)
 
@@ -1146,8 +1144,11 @@ class TaModule:
         neg_sum = utils.sum_(neg_mf, period)
 
         with np.errstate(divide="ignore", invalid="ignore"):
-            mfi_val = np.where(neg_sum != 0, 100.0 - 100.0 / (1.0 + pos_sum / neg_sum), 100.0)
-        mfi_val[:period] = np.nan
+            mfi_val = np.where(
+                (~np.isnan(neg_sum)) & (neg_sum != 0),
+                100.0 - 100.0 / (1.0 + pos_sum / neg_sum),
+                100.0,
+            )
         return wrap_like(mfi_val, source, volume)
 
     # ═══════════════════════════════════════════════════════════

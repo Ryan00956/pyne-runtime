@@ -203,6 +203,29 @@ plot(ta.cmo(close[1], 5), "Shifted CMO")
     assert _series_values(result, "Shifted CMO")[-1] == 100.0
 
 
+def test_range_oscillators_use_available_warmup_history() -> None:
+    bars = [
+        {"time": 1, "open": 10, "high": 12, "low": 9, "close": 11, "volume": 100},
+        {"time": 2, "open": 11, "high": 13, "low": 10, "close": 12, "volume": 110},
+        {"time": 3, "open": 12, "high": 14, "low": 11, "close": 13, "volume": 120},
+        {"time": 4, "open": 13, "high": 13.5, "low": 10, "close": 10.5, "volume": 130},
+    ]
+    result = pn.run(
+        """
+plot(ta.stoch(close, high, low, 4), "Stoch")
+plot(ta.wpr(4), "WPR")
+plot(ta.mfi(close, 4), "MFI")
+""",
+        bars,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert _series_values(result, "Stoch") == [66.66666667, 75.0, 80.0, 30.0]
+    assert _series_values(result, "WPR") == [-33.33333333, -25.0, -20.0, -70.0]
+    assert _series_values(result, "MFI") == [100.0, 100.0, 100.0, 67.84452297]
+
+
 def test_state_lookup_ta_helpers_match_pine_like_offsets() -> None:
     bars = [
         {"time": 1, "open": 3, "high": 3, "low": 3, "close": 3, "volume": 100},

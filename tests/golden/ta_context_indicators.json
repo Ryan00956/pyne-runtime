@@ -104,6 +104,18 @@
   "expected_series": {
     "Stoch 4": [
       {
+        "time": 1,
+        "value": 66.66666667
+      },
+      {
+        "time": 2,
+        "value": 75.0
+      },
+      {
+        "time": 3,
+        "value": 80.0
+      },
+      {
         "time": 4,
         "value": 40.0
       },
@@ -179,6 +191,22 @@
       }
     ],
     "MFI 4": [
+      {
+        "time": 1,
+        "value": 100.0
+      },
+      {
+        "time": 2,
+        "value": 100.0
+      },
+      {
+        "time": 3,
+        "value": 100.0
+      },
+      {
+        "time": 4,
+        "value": 67.86510177
+      },
       {
         "time": 5,
         "value": 52.46353509
