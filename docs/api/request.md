@@ -20,7 +20,10 @@ from pyne_runtime.request import (
     REQUEST_METADATA_SESSION_KEYS,
     REQUEST_METADATA_SYMBOL_KEYS,
     REQUEST_METADATA_TIMEFRAME_KEYS,
+    REQUEST_API_VALUES,
+    REQUEST_SECURITY_API,
     REQUEST_SECURITY_CAPABILITY_ALIASES,
+    REQUEST_SECURITY_LOWER_TF_API,
     REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
     RequestCapabilities,
     RequestEvalContext,
@@ -191,6 +194,9 @@ For IDE and static typing support, Pyne exports provider typing helpers at both
 `pyne_runtime.request` and the package top level:
 
 - `OHLCVBar`: typed dictionary for provider-returned OHLCV rows.
+- `REQUEST_SECURITY_API`, `REQUEST_SECURITY_LOWER_TF_API`, and
+  `REQUEST_API_VALUES`: canonical stable request API names used by diagnostics,
+  schema entries, and capability checks.
 - `REQUEST_SECURITY_CAPABILITY_ALIASES`: accepted aliases for
   `request.security()` capability declarations.
 - `REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES`: accepted aliases for

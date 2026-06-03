@@ -54,8 +54,7 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert "get_ohlcv" in schema["requestProvider"]["method"]
     supported_apis = schema["requestProvider"]["supportedApis"]
     assert [item["api"] for item in supported_apis] == [
-        "request.security",
-        "request.security_lower_tf",
+        *pn.REQUEST_API_VALUES,
     ]
     assert supported_apis[0]["providerMethod"] == "get_ohlcv"
     assert supported_apis[0]["capabilityAliases"] == [
@@ -75,7 +74,10 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
         key: list(value) for key, value in pn.REQUEST_METADATA_KEY_ALIASES.items()
     }
     assert schema["requestProvider"]["cache"]["key"] == ["symbol", "timeframe", "start", "end"]
-    assert "request.security_lower_tf" in schema["requestProvider"]["cache"]["reusedFor"]
+    assert schema["requestProvider"]["cache"]["reusedFor"] == [
+        *pn.REQUEST_API_VALUES,
+        "requested metadata",
+    ]
     request_diagnostics = schema["requestProvider"]["diagnostics"]
     assert request_diagnostics["resultLocation"] == "meta.requestDiagnostics"
     assert request_diagnostics["entryRequired"] == [
@@ -90,8 +92,7 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
         "status",
     ]
     assert request_diagnostics["apiValues"] == [
-        "request.security",
-        "request.security_lower_tf",
+        *pn.REQUEST_API_VALUES,
     ]
     assert request_diagnostics["statusValues"] == ["ok", "ignoredInvalidSymbol"]
     request_error_detail = schema["requestProvider"]["errorDetail"]
@@ -113,7 +114,7 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
         "request capability provider failed"
     )
     assert request_errors["invalidSymbol"]["code"] == "PYNE_INVALID_SYMBOL"
-    assert "request.security_lower_tf" in request_errors["invalidSymbol"]["appliesTo"]
+    assert request_errors["invalidSymbol"]["appliesTo"] == [*pn.REQUEST_API_VALUES]
     assert "empty groups" in request_errors["invalidSymbol"]["ignoreInvalidSymbol"]
     assert request_errors["providerFailure"]["code"] == "PYNE_RUNTIME_ERROR"
     assert request_errors["invalidReturnType"]["messageContains"] == (

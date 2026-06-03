@@ -8,6 +8,9 @@ from .errors import PyneRequestError
 from .. import _request_contract
 from ..metadata import SessionInfo, SymbolInfo, TimeframeInfo
 
+REQUEST_SECURITY_API = _request_contract.REQUEST_SECURITY_API
+REQUEST_SECURITY_LOWER_TF_API = _request_contract.REQUEST_SECURITY_LOWER_TF_API
+REQUEST_API_VALUES = _request_contract.REQUEST_API_VALUES
 REQUEST_SECURITY_CAPABILITY_ALIASES = (
     _request_contract.REQUEST_SECURITY_CAPABILITY_ALIASES
 )

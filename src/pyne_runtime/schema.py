@@ -5,7 +5,10 @@ from typing import Any
 
 from ._request_contract import (
     REQUEST_METADATA_KEY_ALIASES,
+    REQUEST_API_VALUES,
+    REQUEST_SECURITY_API,
     REQUEST_SECURITY_CAPABILITY_ALIASES,
+    REQUEST_SECURITY_LOWER_TF_API,
     REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
 )
 
@@ -19,14 +22,14 @@ PYNE_STRATEGY_REPORT_SCHEMA_VERSION = 1
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
 REQUEST_PROVIDER_SUPPORTED_APIS: tuple[dict[str, Any], ...] = (
     {
-        "api": "request.security",
+        "api": REQUEST_SECURITY_API,
         "providerMethod": "get_ohlcv",
         "capabilityAliases": list(REQUEST_SECURITY_CAPABILITY_ALIASES),
         "result": "chart-aligned series or tuple of chart-aligned series",
         "supportsIgnoreInvalidSymbol": True,
     },
     {
-        "api": "request.security_lower_tf",
+        "api": REQUEST_SECURITY_LOWER_TF_API,
         "providerMethod": "get_ohlcv",
         "capabilityAliases": list(REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES),
         "result": "lower-timeframe grouped arrays or tuple of grouped arrays",
@@ -352,7 +355,7 @@ SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
 REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
     "missingProvider": {
         "code": "PYNE_UNSUPPORTED_FEATURE",
-        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "appliesTo": list(REQUEST_API_VALUES),
         "condition": "No host data provider is configured for a request.* call.",
         "beforeGetOhlcv": True,
         "ignoreInvalidSymbol": "not applicable",
@@ -360,7 +363,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
     },
     "unsupportedCapability": {
         "code": "PYNE_UNSUPPORTED_FEATURE",
-        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "appliesTo": list(REQUEST_API_VALUES),
         "condition": "Provider capabilities explicitly omit or disable the requested API.",
         "beforeGetOhlcv": True,
         "ignoreInvalidSymbol": "not applicable",
@@ -368,7 +371,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
     },
     "capabilityFailure": {
         "code": "PYNE_RUNTIME_ERROR",
-        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "appliesTo": list(REQUEST_API_VALUES),
         "condition": "capabilities() or capabilities attribute evaluation raises unexpectedly.",
         "beforeGetOhlcv": True,
         "ignoreInvalidSymbol": "not applicable",
@@ -376,7 +379,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
     },
     "invalidSymbol": {
         "code": "PYNE_INVALID_SYMBOL",
-        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "appliesTo": list(REQUEST_API_VALUES),
         "condition": "Provider raises PyneInvalidSymbolError for the requested symbol.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": (
@@ -386,7 +389,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
     },
     "providerFailure": {
         "code": "PYNE_RUNTIME_ERROR",
-        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "appliesTo": list(REQUEST_API_VALUES),
         "condition": "get_ohlcv raises an unexpected exception.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "not ignored",
@@ -394,7 +397,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
     },
     "invalidReturnType": {
         "code": "PYNE_RUNTIME_ERROR",
-        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "appliesTo": list(REQUEST_API_VALUES),
         "condition": "get_ohlcv returns None or a non-list value.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "None may be treated as empty data only when true",
@@ -402,7 +405,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
     },
     "invalidBarShape": {
         "code": "PYNE_RUNTIME_ERROR",
-        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "appliesTo": list(REQUEST_API_VALUES),
         "condition": "A returned OHLCV bar is not a mapping or lacks required fields.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "not ignored",
@@ -410,7 +413,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
     },
     "invalidMetadata": {
         "code": "PYNE_RUNTIME_ERROR",
-        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "appliesTo": list(REQUEST_API_VALUES),
         "condition": "Requested-context metadata is not a mapping.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "metadata is skipped for ignored invalid symbols",
@@ -418,7 +421,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
     },
     "metadataFailure": {
         "code": "PYNE_RUNTIME_ERROR",
-        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "appliesTo": list(REQUEST_API_VALUES),
         "condition": "get_request_metadata() or request_metadata(...) raises unexpectedly.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "metadata is skipped for ignored invalid symbols",
@@ -426,7 +429,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
     },
     "expressionFailure": {
         "code": "PYNE_RUNTIME_ERROR",
-        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "appliesTo": list(REQUEST_API_VALUES),
         "condition": "A callable request expression raises unexpectedly.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "not applicable after expression evaluation starts",
@@ -615,8 +618,7 @@ def request_provider_schema() -> dict[str, Any]:
             "scope": "one script run",
             "key": ["symbol", "timeframe", "start", "end"],
             "reusedFor": [
-                "request.security",
-                "request.security_lower_tf",
+                *REQUEST_API_VALUES,
                 "requested metadata",
             ],
             "separateRuns": "provider data is not cached across pn.run() executions",
@@ -635,7 +637,7 @@ def request_provider_schema() -> dict[str, Any]:
                 "ignoreInvalidSymbol",
                 "status",
             ],
-            "apiValues": ["request.security", "request.security_lower_tf"],
+            "apiValues": list(REQUEST_API_VALUES),
             "statusValues": ["ok", "ignoredInvalidSymbol"],
             "semantics": (
                 "One entry is appended for each successful request.* call; repeated "

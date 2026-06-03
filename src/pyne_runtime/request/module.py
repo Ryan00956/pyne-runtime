@@ -23,7 +23,9 @@ from .eval import (
 )
 from .lower_tf import LowerTimeframeSeries, _group_lower_timeframe_values
 from .provider import (
+    REQUEST_SECURITY_API,
     REQUEST_SECURITY_CAPABILITY_ALIASES,
+    REQUEST_SECURITY_LOWER_TF_API,
     REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
     DataProvider,
     _default_request_metadata,
@@ -78,7 +80,7 @@ class RequestModule:
         timeframe_text = str(timeframe)
         start, end = self._context.times[0], self._context.times[-1]
         request_context = self._request_context_payload(
-            "request.security",
+            REQUEST_SECURITY_API,
             symbol_text,
             timeframe_text,
             start,
@@ -122,7 +124,7 @@ class RequestModule:
         )
 
         requested, requested_ctx, cache_hit, ignored_invalid_symbol = self._requested_context(
-            "request.security",
+            REQUEST_SECURITY_API,
             symbol_text,
             timeframe_text,
             start,
@@ -130,7 +132,7 @@ class RequestModule:
             ignore_invalid_symbol=ignore_invalid_symbol,
         )
         self._record_diagnostic(
-            api="request.security",
+            api=REQUEST_SECURITY_API,
             symbol=symbol_text,
             timeframe=timeframe_text,
             start=start,
@@ -195,7 +197,7 @@ class RequestModule:
         timeframe_text = str(timeframe)
         start, end = self._context.times[0], self._context.times[-1]
         request_context = self._request_context_payload(
-            "request.security_lower_tf",
+            REQUEST_SECURITY_LOWER_TF_API,
             symbol_text,
             timeframe_text,
             start,
@@ -230,7 +232,7 @@ class RequestModule:
             )
 
         requested, requested_ctx, cache_hit, ignored_invalid_symbol = self._requested_context(
-            "request.security_lower_tf",
+            REQUEST_SECURITY_LOWER_TF_API,
             symbol_text,
             timeframe_text,
             start,
@@ -238,7 +240,7 @@ class RequestModule:
             ignore_invalid_symbol=ignore_invalid_symbol,
         )
         self._record_diagnostic(
-            api="request.security_lower_tf",
+            api=REQUEST_SECURITY_LOWER_TF_API,
             symbol=symbol_text,
             timeframe=timeframe_text,
             start=start,
