@@ -32,6 +32,8 @@
 - Added lower-timeframe invalid thunk and nested request rejection coverage.
 - Added lower-timeframe provider availability error-detail golden coverage.
 - Added lower-timeframe capability failure error-detail golden coverage.
+- Fixed request providers returning `None` so `ignore_invalid_symbol=True` no
+  longer hides invalid return-type contract failures.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

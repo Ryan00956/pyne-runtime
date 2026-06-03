@@ -322,15 +322,12 @@ class RequestModule:
                 request_context=request_context,
             ) from exc
         if requested is None:
-            if not ignore_invalid_symbol:
-                raise PyneRequestError(
-                    "request data provider must return a list of OHLCV bars",
-                    code="PYNE_RUNTIME_ERROR",
-                    category="invalidReturnType",
-                    request_context=request_context,
-                )
-            requested = []
-            ignored_invalid_symbol = True
+            raise PyneRequestError(
+                "request data provider must return a list of OHLCV bars",
+                code="PYNE_RUNTIME_ERROR",
+                category="invalidReturnType",
+                request_context=request_context,
+            )
         if not isinstance(requested, list):
             raise PyneRequestError(
                 "request data provider must return a list of OHLCV bars",

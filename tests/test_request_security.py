@@ -299,6 +299,39 @@ plot(bad, "Bad")
     assert provider.calls == [("MISSING", "2", 1, 4), ("MISSING", "2", 1, 4)]
 
 
+def test_request_security_ignore_invalid_symbol_does_not_hide_invalid_return_type() -> None:
+    class NoneReturnProvider(StaticProvider):
+        def get_ohlcv(self, symbol: str, timeframe: str, start: int, end: int) -> Any:
+            self.calls.append((symbol, timeframe, start, end))
+            return None
+
+    provider = NoneReturnProvider([])
+
+    result = pn.run(
+        """
+indicator("Invalid Return Is Not Invalid Symbol", overlay=True)
+higher = request.security("BTCUSDT", "2", close, ignore_invalid_symbol=True)
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert result.error_detail is not None
+    assert result.error_detail["code"] == "PYNE_RUNTIME_ERROR"
+    assert result.error_detail["requestProviderCategory"] == "invalidReturnType"
+    assert result.error_detail["requestProviderRequest"] == {
+        "api": "request.security",
+        "symbol": "BTCUSDT",
+        "timeframe": "2",
+        "start": 1,
+        "end": 4,
+    }
+
+
 def test_request_security_ignored_invalid_symbol_does_not_poison_valid_request_cache() -> None:
     class MixedProvider(StaticProvider):
         def __init__(self) -> None:
@@ -1537,6 +1570,39 @@ plot(bad.size(), "Bad Lower Count")
     assert not result.ok
     assert result.code == "PYNE_INVALID_SYMBOL"
     assert provider.calls == [("MISSING", "1", 1, 4), ("MISSING", "1", 1, 4)]
+
+
+def test_request_security_lower_tf_ignore_invalid_symbol_does_not_hide_invalid_return_type() -> None:
+    class NoneReturnProvider(StaticProvider):
+        def get_ohlcv(self, symbol: str, timeframe: str, start: int, end: int) -> Any:
+            self.calls.append((symbol, timeframe, start, end))
+            return None
+
+    provider = NoneReturnProvider([])
+
+    result = pn.run(
+        """
+indicator("Lower Invalid Return Is Not Invalid Symbol", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close, ignore_invalid_symbol=True)
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert result.error_detail is not None
+    assert result.error_detail["code"] == "PYNE_RUNTIME_ERROR"
+    assert result.error_detail["requestProviderCategory"] == "invalidReturnType"
+    assert result.error_detail["requestProviderRequest"] == {
+        "api": "request.security_lower_tf",
+        "symbol": "BTCUSDT",
+        "timeframe": "1",
+        "start": 1,
+        "end": 4,
+    }
 
 
 def test_request_security_lower_tf_invalid_symbol_reports_request_context() -> None:
