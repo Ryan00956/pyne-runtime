@@ -50,9 +50,9 @@ Script namespace groups exposed by `pn.schema()["scriptNamespace"]`:
 - `data`: OHLCV sources, derived price sources, bar clock, barstate, and runtime
   metadata.
 - `modules`: Pine-like namespaces such as `ta`, `input`, `request`, `strategy`,
-  `array`, `map`, `matrix`, `color`, `math`, and `pyne`.
+  `array`, `map`, `matrix`, `color`, `math`, `pyne`, and cache helpers.
 - `plot`: plot, marker, alert, drawing object, and visual enum helpers.
 - `utility`: expression helpers, history helpers, TA aliases, `na` / `nz`, and
-  boolean aliases.
+  explicit `var` / `state` cells.
 - `compat`: Python/legacy compatibility names such as `np`, `numpy`, and
   read-only `params`.

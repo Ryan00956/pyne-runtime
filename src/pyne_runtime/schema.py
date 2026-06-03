@@ -250,6 +250,9 @@ SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
             "color",
             "math",
             "pyne",
+            "cache",
+            "cache_clear",
+            "cache_stats",
         ],
         "plot": [
             "indicator",
@@ -307,6 +310,8 @@ SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
             "falling",
             "true",
             "false",
+            "var",
+            "state",
             "sma",
             "ema",
             "wma",
