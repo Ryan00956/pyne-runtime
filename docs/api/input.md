@@ -33,6 +33,10 @@ Each schema entry includes:
 - `options`: dropdown choices for string and source inputs.
 - `minval`, `maxval`, `step`: numeric bounds and increment metadata.
 
+When multiple inputs reuse the same title, the first input keeps that title as
+its `key` / `id` and later inputs receive stable numeric suffixes such as
+`Length_2`, `Length_3`, and so on. The display `title` remains unchanged.
+
 For compatibility with older schema consumers, numeric inputs also expose
 `min` and `max` aliases when bounds are declared.
 

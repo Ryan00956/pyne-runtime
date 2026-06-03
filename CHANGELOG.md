@@ -51,6 +51,7 @@
 - Aligned incremental styled line plot output with batch plot output.
 - Aligned incremental default plot and marker panes with indicator overlay.
 - Documented incremental committed plot and marker output convergence.
+- Assigned stable suffixed input schema keys for repeated input titles.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

@@ -78,6 +78,15 @@ class InputModule:
         if entry is not None:
             entry["current"] = value
 
+    def _next_key(self, title: str, prefix: str) -> str:
+        base = title or f"{prefix}_{len(self._schema)}"
+        if base not in self._seen_keys:
+            return base
+        suffix = 2
+        while f"{base}_{suffix}" in self._seen_keys:
+            suffix += 1
+        return f"{base}_{suffix}"
+
     def _invalid(self, key: str, message: str) -> PyneInputError:
         return PyneInputError(f"Invalid input parameter '{key}': {message}")
 
@@ -172,7 +181,7 @@ class InputModule:
 
         Pine equivalent: ``input.int(20, "Period", minval=1, maxval=500)``
         """
-        key = title or f"int_{len(self._schema)}"
+        key = self._next_key(title, "int")
         schema = {
             "key": key,
             "type": "int",
@@ -215,7 +224,7 @@ class InputModule:
 
         Pine equivalent: ``input.float(2.0, "Multiplier", step=0.1)``
         """
-        key = title or f"float_{len(self._schema)}"
+        key = self._next_key(title, "float")
         schema = {
             "key": key,
             "type": "float",
@@ -255,7 +264,7 @@ class InputModule:
 
         Pine equivalent: ``input.bool(true, "Show MA")``
         """
-        key = title or f"bool_{len(self._schema)}"
+        key = self._next_key(title, "bool")
         schema = {
             "key": key,
             "type": "bool",
@@ -287,7 +296,7 @@ class InputModule:
 
         Pine equivalent: ``input.string("SMA", "Type", options=["SMA","EMA","WMA"])``
         """
-        key = title or f"string_{len(self._schema)}"
+        key = self._next_key(title, "string")
         schema: dict[str, Any] = {
             "key": key,
             "type": "string",
@@ -322,7 +331,7 @@ class InputModule:
 
         Pine equivalent: ``input.color(color.orange, "Color")``
         """
-        key = title or f"color_{len(self._schema)}"
+        key = self._next_key(title, "color")
         schema = {
             "key": key,
             "type": "color",
@@ -376,7 +385,7 @@ class InputModule:
 
         options = ["open", "high", "low", "close", "hl2", "hlc3", "ohlc4", "hlcc4"]
 
-        key = title or "Source"
+        key = self._next_key(title, "source")
         schema = {
             "key": key,
             "type": "source",
@@ -420,7 +429,7 @@ class InputModule:
 
         Pine equivalent: ``input.timeframe("60", "Higher Timeframe")``.
         """
-        key = title or f"timeframe_{len(self._schema)}"
+        key = self._next_key(title, "timeframe")
         schema: dict[str, Any] = {
             "key": key,
             "type": "timeframe",
@@ -456,7 +465,7 @@ class InputModule:
 
         Pine equivalent: ``input.symbol("NASDAQ:AAPL", "Symbol")``.
         """
-        key = title or f"symbol_{len(self._schema)}"
+        key = self._next_key(title, "symbol")
         schema: dict[str, Any] = {
             "key": key,
             "type": "symbol",
@@ -492,7 +501,7 @@ class InputModule:
 
         Pine equivalent: ``input.session("0930-1600", "Session")``.
         """
-        key = title or f"session_{len(self._schema)}"
+        key = self._next_key(title, "session")
         schema: dict[str, Any] = {
             "key": key,
             "type": "session",
@@ -527,7 +536,7 @@ class InputModule:
 
         Pine equivalent: ``input.time(timestamp, "Start Time")``.
         """
-        key = title or f"time_{len(self._schema)}"
+        key = self._next_key(title, "time")
         schema: dict[str, Any] = {
             "key": key,
             "type": "time",

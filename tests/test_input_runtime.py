@@ -108,6 +108,32 @@ plot(src * mult, kind, color=col)
     assert schema["Source"]["current"] == "hl2"
 
 
+def test_input_duplicate_titles_get_stable_unique_keys() -> None:
+    result = pn.run(
+        """
+fast = input.int(12, "Length")
+slow = input.int(26, "Length")
+kind = input.string("EMA", "Length", options=["SMA", "EMA"])
+plot(fast, "Fast")
+plot(slow, "Slow")
+plot(1 if kind == "SMA" else 0, "Kind")
+""",
+        _bars(),
+        params={"Length": 10, "Length_2": 30, "Length_3": "SMA"},
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    schema = result.param_schema
+    assert [item["key"] for item in schema] == ["Length", "Length_2", "Length_3"]
+    assert [item["id"] for item in schema] == ["Length", "Length_2", "Length_3"]
+    assert [item["title"] for item in schema] == ["Length", "Length", "Length"]
+    assert [item["current"] for item in schema] == [10, 30, "SMA"]
+    assert result.values("Fast") == [10.0, 10.0, 10.0]
+    assert result.values("Slow") == [30.0, 30.0, 30.0]
+    assert result.values("Kind") == [1.0, 1.0, 1.0]
+
+
 def test_input_timeframe_symbol_session_and_time_schema() -> None:
     result = pn.run(
         """

@@ -44,6 +44,9 @@ bounds are declared.
 
 `id` currently matches `key`. Hosts should prefer `id` for stable UI identity
 and `key` for parameter override maps.
+If repeated input declarations use the same display title, the first entry
+keeps that title as `id` / `key` and later entries receive stable suffixes such
+as `_2` and `_3`.
 
 Supported parameter `type` values are `int`, `float`, `bool`, `string`,
 `color`, `source`, `timeframe`, `symbol`, `session`, and `time`. Timeframe,
