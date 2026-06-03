@@ -21,6 +21,7 @@
 - Aligned dict capability alias checks with schema truthy-alias semantics.
 - Added lower-timeframe ignored-invalid-symbol cache coverage.
 - Added lower-timeframe repeated-request cache diagnostics coverage.
+- Added lower-timeframe cross-run cache boundary coverage.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

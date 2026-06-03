@@ -786,6 +786,49 @@ plot(higher, "Higher")
     assert second.values("Higher") == [20.0, 20.0, 40.0]
 
 
+def test_request_security_lower_tf_does_not_cache_provider_data_across_runs() -> None:
+    class ChangingProvider(StaticProvider):
+        def __init__(self) -> None:
+            super().__init__([])
+
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            base = float(len(self.calls) * 10)
+            return [
+                {"time": 1, "open": base, "high": base, "low": base, "close": base, "volume": 1000},
+                {
+                    "time": 3,
+                    "open": base + 20,
+                    "high": base + 20,
+                    "low": base + 20,
+                    "close": base + 20,
+                    "volume": 3000,
+                },
+            ]
+
+    provider = ChangingProvider()
+    script = """
+indicator("Lower Run Boundary", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", "close")
+plot(lower.last(default=0), "Lower Last")
+"""
+
+    first = pn.run(script, _bars(), data_provider=provider, executor_mode="inline")
+    second = pn.run(script, _bars(), data_provider=provider, executor_mode="inline")
+
+    assert first.ok, first.error
+    assert second.ok, second.error
+    assert provider.calls == [("BTCUSDT", "1", 1, 4), ("BTCUSDT", "1", 1, 4)]
+    assert first.values("Lower Last") == [10.0, 0.0, 30.0, 0.0]
+    assert second.values("Lower Last") == [20.0, 0.0, 40.0, 0.0]
+
+
 def test_request_security_accepts_basic_expression_thunk() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 12, "low": 8, "close": 10, "volume": 1000},
