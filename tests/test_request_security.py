@@ -1176,6 +1176,47 @@ plot(lower.last(), "Lower Last")
     assert provider.calls == [("MISSING", "1", 1, 4)]
     assert result.values("Lower Count") == [0.0, 0.0, 0.0, 0.0]
     assert result.get_series("Lower Last") == []
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security_lower_tf",
+            "symbol": "MISSING",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+            "bars": 0,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": True,
+            "status": "ignoredInvalidSymbol",
+        }
+    ]
+
+
+def test_request_security_lower_tf_invalid_symbol_reports_request_context() -> None:
+    provider = InvalidSymbolProvider()
+
+    result = pn.run(
+        """
+indicator("Lower Invalid Symbol Error", overlay=True)
+lower = request.security_lower_tf("MISSING", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert provider.calls == [("MISSING", "1", 1, 4)]
+    assert result.error_detail is not None
+    assert result.error_detail["code"] == "PYNE_INVALID_SYMBOL"
+    assert result.error_detail["requestProviderCategory"] == "invalidSymbol"
+    assert result.error_detail["requestProviderRequest"] == {
+        "api": "request.security_lower_tf",
+        "symbol": "MISSING",
+        "timeframe": "1",
+        "start": 1,
+        "end": 4,
+    }
 
 
 def test_request_security_lower_tf_accepts_field_tuple_expression() -> None:
