@@ -29,6 +29,7 @@
   tutorial coverage.
 - Documented and tested provider bar sorting before request alignment/grouping.
 - Added lower-timeframe expression failure request-context golden coverage.
+- Added lower-timeframe invalid thunk and nested request rejection coverage.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

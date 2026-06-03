@@ -1637,6 +1637,54 @@ plot(lower_range.max(), "Lower Range Max")
     ]
 
 
+def test_request_security_lower_tf_rejects_invalid_thunk_return_type() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Invalid Thunk", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", lambda ctx: {"close": ctx.close})
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert "series, tuple of series, or scalar" in str(result.error)
+    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+
+
+def test_request_security_lower_tf_rejects_nested_requests() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Nested Request", overlay=True)
+lower = request.security_lower_tf(
+    "BTCUSDT",
+    "1",
+    lambda ctx: request.security_lower_tf("BTCUSDT", "1", ctx.close),
+)
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert "Nested request.security_lower_tf" in str(result.error)
+    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+
+
 def test_request_security_lower_tf_injects_provider_metadata_into_requested_context() -> None:
     class MetadataProvider(StaticProvider):
         request_metadata = {
