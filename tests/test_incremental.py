@@ -548,6 +548,53 @@ def on_preview(ctx, bar):
     assert closed.output["object_events"][0]["confirmed"] is True
 
 
+def test_incremental_preview_created_drawing_object_is_temporary() -> None:
+    script = """
+indicator("Preview Created Object", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    level = ctx.state("level")
+    if level.value is None:
+        level.value = line.new(ctx.bar_index, bar.close, ctx.bar_index, bar.close, color=color.orange)
+    else:
+        line.set_xy2(level.value, ctx.bar_index, bar.close)
+
+def on_preview(ctx, bar):
+    label.new(ctx.bar_index, bar.high, text="preview", color=color.red)
+"""
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    seed = session.seed(_bars()[:1])
+    preview = session.on_bar_updated({"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100})
+    snapshot = session.snapshot_result()
+    closed = session.on_bar_closed({"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100})
+
+    assert len(seed.output["objects"]["lines"]) == 1
+    assert "labels" not in seed.output["objects"]
+    assert preview.output["objects"]["labels"][0]["text"] == "preview"
+    assert preview.output["object_events"] == [
+        {
+            "action": "create",
+            "kind": "label",
+            "id": "label_2",
+            "object": preview.output["objects"]["labels"][0],
+            "time": 2,
+            "bar_index": 1,
+            "confirmed": False,
+            "realtime": True,
+        }
+    ]
+    assert "labels" not in snapshot.output["objects"]
+    assert snapshot.output["objects"]["lines"][0]["x2"] == 0
+    assert "labels" not in closed.output["objects"]
+    assert closed.output["objects"]["lines"][0]["x2"] == 1
+    assert closed.output["object_events"][0]["kind"] == "line"
+    assert closed.output["object_events"][0]["confirmed"] is True
+
+
 def test_incremental_strategy_preview_fill_does_not_persist_until_confirmed() -> None:
     script = """
 indicator("Preview Strategy", mode="incremental", overlay=True)
