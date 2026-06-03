@@ -7,10 +7,30 @@ from typing import Any
 PYNE_INPUT_SCHEMA_VERSION = 1
 PYNE_OUTPUT_SCHEMA_VERSION = 1
 PYNE_PARAM_SCHEMA_VERSION = 1
-PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 6
+PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 7
 PYNE_STRATEGY_REPORT_SCHEMA_VERSION = 1
 
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
+REQUEST_PROVIDER_SUPPORTED_APIS: tuple[dict[str, Any], ...] = (
+    {
+        "api": "request.security",
+        "providerMethod": "get_ohlcv",
+        "capabilityAliases": ["request.security", "security", "ohlcv"],
+        "result": "chart-aligned series or tuple of chart-aligned series",
+        "supportsIgnoreInvalidSymbol": True,
+    },
+    {
+        "api": "request.security_lower_tf",
+        "providerMethod": "get_ohlcv",
+        "capabilityAliases": [
+            "request.security_lower_tf",
+            "security_lower_tf",
+            "lower_tf",
+        ],
+        "result": "lower-timeframe grouped arrays or tuple of grouped arrays",
+        "supportsIgnoreInvalidSymbol": True,
+    },
+)
 OUTPUT_KEYS = (
     "lines",
     "histograms",
@@ -423,8 +443,18 @@ REQUEST_PROVIDER_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
     ],
     "versions": [
         {
-            "version": 6,
+            "version": 7,
             "status": "current",
+            "breakingChanges": [],
+            "notes": [
+                "Adds supportedApis so hosts can discover stable request API "
+                "names, capability aliases, provider method, and result shape.",
+                "Keeps errorDetail.requestProviderRequest from version 6.",
+            ],
+        },
+        {
+            "version": 6,
+            "status": "previous",
             "breakingChanges": [],
             "notes": [
                 "Adds errorDetail.requestProviderRequest for failed request.* calls.",
@@ -551,6 +581,7 @@ def request_provider_schema() -> dict[str, Any]:
     return {
         "schemaVersion": PYNE_REQUEST_PROVIDER_SCHEMA_VERSION,
         "method": "get_ohlcv(symbol, timeframe, start, end) -> list[OHLCV bar]",
+        "supportedApis": [dict(item) for item in REQUEST_PROVIDER_SUPPORTED_APIS],
         "requiredBarFields": list(OHLCV_FIELDS),
         "range": {
             "start": "Chart start time as Unix seconds",

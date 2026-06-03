@@ -21,6 +21,10 @@ def test_cli_schema_prints_public_schema(capsys: pytest.CaptureFixture[str]) -> 
     assert payload["output"]["schemaVersion"] == 1
     assert payload["params"]["schemaVersion"] == 1
     assert payload["requestProvider"]["schemaVersion"] == PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
+    assert [item["api"] for item in payload["requestProvider"]["supportedApis"]] == [
+        "request.security",
+        "request.security_lower_tf",
+    ]
     assert payload["requestProvider"]["cache"]["scope"] == "one script run"
     assert payload["requestProvider"]["errors"]["capabilityFailure"] == "PYNE_RUNTIME_ERROR"
     assert (

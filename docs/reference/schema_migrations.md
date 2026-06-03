@@ -40,14 +40,18 @@ Compatibility notes:
 `pn.schema()["requestProvider"]["migration"]` is the machine-readable migration
 policy for host-backed `request.*` integrations.
 
-Version 6 is the current request provider schema. It adds
-`errorDetail.requestProviderRequest` for failed request calls while preserving
-the version 5 `meta.requestDiagnostics` entries and the version 4 structured
+Version 7 is the current request provider schema. It adds `supportedApis` so
+hosts can discover stable request API names, capability aliases, provider
+method, and result shape before wiring an adapter. It preserves the version 6
+`errorDetail.requestProviderRequest` for failed request calls, the version 5
+`meta.requestDiagnostics` entries, and the version 4 structured
 `errorCategories` for host-facing request diagnostics.
 
 Compatibility notes:
 
 - Hosts that only read `errors` can continue doing so.
+- Hosts can read `supportedApis` to decide which request APIs to expose in UI,
+  editor help, and provider capability checks.
 - Hosts that display request integration failures should prefer
   `errorCategories`, which records stable error codes, whether `get_ohlcv` is
   called, `ignore_invalid_symbol` behavior, and identifying message fragments.

@@ -140,8 +140,13 @@ the provider-level session default.
 
 The provider contract is also exposed through `pn.schema()["requestProvider"]`.
 That schema lists the required `get_ohlcv(...)` method, required OHLCV fields,
-capability aliases, metadata keys, requested-context cache semantics, and
-stable error categories.
+stable request APIs under `supportedApis`, capability aliases, metadata keys,
+requested-context cache semantics, and stable error categories.
+
+`supportedApis` currently contains `request.security` and
+`request.security_lower_tf`. Each entry records the canonical API name, provider
+method, accepted capability aliases, result shape, and whether
+`ignore_invalid_symbol` is supported.
 
 ## Provider Error Contract
 

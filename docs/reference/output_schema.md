@@ -82,6 +82,8 @@ Schema bundle keys:
 Result `meta` may include `requestDiagnostics` when a script calls
 `request.security()` or `request.security_lower_tf()`. The field is described
 by `pn.schema()["requestProvider"]["diagnostics"]`.
+Hosts can discover stable request APIs and their capability aliases from
+`pn.schema()["requestProvider"]["supportedApis"]`.
 
 Output migration policy:
 

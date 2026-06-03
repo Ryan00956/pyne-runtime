@@ -12,6 +12,7 @@
 - Added `errorDetail.requestProviderRequest` for failed request coordinates.
 - Documented and tested stable request exception metadata.
 - Added lower-timeframe request diagnostics and error-detail golden coverage.
+- Added request provider schema v7 `supportedApis` discovery metadata.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.
