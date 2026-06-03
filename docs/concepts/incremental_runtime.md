@@ -98,7 +98,9 @@ only a closed bar, it is true.
 `ctx.state()` cells keep committed history snapshots. Use `cell[1]` to read the
 previous confirmed bar's value. If the cell stores an `array`, `map`, or
 `matrix`, the historical value is a collection snapshot, so mutating the
-current collection does not alter previous-bar state.
+current collection does not alter previous-bar state. Nested arrays, maps, and
+matrices are snapshotted recursively, so mutating an inner collection on the
+current bar does not change the previous bar's nested collection view.
 
 `snapshot_result()` returns the current committed session without replaying the
 script:

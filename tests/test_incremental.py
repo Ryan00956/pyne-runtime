@@ -322,6 +322,44 @@ def on_bar(ctx, bar):
     assert _line_values(result, "previous_array_after_mutation") == [0.0, 2.0, 4.0]
 
 
+def test_incremental_state_nested_collection_history_freezes_inner_values() -> None:
+    script = """
+indicator("Nested Collection History", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    outer_cell = ctx.state("outer", array.new())
+    outer = outer_cell.value
+    if array.size(outer) == 0:
+        array.push(outer, array.new())
+
+    previous_outer = outer_cell[1]
+    previous_inner = (
+        array.get(previous_outer, 0)
+        if previous_outer is not None and array.size(previous_outer) > 0
+        else None
+    )
+    current_inner = array.get(outer, 0)
+
+    ctx.plot(
+        "Previous Inner Before Mutation",
+        array.size(previous_inner) if previous_inner is not None else 0,
+    )
+    array.push(current_inner, bar.close)
+    ctx.plot("Current Inner", array.size(current_inner))
+    ctx.plot(
+        "Previous Inner After Mutation",
+        array.size(previous_inner) if previous_inner is not None else 0,
+    )
+"""
+
+    result = pn.run(script, _bars(), executor_mode="inline")
+
+    assert result.ok, result.error
+    assert _line_values(result, "previous_inner_before_mutation") == [0.0, 1.0, 2.0]
+    assert _line_values(result, "current_inner") == [1.0, 2.0, 3.0]
+    assert _line_values(result, "previous_inner_after_mutation") == [0.0, 1.0, 2.0]
+
+
 def test_incremental_ta_helpers_match_batch_committed_bars() -> None:
     bars = [
         {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.0, "volume": 100},
