@@ -4,6 +4,8 @@
 
 - Added output, parameter, request provider, strategy report, and script
   namespace schema contracts for host integrations.
+- Added request provider schema v4 structured error categories for host
+  diagnostics.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

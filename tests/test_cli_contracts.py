@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from pyne_runtime import PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
 from pyne_runtime.cli import main
 
 
@@ -19,9 +20,13 @@ def test_cli_schema_prints_public_schema(capsys: pytest.CaptureFixture[str]) -> 
     assert payload["input"]["schemaVersion"] == 1
     assert payload["output"]["schemaVersion"] == 1
     assert payload["params"]["schemaVersion"] == 1
-    assert payload["requestProvider"]["schemaVersion"] == 3
+    assert payload["requestProvider"]["schemaVersion"] == PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
     assert payload["requestProvider"]["cache"]["scope"] == "one script run"
     assert payload["requestProvider"]["errors"]["capabilityFailure"] == "PYNE_RUNTIME_ERROR"
+    assert (
+        payload["requestProvider"]["errorCategories"]["invalidSymbol"]["code"]
+        == "PYNE_INVALID_SYMBOL"
+    )
 
 
 def test_cli_validate_reports_syntax_error(

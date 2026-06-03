@@ -35,6 +35,24 @@ Compatibility notes:
 - Hosts should prefer `output["objects"]["labels"]` for Pine-like drawing
   labels.
 
+## Request Provider Schema
+
+`pn.schema()["requestProvider"]["migration"]` is the machine-readable migration
+policy for host-backed `request.*` integrations.
+
+Version 4 is the current request provider schema. It adds structured
+`errorCategories` for host-facing request diagnostics while preserving the
+legacy `errors` mapping.
+
+Compatibility notes:
+
+- Hosts that only read `errors` can continue doing so.
+- Hosts that display request integration failures should prefer
+  `errorCategories`, which records stable error codes, whether `get_ohlcv` is
+  called, `ignore_invalid_symbol` behavior, and identifying message fragments.
+- `invalidSymbol` remains the only provider-side error class that can be
+  intentionally converted into empty request output by `ignore_invalid_symbol`.
+
 ## Breaking Change Checklist
 
 Any breaking change to a host-facing schema must include all of these in the

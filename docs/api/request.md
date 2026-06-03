@@ -137,6 +137,26 @@ That schema lists the required `get_ohlcv(...)` method, required OHLCV fields,
 capability aliases, metadata keys, requested-context cache semantics, and
 stable error categories.
 
+## Provider Error Contract
+
+Hosts can branch on `pn.schema()["requestProvider"]["schemaVersion"]` and
+`pn.schema()["requestProvider"]["errorCategories"]` when displaying request
+integration failures. Version 4 adds structured categories while preserving the
+legacy `errors` mapping.
+
+| Category | Code | Calls `get_ohlcv`? | Stable meaning |
+| --- | --- | --- | --- |
+| `missingProvider` | `PYNE_UNSUPPORTED_FEATURE` | No | No host data provider is configured. |
+| `unsupportedCapability` | `PYNE_UNSUPPORTED_FEATURE` | No | Provider capabilities explicitly omit or disable the requested API. |
+| `capabilityFailure` | `PYNE_RUNTIME_ERROR` | No | Capability declaration lookup raised unexpectedly. |
+| `invalidSymbol` | `PYNE_INVALID_SYMBOL` | Yes | Provider raised `PyneInvalidSymbolError`; `ignore_invalid_symbol=True` returns `na` values for `request.security()` and empty groups for `request.security_lower_tf()`. |
+| `providerFailure` | `PYNE_RUNTIME_ERROR` | Yes | `get_ohlcv(...)` raised an unexpected exception. |
+| `invalidReturnType` | `PYNE_RUNTIME_ERROR` | Yes | `get_ohlcv(...)` returned `None` or a non-list value. |
+| `invalidBarShape` | `PYNE_RUNTIME_ERROR` | Yes | Returned bars are not mappings or do not satisfy the OHLCV contract. |
+| `invalidMetadata` | `PYNE_RUNTIME_ERROR` | Yes | Requested-context metadata is not a mapping. |
+| `metadataFailure` | `PYNE_RUNTIME_ERROR` | Yes | Metadata lookup raised unexpectedly. |
+| `expressionFailure` | `PYNE_RUNTIME_ERROR` | Yes | A callable request expression raised unexpectedly. |
+
 For IDE and static typing support, Pyne exports provider typing helpers at both
 `pyne_runtime.request` and the package top level:
 

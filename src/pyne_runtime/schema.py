@@ -7,7 +7,7 @@ from typing import Any
 PYNE_INPUT_SCHEMA_VERSION = 1
 PYNE_OUTPUT_SCHEMA_VERSION = 1
 PYNE_PARAM_SCHEMA_VERSION = 1
-PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 3
+PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 4
 PYNE_STRATEGY_REPORT_SCHEMA_VERSION = 1
 
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
@@ -327,6 +327,122 @@ SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
     },
 }
 
+REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
+    "missingProvider": {
+        "code": "PYNE_UNSUPPORTED_FEATURE",
+        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "condition": "No host data provider is configured for a request.* call.",
+        "beforeGetOhlcv": True,
+        "ignoreInvalidSymbol": "not applicable",
+        "messageContains": "host data provider",
+    },
+    "unsupportedCapability": {
+        "code": "PYNE_UNSUPPORTED_FEATURE",
+        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "condition": "Provider capabilities explicitly omit or disable the requested API.",
+        "beforeGetOhlcv": True,
+        "ignoreInvalidSymbol": "not applicable",
+        "messageContains": "provider capability",
+    },
+    "capabilityFailure": {
+        "code": "PYNE_RUNTIME_ERROR",
+        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "condition": "capabilities() or capabilities attribute evaluation raises unexpectedly.",
+        "beforeGetOhlcv": True,
+        "ignoreInvalidSymbol": "not applicable",
+        "messageContains": "request capability provider failed",
+    },
+    "invalidSymbol": {
+        "code": "PYNE_INVALID_SYMBOL",
+        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "condition": "Provider raises PyneInvalidSymbolError for the requested symbol.",
+        "beforeGetOhlcv": False,
+        "ignoreInvalidSymbol": (
+            "request.security returns na values; request.security_lower_tf returns empty groups"
+        ),
+        "messageContains": "Invalid symbol",
+    },
+    "providerFailure": {
+        "code": "PYNE_RUNTIME_ERROR",
+        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "condition": "get_ohlcv raises an unexpected exception.",
+        "beforeGetOhlcv": False,
+        "ignoreInvalidSymbol": "not ignored",
+        "messageContains": "request data provider failed",
+    },
+    "invalidReturnType": {
+        "code": "PYNE_RUNTIME_ERROR",
+        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "condition": "get_ohlcv returns None or a non-list value.",
+        "beforeGetOhlcv": False,
+        "ignoreInvalidSymbol": "None may be treated as empty data only when true",
+        "messageContains": "must return a list of OHLCV bars",
+    },
+    "invalidBarShape": {
+        "code": "PYNE_RUNTIME_ERROR",
+        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "condition": "A returned OHLCV bar is not a mapping or lacks required fields.",
+        "beforeGetOhlcv": False,
+        "ignoreInvalidSymbol": "not ignored",
+        "messageContains": "request data provider returned",
+    },
+    "invalidMetadata": {
+        "code": "PYNE_RUNTIME_ERROR",
+        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "condition": "Requested-context metadata is not a mapping.",
+        "beforeGetOhlcv": False,
+        "ignoreInvalidSymbol": "metadata is skipped for ignored invalid symbols",
+        "messageContains": "request metadata must be a mapping",
+    },
+    "metadataFailure": {
+        "code": "PYNE_RUNTIME_ERROR",
+        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "condition": "get_request_metadata() or request_metadata(...) raises unexpectedly.",
+        "beforeGetOhlcv": False,
+        "ignoreInvalidSymbol": "metadata is skipped for ignored invalid symbols",
+        "messageContains": "request metadata provider failed",
+    },
+    "expressionFailure": {
+        "code": "PYNE_RUNTIME_ERROR",
+        "appliesTo": ["request.security", "request.security_lower_tf"],
+        "condition": "A callable request expression raises unexpectedly.",
+        "beforeGetOhlcv": False,
+        "ignoreInvalidSymbol": "not applicable after expression evaluation starts",
+        "messageContains": "request.security() expression failed",
+    },
+}
+
+REQUEST_PROVIDER_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
+    "schema": "requestProvider",
+    "currentVersion": PYNE_REQUEST_PROVIDER_SCHEMA_VERSION,
+    "breakingChangeRequires": [
+        "schemaVersion bump",
+        "migration note",
+        "contract test",
+        "request API documentation update",
+    ],
+    "versions": [
+        {
+            "version": 4,
+            "status": "current",
+            "breakingChanges": [],
+            "notes": [
+                "Adds structured errorCategories for host-facing request diagnostics.",
+                "Keeps the legacy errors mapping for existing host checks.",
+            ],
+        },
+        {
+            "version": 3,
+            "status": "previous",
+            "breakingChanges": [],
+            "notes": [
+                "Defines provider capabilities, metadata, cache semantics, and "
+                "legacy error code mapping.",
+            ],
+        },
+    ],
+}
+
 
 def input_schema() -> dict[str, Any]:
     """Return the stable Pyne OHLCV input contract."""
@@ -465,6 +581,8 @@ def request_provider_schema() -> dict[str, Any]:
             "invalidOhlcv": "PYNE_RUNTIME_ERROR",
             "providerFailure": "PYNE_RUNTIME_ERROR",
         },
+        "errorCategories": REQUEST_PROVIDER_ERROR_CATEGORIES,
+        "migration": REQUEST_PROVIDER_SCHEMA_MIGRATION_POLICY,
     }
 
 

@@ -56,6 +56,38 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert schema["requestProvider"]["cache"]["key"] == ["symbol", "timeframe", "start", "end"]
     assert "request.security_lower_tf" in schema["requestProvider"]["cache"]["reusedFor"]
     assert schema["requestProvider"]["errors"]["capabilityFailure"] == "PYNE_RUNTIME_ERROR"
+    request_errors = schema["requestProvider"]["errorCategories"]
+    assert request_errors["missingProvider"]["code"] == "PYNE_UNSUPPORTED_FEATURE"
+    assert request_errors["missingProvider"]["beforeGetOhlcv"] is True
+    assert request_errors["unsupportedCapability"]["beforeGetOhlcv"] is True
+    assert request_errors["capabilityFailure"]["messageContains"] == (
+        "request capability provider failed"
+    )
+    assert request_errors["invalidSymbol"]["code"] == "PYNE_INVALID_SYMBOL"
+    assert "request.security_lower_tf" in request_errors["invalidSymbol"]["appliesTo"]
+    assert "empty groups" in request_errors["invalidSymbol"]["ignoreInvalidSymbol"]
+    assert request_errors["providerFailure"]["code"] == "PYNE_RUNTIME_ERROR"
+    assert request_errors["invalidReturnType"]["messageContains"] == (
+        "must return a list of OHLCV bars"
+    )
+    assert request_errors["invalidBarShape"]["messageContains"] == (
+        "request data provider returned"
+    )
+    assert request_errors["invalidMetadata"]["messageContains"] == (
+        "request metadata must be a mapping"
+    )
+    assert request_errors["metadataFailure"]["messageContains"] == (
+        "request metadata provider failed"
+    )
+    assert request_errors["expressionFailure"]["messageContains"] == (
+        "request.security() expression failed"
+    )
+    assert schema["requestProvider"]["migration"]["currentVersion"] == (
+        pn.PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
+    )
+    assert schema["requestProvider"]["migration"]["versions"][0]["version"] == (
+        pn.PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
+    )
     assert schema["strategyReport"]["outputKey"] == "strategy"
     assert "closedtrades" in schema["strategyReport"]["sections"]
     assert "netprofit" in schema["strategyReport"]["summary"]["required"]
