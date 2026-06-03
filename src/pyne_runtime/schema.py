@@ -18,12 +18,175 @@ OUTPUT_KEYS = (
     "hlines",
     "fills",
     "bgcolors",
+    "labels",
     "barcolors",
     "signals",
     "strategy",
     "objects",
     "object_events",
 )
+
+RENDERABLE_CONTRACT: dict[str, dict[str, list[str] | str]] = {
+    "lines": {
+        "collection": "lines",
+        "required": ["id", "title", "color", "linewidth", "style", "pane", "data"],
+        "optional": ["display", "format", "precision", "per_bar_color"],
+        "pointRequired": ["time", "value"],
+        "pointOptional": ["color"],
+    },
+    "histograms": {
+        "collection": "histograms",
+        "required": ["title", "color_up", "color_down", "pane", "data"],
+        "optional": ["display", "format", "precision"],
+        "pointRequired": ["time", "value"],
+        "pointOptional": ["color"],
+    },
+    "markers": {
+        "collection": "markers",
+        "required": ["shape", "text", "position", "size", "pane", "data"],
+        "optional": [
+            "title",
+            "color",
+            "color_up",
+            "color_down",
+            "char",
+            "textcolor",
+            "offset",
+            "minheight",
+            "maxheight",
+            "display",
+            "per_bar_color",
+        ],
+        "pointRequired": ["time", "shape", "color", "text", "position", "size", "pane"],
+        "pointOptional": [
+            "char",
+            "textcolor",
+            "direction",
+            "value",
+            "height",
+        ],
+    },
+    "hlines": {
+        "collection": "hlines",
+        "required": ["price", "title", "color", "linestyle", "linewidth", "pane"],
+        "optional": [],
+    },
+    "fills": {
+        "collection": "fills",
+        "required": ["plot1_id", "plot2_id", "color", "title", "pane"],
+        "optional": [],
+    },
+    "bgcolors": {
+        "collection": "bgcolors",
+        "required": ["color", "pane", "title", "regions"],
+        "optional": [],
+        "regionRequired": ["time"],
+    },
+    "labels": {
+        "collection": "labels",
+        "required": ["text", "position", "color", "textcolor", "pane", "style"],
+        "optional": [],
+        "status": "legacy simple text labels; prefer objects.labels for drawing labels",
+    },
+    "barcolors": {
+        "collection": "barcolors",
+        "required": ["data"],
+        "optional": [],
+        "pointRequired": ["time", "color"],
+    },
+    "signals": {
+        "collection": "signals",
+        "required": ["name", "side", "message", "pane", "data"],
+        "optional": [],
+        "pointRequired": ["time", "side", "name", "message"],
+        "pointOptional": ["strength", "price", "payload"],
+    },
+}
+
+DRAWING_OBJECT_CONTRACT: dict[str, Any] = {
+    "groups": ["lines", "labels", "boxes", "tables"],
+    "commonRequired": ["id", "pane"],
+    "lines": {
+        "required": [
+            "id",
+            "x1",
+            "y1",
+            "x2",
+            "y2",
+            "color",
+            "width",
+            "style",
+            "extend",
+            "xloc",
+            "pane",
+        ],
+    },
+    "labels": {
+        "required": [
+            "id",
+            "x",
+            "y",
+            "text",
+            "color",
+            "textcolor",
+            "style",
+            "size",
+            "xloc",
+            "pane",
+        ],
+        "optional": ["yloc"],
+    },
+    "boxes": {
+        "required": [
+            "id",
+            "left",
+            "top",
+            "right",
+            "bottom",
+            "bgcolor",
+            "border_color",
+            "border_width",
+            "border_style",
+            "xloc",
+            "pane",
+        ],
+    },
+    "tables": {
+        "required": [
+            "id",
+            "position",
+            "columns",
+            "rows",
+            "bgcolor",
+            "frame_color",
+            "frame_width",
+            "border_color",
+            "border_width",
+            "pane",
+            "cells",
+        ],
+        "cellRequired": [
+            "column",
+            "row",
+            "text",
+            "text_color",
+            "bgcolor",
+            "width",
+            "height",
+            "text_halign",
+            "text_valign",
+        ],
+    },
+}
+
+OBJECT_EVENT_CONTRACT: dict[str, Any] = {
+    "outputKey": "object_events",
+    "actions": ["create", "update", "delete"],
+    "kinds": ["line", "label", "box", "table"],
+    "required": ["action", "kind", "id", "object"],
+    "optional": ["time", "bar_index", "confirmed", "realtime"],
+    "semantics": "Incremental drawing object changes for the requested output window",
+}
 
 
 def input_schema() -> dict[str, Any]:
@@ -65,6 +228,9 @@ def output_schema() -> dict[str, Any]:
             "value": "Numeric point value",
         },
         "paneValues": ["main", "separate"],
+        "renderables": RENDERABLE_CONTRACT,
+        "objects": DRAWING_OBJECT_CONTRACT,
+        "objectEvents": OBJECT_EVENT_CONTRACT,
     }
 
 

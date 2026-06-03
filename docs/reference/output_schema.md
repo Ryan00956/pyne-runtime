@@ -60,10 +60,12 @@ Structured output keys:
 - `hlines`
 - `fills`
 - `bgcolors`
+- `labels`
 - `barcolors`
 - `signals`
 - `strategy`
 - `objects`
+- `object_events`
 
 Schema bundle keys:
 
@@ -78,6 +80,37 @@ Point format:
 ```json
 {"time": 1710000000, "value": 123.45}
 ```
+
+Renderer contract:
+
+`pn.schema()["output"]["renderables"]` describes the stable field contract for
+host renderers. Hosts should branch on `pn.schema()["output"]["schemaVersion"]`
+before relying on these fields.
+
+- `lines`: entries include `id`, `title`, `color`, `linewidth`, `style`,
+  `pane`, and `data`; data points include `time` and `value`, with optional
+  per-point `color`.
+- `histograms`: entries include `title`, `color_up`, `color_down`, `pane`, and
+  `data`; data points include `time` and `value`, with optional per-point
+  `color`.
+- `markers`: entries include marker display metadata plus `data`; data points
+  include `time`, `shape`, `color`, `text`, `position`, `size`, and `pane`.
+  Arrow and character markers may add `direction`, `value`, `height`, `char`,
+  or `textcolor`.
+- `hlines`: entries include `price`, `title`, `color`, `linestyle`,
+  `linewidth`, and `pane`.
+- `fills`: entries include `plot1_id`, `plot2_id`, `color`, `title`, and
+  `pane`.
+- `bgcolors`: entries include `color`, `pane`, `title`, and `regions`; each
+  region includes `time`.
+- `labels`: legacy simple text labels with `text`, `position`, `color`,
+  `textcolor`, `pane`, and `style`. Prefer drawing object `objects.labels` for
+  Pine-like labels.
+- `barcolors`: entries contain `data`; each data point includes `time` and
+  `color`.
+- `signals`: entries include `name`, `side`, `message`, `pane`, and `data`;
+  signal data points include `time`, `side`, `name`, and `message`, with
+  optional `strength`, `price`, and `payload`.
 
 Drawing object snapshot format:
 
@@ -158,6 +191,22 @@ Drawing object snapshot format:
   }
 }
 ```
+
+Drawing object contract:
+
+`pn.schema()["output"]["objects"]` describes the stable snapshot groups under
+`output["objects"]`: `lines`, `labels`, `boxes`, and `tables`. All drawing
+objects include `id` and `pane`; table cells include `column`, `row`, `text`,
+`text_color`, `bgcolor`, `width`, `height`, `text_halign`, and `text_valign`.
+
+Incremental drawing object event contract:
+
+`pn.schema()["output"]["objectEvents"]` describes `output["object_events"]`.
+Each event includes `action`, `kind`, `id`, and `object`.
+
+- `action`: `create`, `update`, or `delete`.
+- `kind`: `line`, `label`, `box`, or `table`.
+- Optional bar context: `time`, `bar_index`, `confirmed`, and `realtime`.
 
 Strategy event format:
 
