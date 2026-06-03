@@ -47,6 +47,12 @@ class RequestModule:
             tuple[str, str, int, int],
             tuple[list[dict[str, Any]], PyneContext],
         ] = {}
+        self._diagnostics: list[dict[str, Any]] = []
+
+    @property
+    def diagnostics(self) -> list[dict[str, Any]]:
+        """Return host-facing diagnostics for request.* calls in this run."""
+        return [dict(item) for item in self._diagnostics]
 
     def security(
         self,
@@ -97,12 +103,23 @@ class RequestModule:
         )
 
         start, end = self._context.times[0], self._context.times[-1]
-        requested, requested_ctx = self._requested_context(
+        requested, requested_ctx, cache_hit, ignored_invalid_symbol = self._requested_context(
             str(symbol),
             str(timeframe),
             start,
             end,
             ignore_invalid_symbol=ignore_invalid_symbol,
+        )
+        self._record_diagnostic(
+            api="request.security",
+            symbol=str(symbol),
+            timeframe=str(timeframe),
+            start=start,
+            end=end,
+            requested=requested,
+            cache_hit=cache_hit,
+            ignore_invalid_symbol=ignore_invalid_symbol,
+            ignored_invalid_symbol=ignored_invalid_symbol,
         )
         if not requested:
             return PyneSeries(
@@ -174,12 +191,23 @@ class RequestModule:
             )
 
         start, end = self._context.times[0], self._context.times[-1]
-        requested, requested_ctx = self._requested_context(
+        requested, requested_ctx, cache_hit, ignored_invalid_symbol = self._requested_context(
             str(symbol),
             str(timeframe),
             start,
             end,
             ignore_invalid_symbol=ignore_invalid_symbol,
+        )
+        self._record_diagnostic(
+            api="request.security_lower_tf",
+            symbol=str(symbol),
+            timeframe=str(timeframe),
+            start=start,
+            end=end,
+            requested=requested,
+            cache_hit=cache_hit,
+            ignore_invalid_symbol=ignore_invalid_symbol,
+            ignored_invalid_symbol=ignored_invalid_symbol,
         )
         if callable(expression):
             requested_values, expression_name = self._evaluate_expression_thunk(
@@ -212,7 +240,7 @@ class RequestModule:
         end: int,
         *,
         ignore_invalid_symbol: bool,
-    ) -> tuple[list[dict[str, Any]], PyneContext]:
+    ) -> tuple[list[dict[str, Any]], PyneContext, bool, bool]:
         if self._provider is None:
             raise PyneRequestError(
                 "request context requires a host data provider",
@@ -223,7 +251,8 @@ class RequestModule:
         key = (symbol, timeframe, int(start), int(end))
         cached = self._requested_context_cache.get(key)
         if cached is not None:
-            return cached
+            requested, requested_ctx = cached
+            return requested, requested_ctx, True, False
 
         ignored_invalid_symbol = False
         try:
@@ -297,7 +326,32 @@ class RequestModule:
         cached = (requested, requested_ctx)
         if not ignored_invalid_symbol:
             self._requested_context_cache[key] = cached
-        return cached
+        return requested, requested_ctx, False, ignored_invalid_symbol
+
+    def _record_diagnostic(
+        self,
+        *,
+        api: str,
+        symbol: str,
+        timeframe: str,
+        start: int,
+        end: int,
+        requested: list[dict[str, Any]],
+        cache_hit: bool,
+        ignore_invalid_symbol: bool,
+        ignored_invalid_symbol: bool,
+    ) -> None:
+        self._diagnostics.append({
+            "api": api,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "start": int(start),
+            "end": int(end),
+            "bars": len(requested),
+            "cacheHit": cache_hit,
+            "ignoreInvalidSymbol": ignore_invalid_symbol,
+            "status": "ignoredInvalidSymbol" if ignored_invalid_symbol else "ok",
+        })
 
     def _evaluate_expression_thunk(
         self,

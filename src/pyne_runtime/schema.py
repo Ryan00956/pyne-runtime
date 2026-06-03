@@ -7,7 +7,7 @@ from typing import Any
 PYNE_INPUT_SCHEMA_VERSION = 1
 PYNE_OUTPUT_SCHEMA_VERSION = 1
 PYNE_PARAM_SCHEMA_VERSION = 1
-PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 4
+PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 5
 PYNE_STRATEGY_REPORT_SCHEMA_VERSION = 1
 
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
@@ -423,8 +423,17 @@ REQUEST_PROVIDER_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
     ],
     "versions": [
         {
-            "version": 4,
+            "version": 5,
             "status": "current",
+            "breakingChanges": [],
+            "notes": [
+                "Adds meta.requestDiagnostics entries for successful request.* calls.",
+                "Keeps requestProvider errorCategories from version 4.",
+            ],
+        },
+        {
+            "version": 4,
+            "status": "previous",
             "breakingChanges": [],
             "notes": [
                 "Adds structured errorCategories for host-facing request diagnostics.",
@@ -576,6 +585,26 @@ def request_provider_schema() -> dict[str, Any]:
             ],
             "separateRuns": "provider data is not cached across pn.run() executions",
             "ignoredInvalidSymbol": "ignore_invalid_symbol=True empty results are not cached",
+        },
+        "diagnostics": {
+            "resultLocation": "meta.requestDiagnostics",
+            "entryRequired": [
+                "api",
+                "symbol",
+                "timeframe",
+                "start",
+                "end",
+                "bars",
+                "cacheHit",
+                "ignoreInvalidSymbol",
+                "status",
+            ],
+            "apiValues": ["request.security", "request.security_lower_tf"],
+            "statusValues": ["ok", "ignoredInvalidSymbol"],
+            "semantics": (
+                "One entry is appended for each successful request.* call; repeated "
+                "symbol/timeframe/range contexts set cacheHit=true."
+            ),
         },
         "errors": {
             "invalidSymbol": "raise PyneInvalidSymbolError to support ignore_invalid_symbol",

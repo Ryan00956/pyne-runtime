@@ -7,6 +7,8 @@
 - Added request provider schema v4 structured error categories for host
   diagnostics.
 - Added `errorDetail.requestProviderCategory` for request provider failures.
+- Added `meta.requestDiagnostics` for successful request calls and cache-hit
+  visibility.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

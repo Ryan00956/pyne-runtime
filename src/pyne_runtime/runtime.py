@@ -129,6 +129,8 @@ class PyneRuntime:
             result = self._collect_result(services.collector, services.input)
             enforce_output_limits(result.output, policy)
             result.meta = {**result.meta, "securityMode": policy.mode}
+            if services.request.diagnostics:
+                result.meta["requestDiagnostics"] = services.request.diagnostics
             return result
 
         except SyntaxError as exc:

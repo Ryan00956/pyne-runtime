@@ -55,6 +55,24 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert "request.security" in schema["requestProvider"]["capabilities"]["securityAliases"]
     assert schema["requestProvider"]["cache"]["key"] == ["symbol", "timeframe", "start", "end"]
     assert "request.security_lower_tf" in schema["requestProvider"]["cache"]["reusedFor"]
+    request_diagnostics = schema["requestProvider"]["diagnostics"]
+    assert request_diagnostics["resultLocation"] == "meta.requestDiagnostics"
+    assert request_diagnostics["entryRequired"] == [
+        "api",
+        "symbol",
+        "timeframe",
+        "start",
+        "end",
+        "bars",
+        "cacheHit",
+        "ignoreInvalidSymbol",
+        "status",
+    ]
+    assert request_diagnostics["apiValues"] == [
+        "request.security",
+        "request.security_lower_tf",
+    ]
+    assert request_diagnostics["statusValues"] == ["ok", "ignoredInvalidSymbol"]
     assert schema["requestProvider"]["errors"]["capabilityFailure"] == "PYNE_RUNTIME_ERROR"
     request_errors = schema["requestProvider"]["errorCategories"]
     assert request_errors["missingProvider"]["code"] == "PYNE_UNSUPPORTED_FEATURE"

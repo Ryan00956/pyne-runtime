@@ -79,6 +79,12 @@ same provider OHLCV response and requested metadata, while each expression is
 still evaluated independently. Pyne does not cache provider data across
 separate `pn.run()` executions.
 
+Successful request calls append host-facing diagnostics under
+`result.meta["requestDiagnostics"]`. Each entry records `api`, `symbol`,
+`timeframe`, `start`, `end`, returned `bars`, `cacheHit`,
+`ignoreInvalidSymbol`, and `status`. Repeated calls for the same requested
+context set `cacheHit=True`.
+
 Providers may optionally declare request capabilities with either a
 `capabilities` attribute or a `capabilities()` method:
 

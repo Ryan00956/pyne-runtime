@@ -263,6 +263,19 @@ plot(higher, "Higher")
     assert result.ok, result.error
     assert provider.calls == [("MISSING", "2", 1, 4)]
     assert result.get_series("Higher") == []
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security",
+            "symbol": "MISSING",
+            "timeframe": "2",
+            "start": 1,
+            "end": 4,
+            "bars": 0,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": True,
+            "status": "ignoredInvalidSymbol",
+        },
+    ]
 
 
 def test_request_security_ignored_invalid_symbol_does_not_poison_cache() -> None:
@@ -546,6 +559,41 @@ plot(higher_open, "Higher Open")
     assert result.values("Higher High") == [12, 12, 34]
     assert result.values("Higher Low") == [8, 8, 28]
     assert result.values("Higher Open") == [9, 9, 29]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security",
+            "symbol": "BTCUSDT",
+            "timeframe": "2",
+            "start": 1,
+            "end": 4,
+            "bars": 2,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+        {
+            "api": "request.security",
+            "symbol": "BTCUSDT",
+            "timeframe": "2",
+            "start": 1,
+            "end": 4,
+            "bars": 2,
+            "cacheHit": True,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+        {
+            "api": "request.security",
+            "symbol": "BTCUSDT",
+            "timeframe": "2",
+            "start": 1,
+            "end": 4,
+            "bars": 2,
+            "cacheHit": True,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+    ]
 
 
 def test_request_security_reuses_provider_data_across_request_shapes() -> None:
@@ -576,6 +624,30 @@ plot(lower.last(), "Lower Last")
     assert provider.calls == [("BTCUSDT", "1", 1, 4)]
     assert result.values("Higher") == [10, 20, 30, 40]
     assert result.values("Lower Last") == [10.0, 20.0, 30.0, 40.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security",
+            "symbol": "BTCUSDT",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+            "bars": 4,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+        {
+            "api": "request.security_lower_tf",
+            "symbol": "BTCUSDT",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+            "bars": 4,
+            "cacheHit": True,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+    ]
 
 
 def test_request_security_does_not_cache_provider_data_across_runs() -> None:

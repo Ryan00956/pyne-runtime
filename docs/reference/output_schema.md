@@ -79,6 +79,10 @@ Schema bundle keys:
 - `scriptNamespace`: grouped script top-level names for host editor
   autocomplete.
 
+Result `meta` may include `requestDiagnostics` when a script calls
+`request.security()` or `request.security_lower_tf()`. The field is described
+by `pn.schema()["requestProvider"]["diagnostics"]`.
+
 Output migration policy:
 
 `pn.schema()["output"]["migration"]` exposes the current output schema version,

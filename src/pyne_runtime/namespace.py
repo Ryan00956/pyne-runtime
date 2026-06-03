@@ -42,6 +42,7 @@ class RuntimeServices:
     state: PyneStateNamespace = field(init=False)
     collector: OutputCollector = field(init=False)
     plot_functions: dict[str, Any] = field(init=False)
+    request: RequestModule = field(init=False)
     strategy: StrategyModule = field(init=False)
 
     def __post_init__(self) -> None:
@@ -53,6 +54,7 @@ class RuntimeServices:
             max_drawing_objects=self.settings.max_drawing_objects,
         )
         self.plot_functions = create_plot_functions(self.collector)
+        self.request = RequestModule(self.ctx, provider=self.settings.data_provider)
         self.strategy = StrategyModule(self.ctx, self.collector)
 
 
@@ -112,7 +114,7 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
     ctx = services.ctx
     namespace["ta"] = services.ta
     namespace["input"] = services.input
-    namespace["request"] = RequestModule(ctx, provider=services.settings.data_provider)
+    namespace["request"] = services.request
     namespace["barmerge"] = barmerge
     namespace["strategy"] = services.strategy
     namespace["array"] = ArrayNamespace(
