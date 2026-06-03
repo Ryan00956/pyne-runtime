@@ -70,6 +70,12 @@ does not mutate the persistent session. Repeated previews for the same bar time
 reuse `ctx.varip()` cells, while `ctx.state()` changes remain isolated inside
 the cloned preview context.
 
+Treat preview drawing objects and strategy output as an overlay. A preview may
+create an object or submit a strategy order, including a pending stop/limit
+order, but those preview-only objects, lifecycle entries, orders, fills, and
+trade-ledger changes are not visible from `snapshot_result()` and are not
+carried into the later `on_bar_closed()` result.
+
 When the realtime bar is final, submit the final OHLCV through
 `on_bar_closed()`:
 
@@ -130,6 +136,11 @@ temporary overlay. Confirmed events have `confirmed: true` and can be merged
 into the durable UI object store. When a preview is replaced by a new preview
 for the same bar, redraw from the latest preview result. When a bar closes,
 discard preview-only UI state and merge the `on_bar_closed()` result.
+
+The same overlay rule applies to strategy output returned by a preview. Hosts
+can display preview orders, fills, lifecycle rows, and position changes as
+temporary state, but should merge only the strategy report returned by
+`on_bar_closed()` into the durable ledger.
 
 ## Internal Responsibilities
 

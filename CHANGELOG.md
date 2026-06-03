@@ -44,6 +44,7 @@
 - Documented empty-result request cache semantics in compatibility references.
 - Added incremental preview-created drawing object isolation coverage.
 - Added incremental strategy preview pending-order isolation coverage.
+- Documented incremental preview output as temporary overlay state.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.
