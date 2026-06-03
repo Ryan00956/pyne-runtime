@@ -40,6 +40,7 @@
   higher-timeframe and lower-timeframe requests.
 - Added empty-data requested-context cache reuse coverage across request shapes.
 - Clarified request provider schema and docs for empty-result cache semantics.
+- Refreshed the Pine-like API matrix request-provider contract notes.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.
