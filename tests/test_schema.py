@@ -73,11 +73,19 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert schema["requestProvider"]["metadata"]["acceptedKeys"] == {
         key: list(value) for key, value in pn.REQUEST_METADATA_KEY_ALIASES.items()
     }
-    assert schema["requestProvider"]["cache"]["key"] == ["symbol", "timeframe", "start", "end"]
-    assert schema["requestProvider"]["cache"]["reusedFor"] == [
+    request_cache = schema["requestProvider"]["cache"]
+    assert request_cache["key"] == ["symbol", "timeframe", "start", "end"]
+    assert request_cache["reusedFor"] == [
         *pn.REQUEST_API_VALUES,
         "requested metadata",
     ]
+    assert request_cache["emptyResults"] == (
+        "valid empty provider results are cached and reported as status=ok with bars=0"
+    )
+    assert request_cache["ignoredInvalidSymbol"] == (
+        "PyneInvalidSymbolError ignored by ignore_invalid_symbol=True is not cached "
+        "and reports status=ignoredInvalidSymbol"
+    )
     request_diagnostics = schema["requestProvider"]["diagnostics"]
     assert request_diagnostics["resultLocation"] == "meta.requestDiagnostics"
     assert request_diagnostics["entryRequired"] == [

@@ -622,7 +622,13 @@ def request_provider_schema() -> dict[str, Any]:
                 "requested metadata",
             ],
             "separateRuns": "provider data is not cached across pn.run() executions",
-            "ignoredInvalidSymbol": "ignore_invalid_symbol=True empty results are not cached",
+            "emptyResults": (
+                "valid empty provider results are cached and reported as status=ok with bars=0"
+            ),
+            "ignoredInvalidSymbol": (
+                "PyneInvalidSymbolError ignored by ignore_invalid_symbol=True is not cached "
+                "and reports status=ignoredInvalidSymbol"
+            ),
         },
         "diagnostics": {
             "resultLocation": "meta.requestDiagnostics",
