@@ -91,6 +91,8 @@ Array constructor sizes must be non-negative.
 
 Negative indexes are accepted as Python-friendly shorthand for positions from
 the end, so `array.get(values, -1)` returns the latest item.
+`array.pop()` and `array.shift()` reject empty arrays with actionable runtime
+errors.
 
 `array.sort()` accepts Pine-like `order.ascending` / `order.descending`
 constants. `array.sort_indices()` returns a new array of original indexes in

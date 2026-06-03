@@ -318,6 +318,33 @@ array.get(values, 3)
     assert "array index 3 is out of bounds" in str(result.error)
 
 
+def test_array_rejects_pop_and_shift_on_empty_arrays() -> None:
+    pop_result = pn.run(
+        """
+values = array.new()
+array.pop(values)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    shift_result = pn.run(
+        """
+values = array.new()
+array.shift(values)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not pop_result.ok
+    assert pop_result.code == "PYNE_RUNTIME_ERROR"
+    assert "array.pop() cannot pop from an empty array" in str(pop_result.error)
+    assert not shift_result.ok
+    assert shift_result.code == "PYNE_RUNTIME_ERROR"
+    assert "array.shift() cannot shift from an empty array" in str(shift_result.error)
+
+
 def test_array_limit_rejects_growth_past_settings_limit() -> None:
     result = pn.run(
         """
