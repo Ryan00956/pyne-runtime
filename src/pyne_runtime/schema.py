@@ -213,6 +213,115 @@ OUTPUT_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
     ],
 }
 
+SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
+    "purpose": "Top-level names injected into Pyne scripts for editor autocomplete",
+    "categories": {
+        "data": [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "time",
+            "time_close",
+            "bar_index",
+            "last_bar_index",
+            "barstate",
+            "bar_count",
+            "syminfo",
+            "timeframe",
+            "session",
+            "hl2",
+            "hlc3",
+            "ohlc4",
+            "hlcc4",
+        ],
+        "modules": [
+            "ta",
+            "input",
+            "request",
+            "barmerge",
+            "strategy",
+            "array",
+            "map",
+            "matrix",
+            "str",
+            "ticker",
+            "color",
+            "math",
+            "pyne",
+        ],
+        "plot": [
+            "indicator",
+            "plot",
+            "bar",
+            "hline",
+            "fill",
+            "bgcolor",
+            "marker",
+            "plotshape",
+            "plotchar",
+            "plotarrow",
+            "barcolor",
+            "emit_signal",
+            "alertcondition",
+            "line",
+            "label",
+            "box",
+            "table",
+            "add_line",
+            "shape",
+            "location",
+            "position",
+            "size",
+            "display",
+            "format",
+            "scale",
+            "xloc",
+            "yloc",
+            "text",
+        ],
+        "utility": [
+            "crossover",
+            "cross",
+            "crossunder",
+            "when",
+            "iff",
+            "where",
+            "switch",
+            "ref",
+            "highest",
+            "highestbars",
+            "lowest",
+            "lowestbars",
+            "change",
+            "roc",
+            "barssince",
+            "valuewhen",
+            "shift",
+            "na",
+            "nz",
+            "na_check",
+            "cum",
+            "rising",
+            "falling",
+            "true",
+            "false",
+            "sma",
+            "ema",
+            "wma",
+            "rma",
+            "vwma",
+            "rsi",
+            "macd",
+            "atr",
+            "bb",
+        ],
+        "compat": ["np", "numpy", "params"],
+        "builtins": "Policy-controlled Python builtins depend on PyneSettings.security_mode",
+    },
+}
+
 
 def input_schema() -> dict[str, Any]:
     """Return the stable Pyne OHLCV input contract."""
@@ -473,6 +582,19 @@ def strategy_report_schema() -> dict[str, Any]:
     }
 
 
+def script_namespace_schema() -> dict[str, Any]:
+    """Return the script top-level namespace contract."""
+    categories = SCRIPT_NAMESPACE_CONTRACT["categories"]
+    names: list[str] = []
+    for entries in categories.values():
+        if isinstance(entries, list):
+            names.extend(entries)
+    return {
+        **SCRIPT_NAMESPACE_CONTRACT,
+        "names": sorted(names),
+    }
+
+
 def schema() -> dict[str, Any]:
     """Return the public Pyne input/output schema bundle."""
     return {
@@ -481,5 +603,6 @@ def schema() -> dict[str, Any]:
         "params": param_schema(),
         "requestProvider": request_provider_schema(),
         "strategyReport": strategy_report_schema(),
+        "scriptNamespace": script_namespace_schema(),
     }
 

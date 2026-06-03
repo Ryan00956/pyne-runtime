@@ -76,6 +76,8 @@ Schema bundle keys:
 - `params`: collected script parameter contract.
 - `requestProvider`: host data-provider contract for `request.*`.
 - `strategyReport`: strategy report contract for `output["strategy"]`.
+- `scriptNamespace`: grouped script top-level names for host editor
+  autocomplete.
 
 Output migration policy:
 

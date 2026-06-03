@@ -67,3 +67,14 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
         "rejected",
         "submitted",
     ]
+    script_namespace = schema["scriptNamespace"]
+    assert "editor autocomplete" in script_namespace["purpose"]
+    assert "close" in script_namespace["categories"]["data"]
+    assert "request" in script_namespace["categories"]["modules"]
+    assert "plotshape" in script_namespace["categories"]["plot"]
+    assert "when" in script_namespace["categories"]["utility"]
+    assert "params" in script_namespace["categories"]["compat"]
+    assert "security_mode" in script_namespace["categories"]["builtins"]
+    assert "plot" in script_namespace["names"]
+    assert "barmerge" in script_namespace["names"]
+    assert len(script_namespace["names"]) == len(set(script_namespace["names"]))

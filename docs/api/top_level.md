@@ -16,6 +16,9 @@ Core functions:
 - `pn.__version__`
 - `pn.na`
 
+`pn.schema()["scriptNamespace"]` lists the top-level names injected into Pyne
+scripts, grouped for host editors that want autocomplete or quick API pickers.
+
 Core classes:
 
 - `pn.PyneData`
@@ -33,6 +36,23 @@ Core classes:
 - `pn.SessionInfo`
 - `pn.SessionNamespace`
 - `pn.DataProvider`
+- `pn.OHLCVBar`
+- `pn.RequestCapabilities`
+- `pn.RequestCapabilityProvider`
 - `pn.RequestEvalContext`
+- `pn.RequestMetadata`
+- `pn.RequestMetadataProvider`
 - `pn.RequestModule`
 - `pn.StrategyModule`
+
+Script namespace groups exposed by `pn.schema()["scriptNamespace"]`:
+
+- `data`: OHLCV sources, derived price sources, bar clock, barstate, and runtime
+  metadata.
+- `modules`: Pine-like namespaces such as `ta`, `input`, `request`, `strategy`,
+  `array`, `map`, `matrix`, `color`, `math`, and `pyne`.
+- `plot`: plot, marker, alert, drawing object, and visual enum helpers.
+- `utility`: expression helpers, history helpers, TA aliases, `na` / `nz`, and
+  boolean aliases.
+- `compat`: Python/legacy compatibility names such as `np`, `numpy`, and
+  read-only `params`.
