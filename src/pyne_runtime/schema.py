@@ -3,6 +3,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from ._request_contract import (
+    REQUEST_SECURITY_CAPABILITY_ALIASES,
+    REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
+)
+
 
 PYNE_INPUT_SCHEMA_VERSION = 1
 PYNE_OUTPUT_SCHEMA_VERSION = 1
@@ -15,18 +20,14 @@ REQUEST_PROVIDER_SUPPORTED_APIS: tuple[dict[str, Any], ...] = (
     {
         "api": "request.security",
         "providerMethod": "get_ohlcv",
-        "capabilityAliases": ["request.security", "security", "ohlcv"],
+        "capabilityAliases": list(REQUEST_SECURITY_CAPABILITY_ALIASES),
         "result": "chart-aligned series or tuple of chart-aligned series",
         "supportsIgnoreInvalidSymbol": True,
     },
     {
         "api": "request.security_lower_tf",
         "providerMethod": "get_ohlcv",
-        "capabilityAliases": [
-            "request.security_lower_tf",
-            "security_lower_tf",
-            "lower_tf",
-        ],
+        "capabilityAliases": list(REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES),
         "result": "lower-timeframe grouped arrays or tuple of grouped arrays",
         "supportsIgnoreInvalidSymbol": True,
     },
@@ -590,12 +591,8 @@ def request_provider_schema() -> dict[str, Any]:
         },
         "capabilities": {
             "declaredBy": "optional capabilities attribute or capabilities() method",
-            "securityAliases": ["request.security", "security", "ohlcv"],
-            "lowerTimeframeAliases": [
-                "request.security_lower_tf",
-                "security_lower_tf",
-                "lower_tf",
-            ],
+            "securityAliases": list(REQUEST_SECURITY_CAPABILITY_ALIASES),
+            "lowerTimeframeAliases": list(REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES),
             "missingDeclaration": "supported",
             "dictSemantics": "at least one matching alias must be present and truthy",
             "sequenceSemantics": "at least one matching alias must be present",

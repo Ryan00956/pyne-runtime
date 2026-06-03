@@ -9,6 +9,16 @@ from pyne_runtime.request import OHLCVBar, RequestMetadata
 def test_request_provider_typing_exports_are_public() -> None:
     assert pn.OHLCVBar is OHLCVBar
     assert pn.RequestMetadata is RequestMetadata
+    assert pn.REQUEST_SECURITY_CAPABILITY_ALIASES == (
+        "request.security",
+        "security",
+        "ohlcv",
+    )
+    assert pn.REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES == (
+        "request.security_lower_tf",
+        "security_lower_tf",
+        "lower_tf",
+    )
     assert hasattr(pn, "RequestCapabilities")
     assert hasattr(pn, "RequestCapabilityProvider")
     assert hasattr(pn, "RequestMetadataProvider")

@@ -5,10 +5,15 @@ from collections.abc import Collection, Mapping
 from typing import Any, Protocol, TypeAlias, TypedDict
 
 from .errors import PyneRequestError
+from .. import _request_contract
 from ..metadata import SessionInfo, SymbolInfo, TimeframeInfo
 
-_REQUEST_SECURITY_CAPABILITIES = ("request.security", "security", "ohlcv")
-_REQUEST_LOWER_TF_CAPABILITIES = ("request.security_lower_tf", "security_lower_tf", "lower_tf")
+REQUEST_SECURITY_CAPABILITY_ALIASES = (
+    _request_contract.REQUEST_SECURITY_CAPABILITY_ALIASES
+)
+REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES = (
+    _request_contract.REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES
+)
 _MISSING = object()
 
 

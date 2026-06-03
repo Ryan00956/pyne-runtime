@@ -28,6 +28,8 @@ pn.SessionInfo
 pn.SessionNamespace
 pn.DataProvider
 pn.OHLCVBar
+pn.REQUEST_SECURITY_CAPABILITY_ALIASES
+pn.REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES
 pn.RequestCapabilities
 pn.RequestCapabilityProvider
 pn.RequestMetadata
@@ -36,6 +38,7 @@ pn.RequestSessionMetadata
 pn.RequestSymbolMetadata
 pn.RequestTimeframeMetadata
 pn.PyneInvalidSymbolError
+pn.PyneRequestError
 pn.RequestEvalContext
 pn.RequestModule
 pn.barmerge
@@ -63,10 +66,14 @@ pn.na
 `SymbolInfo`, `TimeframeInfo`, `SessionInfo`, and `SessionNamespace` back the
 script-level `syminfo`, `timeframe`, and `session` namespaces.
 `DataProvider` is the host protocol for `request.security()` market data access.
-`OHLCVBar`, `RequestCapabilities`, `RequestMetadata`, and related provider
-protocols are typing helpers for host data adapters.
+`OHLCVBar`, `REQUEST_SECURITY_CAPABILITY_ALIASES`,
+`REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES`, `RequestCapabilities`,
+`RequestMetadata`, and related provider protocols are typing helpers for host
+data adapters.
 `PyneInvalidSymbolError` is the provider-side signal used by
 `ignore_invalid_symbol=True`.
+`PyneRequestError` is the stable runtime request error type used by host-backed
+request adapters.
 `RequestEvalContext` is the calculation-only context passed to `request.security()` expression thunks.
 `pn.barmerge` exposes Pine-like request alignment constants such as
 `pn.barmerge.gaps_on` and `pn.barmerge.lookahead_off`.

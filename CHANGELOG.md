@@ -13,6 +13,7 @@
 - Documented and tested stable request exception metadata.
 - Added lower-timeframe request diagnostics and error-detail golden coverage.
 - Added request provider schema v7 `supportedApis` discovery metadata.
+- Exported request capability alias constants for host adapters.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

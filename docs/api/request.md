@@ -16,6 +16,8 @@ from pyne_runtime.request import (
     OHLCVBar,
     PyneInvalidSymbolError,
     PyneRequestError,
+    REQUEST_SECURITY_CAPABILITY_ALIASES,
+    REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
     RequestCapabilities,
     RequestEvalContext,
     RequestMetadata,
@@ -185,6 +187,10 @@ For IDE and static typing support, Pyne exports provider typing helpers at both
 `pyne_runtime.request` and the package top level:
 
 - `OHLCVBar`: typed dictionary for provider-returned OHLCV rows.
+- `REQUEST_SECURITY_CAPABILITY_ALIASES`: accepted aliases for
+  `request.security()` capability declarations.
+- `REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES`: accepted aliases for
+  `request.security_lower_tf()` capability declarations.
 - `RequestCapabilities`: accepted capability declaration shapes.
 - `RequestMetadata`: typed dictionary for requested-context metadata.
 - `RequestCapabilityProvider`: optional protocol for method-based capability

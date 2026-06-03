@@ -59,17 +59,18 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     ]
     assert supported_apis[0]["providerMethod"] == "get_ohlcv"
     assert supported_apis[0]["capabilityAliases"] == [
-        "request.security",
-        "security",
-        "ohlcv",
+        *pn.REQUEST_SECURITY_CAPABILITY_ALIASES,
     ]
     assert supported_apis[1]["capabilityAliases"] == [
-        "request.security_lower_tf",
-        "security_lower_tf",
-        "lower_tf",
+        *pn.REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
     ]
     assert supported_apis[1]["supportsIgnoreInvalidSymbol"] is True
-    assert "request.security" in schema["requestProvider"]["capabilities"]["securityAliases"]
+    assert schema["requestProvider"]["capabilities"]["securityAliases"] == [
+        *pn.REQUEST_SECURITY_CAPABILITY_ALIASES,
+    ]
+    assert schema["requestProvider"]["capabilities"]["lowerTimeframeAliases"] == [
+        *pn.REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
+    ]
     assert schema["requestProvider"]["cache"]["key"] == ["symbol", "timeframe", "start", "end"]
     assert "request.security_lower_tf" in schema["requestProvider"]["cache"]["reusedFor"]
     request_diagnostics = schema["requestProvider"]["diagnostics"]

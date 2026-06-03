@@ -9,6 +9,8 @@ from .module import RequestModule
 from .provider import (
     DataProvider,
     OHLCVBar,
+    REQUEST_SECURITY_CAPABILITY_ALIASES,
+    REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
     RequestCapabilities,
     RequestCapabilityProvider,
     RequestMetadata,
@@ -23,6 +25,8 @@ __all__ = [
     "DataProvider",
     "LowerTimeframeSeries",
     "OHLCVBar",
+    "REQUEST_SECURITY_CAPABILITY_ALIASES",
+    "REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES",
     "PyneInvalidSymbolError",
     "PyneRequestError",
     "RequestCapabilities",

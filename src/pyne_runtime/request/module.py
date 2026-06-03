@@ -23,8 +23,8 @@ from .eval import (
 )
 from .lower_tf import LowerTimeframeSeries, _group_lower_timeframe_values
 from .provider import (
-    _REQUEST_LOWER_TF_CAPABILITIES,
-    _REQUEST_SECURITY_CAPABILITIES,
+    REQUEST_SECURITY_CAPABILITY_ALIASES,
+    REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
     DataProvider,
     _default_request_metadata,
     _provider_supports,
@@ -94,7 +94,7 @@ class RequestModule:
         try:
             supports_request = _provider_supports(
                 self._provider,
-                _REQUEST_SECURITY_CAPABILITIES,
+                REQUEST_SECURITY_CAPABILITY_ALIASES,
             )
         except PyneRequestError as exc:
             raise exc.with_request_context(**request_context) from exc
@@ -211,7 +211,7 @@ class RequestModule:
         try:
             supports_request = _provider_supports(
                 self._provider,
-                _REQUEST_LOWER_TF_CAPABILITIES,
+                REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
             )
         except PyneRequestError as exc:
             raise exc.with_request_context(**request_context) from exc
