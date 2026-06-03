@@ -2368,9 +2368,9 @@ def test_strategy_trade_namespaces_expose_count_series_and_fields() -> None:
     result = pn.run(
         """
 strategy("Trade Namespace", overlay=True, initial_capital=1000, pyramiding=2)
-strategy.entry_when(bar_index == 0, "A", strategy.long, qty=1, price=close)
-strategy.entry_when(bar_index == 1, "B", strategy.long, qty=2, price=close)
-strategy.close("A", when=bar_index == 2, price=close)
+strategy.entry_when(bar_index == 0, "A", strategy.long, qty=1, price=close, comment="alpha")
+strategy.entry_when(bar_index == 1, "B", strategy.long, qty=2, price=close, comment="beta")
+strategy.close("A", when=bar_index == 2, price=close, comment="done")
 plot(strategy.closedtrades, "Closed Count")
 plot(strategy.opentrades, "Open Count")
 plot(strategy.closedtrades.profit(0), "First Closed Profit")
@@ -2380,6 +2380,9 @@ plot(strategy.closedtrades.exit_bar_index(0), "Closed Exit Bar")
 plot(strategy.opentrades.entry_bar_index(0), "Open Entry Bar")
 plot(1 if strategy.closedtrades.entry_id(0) == "A" else 0, "Closed Id Match")
 plot(1 if strategy.opentrades.entry_id(0) == "B" else 0, "Open Id Match")
+plot(1 if strategy.closedtrades.entry_comment(0) == "alpha" else 0, "Closed Entry Comment")
+plot(1 if strategy.closedtrades.exit_comment(0) == "done" else 0, "Closed Exit Comment")
+plot(1 if strategy.opentrades.entry_comment(0) == "beta" else 0, "Open Entry Comment")
 """,
         [
             {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
@@ -2400,6 +2403,12 @@ plot(1 if strategy.opentrades.entry_id(0) == "B" else 0, "Open Id Match")
     assert result.values("Open Entry Bar") == [1.0, 1.0, 1.0, 1.0]
     assert result.values("Closed Id Match") == [1.0, 1.0, 1.0, 1.0]
     assert result.values("Open Id Match") == [1.0, 1.0, 1.0, 1.0]
+    assert result.values("Closed Entry Comment") == [1.0, 1.0, 1.0, 1.0]
+    assert result.values("Closed Exit Comment") == [1.0, 1.0, 1.0, 1.0]
+    assert result.values("Open Entry Comment") == [1.0, 1.0, 1.0, 1.0]
+    assert result.output["strategy"]["closedtrades"][0]["entry_comment"] == "alpha"
+    assert result.output["strategy"]["closedtrades"][0]["exit_comment"] == "done"
+    assert result.output["strategy"]["opentrades"][0]["entry_comment"] == "beta"
     assert "_entry_bar_index" not in result.output["strategy"]["closedtrades"][0]
     assert "_entry_bar_index" not in result.output["strategy"]["opentrades"][0]
 

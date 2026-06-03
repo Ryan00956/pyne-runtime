@@ -71,6 +71,12 @@ class StrategyTradesNamespace:
     def exit_id(self, trade_num: int = -1) -> str:
         return str(self._trade(trade_num).get("exit_id", ""))
 
+    def entry_comment(self, trade_num: int = -1) -> str:
+        return str(self._trade(trade_num).get("entry_comment", ""))
+
+    def exit_comment(self, trade_num: int = -1) -> str:
+        return str(self._trade(trade_num).get("exit_comment", ""))
+
     def side(self, trade_num: int = -1) -> str:
         return str(self._trade(trade_num).get("side", ""))
 
@@ -267,6 +273,8 @@ def _open_trade_from_order(
         "qty": round(float(qty), 8),
         "entry_price": round(float(entry_price), 8),
     }
+    if order.get("comment"):
+        trade["entry_comment"] = str(order.get("comment", ""))
     if commission > 0:
         trade["commission"] = round(float(commission), 8)
     return trade
@@ -288,7 +296,7 @@ def _closed_trade(
     profit: float,
     commission: float,
 ) -> dict[str, Any]:
-    return {
+    trade = {
         "entry_time": previous_trade.get("entry_time"),
         "exit_time": int(order.get("time", 0)),
         "_entry_bar_index": previous_trade.get("_entry_bar_index"),
@@ -303,6 +311,11 @@ def _closed_trade(
         "commission": round(float(commission), 8),
         "net_profit": round(float(profit) - float(commission), 8),
     }
+    if previous_trade.get("entry_comment"):
+        trade["entry_comment"] = str(previous_trade.get("entry_comment", ""))
+    if order.get("comment"):
+        trade["exit_comment"] = str(order.get("comment", ""))
+    return trade
 
 
 def _open_profit(position_size: float, position_avg: float, close_price: float) -> float:

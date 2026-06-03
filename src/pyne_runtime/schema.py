@@ -755,7 +755,8 @@ def strategy_report_schema() -> dict[str, Any]:
                 "entry_price",
                 "profit",
             ],
-            "openOptional": ["commission"],
+            "openOptional": ["commission", "entry_comment"],
+            "closedOptional": ["entry_comment", "exit_comment"],
             "privateFields": "Internal fields beginning with '_' are not part of the public report",
         },
         "lifecycle": {

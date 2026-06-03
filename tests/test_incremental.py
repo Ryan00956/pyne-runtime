@@ -1786,9 +1786,23 @@ def init(ctx):
     )
 
 def on_bar(ctx, bar):
-    ctx.strategy.entry("A", ctx.strategy.long, qty=1, price=bar.close, when=ctx.bar_index == 0)
-    ctx.strategy.entry("B", ctx.strategy.long, qty=2, price=bar.close, when=ctx.bar_index == 1)
-    ctx.strategy.close("A", price=bar.close, when=ctx.bar_index == 2)
+    ctx.strategy.entry(
+        "A",
+        ctx.strategy.long,
+        qty=1,
+        price=bar.close,
+        when=ctx.bar_index == 0,
+        comment="alpha",
+    )
+    ctx.strategy.entry(
+        "B",
+        ctx.strategy.long,
+        qty=2,
+        price=bar.close,
+        when=ctx.bar_index == 1,
+        comment="beta",
+    )
+    ctx.strategy.close("A", price=bar.close, when=ctx.bar_index == 2, comment="done")
     ctx.plot("Closed Count", ctx.strategy.closedtrades)
     ctx.plot("Open Count", ctx.strategy.opentrades.count)
     ctx.plot("Closed Profit", ctx.strategy.closedtrades.profit(0))
@@ -1799,6 +1813,18 @@ def on_bar(ctx, bar):
     ctx.plot("Closed Id Match", 1 if ctx.strategy.closedtrades.entry_id(0) == "A" else 0)
     ctx.plot("Open Id Match", 1 if ctx.strategy.opentrades.entry_id(0) == "B" else 0)
     ctx.plot("Latest Open Size", ctx.strategy.opentrades.size(-1))
+    ctx.plot(
+        "Closed Entry Comment",
+        1 if ctx.strategy.closedtrades.entry_comment(0) == "alpha" else 0,
+    )
+    ctx.plot(
+        "Closed Exit Comment",
+        1 if ctx.strategy.closedtrades.exit_comment(0) == "done" else 0,
+    )
+    ctx.plot(
+        "Open Entry Comment",
+        1 if ctx.strategy.opentrades.entry_comment(0) == "beta" else 0,
+    )
 """
 
     result = pn.run(script, _bars(), executor_mode="inline")
@@ -1814,6 +1840,12 @@ def on_bar(ctx, bar):
     assert _line_values(result, "closed_id_match") == [0.0, 0.0, 1.0]
     assert _line_values(result, "open_id_match") == [0.0, 0.0, 1.0]
     assert _line_values(result, "latest_open_size") == [1.0, 2.0, 2.0]
+    assert _line_values(result, "closed_entry_comment") == [0.0, 0.0, 1.0]
+    assert _line_values(result, "closed_exit_comment") == [0.0, 0.0, 1.0]
+    assert _line_values(result, "open_entry_comment") == [0.0, 0.0, 1.0]
+    assert result.output["strategy"]["closedtrades"][0]["entry_comment"] == "alpha"
+    assert result.output["strategy"]["closedtrades"][0]["exit_comment"] == "done"
+    assert result.output["strategy"]["opentrades"][0]["entry_comment"] == "beta"
 
 
 def test_incremental_strategy_margin_reject_costs_match_batch_report() -> None:

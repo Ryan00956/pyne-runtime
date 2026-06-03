@@ -445,6 +445,8 @@ Supported accessors:
 - `exit_bar_index(trade_num)`
 - `entry_id(trade_num)`
 - `exit_id(trade_num)`
+- `entry_comment(trade_num)`
+- `exit_comment(trade_num)`
 - `side(trade_num)`
 
 Negative indexes count from the end of the current ledger. When a ledger is
@@ -454,6 +456,10 @@ zeros. Out-of-range indexes on a non-empty ledger still return `na` for numeric
 fields and an empty string for string fields. The count objects
 (`strategy.closedtrades` and `strategy.opentrades`) are bar-by-bar series, while
 field accessors read from the latest replayed ledger snapshot.
+
+Non-empty entry and exit order comments are preserved as `entry_comment` and
+`exit_comment` fields in the public trade report. Empty comments are omitted
+from the report and return `""` from the script-facing accessors.
 
 For closed trades, `commission(trade_num)` includes both the matched entry-lot
 commission share and the exit/close order commission share. For open trades, it

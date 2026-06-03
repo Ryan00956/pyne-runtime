@@ -142,6 +142,12 @@ class IncrementalStrategyTradesNamespace:
     def exit_id(self, trade_num: int = -1) -> str:
         return str(self._trade(trade_num).get("exit_id", ""))
 
+    def entry_comment(self, trade_num: int = -1) -> str:
+        return str(self._trade(trade_num).get("entry_comment", ""))
+
+    def exit_comment(self, trade_num: int = -1) -> str:
+        return str(self._trade(trade_num).get("exit_comment", ""))
+
     def side(self, trade_num: int = -1) -> str:
         return str(self._trade(trade_num).get("side", ""))
 
@@ -537,6 +543,7 @@ class IncrementalStrategyNamespace:
             _, used_commission = self._close_lots(
                 id="",
                 exit_id=str(order.get("id", "")),
+                exit_comment=str(order.get("comment", "")),
                 target_qty=close_qty,
                 fill_price=fill_price,
                 order_commission=commission,
@@ -552,6 +559,8 @@ class IncrementalStrategyNamespace:
                 "qty": _round8(open_qty),
                 "entry_price": _round8(fill_price),
             }
+            if order.get("comment"):
+                open_trade["entry_comment"] = str(order.get("comment", ""))
             if remaining_commission > 0:
                 open_trade["commission"] = _round8(remaining_commission)
             self._open_trades.append(open_trade)
@@ -684,6 +693,7 @@ class IncrementalStrategyNamespace:
         closed_qty, _ = self._close_lots(
             id=str(id),
             exit_id=str(id),
+            exit_comment=str(comment),
             target_qty=fill_qty,
             fill_price=fill_price,
             order_commission=order_commission,
@@ -962,6 +972,7 @@ class IncrementalStrategyNamespace:
         closed_qty, _ = self._close_lots(
             id=str(order.get("from_entry", "")),
             exit_id=str(order.get("id", "")),
+            exit_comment=str(order.get("comment", "")),
             target_qty=fill_qty,
             fill_price=fill_price,
             order_commission=order_commission,
@@ -1072,6 +1083,7 @@ class IncrementalStrategyNamespace:
         closed_qty, _ = self._close_lots(
             id="",
             exit_id=reason,
+            exit_comment="",
             target_qty=fill_qty,
             fill_price=fill_price,
             order_commission=order_commission,
@@ -1162,6 +1174,7 @@ class IncrementalStrategyNamespace:
         *,
         id: str,
         exit_id: str,
+        exit_comment: str,
         target_qty: float,
         fill_price: float,
         order_commission: float = 0.0,
@@ -1201,7 +1214,7 @@ class IncrementalStrategyNamespace:
                 self._grossprofit += profit
             else:
                 self._grossloss += profit
-            self._closed_trades.append({
+            closed_trade = {
                 "entry_id": trade.get("entry_id", ""),
                 "exit_id": exit_id,
                 "side": side,
@@ -1215,7 +1228,12 @@ class IncrementalStrategyNamespace:
                 "net_profit": _round8(
                     reported_profit - entry_commission_share - exit_commission_share
                 ),
-            })
+            }
+            if trade.get("entry_comment"):
+                closed_trade["entry_comment"] = str(trade.get("entry_comment", ""))
+            if exit_comment:
+                closed_trade["exit_comment"] = str(exit_comment)
+            self._closed_trades.append(closed_trade)
             closed_signed_qty += closing_qty if side == self.long else -closing_qty
             leftover_qty = trade_qty - closing_qty
             if leftover_qty > 1e-9:
