@@ -27,8 +27,13 @@ pyne validate examples/ma_cross.py
 | `ma_cross.py` | Moving-average crossover markers. |
 | `param_schema_indicator.py` | Complete input metadata and parameter schema output. |
 | `pine_like_semantics.py` | Series history, `when()`, `var()`, drawing objects, and strategy events. |
+| `request_provider_contract.py` | Host-backed `request.security()` / `request.security_lower_tf()` provider contract. |
 | `rsi_signals.py` | RSI threshold lines and signal markers. |
 | `supertrend.py` | Supertrend line and direction markers. |
+
+`request_provider_contract.py` requires a host data provider when executed
+through `pn.run(...)`; see `docs/tutorials/host_request_security.md` and
+`tests/test_examples.py` for a minimal static provider.
 
 ## Data Fixture
 

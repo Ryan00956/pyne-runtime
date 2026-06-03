@@ -28,7 +28,8 @@ strategy, request, and host-renderer output workflows.
 - [Request API](api/request.md): implement typed host data providers for
   `request.security()` and `request.security_lower_tf()`.
 - [Host-Backed Request Security](tutorials/host_request_security.md): provide
-  OHLCV data for `request.security()` examples.
+  OHLCV data for `request.security()` and `request.security_lower_tf()`
+  examples.
 - [Input API](api/input.md): expose script parameters to host UI panels.
 - [Output Schema](reference/output_schema.md): consume renderer, object,
   signal, strategy, and error output.

@@ -9,6 +9,11 @@ import pyne_runtime as pn
 
 
 class StaticProvider:
+    capabilities: pn.RequestCapabilities = {
+        "request.security": True,
+        "request.security_lower_tf": True,
+    }
+
     def __init__(self, bars_by_key):
         self.bars_by_key = bars_by_key
 
@@ -63,6 +68,12 @@ timestamps:
 higher_close = request.security("BTCUSDT", "2", "close", gaps="on")
 ```
 
+Provider capabilities are optional. If a provider declares them, Pyne accepts
+the canonical names `request.security` and `request.security_lower_tf`, plus the
+aliases listed in `pn.schema()["requestProvider"]["supportedApis"]`. Disabled or
+missing list/set capabilities return `PYNE_UNSUPPORTED_FEATURE` before
+`get_ohlcv(...)` is called.
+
 Use a callable expression thunk when the requested context should compute an
 indicator:
 
@@ -85,18 +96,61 @@ higher_previous = request.security(
 )
 ```
 
+Tuple field expressions and tuple thunks return multiple aligned series:
+
+```python
+higher_open, higher_close = request.security("BTCUSDT", "2", ("open", "close"))
+
+higher_body, higher_range = request.security(
+    "BTCUSDT",
+    "2",
+    lambda ctx: (ctx.close - ctx.open, ctx.high - ctx.low),
+)
+```
+
+`request.security_lower_tf()` uses the same provider contract, but returns one
+grouped result per chart bar:
+
+```python
+lower_close = request.security_lower_tf("BTCUSDT", "1", lambda ctx: ctx.close)
+plot(lower_close.size(), "Lower TF Count")
+plot(lower_close.last(), "Lower TF Last Close")
+```
+
+Lower-timeframe tuple expressions are also supported:
+
+```python
+lower_open, lower_close = request.security_lower_tf(
+    "BTCUSDT",
+    "1",
+    lambda ctx: (ctx.open, ctx.close),
+)
+```
+
+Successful request calls append host-facing diagnostics to
+`result.meta["requestDiagnostics"]`. Each entry records the canonical `api`,
+requested `symbol` / `timeframe`, `start` / `end`, returned `bars`, `cacheHit`,
+`ignoreInvalidSymbol`, and `status`. Provider failures include
+`errorDetail.requestProviderCategory` and `errorDetail.requestProviderRequest`
+so hosts do not have to parse error messages.
+
 Current scope:
 
 - OHLCV field expressions such as `close`, `high`, `hlc3`, or `"close"`.
 - History references on fields, such as `close[1]`.
 - Callable expression thunks such as `lambda ctx: ctx.ta.sma(ctx.close, 2)`.
+- Tuple field expressions and tuple thunks for multi-return requests.
+- `request.security_lower_tf()` grouped results, including tuple expressions and
+  array-like helpers such as `.size()`, `.first()`, `.last()`, `.sum()`, and
+  `.max()`.
+- Provider capabilities, metadata, cache diagnostics, and structured request
+  error details.
 - Host-owned data retrieval with Pyne-owned alignment semantics.
 
 Current limits:
 
 - No direct capture of already evaluated Python expressions such as
   `request.security("BTCUSDT", "2", ta.sma(close, 2))`.
-- No tuple or multi-return request expressions yet.
 - No nested `request.security()` expressions.
 - No built-in exchange/network fetcher.
 - Process execution requires a pickleable provider; use `executor_mode="inline"`
