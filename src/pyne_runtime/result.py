@@ -25,6 +25,7 @@ class PyneResult:
     param_schema_version: int = PYNE_PARAM_SCHEMA_VERSION
     meta: dict[str, Any] = field(default_factory=dict)
     schema_version: int = PYNE_OUTPUT_SCHEMA_VERSION
+    error_context: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -141,6 +142,7 @@ class PyneResult:
             ),
             meta=data.get("meta") if isinstance(data.get("meta"), dict) else {},
             schema_version=int(data.get("schemaVersion") or PYNE_OUTPUT_SCHEMA_VERSION),
+            error_context=_extra_error_context(data.get("errorDetail")),
         )
 
     @property
@@ -153,9 +155,16 @@ class PyneResult:
             line=self.line,
             column=self.column,
             hint=self.hint,
-        )
+        ) | self.error_context
 
 
 def _series_name(line: dict[str, Any]) -> str:
     value = line.get("name") or line.get("title") or line.get("id")
     return str(value) if value is not None else ""
+
+
+def _extra_error_context(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    standard = {"code", "message", "line", "column", "hint", "docsUrl"}
+    return {key: item for key, item in value.items() if key not in standard}

@@ -1,6 +1,9 @@
 # Error Codes
 
 Pyne errors use stable `code` values and structured `errorDetail` payloads.
+When a failure comes from a host-backed `request.*` provider,
+`errorDetail.requestProviderCategory` identifies the matching
+`pn.schema()["requestProvider"]["errorCategories"]` entry.
 
 ## PYNE_SYNTAX_ERROR
 

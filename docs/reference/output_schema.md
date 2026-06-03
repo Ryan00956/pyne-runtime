@@ -304,3 +304,8 @@ Pane values:
 - `separate`
 
 See [error codes](error_codes.md) for structured failure payloads.
+
+Request provider failures may add `requestProviderCategory` to `errorDetail`.
+The value matches a key under
+`pn.schema()["requestProvider"]["errorCategories"]`, allowing hosts to display
+request integration failures without parsing error strings.

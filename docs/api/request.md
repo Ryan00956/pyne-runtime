@@ -142,7 +142,8 @@ stable error categories.
 Hosts can branch on `pn.schema()["requestProvider"]["schemaVersion"]` and
 `pn.schema()["requestProvider"]["errorCategories"]` when displaying request
 integration failures. Version 4 adds structured categories while preserving the
-legacy `errors` mapping.
+legacy `errors` mapping. Request provider failures also include the matching
+category in `result.errorDetail["requestProviderCategory"]`.
 
 | Category | Code | Calls `get_ohlcv`? | Stable meaning |
 | --- | --- | --- | --- |

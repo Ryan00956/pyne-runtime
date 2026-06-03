@@ -72,11 +72,13 @@ class RequestModule:
             raise PyneRequestError(
                 "request.security() requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
+                category="missingProvider",
             )
         if not _provider_supports(self._provider, _REQUEST_SECURITY_CAPABILITIES):
             raise PyneRequestError(
                 "request.security() requires provider capability 'request.security'",
                 code="PYNE_UNSUPPORTED_FEATURE",
+                category="unsupportedCapability",
             )
         if self._evaluating:
             raise PyneRequestError(
@@ -156,12 +158,14 @@ class RequestModule:
             raise PyneRequestError(
                 "request.security_lower_tf() requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
+                category="missingProvider",
             )
         if not _provider_supports(self._provider, _REQUEST_LOWER_TF_CAPABILITIES):
             raise PyneRequestError(
                 "request.security_lower_tf() requires provider capability "
                 "'request.security_lower_tf'",
                 code="PYNE_UNSUPPORTED_FEATURE",
+                category="unsupportedCapability",
             )
         if self._evaluating:
             raise PyneRequestError(
@@ -213,6 +217,7 @@ class RequestModule:
             raise PyneRequestError(
                 "request context requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
+                category="missingProvider",
             )
 
         key = (symbol, timeframe, int(start), int(end))
@@ -228,6 +233,7 @@ class RequestModule:
                 raise PyneRequestError(
                     f"Invalid symbol for request.security(): {symbol}",
                     code="PYNE_INVALID_SYMBOL",
+                    category="invalidSymbol",
                 ) from exc
             requested = []
             ignored_invalid_symbol = True
@@ -237,12 +243,14 @@ class RequestModule:
             raise PyneRequestError(
                 f"request data provider failed: {exc}",
                 code="PYNE_RUNTIME_ERROR",
+                category="providerFailure",
             ) from exc
         if requested is None:
             if not ignore_invalid_symbol:
                 raise PyneRequestError(
                     "request data provider must return a list of OHLCV bars",
                     code="PYNE_RUNTIME_ERROR",
+                    category="invalidReturnType",
                 )
             requested = []
             ignored_invalid_symbol = True
@@ -250,17 +258,20 @@ class RequestModule:
             raise PyneRequestError(
                 "request data provider must return a list of OHLCV bars",
                 code="PYNE_RUNTIME_ERROR",
+                category="invalidReturnType",
             )
         for index, item in enumerate(requested):
             if not isinstance(item, dict):
                 raise PyneRequestError(
                     f"request data provider returned non-mapping bar at row {index}",
                     code="PYNE_RUNTIME_ERROR",
+                    category="invalidBarShape",
                 )
             if "time" not in item:
                 raise PyneRequestError(
                     f"request data provider returned OHLCV bar without time at row {index}",
                     code="PYNE_RUNTIME_ERROR",
+                    category="invalidBarShape",
                 )
         requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
         request_metadata = (
@@ -281,6 +292,7 @@ class RequestModule:
             raise PyneRequestError(
                 f"request data provider returned invalid OHLCV: {exc}",
                 code="PYNE_RUNTIME_ERROR",
+                category="invalidBarShape",
             ) from exc
         cached = (requested, requested_ctx)
         if not ignored_invalid_symbol:
@@ -311,6 +323,7 @@ class RequestModule:
             raise PyneRequestError(
                 f"request.security() expression failed: {exc}",
                 code="PYNE_RUNTIME_ERROR",
+                category="expressionFailure",
             ) from exc
         finally:
             self._evaluating = False

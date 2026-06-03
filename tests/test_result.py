@@ -43,6 +43,22 @@ def test_result_error_detail_is_structured() -> None:
     }
 
 
+def test_result_error_detail_preserves_extra_context() -> None:
+    result = PyneResult(
+        ok=False,
+        code="PYNE_RUNTIME_ERROR",
+        error="boom",
+        error_context={"requestProviderCategory": "providerFailure"},
+    )
+
+    assert result.error_detail["requestProviderCategory"] == "providerFailure"
+    assert result.to_dict()["errorDetail"]["requestProviderCategory"] == "providerFailure"
+
+    restored = PyneResult.from_dict(result.to_dict())
+
+    assert restored.error_detail["requestProviderCategory"] == "providerFailure"
+
+
 def test_result_series_helpers() -> None:
     result = PyneResult(lines=[
         {

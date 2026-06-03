@@ -470,7 +470,10 @@ def output_schema() -> dict[str, Any]:
             "ok": "Whether execution succeeded",
             "error": "Error message when execution failed",
             "code": "Stable error code when execution failed",
-            "errorDetail": "Structured error detail when execution failed",
+            "errorDetail": (
+                "Structured error detail when execution failed; request provider "
+                "failures may include requestProviderCategory"
+            ),
             "lines": "Backward-compatible flat plotted series",
             "output": "Structured output collections",
             "param_schema": "Input parameter declarations collected from scripts",

@@ -1360,3 +1360,117 @@ plot(lower.size(), "Lower Count")
     assert result.code == "PYNE_UNSUPPORTED_FEATURE"
     assert "provider capability" in str(result.error)
     assert provider.calls == []
+
+
+def test_request_provider_error_detail_categories_match_schema() -> None:
+    class BrokenProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            raise RuntimeError("database offline")
+
+    class InvalidReturnProvider(StaticProvider):
+        def get_ohlcv(self, symbol: str, timeframe: str, start: int, end: int) -> Any:
+            self.calls.append((symbol, timeframe, start, end))
+            return "not bars"
+
+    class BadMetadataProvider(StaticProvider):
+        request_metadata = ["not", "a", "mapping"]
+
+    class BrokenMetadataProvider(StaticProvider):
+        def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
+            raise RuntimeError("metadata offline")
+
+    valid_requested_bars = [
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ]
+    cases = [
+        (
+            "missingProvider",
+            None,
+            """
+indicator("Missing Provider", overlay=True)
+plot(request.security("BTCUSDT", "2", close), "Higher")
+""",
+        ),
+        (
+            "unsupportedCapability",
+            CapabilityProvider(valid_requested_bars, capabilities={"request.security": False}),
+            """
+indicator("Unsupported Capability", overlay=True)
+plot(request.security("BTCUSDT", "2", close), "Higher")
+""",
+        ),
+        (
+            "invalidSymbol",
+            InvalidSymbolProvider(),
+            """
+indicator("Invalid Symbol", overlay=True)
+plot(request.security("MISSING", "2", close), "Higher")
+""",
+        ),
+        (
+            "providerFailure",
+            BrokenProvider([]),
+            """
+indicator("Provider Failure", overlay=True)
+plot(request.security("BTCUSDT", "2", close), "Higher")
+""",
+        ),
+        (
+            "invalidReturnType",
+            InvalidReturnProvider([]),
+            """
+indicator("Invalid Return", overlay=True)
+plot(request.security("BTCUSDT", "2", close), "Higher")
+""",
+        ),
+        (
+            "invalidBarShape",
+            StaticProvider([{"open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}]),
+            """
+indicator("Invalid Bar", overlay=True)
+plot(request.security("BTCUSDT", "2", close), "Higher")
+""",
+        ),
+        (
+            "invalidMetadata",
+            BadMetadataProvider(valid_requested_bars),
+            """
+indicator("Invalid Metadata", overlay=True)
+plot(request.security("BTCUSDT", "2", close), "Higher")
+""",
+        ),
+        (
+            "metadataFailure",
+            BrokenMetadataProvider(valid_requested_bars),
+            """
+indicator("Metadata Failure", overlay=True)
+plot(request.security("BTCUSDT", "2", close), "Higher")
+""",
+        ),
+        (
+            "expressionFailure",
+            StaticProvider(valid_requested_bars),
+            """
+indicator("Expression Failure", overlay=True)
+bad = request.security("BTCUSDT", "2", lambda ctx: 1 / 0)
+plot(bad, "Bad")
+""",
+        ),
+    ]
+
+    error_categories = pn.schema()["requestProvider"]["errorCategories"]
+
+    for category, provider, script in cases:
+        result = pn.run(script, _bars(), data_provider=provider, executor_mode="inline")
+
+        assert not result.ok, category
+        assert result.error_detail is not None
+        assert result.error_detail["requestProviderCategory"] == category
+        assert result.error_detail["code"] == error_categories[category]["code"]

@@ -89,6 +89,7 @@ def _provider_supports(provider: DataProvider, capability_names: tuple[str, ...]
         raise PyneRequestError(
             f"request capability provider failed: {exc}",
             code="PYNE_RUNTIME_ERROR",
+            category="capabilityFailure",
         ) from exc
     if declared_capabilities is _MISSING:
         return True
@@ -115,6 +116,7 @@ def _request_metadata(provider: DataProvider, symbol: str, timeframe: str) -> di
             raise PyneRequestError(
                 f"request metadata provider failed: {exc}",
                 code="PYNE_RUNTIME_ERROR",
+                category="metadataFailure",
             ) from exc
     else:
         declared_metadata = getattr(provider, "request_metadata", None)
@@ -127,6 +129,7 @@ def _request_metadata(provider: DataProvider, symbol: str, timeframe: str) -> di
                 raise PyneRequestError(
                     f"request metadata provider failed: {exc}",
                     code="PYNE_RUNTIME_ERROR",
+                    category="metadataFailure",
                 ) from exc
 
     if declared_metadata is None:
@@ -135,6 +138,7 @@ def _request_metadata(provider: DataProvider, symbol: str, timeframe: str) -> di
         raise PyneRequestError(
             "request metadata must be a mapping with optional syminfo, timeframe, and session keys",
             code="PYNE_RUNTIME_ERROR",
+            category="invalidMetadata",
         )
 
     syminfo = declared_metadata.get("syminfo", declared_metadata.get("symbol_info"))

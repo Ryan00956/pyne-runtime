@@ -50,6 +50,8 @@ Compatibility notes:
 - Hosts that display request integration failures should prefer
   `errorCategories`, which records stable error codes, whether `get_ohlcv` is
   called, `ignore_invalid_symbol` behavior, and identifying message fragments.
+- Runtime request failures include the matching category as
+  `errorDetail.requestProviderCategory`.
 - `invalidSymbol` remains the only provider-side error class that can be
   intentionally converted into empty request output by `ignore_invalid_symbol`.
 

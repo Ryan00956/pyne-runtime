@@ -154,7 +154,18 @@ class PyneRuntime:
             return PyneResult(ok=False, code=code, error=message, hint=error_hint(code))
         except PyneRequestError as exc:
             code = exc.code
-            return PyneResult(ok=False, code=code, error=str(exc), hint=error_hint(code))
+            context = (
+                {"requestProviderCategory": exc.category}
+                if exc.category
+                else {}
+            )
+            return PyneResult(
+                ok=False,
+                code=code,
+                error=str(exc),
+                hint=error_hint(code),
+                error_context=context,
+            )
         except PyneInputError as exc:
             code = exc.code
             return PyneResult(ok=False, code=code, error=str(exc), hint=error_hint(code))
