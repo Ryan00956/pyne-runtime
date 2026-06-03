@@ -13,9 +13,12 @@ package top level. These imports continue to work:
 from pyne_runtime.request import (
     DataProvider,
     LowerTimeframeSeries,
+    OHLCVBar,
     PyneInvalidSymbolError,
     PyneRequestError,
+    RequestCapabilities,
     RequestEvalContext,
+    RequestMetadata,
     RequestModule,
     barmerge,
 )
@@ -30,7 +33,18 @@ import pyne_runtime as pn
 
 
 class MyProvider:
-    def get_ohlcv(self, symbol, timeframe, start, end):
+    capabilities: pn.RequestCapabilities = {
+        "request.security": True,
+        "request.security_lower_tf": True,
+    }
+
+    def get_ohlcv(
+        self,
+        symbol: str,
+        timeframe: str,
+        start: int,
+        end: int,
+    ) -> list[pn.OHLCVBar]:
         if symbol not in self.supported_symbols:
             raise pn.PyneInvalidSymbolError(symbol)
         return [
@@ -70,7 +84,10 @@ Providers may optionally declare request capabilities with either a
 
 ```python
 class MyProvider:
-    capabilities = {"request.security": True, "request.security_lower_tf": True}
+    capabilities: pn.RequestCapabilities = {
+        "request.security": True,
+        "request.security_lower_tf": True,
+    }
 
     def get_ohlcv(self, symbol, timeframe, start, end):
         ...
@@ -96,7 +113,7 @@ derives session flags from requested bars.
 
 ```python
 class MyProvider:
-    def get_request_metadata(self, symbol, timeframe):
+    def get_request_metadata(self, symbol: str, timeframe: str) -> pn.RequestMetadata:
         return {
             "syminfo": {
                 "tickerid": "BINANCE:BTCUSDT",
@@ -119,6 +136,17 @@ The provider contract is also exposed through `pn.schema()["requestProvider"]`.
 That schema lists the required `get_ohlcv(...)` method, required OHLCV fields,
 capability aliases, metadata keys, requested-context cache semantics, and
 stable error categories.
+
+For IDE and static typing support, Pyne exports provider typing helpers at both
+`pyne_runtime.request` and the package top level:
+
+- `OHLCVBar`: typed dictionary for provider-returned OHLCV rows.
+- `RequestCapabilities`: accepted capability declaration shapes.
+- `RequestMetadata`: typed dictionary for requested-context metadata.
+- `RequestCapabilityProvider`: optional protocol for method-based capability
+  declarations.
+- `RequestMetadataProvider`: optional protocol for method-based metadata
+  declarations.
 
 ## `request.security`
 

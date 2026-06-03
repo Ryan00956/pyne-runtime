@@ -34,6 +34,7 @@
 - Added incremental `ctx.bar_index`, `bar.bar_index`, and scalar `ctx.barstate.*` realtime preview/confirmation semantics.
 - Added optional OHLCV `time_close` support and batch `time_close` series inference.
 - Added tuple/multi-return `request.security()` expressions for Python unpacking.
+- Added public provider typing helpers for host request adapters.
 - Added `strategy.configure(pyramiding=...)` with same-direction entry limits and weighted average position price replay.
 - Added partial `strategy.exit(qty=...)` position reduction semantics.
 - Added Pine-like `strategy.configure(slippage=..., commission_type=..., commission_value=...)` replay costs.

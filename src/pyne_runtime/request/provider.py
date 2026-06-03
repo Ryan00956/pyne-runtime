@@ -1,14 +1,52 @@
 """Provider protocol and metadata helpers for host-backed requests."""
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any, Protocol
+from collections.abc import Collection, Mapping
+from typing import Any, Protocol, TypeAlias, TypedDict
 
 from .errors import PyneRequestError
+from ..metadata import SessionInfo, SymbolInfo, TimeframeInfo
 
 _REQUEST_SECURITY_CAPABILITIES = ("request.security", "security", "ohlcv")
 _REQUEST_LOWER_TF_CAPABILITIES = ("request.security_lower_tf", "security_lower_tf", "lower_tf")
 _MISSING = object()
+
+
+class _RequiredOHLCVBar(TypedDict):
+    time: int
+    open: int | float
+    high: int | float
+    low: int | float
+    close: int | float
+    volume: int | float
+
+
+class OHLCVBar(_RequiredOHLCVBar, total=False):
+    """OHLCV row returned by host data providers."""
+
+    time_close: int
+    session: Mapping[str, bool]
+    session_ismarket: bool
+    session_isfirstbar: bool
+    session_islastbar: bool
+
+
+RequestCapabilities: TypeAlias = Mapping[str, bool] | Collection[str] | None
+RequestSymbolMetadata: TypeAlias = SymbolInfo | Mapping[str, Any] | str | None
+RequestTimeframeMetadata: TypeAlias = TimeframeInfo | Mapping[str, Any] | str | None
+RequestSessionMetadata: TypeAlias = SessionInfo | Mapping[str, Any] | bool | None
+
+
+class RequestMetadata(TypedDict, total=False):
+    """Optional requested-context metadata supplied by host providers."""
+
+    syminfo: RequestSymbolMetadata
+    symbol_info: RequestSymbolMetadata
+    timeframe: RequestTimeframeMetadata
+    timeframe_info: RequestTimeframeMetadata
+    session: RequestSessionMetadata
+    session_info: RequestSessionMetadata
+
 
 class DataProvider(Protocol):
     """Host interface used by ``request.security()``.
@@ -22,8 +60,22 @@ class DataProvider(Protocol):
         timeframe: str,
         start: int,
         end: int,
-    ) -> list[dict[str, Any]]:
+    ) -> list[OHLCVBar]:
         """Return OHLCV bars for ``symbol`` and ``timeframe`` in ``[start, end]``."""
+
+
+class RequestCapabilityProvider(Protocol):
+    """Optional provider mixin for method-based capability declarations."""
+
+    def capabilities(self) -> RequestCapabilities:
+        """Return supported request capability aliases."""
+
+
+class RequestMetadataProvider(Protocol):
+    """Optional provider mixin for method-based requested-context metadata."""
+
+    def get_request_metadata(self, symbol: str, timeframe: str) -> RequestMetadata:
+        """Return metadata for a requested symbol/timeframe context."""
 
 
 def _provider_supports(provider: DataProvider, capability_names: tuple[str, ...]) -> bool:

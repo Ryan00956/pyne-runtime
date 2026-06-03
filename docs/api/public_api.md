@@ -27,6 +27,14 @@ pn.TimeframeInfo
 pn.SessionInfo
 pn.SessionNamespace
 pn.DataProvider
+pn.OHLCVBar
+pn.RequestCapabilities
+pn.RequestCapabilityProvider
+pn.RequestMetadata
+pn.RequestMetadataProvider
+pn.RequestSessionMetadata
+pn.RequestSymbolMetadata
+pn.RequestTimeframeMetadata
 pn.PyneInvalidSymbolError
 pn.RequestEvalContext
 pn.RequestModule
@@ -55,6 +63,8 @@ pn.na
 `SymbolInfo`, `TimeframeInfo`, `SessionInfo`, and `SessionNamespace` back the
 script-level `syminfo`, `timeframe`, and `session` namespaces.
 `DataProvider` is the host protocol for `request.security()` market data access.
+`OHLCVBar`, `RequestCapabilities`, `RequestMetadata`, and related provider
+protocols are typing helpers for host data adapters.
 `PyneInvalidSymbolError` is the provider-side signal used by
 `ignore_invalid_symbol=True`.
 `RequestEvalContext` is the calculation-only context passed to `request.security()` expression thunks.
