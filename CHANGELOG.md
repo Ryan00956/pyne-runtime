@@ -31,6 +31,7 @@
 - Added lower-timeframe expression failure request-context golden coverage.
 - Added lower-timeframe invalid thunk and nested request rejection coverage.
 - Added lower-timeframe provider availability error-detail golden coverage.
+- Added lower-timeframe capability failure error-detail golden coverage.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

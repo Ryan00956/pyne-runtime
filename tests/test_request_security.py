@@ -1987,6 +1987,40 @@ plot(lower.size(), "Lower Count")
     assert provider.calls == []
 
 
+def test_request_security_lower_tf_capability_failure_reports_request_context() -> None:
+    class BrokenCapabilityProvider(StaticProvider):
+        def capabilities(self) -> set[str]:
+            raise RuntimeError("capability offline")
+
+    provider = BrokenCapabilityProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Capability Failure", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.error_detail is not None
+    assert result.error_detail["code"] == "PYNE_RUNTIME_ERROR"
+    assert result.error_detail["requestProviderCategory"] == "capabilityFailure"
+    assert result.error_detail["requestProviderRequest"] == {
+        "api": "request.security_lower_tf",
+        "symbol": "BTCUSDT",
+        "timeframe": "1",
+        "start": 1,
+        "end": 4,
+    }
+    assert provider.calls == []
+
+
 def test_request_security_lower_tf_expression_errors_report_request_context() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
