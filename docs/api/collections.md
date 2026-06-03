@@ -65,6 +65,8 @@ Pine's `array.from(...)` name cannot be written as normal Python syntax because
 `from` is a Python keyword, so Pyne exposes `array.from_values(...)` and
 `array.from_list(...)` instead.
 
+Array constructor sizes must be non-negative.
+
 ## Mutations And Accessors
 
 - `array.size(arr)`

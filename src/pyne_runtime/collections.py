@@ -480,8 +480,9 @@ class ArrayNamespace:
         self._max_depth = _normalize_limit(max_depth)
 
     def new(self, size: int = 0, initial_value: Any = None) -> PyneArray:
+        size_count = _array_size(size)
         return PyneArray(
-            [initial_value for _ in range(max(int(size), 0))],
+            [initial_value for _ in range(size_count)],
             max_size=self._max_size,
             max_depth=self._max_depth,
         )
@@ -837,6 +838,13 @@ def _matrix_dimension(value: int, label: str) -> int:
     normalized = int(value)
     if normalized < 0:
         raise ValueError(f"{label} must be non-negative")
+    return normalized
+
+
+def _array_size(value: int) -> int:
+    normalized = int(value)
+    if normalized < 0:
+        raise ValueError("array size must be non-negative")
     return normalized
 
 

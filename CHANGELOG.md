@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Rejected negative `array.new_*()` constructor sizes.
 - Rejected recursive collection values at mutation time.
 - Exported `pn.nz` and `pn.fixnan` as public missing-value helpers.
 - Added top-level Pine-like `fixnan()` script helper.

@@ -334,6 +334,20 @@ array.push(values, 3.0)
     assert "array size 3 exceeds limit 2" in str(result.error)
 
 
+def test_array_rejects_negative_constructor_size() -> None:
+    result = pn.run(
+        """
+array.new_float(-1, 1.0)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_RUNTIME_ERROR"
+    assert "array size must be non-negative" in str(result.error)
+
+
 def test_collection_depth_limit_allows_nested_values_within_limit() -> None:
     result = pn.run(
         """
