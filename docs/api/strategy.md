@@ -435,6 +435,7 @@ Supported accessors:
 
 - `size(trade_num)` / `qty(trade_num)`
 - `profit(trade_num)`
+- `profit_percent(trade_num)`
 - `net_profit(trade_num)`
 - `commission(trade_num)`
 - `entry_price(trade_num)`
@@ -460,6 +461,10 @@ field accessors read from the latest replayed ledger snapshot.
 Non-empty entry and exit order comments are preserved as `entry_comment` and
 `exit_comment` fields in the public trade report. Empty comments are omitted
 from the report and return `""` from the script-facing accessors.
+
+`profit_percent(trade_num)` reports `profit / abs(entry_price * size) * 100`
+using the same trade profit value exposed by `profit(trade_num)`. Empty default
+trades return `0`, while out-of-range or incomplete trades return `na`.
 
 For closed trades, `commission(trade_num)` includes both the matched entry-lot
 commission share and the exit/close order commission share. For open trades, it

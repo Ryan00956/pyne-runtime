@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added strategy trade `profit_percent()` accessors.
 - Added strategy trade `entry_comment()` and `exit_comment()` accessors.
 - Tested environment-configured collection resource limits.
 - Documented and tested nested incremental collection history snapshots.

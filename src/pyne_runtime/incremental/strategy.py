@@ -114,6 +114,11 @@ class IncrementalStrategyTradesNamespace:
             return _round8(_trade_open_profit(trade, self._strategy._current_price()))
         return _trade_float(trade, "profit")
 
+    def profit_percent(self, trade_num: int = -1) -> float:
+        trade = self._trade(trade_num)
+        profit = self.profit(trade_num) if self._kind == "opentrades" and trade else None
+        return _trade_profit_percent(trade, profit=profit)
+
     def net_profit(self, trade_num: int = -1) -> float:
         trade = self._trade(trade_num)
         if self._kind == "opentrades" and trade:
@@ -1307,6 +1312,19 @@ def _realized_profit(*, side: str, qty: float, entry_price: float, exit_price: f
     if side == IncrementalStrategyNamespace.long:
         return (float(exit_price) - float(entry_price)) * abs(float(qty))
     return (float(entry_price) - float(exit_price)) * abs(float(qty))
+
+def _trade_profit_percent(trade: dict[str, Any], *, profit: float | None = None) -> float:
+    if trade.get("_empty_ledger"):
+        return 0.0
+    qty = abs(_trade_float(trade, "qty"))
+    entry_price = abs(_trade_float(trade, "entry_price"))
+    denominator = qty * entry_price
+    if math.isnan(denominator) or denominator <= 0:
+        return math.nan
+    trade_profit = _trade_float(trade, "profit") if profit is None else float(profit)
+    if math.isnan(trade_profit):
+        return math.nan
+    return _round8(trade_profit / denominator * 100.0)
 
 def _requested_exit_qty(
     *,

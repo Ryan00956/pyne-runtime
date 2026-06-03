@@ -41,6 +41,29 @@ class StrategyTradesNamespace:
     def profit(self, trade_num: int = -1) -> float | PyneSeries:
         return self._trade_float(trade_num, "profit")
 
+    def profit_percent(self, trade_num: int = -1) -> float | PyneSeries:
+        snapshots = (
+            self._strategy._closed_trades_by_bar
+            if self._kind == "closedtrades"
+            else self._strategy._open_trades_by_bar
+        )
+        if self._strategy._process_orders_on_close and snapshots:
+            close_values = self._strategy._context.close.values
+            values = [
+                _trade_profit_percent(
+                    _trade_from_snapshot(trades, trade_num),
+                    close_price=close_values[idx] if self._kind == "opentrades" else None,
+                )
+                for idx, trades in enumerate(snapshots)
+            ]
+            if all(is_na_value(value) for value in values):
+                return float("nan")
+            return PyneSeries(
+                values,
+                name=f"strategy.{self._kind}.profit_percent({trade_num})",
+            )
+        return _trade_profit_percent(self._trade(trade_num))
+
     def net_profit(self, trade_num: int = -1) -> float | PyneSeries:
         return self._trade_float(trade_num, "net_profit")
 
@@ -122,6 +145,26 @@ def _trade_float(trade: dict[str, Any], key: str) -> float:
         return float(value)
     except (TypeError, ValueError):
         return float("nan")
+
+
+def _trade_profit_percent(
+    trade: dict[str, Any],
+    *,
+    close_price: float | None = None,
+) -> float:
+    if trade.get("_empty_ledger"):
+        return 0.0
+    qty = abs(_trade_float(trade, "qty"))
+    entry_price = abs(_trade_float(trade, "entry_price"))
+    denominator = qty * entry_price
+    if is_na_value(denominator) or denominator <= 0:
+        return float("nan")
+    profit = _trade_float(trade, "profit")
+    if is_na_value(profit) and close_price is not None:
+        profit = _trade_open_profit(trade, float(close_price))
+    if is_na_value(profit):
+        return float("nan")
+    return round(float(profit) / denominator * 100.0, 8)
 
 
 def _trade_from_snapshot(trades: list[dict[str, Any]], trade_num: int) -> dict[str, Any]:

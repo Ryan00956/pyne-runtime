@@ -2374,7 +2374,9 @@ strategy.close("A", when=bar_index == 2, price=close, comment="done")
 plot(strategy.closedtrades, "Closed Count")
 plot(strategy.opentrades, "Open Count")
 plot(strategy.closedtrades.profit(0), "First Closed Profit")
+plot(strategy.closedtrades.profit_percent(0), "First Closed Profit Percent")
 plot(strategy.opentrades.entry_price(0), "First Open Entry")
+plot(strategy.opentrades.profit_percent(0), "First Open Profit Percent")
 plot(strategy.closedtrades.entry_bar_index(0), "Closed Entry Bar")
 plot(strategy.closedtrades.exit_bar_index(0), "Closed Exit Bar")
 plot(strategy.opentrades.entry_bar_index(0), "Open Entry Bar")
@@ -2397,7 +2399,14 @@ plot(1 if strategy.opentrades.entry_comment(0) == "beta" else 0, "Open Entry Com
     assert result.values("Closed Count") == [0.0, 0.0, 1.0, 1.0]
     assert result.values("Open Count") == [1.0, 2.0, 1.0, 1.0]
     assert result.values("First Closed Profit") == [2.0, 2.0, 2.0, 2.0]
+    assert result.values("First Closed Profit Percent") == [20.0, 20.0, 20.0, 20.0]
     assert result.values("First Open Entry") == [11.0, 11.0, 11.0, 11.0]
+    assert result.values("First Open Profit Percent") == [
+        18.18181818,
+        18.18181818,
+        18.18181818,
+        18.18181818,
+    ]
     assert result.values("Closed Entry Bar") == [0.0, 0.0, 0.0, 0.0]
     assert result.values("Closed Exit Bar") == [2.0, 2.0, 2.0, 2.0]
     assert result.values("Open Entry Bar") == [1.0, 1.0, 1.0, 1.0]
@@ -2418,6 +2427,7 @@ def test_strategy_trade_accessors_return_zero_for_empty_default_trade() -> None:
         """
 strategy("Empty Trade Accessors", overlay=True, initial_capital=1000)
 plot(strategy.closedtrades.profit(0), "Closed Profit")
+plot(strategy.closedtrades.profit_percent(0), "Closed Profit Percent")
 plot(strategy.closedtrades.commission(-1), "Closed Commission")
 plot(strategy.opentrades.profit(0), "Open Profit")
 plot(1 if na(strategy.closedtrades.profit(99)) else 0, "Closed Far Missing Is Na")
@@ -2431,6 +2441,7 @@ plot(1 if na(strategy.closedtrades.profit(99)) else 0, "Closed Far Missing Is Na
 
     assert result.ok
     assert result.values("Closed Profit") == [0.0, 0.0]
+    assert result.values("Closed Profit Percent") == [0.0, 0.0]
     assert result.values("Closed Commission") == [0.0, 0.0]
     assert result.values("Open Profit") == [0.0, 0.0]
     assert result.values("Closed Far Missing Is Na") == [1.0, 1.0]

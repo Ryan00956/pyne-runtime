@@ -1806,10 +1806,12 @@ def on_bar(ctx, bar):
     ctx.plot("Closed Count", ctx.strategy.closedtrades)
     ctx.plot("Open Count", ctx.strategy.opentrades.count)
     ctx.plot("Closed Profit", ctx.strategy.closedtrades.profit(0))
+    ctx.plot("Closed Profit Percent", ctx.strategy.closedtrades.profit_percent(0))
     ctx.plot("Closed Commission", ctx.strategy.closedtrades.commission(0))
     ctx.plot("Closed Net", ctx.strategy.closedtrades.net_profit(0))
     ctx.plot("Open Entry", ctx.strategy.opentrades.entry_price(0))
     ctx.plot("Open Profit", ctx.strategy.opentrades.profit(0))
+    ctx.plot("Open Profit Percent", ctx.strategy.opentrades.profit_percent(0))
     ctx.plot("Closed Id Match", 1 if ctx.strategy.closedtrades.entry_id(0) == "A" else 0)
     ctx.plot("Open Id Match", 1 if ctx.strategy.opentrades.entry_id(0) == "B" else 0)
     ctx.plot("Latest Open Size", ctx.strategy.opentrades.size(-1))
@@ -1833,10 +1835,12 @@ def on_bar(ctx, bar):
     assert _line_values(result, "closed_count") == [0.0, 0.0, 1.0]
     assert _line_values(result, "open_count") == [1.0, 2.0, 1.0]
     assert _line_values(result, "closed_profit") == [0.0, 0.0, 2.0]
+    assert _line_values(result, "closed_profit_percent") == [0.0, 0.0, 200.0]
     assert _line_values(result, "closed_commission") == [0.0, 0.0, 0.5]
     assert _line_values(result, "closed_net") == [0.0, 0.0, 1.5]
     assert _line_values(result, "open_entry") == [1.0, 1.0, 2.0]
     assert _line_values(result, "open_profit") == [0.0, 1.0, 2.0]
+    assert _line_values(result, "open_profit_percent") == [0.0, 100.0, 50.0]
     assert _line_values(result, "closed_id_match") == [0.0, 0.0, 1.0]
     assert _line_values(result, "open_id_match") == [0.0, 0.0, 1.0]
     assert _line_values(result, "latest_open_size") == [1.0, 2.0, 2.0]
