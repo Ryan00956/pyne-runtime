@@ -82,13 +82,15 @@ Pine's `array.from(...)` name cannot be written as normal Python syntax because
 - `array.fill(arr, value, index_from=0, index_to=None)`
 - `array.reverse(arr)`
 - `array.sort(arr, order=None, reverse=False)`
+- `array.sort_indices(arr, order=None, reverse=False)`
 
 Negative indexes are accepted as Python-friendly shorthand for positions from
 the end, so `array.get(values, -1)` returns the latest item.
 
 `array.sort()` accepts Pine-like `order.ascending` / `order.descending`
-constants. The existing Python-friendly `reverse=True` keyword remains
-available.
+constants. `array.sort_indices()` returns a new array of original indexes in
+sorted-value order without mutating the source array. The existing
+Python-friendly `reverse=True` keyword remains available.
 
 ## Search And Reduction
 

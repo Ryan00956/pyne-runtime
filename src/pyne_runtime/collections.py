@@ -144,6 +144,11 @@ class PyneArray:
         descending = _sort_descending(order, reverse)
         self._values.sort(reverse=descending)
 
+    def sort_indices(self, order: str | None = None, *, reverse: bool = False) -> PyneArray:
+        descending = _sort_descending(order, reverse)
+        indices = sorted(range(len(self._values)), key=self._values.__getitem__, reverse=descending)
+        return PyneArray(indices, max_size=self._max_size, max_depth=self._max_depth)
+
     def join(self, separator: str = ",") -> str:
         return str(separator).join("" if is_na_value(item) else str(item) for item in self._values)
 
@@ -581,6 +586,15 @@ class ArrayNamespace:
 
     def sort(self, arr: PyneArray, order: str | None = None, *, reverse: bool = False) -> None:
         _array(arr).sort(order, reverse=reverse)
+
+    def sort_indices(
+        self,
+        arr: PyneArray,
+        order: str | None = None,
+        *,
+        reverse: bool = False,
+    ) -> PyneArray:
+        return _array(arr).sort_indices(order, reverse=reverse)
 
     def join(self, arr: PyneArray, separator: str = ",") -> str:
         return _array(arr).join(separator)

@@ -124,6 +124,33 @@ label(array.join(legacy, ","))
     ]
 
 
+def test_array_sort_indices_returns_sorted_original_positions() -> None:
+    result = pn.run(
+        """
+values = array.from_values(20, 10, 30)
+ascending = array.sort_indices(values)
+descending = values.sort_indices(order.descending)
+
+label(array.join(ascending, ","))
+label(array.join(descending, ","))
+label(array.join(values, ","))
+plot(array.get(ascending, 0), "First Ascending Index")
+plot(array.get(descending, 0), "First Descending Index")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [item["text"] for item in result.output["labels"]] == [
+        "1,0,2",
+        "2,0,1",
+        "20,10,30",
+    ]
+    assert result.values("First Ascending Index") == [1.0, 1.0, 1.0]
+    assert result.values("First Descending Index") == [2.0, 2.0, 2.0]
+
+
 def test_array_snapshot_freezes_nested_collection_values() -> None:
     result = pn.run(
         """
