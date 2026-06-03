@@ -7,6 +7,7 @@ import pyne_runtime as pn
 
 
 EXAMPLES_DIR = Path(__file__).resolve().parents[1] / "examples"
+EXAMPLES_README = EXAMPLES_DIR / "README.md"
 
 
 def test_all_packaged_examples_run() -> None:
@@ -18,6 +19,17 @@ def test_all_packaged_examples_run() -> None:
         assert result.ok, f"{script.name} failed: {result.error}"
         assert result.meta.get("title")
         assert result.lines or result.output
+
+
+def test_examples_readme_covers_packaged_scripts_and_data_fixture() -> None:
+    body = EXAMPLES_README.read_text(encoding="utf-8")
+
+    for script in sorted(EXAMPLES_DIR.glob("*.py")):
+        assert f"`{script.name}`" in body
+
+    assert "`sample_ohlcv.csv`" in body
+    assert "pyne run examples/ma_cross.py" in body
+    assert "pyne validate examples/ma_cross.py" in body
 
 
 def test_host_output_contract_example_matches_schema() -> None:

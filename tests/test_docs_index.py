@@ -29,6 +29,7 @@ def test_docs_index_covers_key_user_paths() -> None:
 
     for required in (
         "quickstart.md",
+        "../examples/README.md",
         "tutorials/host_integration_guide.md",
         "tutorials/pine_to_pyne_cookbook.md",
         "api/public_api.md",

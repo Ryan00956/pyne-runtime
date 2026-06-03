@@ -7,6 +7,7 @@
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.
+- Added an examples README that maps packaged examples to their contract focus.
 - Added package smoke coverage for built wheels, `py.typed`, CLI entry points,
   packaged examples, and schema output.
 - Added public request-provider typing helpers and script namespace drift tests.

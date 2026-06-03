@@ -14,6 +14,8 @@ strategy, request, and host-renderer output workflows.
   output from OHLCV CSV data.
 - [Pandas And Notebooks](tutorials/pandas_notebook.md): use optional Pandas
   helpers in notebook workflows.
+- [Packaged Examples](../examples/README.md): runnable examples for indicators,
+  host contracts, parameter schema, and incremental state.
 
 ## Host Integration
 
