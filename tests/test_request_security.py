@@ -1300,6 +1300,69 @@ plot(lower[1].last(), "Previous Lower Last")
     assert result.values("Previous Lower Last") == [11.0, 20.0, 31.0]
 
 
+def test_request_security_lower_tf_reuses_requested_context_for_repeated_requests() -> None:
+    class MetadataProvider(StaticProvider):
+        def __init__(self, bars: list[dict[str, Any]]) -> None:
+            super().__init__(bars)
+            self.metadata_calls: list[tuple[str, str]] = []
+
+        def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
+            self.metadata_calls.append((symbol, timeframe))
+            return {"syminfo": {"tickerid": f"TEST:{symbol}", "mintick": 0.5}}
+
+    provider = MetadataProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+        {"time": 1, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 1100},
+        {"time": 2, "open": 20, "high": 21, "low": 19, "close": 20, "volume": 2000},
+        {"time": 3, "open": 30, "high": 31, "low": 29, "close": 30, "volume": 3000},
+        {"time": 3, "open": 31, "high": 32, "low": 30, "close": 31, "volume": 3100},
+        {"time": 4, "open": 40, "high": 41, "low": 39, "close": 40, "volume": 4000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower TF Reuse", overlay=True)
+lower_close = request.security_lower_tf("BTCUSDT", "1", lambda ctx: ctx.close)
+lower_high = request.security_lower_tf("BTCUSDT", "1", lambda ctx: ctx.high)
+plot(lower_close.last(), "Lower Close")
+plot(lower_high.max(), "Lower High")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.metadata_calls == [("BTCUSDT", "1")]
+    assert result.values("Lower Close") == [11.0, 20.0, 31.0, 40.0]
+    assert result.values("Lower High") == [12.0, 21.0, 32.0, 41.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security_lower_tf",
+            "symbol": "BTCUSDT",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+            "bars": 6,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+        {
+            "api": "request.security_lower_tf",
+            "symbol": "BTCUSDT",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+            "bars": 6,
+            "cacheHit": True,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+    ]
+
+
 def test_request_security_lower_tf_ignore_invalid_symbol_returns_empty_groups() -> None:
     provider = InvalidSymbolProvider()
 
