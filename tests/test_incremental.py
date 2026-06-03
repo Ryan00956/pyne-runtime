@@ -133,7 +133,13 @@ indicator("Incremental Output", mode="incremental", overlay=True)
 
 def on_bar(ctx, bar):
     ctx.plot("Close", bar.close)
-    ctx.marker(bar.close > bar.open, shape="square", text="Up", size="large")
+    ctx.marker(
+        bar.close > bar.open,
+        shape=shape.square,
+        text="Up",
+        position=location.abovebar,
+        size=size.large,
+    )
 """
 
     batch = pn.run(batch_script, _bars(), executor_mode="inline")
