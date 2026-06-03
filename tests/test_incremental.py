@@ -122,6 +122,37 @@ def on_bar(ctx, bar):
     assert _marker_times(result, "last_session") == [3]
 
 
+def test_incremental_committed_plot_and_marker_match_batch_output() -> None:
+    batch_script = """
+indicator("Batch Output", overlay=True)
+plot(close, "Close")
+marker(close > open, shape=shape.square, text="Up", size=size.large)
+"""
+    incremental_script = """
+indicator("Incremental Output", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    ctx.plot("Close", bar.close)
+    ctx.marker(bar.close > bar.open, shape="square", text="Up", size="large")
+"""
+
+    batch = pn.run(batch_script, _bars(), executor_mode="inline")
+    incremental = pn.run(incremental_script, _bars(), executor_mode="inline")
+
+    assert batch.ok, batch.error
+    assert incremental.ok, incremental.error
+    assert _line_values(incremental, "close") == _line_values_by_name(batch, "Close")
+    batch_marker = batch.output["markers"][0]
+    incremental_marker = incremental.output["markers"][0]
+    assert incremental_marker["shape"] == batch_marker["shape"]
+    assert incremental_marker["color"] == batch_marker["color"]
+    assert incremental_marker["text"] == batch_marker["text"]
+    assert incremental_marker["position"] == batch_marker["position"]
+    assert incremental_marker["size"] == batch_marker["size"]
+    assert incremental_marker["pane"] == batch_marker["pane"]
+    assert incremental_marker["data"] == batch_marker["data"]
+
+
 def test_incremental_stateful_indicator_matches_batch_committed_bars() -> None:
     bars = [
         {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.0, "volume": 100},

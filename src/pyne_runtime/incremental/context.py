@@ -197,6 +197,7 @@ class IncrementalContext(IncrementalDrawingMixin):
         shape: str = "circle",
         color: str = "#f59e0b",
         position: str = "above",
+        size: str = "normal",
         pane: str = "main",
     ) -> None:
         if self.current_bar is None or not condition:
@@ -208,6 +209,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             "color": color,
             "text": text,
             "position": position,
+            "size": size,
             "pane": pane,
             "data": [],
         })
@@ -217,6 +219,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             "color": color,
             "text": text,
             "position": position,
+            "size": size,
             "pane": pane,
         })
 
