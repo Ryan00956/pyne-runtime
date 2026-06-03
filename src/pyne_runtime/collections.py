@@ -8,6 +8,13 @@ from .security import PyneSecurityError
 from .values import is_na_value
 
 
+class OrderNamespace:
+    """Pine-like sort order constants."""
+
+    ascending = "ascending"
+    descending = "descending"
+
+
 class PyneArray:
     """Mutable Pine-like array value."""
 
@@ -127,8 +134,9 @@ class PyneArray:
     def reverse(self) -> None:
         self._values.reverse()
 
-    def sort(self, *, reverse: bool = False) -> None:
-        self._values.sort(reverse=bool(reverse))
+    def sort(self, order: str | None = None, *, reverse: bool = False) -> None:
+        descending = _sort_descending(order, reverse)
+        self._values.sort(reverse=descending)
 
     def join(self, separator: str = ",") -> str:
         return str(separator).join("" if is_na_value(item) else str(item) for item in self._values)
@@ -555,8 +563,8 @@ class ArrayNamespace:
     def reverse(self, arr: PyneArray) -> None:
         _array(arr).reverse()
 
-    def sort(self, arr: PyneArray, *, reverse: bool = False) -> None:
-        _array(arr).sort(reverse=reverse)
+    def sort(self, arr: PyneArray, order: str | None = None, *, reverse: bool = False) -> None:
+        _array(arr).sort(order, reverse=reverse)
 
     def join(self, arr: PyneArray, separator: str = ",") -> str:
         return _array(arr).join(separator)
@@ -922,12 +930,24 @@ def _sum_values(values: Iterable[Any]) -> float | None:
     return float(sum(numbers)) if numbers else None
 
 
+def _sort_descending(order: str | None, reverse: bool) -> bool:
+    if order is None:
+        return bool(reverse)
+    normalized = str(order).strip().lower()
+    if normalized == OrderNamespace.ascending:
+        return False
+    if normalized == OrderNamespace.descending:
+        return True
+    raise ValueError("array.sort() order must be order.ascending or order.descending")
+
+
 def _values_equal(left: Any, right: Any) -> bool:
     if is_na_value(left) and is_na_value(right):
         return True
     return left == right
 
 
+order_namespace = OrderNamespace()
 array_namespace = ArrayNamespace()
 map_namespace = MapNamespace()
 matrix_namespace = MatrixNamespace()

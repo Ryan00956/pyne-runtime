@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from ..barstate import PyneIncrementalBarState
 from ..cache import pyne as pyne_cache_namespace
-from ..collections import ArrayNamespace, MapNamespace, MatrixNamespace
+from ..collections import ArrayNamespace, MapNamespace, MatrixNamespace, order_namespace
 from ..color import color as color_singleton
 from ..math_ext import PyneMath
 from ..security import (
@@ -270,6 +270,7 @@ class PyneIncrementalSession:
                 array_max_size=self.policy.max_array_size,
                 max_depth=self.policy.max_collection_depth,
             ),
+            "order": order_namespace,
             "pyne": pyne_namespace,
             "cache": pyne_cache_namespace.cache,
             "cache_clear": pyne_cache_namespace.cache_clear,

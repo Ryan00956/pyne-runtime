@@ -164,6 +164,7 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert "editor autocomplete" in script_namespace["purpose"]
     assert "close" in script_namespace["categories"]["data"]
     assert "request" in script_namespace["categories"]["modules"]
+    assert "order" in script_namespace["categories"]["modules"]
     assert "plotshape" in script_namespace["categories"]["plot"]
     assert "when" in script_namespace["categories"]["utility"]
     assert "params" in script_namespace["categories"]["compat"]

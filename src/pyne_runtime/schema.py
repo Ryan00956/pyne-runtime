@@ -270,6 +270,7 @@ SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
             "array",
             "map",
             "matrix",
+            "order",
             "str",
             "ticker",
             "color",

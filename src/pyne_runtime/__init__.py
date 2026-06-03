@@ -10,12 +10,14 @@ from .collections import (
     ArrayNamespace,
     MapNamespace,
     MatrixNamespace,
+    OrderNamespace,
     PyneArray,
     PyneMap,
     PyneMatrix,
     array_namespace,
     map_namespace,
     matrix_namespace,
+    order_namespace,
 )
 from .data import PyneData
 from .executor import execute_pyne_script, execute_pyne_script_in_process
@@ -83,6 +85,7 @@ __all__ = [
     "MatrixNamespace",
     "ObjectRef",
     "OHLCVBar",
+    "OrderNamespace",
     "REQUEST_METADATA_KEY_ALIASES",
     "REQUEST_METADATA_SESSION_KEYS",
     "REQUEST_METADATA_SYMBOL_KEYS",
@@ -143,6 +146,7 @@ __all__ = [
     "map_namespace",
     "matrix_namespace",
     "na",
+    "order_namespace",
     "pyne_cache",
     "read_ohlcv",
     "run",

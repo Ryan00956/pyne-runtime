@@ -90,6 +90,32 @@ plot(array.lastindexof(copy, 9), "Last Index")
     assert result.values("Last Index") == [2.0, 2.0, 2.0]
 
 
+def test_array_sort_accepts_pine_like_order_constants() -> None:
+    result = pn.run(
+        """
+descending = array.from_values(1, 3, 2)
+array.sort(descending, order.descending)
+ascending = descending.copy()
+ascending.sort(order.ascending)
+legacy = array.from_values(1, 3, 2)
+array.sort(legacy, reverse=True)
+
+label(array.join(descending, ","))
+label(array.join(ascending, ","))
+label(array.join(legacy, ","))
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [item["text"] for item in result.output["labels"]] == [
+        "3,2,1",
+        "1,2,3",
+        "3,2,1",
+    ]
+
+
 def test_array_snapshot_freezes_nested_collection_values() -> None:
     result = pn.run(
         """

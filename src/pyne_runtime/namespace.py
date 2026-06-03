@@ -9,7 +9,7 @@ import numpy as np
 
 from . import utils
 from .cache import pyne_cache
-from .collections import ArrayNamespace, MapNamespace, MatrixNamespace
+from .collections import ArrayNamespace, MapNamespace, MatrixNamespace, order_namespace
 from .color import color as color_singleton
 from .context import PyneContext
 from .input import InputModule
@@ -131,6 +131,7 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
         array_max_size=services.policy.max_array_size,
         max_depth=services.policy.max_collection_depth,
     )
+    namespace["order"] = order_namespace
     namespace["str"] = string_namespace
     namespace["ticker"] = TickerNamespace(ctx.syminfo)
     namespace["color"] = color_singleton
