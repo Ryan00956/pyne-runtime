@@ -120,6 +120,9 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert request_errors["invalidReturnType"]["messageContains"] == (
         "must return a list of OHLCV bars"
     )
+    assert request_errors["invalidReturnType"]["ignoreInvalidSymbol"] == (
+        "does not apply; invalid provider return types remain errors"
+    )
     assert request_errors["invalidBarShape"]["messageContains"] == (
         "request data provider returned"
     )

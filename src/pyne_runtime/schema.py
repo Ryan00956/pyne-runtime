@@ -400,7 +400,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "appliesTo": list(REQUEST_API_VALUES),
         "condition": "get_ohlcv returns None or a non-list value.",
         "beforeGetOhlcv": False,
-        "ignoreInvalidSymbol": "None may be treated as empty data only when true",
+        "ignoreInvalidSymbol": "does not apply; invalid provider return types remain errors",
         "messageContains": "must return a list of OHLCV bars",
     },
     "invalidBarShape": {

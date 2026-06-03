@@ -34,6 +34,8 @@
 - Added lower-timeframe capability failure error-detail golden coverage.
 - Fixed request providers returning `None` so `ignore_invalid_symbol=True` no
   longer hides invalid return-type contract failures.
+- Aligned request provider schema wording for invalid return types with
+  `ignore_invalid_symbol` behavior.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.
