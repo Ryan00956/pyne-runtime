@@ -39,3 +39,11 @@ def test_docs_index_covers_key_user_paths() -> None:
         "development/quality_gates.md",
     ):
         assert f"({required})" in body
+
+
+def test_docs_index_covers_all_api_reference_pages() -> None:
+    body = INDEX.read_text(encoding="utf-8")
+
+    for path in sorted((DOCS_ROOT / "api").glob("*.md")):
+        target = path.relative_to(DOCS_ROOT).as_posix()
+        assert f"({target})" in body

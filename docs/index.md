@@ -39,6 +39,12 @@ strategy, request, and host-renderer output workflows.
   helpers.
 - [TA API](api/ta.md): technical-analysis namespace.
 - [Collections API](api/collections.md): array, map, and matrix helpers.
+- [Data API](api/data.md): load and inspect OHLCV rows with `PyneData`.
+- [Color API](api/color.md): Pine-like color constants and helpers.
+- [Math API](api/math.md): scalar and series-aware math helpers.
+- [String API](api/string.md): Pine-like `str.*` conversion and formatting.
+- [Time API](api/time.md): chart time series and timestamp helpers.
+- [Ticker API](api/ticker.md): construct stable ticker identifiers.
 - [Result API](api/result.md): inspect `PyneResult` outputs.
 - [CLI Reference](reference/cli.md): use `pyne run`, `pyne validate`,
   `pyne schema`, and `python -m pyne_runtime`.
