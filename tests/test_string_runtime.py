@@ -62,6 +62,24 @@ plot(str.length(str.lower("FAST")), "Lower Length")
     assert result.values("Lower Length") == [4.0, 4.0, 4.0]
 
 
+def test_str_match_returns_first_regex_match_or_none() -> None:
+    result = pn.run(
+        """
+label(str.match("NASDAQ:AAPL", "[A-Z]+$"))
+label(str.match("close=123.45; volume=100", "[0-9]+[.][0-9]+"))
+plot(str.tonumber(str.match("close=123.45", "[0-9]+[.][0-9]+")), "Matched Number")
+plot(str.tonumber(str.match("no digits", "[0-9]+")), "Missing Match")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [item["text"] for item in result.output["labels"]] == ["AAPL", "123.45"]
+    assert result.values("Matched Number") == [123.45, 123.45, 123.45]
+    assert result.values("Missing Match") == []
+
+
 def test_str_split_repeat_and_format_helpers_interoperate_with_arrays() -> None:
     result = pn.run(
         """

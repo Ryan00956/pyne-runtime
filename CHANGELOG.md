@@ -54,6 +54,7 @@
 - Assigned stable suffixed input schema keys for repeated input titles.
 - Added Pine-like `math.round(..., precision=...)` and `math.trunc()`.
 - Added timezone-first `time.timestamp(...)` compatibility.
+- Added Pine-like `str.match()` regex matching helper.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

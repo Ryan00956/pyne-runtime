@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import builtins
+import re
 from typing import Any
 
 import numpy as np
@@ -56,6 +57,10 @@ class StringNamespace:
 
     def contains(self, value: Any, substring: Any) -> bool:
         return self.pos(value, substring) >= 0
+
+    def match(self, value: Any, regex: Any) -> str | None:
+        matched = re.search(self.tostring(regex), self.tostring(value))
+        return None if matched is None else matched.group(0)
 
     def startswith(self, value: Any, prefix: Any) -> bool:
         return self.tostring(value).startswith(self.tostring(prefix))

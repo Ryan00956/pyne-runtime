@@ -29,6 +29,7 @@ the Pyne/Pine-like format names `price`, `volume`, `percent`, and `inherit`.
 - `str.substring(value, begin_pos, end_pos=None)`
 - `str.pos(value, substring)`
 - `str.contains(value, substring)`
+- `str.match(value, regex)`
 - `str.startswith(value, prefix)`
 - `str.endswith(value, suffix)`
 - `str.replace(value, target, replacement, occurrence=None)`
@@ -49,3 +50,6 @@ label(array.join(parts, " | "))
 
 `str.replace()` replaces the first occurrence by default. When `occurrence` is
 provided, it replaces the zero-based matching occurrence.
+
+`str.match()` returns the first regular-expression match as text, or `None`
+when the regex does not match.
