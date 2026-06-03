@@ -14,6 +14,7 @@ math.sum(close, 20)
 math.round(close, 2)
 math.round(close, precision=2)
 math.trunc(close)
+math.fixnan(close)
 math.round_to_mintick(close)
 math.random(0, 1, seed=42)
 math.sqrt(close)
@@ -31,6 +32,12 @@ Warmup bars where the full window is unavailable are `na`.
 ```python
 plot(math.sum(close, 20), "20-Bar Sum")
 ```
+
+## Missing Values
+
+`math.fixnan(source)` carries the latest non-`na` value forward through later
+missing values. Leading `na` values remain missing because there is no previous
+value to reuse.
 
 ## Mintick Rounding
 

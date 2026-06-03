@@ -79,6 +79,22 @@ plot(math.trunc((open - close) * 3), "Truncated")
     assert _series_values(result, "Truncated") == [-1.0, -1.0, -1.0]
 
 
+def test_math_fixnan_carries_forward_last_non_missing_series_value() -> None:
+    result = pn.run(
+        """
+source = where(bar_index == 0, na, where(bar_index == 2, na, close))
+plot(math.fixnan(source), "Fixed")
+plot(nz(math.fixnan(na), 7), "Scalar Missing")
+""",
+        _bars(5),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert _series_values(result, "Fixed") == [101.0, 101.0, 103.0, 104.0]
+    assert _series_values(result, "Scalar Missing") == [7.0, 7.0, 7.0, 7.0, 7.0]
+
+
 def test_math_default_mintick_matches_symbol_metadata_default() -> None:
     assert pn.SymbolInfo().mintick == 1.0
     assert pn.PyneMath().mintick == 1.0

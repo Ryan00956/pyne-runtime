@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added Pine-like `math.fixnan()` helper.
 - Added Pine-like typed matrix constructors for bool, string, and color values.
 - Added Pine-like `array.sort_indices()` helper.
 - Added Pine-like `map.put_all()` merge helper.

@@ -55,6 +55,12 @@ class PyneMath:
     def trunc(self, x):
         return wrap_like(np.trunc(x), x)
 
+    def fixnan(self, x):
+        values = np.asarray(x, dtype=np.float64)
+        if values.ndim == 0:
+            return float(values)
+        return wrap_like(_fixnan_values(values), x)
+
     def max(self, *args):
         if not args:
             raise TypeError("math.max() requires at least one argument")
@@ -131,3 +137,15 @@ class PyneMath:
 
 
 pyne_math = PyneMath()
+
+
+def _fixnan_values(values: np.ndarray) -> np.ndarray:
+    result = np.array(values, dtype=np.float64, copy=True)
+    last = np.nan
+    for idx, value in enumerate(result):
+        if np.isnan(value):
+            if not np.isnan(last):
+                result[idx] = last
+            continue
+        last = value
+    return result
