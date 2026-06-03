@@ -60,7 +60,8 @@ color.rgb(255, 128, 0, 75)
 # "rgba(255,128,0,0.25)"
 ```
 
-The channel helpers parse both hex and `rgb(...)` / `rgba(...)` strings:
+The channel helpers parse both hex and `rgb(...)` / `rgba(...)` strings. They
+also accept series colors and return series channel values.
 
 ```python
 color.r("#ff8000")              # 255

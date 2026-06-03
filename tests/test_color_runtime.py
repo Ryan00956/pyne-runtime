@@ -65,6 +65,27 @@ plot(close, "Close", color=series_color)
     assert result.output["lines"][0]["per_bar_color"]
 
 
+def test_color_channel_accessors_support_series_colors() -> None:
+    result = pn.run(
+        """
+alpha = when(close > 2, 80, 0)
+series_color = color.rgb(10, 20, 30, alpha)
+plot(color.r(series_color), "Series R")
+plot(color.g(series_color), "Series G")
+plot(color.b(series_color), "Series B")
+plot(color.t(series_color), "Series T")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Series R") == [10.0, 10.0, 10.0]
+    assert result.values("Series G") == [20.0, 20.0, 20.0]
+    assert result.values("Series B") == [30.0, 30.0, 30.0]
+    assert result.values("Series T") == [0.0, 80.0, 80.0]
+
+
 def test_color_from_gradient_supports_scalar_and_series() -> None:
     result = pn.run(
         """

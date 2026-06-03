@@ -105,23 +105,30 @@ class Color:
         return _format_color(*_rgb_channels(base_color), transparency)
 
     @staticmethod
-    def r(color_value: str) -> int | None:
+    def r(color_value: Any) -> int | PyneSeries | np.ndarray | None:
         """Return the red channel from a color string."""
         return _channel(color_value, 0)
 
     @staticmethod
-    def g(color_value: str) -> int | None:
+    def g(color_value: Any) -> int | PyneSeries | np.ndarray | None:
         """Return the green channel from a color string."""
         return _channel(color_value, 1)
 
     @staticmethod
-    def b(color_value: str) -> int | None:
+    def b(color_value: Any) -> int | PyneSeries | np.ndarray | None:
         """Return the blue channel from a color string."""
         return _channel(color_value, 2)
 
     @staticmethod
-    def t(color_value: str) -> int | None:
+    def t(color_value: Any) -> int | PyneSeries | np.ndarray | None:
         """Return Pine-style transparency from a color string."""
+        template = _first_series(color_value)
+        if template is not None:
+            result = np.array([
+                np.nan if is_na_value(item) else float(_transparency(item))
+                for item in _to_array(color_value)
+            ])
+            return wrap_like(result, template)
         if is_na_value(color_value):
             return None
         return _transparency(color_value)
@@ -277,7 +284,14 @@ def _transparency(color_value: str) -> int:
     return int(round((1.0 - alpha) * 100))
 
 
-def _channel(color_value: str, index: int) -> int | None:
+def _channel(color_value: Any, index: int) -> int | PyneSeries | np.ndarray | None:
+    template = _first_series(color_value)
+    if template is not None:
+        result = np.array([
+            np.nan if is_na_value(item) else float(_rgb_channels(item)[index])
+            for item in _to_array(color_value)
+        ])
+        return wrap_like(result, template)
     if is_na_value(color_value):
         return None
     return _rgb_channels(color_value)[index]
