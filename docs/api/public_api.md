@@ -28,6 +28,10 @@ pn.SessionInfo
 pn.SessionNamespace
 pn.DataProvider
 pn.OHLCVBar
+pn.REQUEST_METADATA_KEY_ALIASES
+pn.REQUEST_METADATA_SESSION_KEYS
+pn.REQUEST_METADATA_SYMBOL_KEYS
+pn.REQUEST_METADATA_TIMEFRAME_KEYS
 pn.REQUEST_SECURITY_CAPABILITY_ALIASES
 pn.REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES
 pn.RequestCapabilities
@@ -66,7 +70,9 @@ pn.na
 `SymbolInfo`, `TimeframeInfo`, `SessionInfo`, and `SessionNamespace` back the
 script-level `syminfo`, `timeframe`, and `session` namespaces.
 `DataProvider` is the host protocol for `request.security()` market data access.
-`OHLCVBar`, `REQUEST_SECURITY_CAPABILITY_ALIASES`,
+`OHLCVBar`, `REQUEST_METADATA_KEY_ALIASES`,
+`REQUEST_METADATA_SESSION_KEYS`, `REQUEST_METADATA_SYMBOL_KEYS`,
+`REQUEST_METADATA_TIMEFRAME_KEYS`, `REQUEST_SECURITY_CAPABILITY_ALIASES`,
 `REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES`, `RequestCapabilities`,
 `RequestMetadata`, and related provider protocols are typing helpers for host
 data adapters.

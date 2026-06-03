@@ -16,6 +16,10 @@ from pyne_runtime.request import (
     OHLCVBar,
     PyneInvalidSymbolError,
     PyneRequestError,
+    REQUEST_METADATA_KEY_ALIASES,
+    REQUEST_METADATA_SESSION_KEYS,
+    REQUEST_METADATA_SYMBOL_KEYS,
+    REQUEST_METADATA_TIMEFRAME_KEYS,
     REQUEST_SECURITY_CAPABILITY_ALIASES,
     REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
     RequestCapabilities,
@@ -191,6 +195,11 @@ For IDE and static typing support, Pyne exports provider typing helpers at both
   `request.security()` capability declarations.
 - `REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES`: accepted aliases for
   `request.security_lower_tf()` capability declarations.
+- `REQUEST_METADATA_SYMBOL_KEYS`, `REQUEST_METADATA_TIMEFRAME_KEYS`, and
+  `REQUEST_METADATA_SESSION_KEYS`: accepted provider metadata keys for the
+  corresponding requested-context metadata groups.
+- `REQUEST_METADATA_KEY_ALIASES`: grouped metadata key aliases matching
+  `pn.schema()["requestProvider"]["metadata"]["acceptedKeys"]`.
 - `RequestCapabilities`: accepted capability declaration shapes.
 - `RequestMetadata`: typed dictionary for requested-context metadata.
 - `RequestCapabilityProvider`: optional protocol for method-based capability

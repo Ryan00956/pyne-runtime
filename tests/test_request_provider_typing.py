@@ -19,6 +19,14 @@ def test_request_provider_typing_exports_are_public() -> None:
         "security_lower_tf",
         "lower_tf",
     )
+    assert pn.REQUEST_METADATA_SYMBOL_KEYS == ("syminfo", "symbol_info")
+    assert pn.REQUEST_METADATA_TIMEFRAME_KEYS == ("timeframe", "timeframe_info")
+    assert pn.REQUEST_METADATA_SESSION_KEYS == ("session", "session_info")
+    assert pn.REQUEST_METADATA_KEY_ALIASES == {
+        "syminfo": pn.REQUEST_METADATA_SYMBOL_KEYS,
+        "timeframe": pn.REQUEST_METADATA_TIMEFRAME_KEYS,
+        "session": pn.REQUEST_METADATA_SESSION_KEYS,
+    }
     assert hasattr(pn, "RequestCapabilities")
     assert hasattr(pn, "RequestCapabilityProvider")
     assert hasattr(pn, "RequestMetadataProvider")

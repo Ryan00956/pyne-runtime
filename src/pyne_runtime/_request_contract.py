@@ -7,3 +7,11 @@ REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES = (
     "security_lower_tf",
     "lower_tf",
 )
+REQUEST_METADATA_SYMBOL_KEYS = ("syminfo", "symbol_info")
+REQUEST_METADATA_TIMEFRAME_KEYS = ("timeframe", "timeframe_info")
+REQUEST_METADATA_SESSION_KEYS = ("session", "session_info")
+REQUEST_METADATA_KEY_ALIASES = {
+    "syminfo": REQUEST_METADATA_SYMBOL_KEYS,
+    "timeframe": REQUEST_METADATA_TIMEFRAME_KEYS,
+    "session": REQUEST_METADATA_SESSION_KEYS,
+}

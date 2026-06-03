@@ -14,6 +14,10 @@ REQUEST_SECURITY_CAPABILITY_ALIASES = (
 REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES = (
     _request_contract.REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES
 )
+REQUEST_METADATA_SYMBOL_KEYS = _request_contract.REQUEST_METADATA_SYMBOL_KEYS
+REQUEST_METADATA_TIMEFRAME_KEYS = _request_contract.REQUEST_METADATA_TIMEFRAME_KEYS
+REQUEST_METADATA_SESSION_KEYS = _request_contract.REQUEST_METADATA_SESSION_KEYS
+REQUEST_METADATA_KEY_ALIASES = _request_contract.REQUEST_METADATA_KEY_ALIASES
 _MISSING = object()
 
 
@@ -146,12 +150,13 @@ def _request_metadata(provider: DataProvider, symbol: str, timeframe: str) -> di
             category="invalidMetadata",
         )
 
-    syminfo = declared_metadata.get("syminfo", declared_metadata.get("symbol_info"))
-    timeframe_info = declared_metadata.get(
-        "timeframe",
-        declared_metadata.get("timeframe_info", timeframe),
+    syminfo = _metadata_value(declared_metadata, REQUEST_METADATA_SYMBOL_KEYS)
+    timeframe_info = _metadata_value(
+        declared_metadata,
+        REQUEST_METADATA_TIMEFRAME_KEYS,
+        default=timeframe,
     )
-    session = declared_metadata.get("session", declared_metadata.get("session_info"))
+    session = _metadata_value(declared_metadata, REQUEST_METADATA_SESSION_KEYS)
     return {
         "syminfo": _symbol_metadata_with_defaults(symbol, syminfo),
         "timeframe": timeframe_info,
@@ -172,3 +177,14 @@ def _symbol_metadata_with_defaults(symbol: str, syminfo: Any) -> Any:
     if isinstance(syminfo, Mapping):
         return {**defaults, **syminfo}
     return syminfo
+
+def _metadata_value(
+    metadata: Mapping[str, Any],
+    keys: tuple[str, ...],
+    *,
+    default: Any = None,
+) -> Any:
+    for key in keys:
+        if key in metadata:
+            return metadata[key]
+    return default

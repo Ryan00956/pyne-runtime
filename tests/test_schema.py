@@ -71,6 +71,9 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert schema["requestProvider"]["capabilities"]["lowerTimeframeAliases"] == [
         *pn.REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
     ]
+    assert schema["requestProvider"]["metadata"]["acceptedKeys"] == {
+        key: list(value) for key, value in pn.REQUEST_METADATA_KEY_ALIASES.items()
+    }
     assert schema["requestProvider"]["cache"]["key"] == ["symbol", "timeframe", "start", "end"]
     assert "request.security_lower_tf" in schema["requestProvider"]["cache"]["reusedFor"]
     request_diagnostics = schema["requestProvider"]["diagnostics"]

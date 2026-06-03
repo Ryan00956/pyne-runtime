@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from ._request_contract import (
+    REQUEST_METADATA_KEY_ALIASES,
     REQUEST_SECURITY_CAPABILITY_ALIASES,
     REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
 )
@@ -603,9 +604,7 @@ def request_provider_schema() -> dict[str, Any]:
                 "request_metadata(symbol, timeframe), or request_metadata mapping"
             ),
             "acceptedKeys": {
-                "syminfo": ["syminfo", "symbol_info"],
-                "timeframe": ["timeframe", "timeframe_info"],
-                "session": ["session", "session_info"],
+                key: list(value) for key, value in REQUEST_METADATA_KEY_ALIASES.items()
             },
             "defaults": (
                 "requested symbol is used for syminfo ticker/tickerid; requested "
