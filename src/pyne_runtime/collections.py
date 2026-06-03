@@ -727,6 +727,30 @@ class MatrixNamespace:
     ) -> PyneMatrix:
         return self.new(rows, columns, initial_value)
 
+    def new_bool(
+        self,
+        rows: int = 0,
+        columns: int = 0,
+        initial_value: bool | None = None,
+    ) -> PyneMatrix:
+        return self.new(rows, columns, initial_value)
+
+    def new_string(
+        self,
+        rows: int = 0,
+        columns: int = 0,
+        initial_value: str | None = None,
+    ) -> PyneMatrix:
+        return self.new(rows, columns, initial_value)
+
+    def new_color(
+        self,
+        rows: int = 0,
+        columns: int = 0,
+        initial_value: str | None = None,
+    ) -> PyneMatrix:
+        return self.new(rows, columns, initial_value)
+
     def from_rows(self, rows: Iterable[Iterable[Any]]) -> PyneMatrix:
         return PyneMatrix.from_rows(
             rows,

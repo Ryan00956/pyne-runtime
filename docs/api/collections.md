@@ -176,6 +176,9 @@ Supported matrix helpers:
 - `matrix.new(rows=0, columns=0, initial_value=None)`
 - `matrix.new_float(rows=0, columns=0, initial_value=None)`
 - `matrix.new_int(rows=0, columns=0, initial_value=None)`
+- `matrix.new_bool(rows=0, columns=0, initial_value=None)`
+- `matrix.new_string(rows=0, columns=0, initial_value=None)`
+- `matrix.new_color(rows=0, columns=0, initial_value=None)`
 - `matrix.from_rows(rows)`
 - `matrix.copy(m)`
 - `matrix.snapshot(m)`

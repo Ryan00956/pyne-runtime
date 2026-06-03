@@ -542,6 +542,27 @@ plot(array.sum(col), "Col Sum")
     assert result.values("Col Sum") == [3.0, 3.0, 3.0]
 
 
+def test_matrix_typed_constructors_support_bool_string_and_color_values() -> None:
+    result = pn.run(
+        """
+flags = matrix.new_bool(1, 2, True)
+names = matrix.new_string(1, 1, "fast")
+colors = matrix.new_color(1, 1, color.red)
+
+label(matrix.get(names, 0, 0))
+plot(matrix.get(flags, 0, 1), "Flag")
+plot(color.r(matrix.get(colors, 0, 0)), "Color R")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.output["labels"][0]["text"] == "fast"
+    assert result.values("Flag") == [1.0, 1.0, 1.0]
+    assert result.values("Color R") == [239.0, 239.0, 239.0]
+
+
 def test_matrix_methods_copy_transpose_reshape_and_reducers() -> None:
     result = pn.run(
         """
