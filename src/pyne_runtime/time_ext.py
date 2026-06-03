@@ -43,16 +43,17 @@ class TimeNamespace(PyneSeries):
     def second(self, source: Any = None, timezone: str = "UTC") -> PyneSeries | int | None:
         return _component(self._source(source), timezone, lambda dt: dt.second)
 
-    def timestamp(
-        self,
-        year: int,
-        month: int,
-        day: int,
-        hour: int = 0,
-        minute: int = 0,
-        second: int = 0,
-        timezone: str = "UTC",
-    ) -> int:
+    def timestamp(self, *args: Any, timezone: str = "UTC") -> int:
+        if args and isinstance(args[0], str):
+            timezone = args[0]
+            args = args[1:]
+        elif len(args) == 7 and isinstance(args[-1], str):
+            timezone = args[-1]
+            args = args[:-1]
+        if not 3 <= len(args) <= 6:
+            raise TypeError("time.timestamp() expects year, month, day, optional hour/minute/second")
+        year, month, day, *rest = args
+        hour, minute, second = (*rest, 0, 0, 0)[:3]
         tz = _timezone(timezone)
         value = datetime(
             int(year),

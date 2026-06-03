@@ -79,6 +79,29 @@ plot(1 if time.dayofweek(stamp) == time.tuesday else 0, "Constant Match")
     assert result.values("Constant Match") == [1.0, 1.0]
 
 
+def test_time_timestamp_accepts_timezone_first_pine_like_order() -> None:
+    result = pn.run(
+        """
+keyword = time.timestamp(2024, 1, 2, 11, 4, 5, timezone="+08:00")
+positional = time.timestamp("+08:00", 2024, 1, 2, 11, 4, 5)
+legacy_positional = time.timestamp(2024, 1, 2, 11, 4, 5, "+08:00")
+date_only = time.timestamp("UTC", 2024, 1, 2)
+plot(keyword, "Keyword")
+plot(positional, "Positional")
+plot(legacy_positional, "Legacy Positional")
+plot(date_only, "Date Only")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Keyword") == [1704164645.0, 1704164645.0]
+    assert result.values("Positional") == [1704164645.0, 1704164645.0]
+    assert result.values("Legacy Positional") == [1704164645.0, 1704164645.0]
+    assert result.values("Date Only") == [1704153600.0, 1704153600.0]
+
+
 def test_time_components_accept_millisecond_timestamps() -> None:
     result = pn.run(
         """

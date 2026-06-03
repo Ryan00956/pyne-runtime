@@ -40,6 +40,7 @@ helpers return a scalar value.
 ## Construction And Formatting
 
 - `time.timestamp(year, month, day, hour=0, minute=0, second=0, timezone="UTC")`
+- `time.timestamp(timezone, year, month, day, hour=0, minute=0, second=0)`
 - `time.format(source=None, fmt="%Y-%m-%d %H:%M:%S", timezone="UTC")`
 
 `timezone` accepts `"UTC"`, fixed offsets such as `"+08:00"`, and IANA zone
@@ -47,5 +48,6 @@ names supported by Python's `zoneinfo`, such as `"America/New_York"`.
 
 ```python
 stamp = time.timestamp(2024, 1, 2, 3, 4, 5)
+shifted = time.timestamp("+08:00", 2024, 1, 2, 11, 4, 5)
 label(time.format(stamp, "%Y-%m-%d %H:%M:%S"))
 ```
