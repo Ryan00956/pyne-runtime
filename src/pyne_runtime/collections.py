@@ -30,8 +30,7 @@ class PyneArray:
         self._values = list(values) if values is not None else []
         _enforce_limit("array size", len(self._values), self._max_size)
         for item in self._values:
-            _validate_stored_value(item)
-            _enforce_child_depth(item, self._max_depth)
+            _validate_collection_assignment(self, item, self._max_depth)
 
     def __len__(self) -> int:
         return len(self._values)
@@ -64,14 +63,12 @@ class PyneArray:
         return self.get(-1)
 
     def set(self, index: int, value: Any) -> None:
-        _validate_stored_value(value)
-        _enforce_child_depth(value, self._max_depth)
+        _validate_collection_assignment(self, value, self._max_depth)
         self._values[_resolve_index(index, len(self._values))] = value
 
     def push(self, value: Any) -> None:
         _enforce_limit("array size", len(self._values) + 1, self._max_size)
-        _validate_stored_value(value)
-        _enforce_child_depth(value, self._max_depth)
+        _validate_collection_assignment(self, value, self._max_depth)
         self._values.append(value)
 
     def pop(self) -> Any:
@@ -81,8 +78,7 @@ class PyneArray:
 
     def unshift(self, value: Any) -> None:
         _enforce_limit("array size", len(self._values) + 1, self._max_size)
-        _validate_stored_value(value)
-        _enforce_child_depth(value, self._max_depth)
+        _validate_collection_assignment(self, value, self._max_depth)
         self._values.insert(0, value)
 
     def shift(self) -> Any:
@@ -95,8 +91,7 @@ class PyneArray:
         if idx < 0 or idx > len(self._values):
             raise IndexError(f"array index {idx} is out of bounds")
         _enforce_limit("array size", len(self._values) + 1, self._max_size)
-        _validate_stored_value(value)
-        _enforce_child_depth(value, self._max_depth)
+        _validate_collection_assignment(self, value, self._max_depth)
         self._values.insert(idx, value)
 
     def remove(self, index: int) -> Any:
@@ -130,8 +125,7 @@ class PyneArray:
         )
 
     def fill(self, value: Any, index_from: int = 0, index_to: int | None = None) -> None:
-        _validate_stored_value(value)
-        _enforce_child_depth(value, self._max_depth)
+        _validate_collection_assignment(self, value, self._max_depth)
         start = max(int(index_from), 0)
         stop = len(self._values) if index_to is None else min(int(index_to), len(self._values))
         for idx in range(start, stop):
@@ -186,11 +180,9 @@ class PyneMap:
         self._values: dict[Any, Any] = {}
         for key, value in dict(values or {}).items():
             _validate_map_key(key)
-            _validate_stored_value(value)
+            _validate_collection_assignment(self, value, self._max_depth)
             self._values[key] = value
         _enforce_limit("map size", len(self._values), self._max_size)
-        for value in self._values.values():
-            _enforce_child_depth(value, self._max_depth)
 
     def __len__(self) -> int:
         return len(self._values)
@@ -222,8 +214,7 @@ class PyneMap:
         _validate_map_key(key)
         if key not in self._values:
             _enforce_limit("map size", len(self._values) + 1, self._max_size)
-        _validate_stored_value(value)
-        _enforce_child_depth(value, self._max_depth)
+        _validate_collection_assignment(self, value, self._max_depth)
         self._values[key] = value
 
     def put_all(self, other: PyneMap) -> None:
@@ -279,8 +270,7 @@ class PyneMatrix:
         row_count = _matrix_dimension(rows, "matrix rows")
         column_count = _matrix_dimension(columns, "matrix columns")
         _enforce_limit("matrix cells", row_count * column_count, self._max_cells)
-        _validate_stored_value(initial_value)
-        _enforce_child_depth(initial_value, self._max_depth)
+        _validate_collection_assignment(self, initial_value, self._max_depth)
         self._values = [
             [initial_value for _ in range(column_count)]
             for _ in range(row_count)
@@ -307,6 +297,7 @@ class PyneMatrix:
         for row in values:
             for item in row:
                 _validate_stored_value(item)
+                _enforce_acyclic_collection_value(item)
                 _enforce_child_depth(item, normalized_depth)
         matrix = cls(
             max_cells=normalized_limit,
@@ -348,13 +339,11 @@ class PyneMatrix:
 
     def set(self, row: int, column: int, value: Any) -> None:
         row_idx, column_idx = self._resolve_cell(row, column)
-        _validate_stored_value(value)
-        _enforce_child_depth(value, self._max_depth)
+        _validate_collection_assignment(self, value, self._max_depth)
         self._values[row_idx][column_idx] = value
 
     def fill(self, value: Any) -> None:
-        _validate_stored_value(value)
-        _enforce_child_depth(value, self._max_depth)
+        _validate_collection_assignment(self, value, self._max_depth)
         for row_idx in range(self.rows()):
             for column_idx in range(self.columns()):
                 self._values[row_idx][column_idx] = value
@@ -881,6 +870,29 @@ def _validate_stored_value(value: Any) -> None:
         )
 
 
+def _validate_collection_assignment(
+    container: PyneArray | PyneMap | PyneMatrix,
+    value: Any,
+    max_depth: int | None,
+) -> None:
+    _validate_stored_value(value)
+    _enforce_no_recursive_collection_value(container, value)
+    _enforce_child_depth(value, max_depth)
+
+
+def _enforce_acyclic_collection_value(value: Any) -> None:
+    if _collection_has_cycle(value):
+        raise PyneSecurityError("recursive collection values are unsupported")
+
+
+def _enforce_no_recursive_collection_value(
+    container: PyneArray | PyneMap | PyneMatrix,
+    value: Any,
+) -> None:
+    if _collection_references(value, id(container)) or _collection_has_cycle(value):
+        raise PyneSecurityError("recursive collection values are unsupported")
+
+
 def _snapshot_value(value: Any, seen: set[int]) -> Any:
     if isinstance(value, PyneArray):
         return _snapshot_array(value, seen)
@@ -964,6 +976,69 @@ def _collection_depth(value: Any, seen: set[int] | None = None) -> int:
         children = (item for row in value.to_list() for item in row)
         return 1 + _max_collection_depth(children, seen)
     return 0
+
+
+def _collection_references(value: Any, target_id: int, seen: set[int] | None = None) -> bool:
+    seen = seen or set()
+    if isinstance(value, PyneArray):
+        identity = id(value)
+        if identity == target_id:
+            return True
+        if identity in seen:
+            return False
+        seen.add(identity)
+        return any(_collection_references(item, target_id, set(seen)) for item in value.to_list())
+    if isinstance(value, PyneMap):
+        identity = id(value)
+        if identity == target_id:
+            return True
+        if identity in seen:
+            return False
+        seen.add(identity)
+        return any(
+            _collection_references(item, target_id, set(seen))
+            for item in value.to_dict().values()
+        )
+    if isinstance(value, PyneMatrix):
+        identity = id(value)
+        if identity == target_id:
+            return True
+        if identity in seen:
+            return False
+        seen.add(identity)
+        return any(
+            _collection_references(item, target_id, set(seen))
+            for row in value.to_list()
+            for item in row
+        )
+    return False
+
+
+def _collection_has_cycle(value: Any, path: set[int] | None = None) -> bool:
+    path = path or set()
+    if isinstance(value, PyneArray):
+        identity = id(value)
+        if identity in path:
+            return True
+        child_path = {*path, identity}
+        return any(_collection_has_cycle(item, child_path) for item in value.to_list())
+    if isinstance(value, PyneMap):
+        identity = id(value)
+        if identity in path:
+            return True
+        child_path = {*path, identity}
+        return any(_collection_has_cycle(item, child_path) for item in value.to_dict().values())
+    if isinstance(value, PyneMatrix):
+        identity = id(value)
+        if identity in path:
+            return True
+        child_path = {*path, identity}
+        return any(
+            _collection_has_cycle(item, child_path)
+            for row in value.to_list()
+            for item in row
+        )
+    return False
 
 
 def _max_collection_depth(values: Iterable[Any], seen: set[int] | None = None) -> int:

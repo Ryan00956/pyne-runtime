@@ -31,7 +31,10 @@ values, so later mutations to the live collection do not affect the snapshot.
 Collections can store stable script values: scalars, `na`, series values,
 colors, drawing object handles, and nested `array`/`map`/`matrix` values.
 Callable objects and Python modules are rejected because they are executable
-runtime values rather than serializable script state.
+runtime values rather than serializable script state. Recursive collection
+values, such as an array that stores itself directly or through another
+collection, are also rejected because they cannot be safely snapshotted or
+serialized.
 
 In incremental scripts, `ctx.state()` cells keep committed snapshot history.
 When a state cell stores an array, map, or matrix, `cell[1]` returns the

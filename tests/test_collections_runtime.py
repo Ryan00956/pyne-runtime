@@ -237,6 +237,51 @@ array.push(values, np)
     assert "callable and module values are unsupported" in str(result.error)
 
 
+def test_array_rejects_recursive_collection_values_on_mutation() -> None:
+    result = pn.run(
+        """
+values = array.new()
+array.push(values, values)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "recursive collection values are unsupported" in str(result.error)
+
+
+def test_map_rejects_recursive_collection_values_on_mutation() -> None:
+    result = pn.run(
+        """
+levels = map.new()
+map.put(levels, "self", levels)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "recursive collection values are unsupported" in str(result.error)
+
+
+def test_matrix_rejects_recursive_collection_values_on_mutation() -> None:
+    result = pn.run(
+        """
+grid = matrix.new(1, 1)
+matrix.set(grid, 0, 0, grid)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "recursive collection values are unsupported" in str(result.error)
+
+
 def test_array_join_and_clear_support_non_numeric_payloads() -> None:
     result = pn.run(
         """
