@@ -52,6 +52,7 @@
 - Aligned incremental default plot and marker panes with indicator overlay.
 - Documented incremental committed plot and marker output convergence.
 - Assigned stable suffixed input schema keys for repeated input titles.
+- Added Pine-like `math.round(..., precision=...)` and `math.trunc()`.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

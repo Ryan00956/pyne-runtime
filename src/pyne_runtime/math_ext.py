@@ -47,8 +47,13 @@ class PyneMath:
     def floor(self, x):
         return wrap_like(np.floor(x), x)
 
-    def round(self, x, digits=0):
-        return wrap_like(np.round(x, digits), x)
+    def round(self, x, precision=0, *, digits=None):
+        if digits is not None:
+            precision = digits
+        return wrap_like(np.round(x, int(precision)), x)
+
+    def trunc(self, x):
+        return wrap_like(np.trunc(x), x)
 
     def max(self, *args):
         if not args:

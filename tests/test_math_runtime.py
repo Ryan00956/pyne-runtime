@@ -62,6 +62,23 @@ plot(math.round_to_mintick(close + 0.125), "Rounded Tie")
     assert _series_values(result, "Rounded Tie") == [100.25, 101.25, 102.25]
 
 
+def test_math_round_precision_keyword_and_trunc_preserve_series_inputs() -> None:
+    result = pn.run(
+        """
+plot(math.round(close / 3, precision=2), "Rounded")
+plot(math.round(close / 3, digits=1), "Rounded Legacy")
+plot(math.trunc((open - close) * 3), "Truncated")
+""",
+        _bars(3),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert _series_values(result, "Rounded") == [33.33, 33.67, 34.0]
+    assert _series_values(result, "Rounded Legacy") == [33.3, 33.7, 34.0]
+    assert _series_values(result, "Truncated") == [-1.0, -1.0, -1.0]
+
+
 def test_math_default_mintick_matches_symbol_metadata_default() -> None:
     assert pn.SymbolInfo().mintick == 1.0
     assert pn.PyneMath().mintick == 1.0
