@@ -12,6 +12,8 @@ strategy, request, and host-renderer output workflows.
   Pine patterns to Python syntax.
 - [CSV to Signal](tutorials/csv_to_signal.md): produce structured signal
   output from OHLCV CSV data.
+- [Pandas And Notebooks](tutorials/pandas_notebook.md): use optional Pandas
+  helpers in notebook workflows.
 
 ## Host Integration
 
@@ -23,6 +25,8 @@ strategy, request, and host-renderer output workflows.
   provider behavior.
 - [Request API](api/request.md): implement typed host data providers for
   `request.security()` and `request.security_lower_tf()`.
+- [Host-Backed Request Security](tutorials/host_request_security.md): provide
+  OHLCV data for `request.security()` examples.
 - [Input API](api/input.md): expose script parameters to host UI panels.
 - [Output Schema](reference/output_schema.md): consume renderer, object,
   signal, strategy, and error output.
@@ -52,14 +56,19 @@ strategy, request, and host-renderer output workflows.
 ## Concepts
 
 - [Data Model](concepts/data_model.md): OHLCV rows and runtime data context.
+- [Script Runtime](concepts/script_runtime.md): execution flow, namespace
+  registry, and runtime services.
 - [Series Semantics](concepts/series_semantics.md): Pine-like series and
   history references.
+- [NA Semantics](concepts/na_semantics.md): missing values, `na`, and `nz()`.
 - [Expression Helpers](concepts/expression_helpers.md): `when()`, `where()`,
   and `switch()`.
 - [State Semantics](concepts/state_semantics.md): `var()` and explicit state
   cells.
 - [Bar Execution Model](concepts/bar_execution_model.md): bar index, time,
   barstate, and strategy fill timing.
+- [Drawing Objects](concepts/drawing_objects.md): line, label, box, and table
+  handle semantics.
 - [Incremental Runtime](concepts/incremental_runtime.md): confirmed and preview
   bar execution.
 - [Security Modes](concepts/security_modes.md): script execution boundaries.

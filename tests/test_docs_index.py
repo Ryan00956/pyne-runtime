@@ -7,6 +7,7 @@ from pathlib import Path
 DOCS_ROOT = Path(__file__).resolve().parents[1] / "docs"
 INDEX = DOCS_ROOT / "index.md"
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)#]+)(?:#[^)]+)?\)")
+PUBLIC_DOC_DIRS = ("api", "concepts", "reference", "tutorials")
 
 
 def test_docs_index_links_exist() -> None:
@@ -41,9 +42,10 @@ def test_docs_index_covers_key_user_paths() -> None:
         assert f"({required})" in body
 
 
-def test_docs_index_covers_all_api_reference_pages() -> None:
+def test_docs_index_covers_public_documentation_pages() -> None:
     body = INDEX.read_text(encoding="utf-8")
 
-    for path in sorted((DOCS_ROOT / "api").glob("*.md")):
-        target = path.relative_to(DOCS_ROOT).as_posix()
-        assert f"({target})" in body
+    for directory in PUBLIC_DOC_DIRS:
+        for path in sorted((DOCS_ROOT / directory).glob("*.md")):
+            target = path.relative_to(DOCS_ROOT).as_posix()
+            assert f"({target})" in body
