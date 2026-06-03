@@ -47,6 +47,7 @@
 - Documented incremental preview output as temporary overlay state.
 - Aligned incremental marker size output with batch marker output.
 - Added incremental marker `shape` and `location` enum namespaces.
+- Aligned incremental histogram plot output with batch `plot.style_columns`.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

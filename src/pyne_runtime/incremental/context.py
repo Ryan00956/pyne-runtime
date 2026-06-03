@@ -174,20 +174,24 @@ class IncrementalContext(IncrementalDrawingMixin):
             return
 
         local_id = _slug(name)
+        normalized_type = "histogram" if _is_histogram_style(style) else type
         entry = self._series.setdefault(local_id, {
             "id": local_id,
             "title": title or name,
             "color": color,
             "linewidth": linewidth,
             "style": style,
-            "type": type,
+            "type": normalized_type,
             "pane": pane,
             "data": [],
         })
-        entry["data"].append({
+        point: dict[str, Any] = {
             "time": self.current_bar.time,
             "value": round(number, 8),
-        })
+        }
+        if normalized_type == "histogram":
+            point["color"] = color
+        entry["data"].append(point)
 
     def marker(
         self,
@@ -254,7 +258,9 @@ class IncrementalContext(IncrementalDrawingMixin):
                 markers.append({**item, "data": data})
 
         output: dict[str, Any] = {}
-        if lines:
+        line_outputs = [line for line in lines if line.get("type") != "histogram"]
+        histogram_outputs = [line for line in lines if line.get("type") == "histogram"]
+        if line_outputs:
             output["lines"] = [
                 {
                     "id": line.get("id"),
@@ -265,7 +271,18 @@ class IncrementalContext(IncrementalDrawingMixin):
                     "pane": line.get("pane", "main"),
                     "data": line.get("data") or [],
                 }
-                for line in lines
+                for line in line_outputs
+            ]
+        if histogram_outputs:
+            output["histograms"] = [
+                {
+                    "title": line.get("name"),
+                    "color_up": line.get("color"),
+                    "color_down": line.get("color"),
+                    "pane": line.get("pane", "main"),
+                    "data": line.get("data") or [],
+                }
+                for line in histogram_outputs
             ]
         if markers:
             output["markers"] = markers
@@ -324,3 +341,6 @@ def _style_to_int(style: Any) -> int:
     if normalized in {"dotted", "dot"}:
         return 2
     return 0
+
+def _is_histogram_style(style: Any) -> bool:
+    return str(style or "").lower() in {"histogram", "columns", "column", "bar"}

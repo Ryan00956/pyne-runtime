@@ -159,6 +159,29 @@ def on_bar(ctx, bar):
     assert incremental_marker["data"] == batch_marker["data"]
 
 
+def test_incremental_committed_histogram_plot_matches_batch_output() -> None:
+    batch_script = """
+indicator("Batch Columns", overlay=True)
+plot(volume, "Volume Columns", style=plot.style_columns)
+"""
+    incremental_script = """
+indicator("Incremental Columns", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    ctx.plot("Volume Columns", bar.volume, style=plot.style_columns)
+"""
+
+    batch = pn.run(batch_script, _bars(), executor_mode="inline")
+    incremental = pn.run(incremental_script, _bars(), executor_mode="inline")
+
+    assert batch.ok, batch.error
+    assert incremental.ok, incremental.error
+    assert _line_values(incremental, "volume_columns") == _line_values_by_name(batch, "Volume Columns")
+    assert incremental.lines[0]["type"] == batch.lines[0]["type"] == "histogram"
+    assert incremental.output["histograms"] == batch.output["histograms"]
+    assert "lines" not in incremental.output
+
+
 def test_incremental_stateful_indicator_matches_batch_committed_bars() -> None:
     bars = [
         {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.0, "volume": 100},

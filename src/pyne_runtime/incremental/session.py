@@ -360,6 +360,11 @@ class PyneIncrementalSession:
             "label": label_namespace,
             "box": box_namespace,
             "table": table_namespace,
+            "plot": SimpleNamespace(
+                style_line="line",
+                style_histogram="histogram",
+                style_columns="histogram",
+            ),
             "position": SimpleNamespace(
                 top_left="top_left",
                 top_center="top_center",
