@@ -313,3 +313,5 @@ Request provider failures may add `requestProviderCategory` to `errorDetail`.
 The value matches a key under
 `pn.schema()["requestProvider"]["errorCategories"]`, allowing hosts to display
 request integration failures without parsing error strings.
+They may also add `requestProviderRequest`, whose fields are described by
+`pn.schema()["requestProvider"]["errorDetail"]["requestRequired"]`.

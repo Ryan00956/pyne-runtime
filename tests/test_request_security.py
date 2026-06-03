@@ -1451,6 +1451,10 @@ def test_request_provider_error_detail_categories_match_schema() -> None:
             self.calls.append((symbol, timeframe, start, end))
             return "not bars"
 
+    class BrokenCapabilityProvider(StaticProvider):
+        def capabilities(self) -> set[str]:
+            raise RuntimeError("capability offline")
+
     class BadMetadataProvider(StaticProvider):
         request_metadata = ["not", "a", "mapping"]
 
@@ -1475,6 +1479,14 @@ plot(request.security("BTCUSDT", "2", close), "Higher")
             CapabilityProvider(valid_requested_bars, capabilities={"request.security": False}),
             """
 indicator("Unsupported Capability", overlay=True)
+plot(request.security("BTCUSDT", "2", close), "Higher")
+""",
+        ),
+        (
+            "capabilityFailure",
+            BrokenCapabilityProvider(valid_requested_bars),
+            """
+indicator("Capability Failure", overlay=True)
 plot(request.security("BTCUSDT", "2", close), "Higher")
 """,
         ),
@@ -1545,4 +1557,11 @@ plot(bad, "Bad")
         assert not result.ok, category
         assert result.error_detail is not None
         assert result.error_detail["requestProviderCategory"] == category
+        assert result.error_detail["requestProviderRequest"] == {
+            "api": "request.security",
+            "symbol": "BTCUSDT" if category != "invalidSymbol" else "MISSING",
+            "timeframe": "2",
+            "start": 1,
+            "end": 4,
+        }
         assert result.error_detail["code"] == error_categories[category]["code"]

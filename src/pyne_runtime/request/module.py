@@ -74,17 +74,36 @@ class RequestModule:
         remain supported. Callable thunks are evaluated in the requested
         symbol/timeframe context.
         """
+        symbol_text = str(symbol)
+        timeframe_text = str(timeframe)
+        start, end = self._context.times[0], self._context.times[-1]
+        request_context = self._request_context_payload(
+            "request.security",
+            symbol_text,
+            timeframe_text,
+            start,
+            end,
+        )
         if self._provider is None:
             raise PyneRequestError(
                 "request.security() requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
                 category="missingProvider",
+                request_context=request_context,
             )
-        if not _provider_supports(self._provider, _REQUEST_SECURITY_CAPABILITIES):
+        try:
+            supports_request = _provider_supports(
+                self._provider,
+                _REQUEST_SECURITY_CAPABILITIES,
+            )
+        except PyneRequestError as exc:
+            raise exc.with_request_context(**request_context) from exc
+        if not supports_request:
             raise PyneRequestError(
                 "request.security() requires provider capability 'request.security'",
                 code="PYNE_UNSUPPORTED_FEATURE",
                 category="unsupportedCapability",
+                request_context=request_context,
             )
         if self._evaluating:
             raise PyneRequestError(
@@ -102,18 +121,18 @@ class RequestModule:
             aliases=_LOOKAHEAD_ALIASES,
         )
 
-        start, end = self._context.times[0], self._context.times[-1]
         requested, requested_ctx, cache_hit, ignored_invalid_symbol = self._requested_context(
-            str(symbol),
-            str(timeframe),
+            "request.security",
+            symbol_text,
+            timeframe_text,
             start,
             end,
             ignore_invalid_symbol=ignore_invalid_symbol,
         )
         self._record_diagnostic(
             api="request.security",
-            symbol=str(symbol),
-            timeframe=str(timeframe),
+            symbol=symbol_text,
+            timeframe=timeframe_text,
             start=start,
             end=end,
             requested=requested,
@@ -131,9 +150,10 @@ class RequestModule:
         if callable(expression):
             requested_values, expression_name = self._evaluate_expression_thunk(
                 expression,
-                symbol=str(symbol),
-                timeframe=str(timeframe),
+                symbol=symbol_text,
+                timeframe=timeframe_text,
                 requested_ctx=requested_ctx,
+                request_context=request_context,
             )
         else:
             requested_values, expression_name = _values_from_field_expression(
@@ -143,8 +163,8 @@ class RequestModule:
             )
 
         return _align_request_values(
-            symbol=str(symbol),
-            timeframe=str(timeframe),
+            symbol=symbol_text,
+            timeframe=timeframe_text,
             expression_name=expression_name,
             chart_times=self._context.times,
             requested_times=requested_times,
@@ -171,18 +191,37 @@ class RequestModule:
         expression in that requested context, then groups requested values into
         ``[chart_time, next_chart_time)`` buckets.
         """
+        symbol_text = str(symbol)
+        timeframe_text = str(timeframe)
+        start, end = self._context.times[0], self._context.times[-1]
+        request_context = self._request_context_payload(
+            "request.security_lower_tf",
+            symbol_text,
+            timeframe_text,
+            start,
+            end,
+        )
         if self._provider is None:
             raise PyneRequestError(
                 "request.security_lower_tf() requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
                 category="missingProvider",
+                request_context=request_context,
             )
-        if not _provider_supports(self._provider, _REQUEST_LOWER_TF_CAPABILITIES):
+        try:
+            supports_request = _provider_supports(
+                self._provider,
+                _REQUEST_LOWER_TF_CAPABILITIES,
+            )
+        except PyneRequestError as exc:
+            raise exc.with_request_context(**request_context) from exc
+        if not supports_request:
             raise PyneRequestError(
                 "request.security_lower_tf() requires provider capability "
                 "'request.security_lower_tf'",
                 code="PYNE_UNSUPPORTED_FEATURE",
                 category="unsupportedCapability",
+                request_context=request_context,
             )
         if self._evaluating:
             raise PyneRequestError(
@@ -190,18 +229,18 @@ class RequestModule:
                 code="PYNE_UNSUPPORTED_FEATURE",
             )
 
-        start, end = self._context.times[0], self._context.times[-1]
         requested, requested_ctx, cache_hit, ignored_invalid_symbol = self._requested_context(
-            str(symbol),
-            str(timeframe),
+            "request.security_lower_tf",
+            symbol_text,
+            timeframe_text,
             start,
             end,
             ignore_invalid_symbol=ignore_invalid_symbol,
         )
         self._record_diagnostic(
             api="request.security_lower_tf",
-            symbol=str(symbol),
-            timeframe=str(timeframe),
+            symbol=symbol_text,
+            timeframe=timeframe_text,
             start=start,
             end=end,
             requested=requested,
@@ -212,9 +251,10 @@ class RequestModule:
         if callable(expression):
             requested_values, expression_name = self._evaluate_expression_thunk(
                 expression,
-                symbol=str(symbol),
-                timeframe=str(timeframe),
+                symbol=symbol_text,
+                timeframe=timeframe_text,
                 requested_ctx=requested_ctx,
+                request_context=request_context,
             )
         else:
             requested_values, expression_name = _values_from_field_expression(
@@ -224,8 +264,8 @@ class RequestModule:
             )
 
         return _group_lower_timeframe_values(
-            symbol=str(symbol),
-            timeframe=str(timeframe),
+            symbol=symbol_text,
+            timeframe=timeframe_text,
             expression_name=expression_name,
             chart_times=self._context.times,
             requested_times=requested_ctx.times,
@@ -234,6 +274,7 @@ class RequestModule:
 
     def _requested_context(
         self,
+        api: str,
         symbol: str,
         timeframe: str,
         start: int,
@@ -241,11 +282,13 @@ class RequestModule:
         *,
         ignore_invalid_symbol: bool,
     ) -> tuple[list[dict[str, Any]], PyneContext, bool, bool]:
+        request_context = self._request_context_payload(api, symbol, timeframe, start, end)
         if self._provider is None:
             raise PyneRequestError(
                 "request context requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
                 category="missingProvider",
+                request_context=request_context,
             )
 
         key = (symbol, timeframe, int(start), int(end))
@@ -263,16 +306,18 @@ class RequestModule:
                     f"Invalid symbol for request.security(): {symbol}",
                     code="PYNE_INVALID_SYMBOL",
                     category="invalidSymbol",
+                    request_context=request_context,
                 ) from exc
             requested = []
             ignored_invalid_symbol = True
-        except PyneRequestError:
-            raise
+        except PyneRequestError as exc:
+            raise exc.with_request_context(**request_context) from exc
         except Exception as exc:
             raise PyneRequestError(
                 f"request data provider failed: {exc}",
                 code="PYNE_RUNTIME_ERROR",
                 category="providerFailure",
+                request_context=request_context,
             ) from exc
         if requested is None:
             if not ignore_invalid_symbol:
@@ -280,6 +325,7 @@ class RequestModule:
                     "request data provider must return a list of OHLCV bars",
                     code="PYNE_RUNTIME_ERROR",
                     category="invalidReturnType",
+                    request_context=request_context,
                 )
             requested = []
             ignored_invalid_symbol = True
@@ -288,6 +334,7 @@ class RequestModule:
                 "request data provider must return a list of OHLCV bars",
                 code="PYNE_RUNTIME_ERROR",
                 category="invalidReturnType",
+                request_context=request_context,
             )
         for index, item in enumerate(requested):
             if not isinstance(item, dict):
@@ -295,19 +342,23 @@ class RequestModule:
                     f"request data provider returned non-mapping bar at row {index}",
                     code="PYNE_RUNTIME_ERROR",
                     category="invalidBarShape",
+                    request_context=request_context,
                 )
             if "time" not in item:
                 raise PyneRequestError(
                     f"request data provider returned OHLCV bar without time at row {index}",
                     code="PYNE_RUNTIME_ERROR",
                     category="invalidBarShape",
+                    request_context=request_context,
                 )
         requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
-        request_metadata = (
-            _default_request_metadata(symbol, timeframe)
-            if ignored_invalid_symbol
-            else _request_metadata(self._provider, symbol, timeframe)
-        )
+        if ignored_invalid_symbol:
+            request_metadata = _default_request_metadata(symbol, timeframe)
+        else:
+            try:
+                request_metadata = _request_metadata(self._provider, symbol, timeframe)
+            except PyneRequestError as exc:
+                raise exc.with_request_context(**request_context) from exc
         try:
             requested_ctx = PyneContext.from_ohlcv(
                 requested,
@@ -322,6 +373,7 @@ class RequestModule:
                 f"request data provider returned invalid OHLCV: {exc}",
                 code="PYNE_RUNTIME_ERROR",
                 category="invalidBarShape",
+                request_context=request_context,
             ) from exc
         cached = (requested, requested_ctx)
         if not ignored_invalid_symbol:
@@ -353,6 +405,22 @@ class RequestModule:
             "status": "ignoredInvalidSymbol" if ignored_invalid_symbol else "ok",
         })
 
+    def _request_context_payload(
+        self,
+        api: str,
+        symbol: str,
+        timeframe: str,
+        start: int,
+        end: int,
+    ) -> dict[str, Any]:
+        return {
+            "api": api,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "start": int(start),
+            "end": int(end),
+        }
+
     def _evaluate_expression_thunk(
         self,
         expression: Callable[[RequestEvalContext], Any],
@@ -360,6 +428,7 @@ class RequestModule:
         symbol: str,
         timeframe: str,
         requested_ctx: PyneContext,
+        request_context: dict[str, Any],
     ) -> tuple[RequestValues, str]:
         requested_ta = TaModule(requested_ctx)
         eval_ctx = RequestEvalContext(
@@ -378,6 +447,7 @@ class RequestModule:
                 f"request.security() expression failed: {exc}",
                 code="PYNE_RUNTIME_ERROR",
                 category="expressionFailure",
+                request_context=request_context,
             ) from exc
         finally:
             self._evaluating = False

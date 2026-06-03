@@ -40,9 +40,10 @@ Compatibility notes:
 `pn.schema()["requestProvider"]["migration"]` is the machine-readable migration
 policy for host-backed `request.*` integrations.
 
-Version 5 is the current request provider schema. It adds
-`meta.requestDiagnostics` entries for successful request calls while preserving
-the version 4 structured `errorCategories` for host-facing request diagnostics.
+Version 6 is the current request provider schema. It adds
+`errorDetail.requestProviderRequest` for failed request calls while preserving
+the version 5 `meta.requestDiagnostics` entries and the version 4 structured
+`errorCategories` for host-facing request diagnostics.
 
 Compatibility notes:
 
@@ -52,6 +53,8 @@ Compatibility notes:
   called, `ignore_invalid_symbol` behavior, and identifying message fragments.
 - Runtime request failures include the matching category as
   `errorDetail.requestProviderCategory`.
+- Runtime request failures include failed `api/symbol/timeframe/start/end`
+  coordinates as `errorDetail.requestProviderRequest`.
 - Successful request calls append one entry to `meta.requestDiagnostics`; cache
   reuse is indicated by `cacheHit`.
 - `invalidSymbol` remains the only provider-side error class that can be

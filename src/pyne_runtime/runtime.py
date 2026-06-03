@@ -161,6 +161,8 @@ class PyneRuntime:
                 if exc.category
                 else {}
             )
+            if exc.request_context:
+                context["requestProviderRequest"] = exc.request_context
             return PyneResult(
                 ok=False,
                 code=code,

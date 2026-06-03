@@ -149,7 +149,8 @@ Hosts can branch on `pn.schema()["requestProvider"]["schemaVersion"]` and
 `pn.schema()["requestProvider"]["errorCategories"]` when displaying request
 integration failures. Version 4 adds structured categories while preserving the
 legacy `errors` mapping. Request provider failures also include the matching
-category in `result.errorDetail["requestProviderCategory"]`.
+category in `result.errorDetail["requestProviderCategory"]` and the failed
+request coordinates in `result.errorDetail["requestProviderRequest"]`.
 
 | Category | Code | Calls `get_ohlcv`? | Stable meaning |
 | --- | --- | --- | --- |
@@ -163,6 +164,9 @@ category in `result.errorDetail["requestProviderCategory"]`.
 | `invalidMetadata` | `PYNE_RUNTIME_ERROR` | Yes | Requested-context metadata is not a mapping. |
 | `metadataFailure` | `PYNE_RUNTIME_ERROR` | Yes | Metadata lookup raised unexpectedly. |
 | `expressionFailure` | `PYNE_RUNTIME_ERROR` | Yes | A callable request expression raised unexpectedly. |
+
+`requestProviderRequest` contains `api`, `symbol`, `timeframe`, `start`, and
+`end`, matching the request range Pyne passed to the provider contract.
 
 For IDE and static typing support, Pyne exports provider typing helpers at both
 `pyne_runtime.request` and the package top level:

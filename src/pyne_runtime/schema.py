@@ -7,7 +7,7 @@ from typing import Any
 PYNE_INPUT_SCHEMA_VERSION = 1
 PYNE_OUTPUT_SCHEMA_VERSION = 1
 PYNE_PARAM_SCHEMA_VERSION = 1
-PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 5
+PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 6
 PYNE_STRATEGY_REPORT_SCHEMA_VERSION = 1
 
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
@@ -423,8 +423,17 @@ REQUEST_PROVIDER_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
     ],
     "versions": [
         {
-            "version": 5,
+            "version": 6,
             "status": "current",
+            "breakingChanges": [],
+            "notes": [
+                "Adds errorDetail.requestProviderRequest for failed request.* calls.",
+                "Keeps meta.requestDiagnostics from version 5.",
+            ],
+        },
+        {
+            "version": 5,
+            "status": "previous",
             "breakingChanges": [],
             "notes": [
                 "Adds meta.requestDiagnostics entries for successful request.* calls.",
@@ -604,6 +613,15 @@ def request_provider_schema() -> dict[str, Any]:
             "semantics": (
                 "One entry is appended for each successful request.* call; repeated "
                 "symbol/timeframe/range contexts set cacheHit=true."
+            ),
+        },
+        "errorDetail": {
+            "categoryField": "requestProviderCategory",
+            "requestField": "requestProviderRequest",
+            "requestRequired": ["api", "symbol", "timeframe", "start", "end"],
+            "semantics": (
+                "Failed host-backed request.* calls include requestProviderCategory "
+                "and requestProviderRequest in result.errorDetail."
             ),
         },
         "errors": {

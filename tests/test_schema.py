@@ -73,6 +73,16 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
         "request.security_lower_tf",
     ]
     assert request_diagnostics["statusValues"] == ["ok", "ignoredInvalidSymbol"]
+    request_error_detail = schema["requestProvider"]["errorDetail"]
+    assert request_error_detail["categoryField"] == "requestProviderCategory"
+    assert request_error_detail["requestField"] == "requestProviderRequest"
+    assert request_error_detail["requestRequired"] == [
+        "api",
+        "symbol",
+        "timeframe",
+        "start",
+        "end",
+    ]
     assert schema["requestProvider"]["errors"]["capabilityFailure"] == "PYNE_RUNTIME_ERROR"
     request_errors = schema["requestProvider"]["errorCategories"]
     assert request_errors["missingProvider"]["code"] == "PYNE_UNSUPPORTED_FEATURE"
