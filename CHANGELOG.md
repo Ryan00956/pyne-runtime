@@ -43,6 +43,7 @@
 - Refreshed the Pine-like API matrix request-provider contract notes.
 - Documented empty-result request cache semantics in compatibility references.
 - Added incremental preview-created drawing object isolation coverage.
+- Added incremental strategy preview pending-order isolation coverage.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

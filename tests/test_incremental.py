@@ -632,6 +632,48 @@ def on_preview(ctx, bar):
     assert closed.output["strategy"]["opentrades"][0]["entry_price"] == 2.0
 
 
+def test_incremental_strategy_preview_pending_order_does_not_persist() -> None:
+    script = """
+indicator("Preview Pending Strategy", mode="incremental", overlay=True)
+
+def init(ctx):
+    ctx.strategy.configure(initial_capital=1000)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("ConfirmedPending", ctx.strategy.long, qty=1, stop=3.0, when=ctx.bar_index == 1)
+    ctx.plot("Position", ctx.strategy.position_size)
+
+def on_preview(ctx, bar):
+    ctx.strategy.entry("PreviewPending", ctx.strategy.long, qty=1, stop=3.0)
+    ctx.plot("Preview Position", ctx.strategy.position_size)
+"""
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    seed = session.seed(_bars()[:1])
+    preview = session.on_bar_updated({"time": 2, "open": 1, "high": 2.0, "low": 1, "close": 1.5, "volume": 100})
+    snapshot = session.snapshot_result()
+    closed = session.on_bar_closed({"time": 2, "open": 1, "high": 2.0, "low": 1, "close": 2.0, "volume": 100})
+    triggered = session.on_bar_closed({"time": 3, "open": 2, "high": 3.5, "low": 2, "close": 3.0, "volume": 100})
+
+    assert _line_values(seed, "position") == [0.0]
+    assert _line_values(preview, "preview_position") == [0.0]
+    assert preview.output["strategy"]["orders"] == []
+    assert preview.output["strategy"]["lifecycle"][0]["id"] == "PreviewPending"
+    assert preview.output["strategy"]["lifecycle"][0]["status"] == "pending"
+    assert _line_values(snapshot, "position") == [0.0]
+    assert "strategy" not in snapshot.output
+    assert closed.output["strategy"]["orders"] == []
+    assert closed.output["strategy"]["lifecycle"][0]["id"] == "ConfirmedPending"
+    assert closed.output["strategy"]["lifecycle"][0]["status"] == "pending"
+    assert triggered.output["strategy"]["orders"][0]["id"] == "ConfirmedPending"
+    assert triggered.output["strategy"]["lifecycle"][0]["id"] == "ConfirmedPending"
+    assert triggered.output["strategy"]["lifecycle"][0]["phase"] == "pending_fill"
+    assert triggered.output["strategy"]["opentrades"][0]["entry_id"] == "ConfirmedPending"
+
+
 def test_incremental_box_and_table_objects_emit_events() -> None:
     script = """
 indicator("Incremental Box Table", mode="incremental", overlay=True)
