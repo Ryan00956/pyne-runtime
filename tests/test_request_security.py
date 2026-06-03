@@ -1950,6 +1950,43 @@ plot(lower.size(), "Lower Count")
     assert provider.calls == []
 
 
+def test_request_security_lower_tf_availability_errors_report_request_context() -> None:
+    provider = CapabilityProvider(
+        [{"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}],
+        capabilities={"request.security_lower_tf": False},
+    )
+    cases = [
+        ("missingProvider", None),
+        ("unsupportedCapability", provider),
+    ]
+
+    for category, data_provider in cases:
+        result = pn.run(
+            """
+indicator("Lower Availability Error", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+            _bars(),
+            data_provider=data_provider,
+            executor_mode="inline",
+        )
+
+        assert not result.ok, category
+        assert result.error_detail is not None
+        assert result.error_detail["code"] == "PYNE_UNSUPPORTED_FEATURE"
+        assert result.error_detail["requestProviderCategory"] == category
+        assert result.error_detail["requestProviderRequest"] == {
+            "api": "request.security_lower_tf",
+            "symbol": "BTCUSDT",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+        }
+
+    assert provider.calls == []
+
+
 def test_request_security_lower_tf_expression_errors_report_request_context() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
