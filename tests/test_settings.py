@@ -10,6 +10,20 @@ def test_settings_reject_invalid_security_mode() -> None:
         PyneSettings(security_mode="surprise")
 
 
+def test_from_env_reads_collection_limits(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PYNE_MAX_ARRAY_SIZE", "11")
+    monkeypatch.setenv("PYNE_MAX_MAP_SIZE", "12")
+    monkeypatch.setenv("PYNE_MAX_MATRIX_CELLS", "13")
+    monkeypatch.setenv("PYNE_MAX_COLLECTION_DEPTH", "3")
+
+    settings = PyneSettings.from_env()
+
+    assert settings.max_array_size == 11
+    assert settings.max_map_size == 12
+    assert settings.max_matrix_cells == 13
+    assert settings.max_collection_depth == 3
+
+
 def test_with_security_mode_preserves_all_existing_fields() -> None:
     provider = object()
     settings = PyneSettings(

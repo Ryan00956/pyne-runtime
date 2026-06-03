@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Tested environment-configured collection resource limits.
 - Documented and tested nested incremental collection history snapshots.
 - Documented and tested empty-array pop/shift errors.
 - Rejected negative `array.new_*()` constructor sizes.
