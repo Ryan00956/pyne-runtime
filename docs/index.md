@@ -15,6 +15,9 @@ strategy, request, and host-renderer output workflows.
 
 ## Host Integration
 
+- [Host Integration Guide](tutorials/host_integration_guide.md): embed Pyne in
+  an application with parameter UI, request providers, structured output, and
+  release checks.
 - [Runtime API](api/runtime.md): choose `pn.run()` or `PyneRuntime`.
 - [Settings API](api/settings.md): configure execution, security, metadata, and
   provider behavior.
