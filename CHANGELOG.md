@@ -36,6 +36,8 @@
   longer hides invalid return-type contract failures.
 - Aligned request provider schema wording for invalid return types with
   `ignore_invalid_symbol` behavior.
+- Added successful empty-data request diagnostics coverage for both
+  higher-timeframe and lower-timeframe requests.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.
