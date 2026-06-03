@@ -320,6 +320,62 @@ plot(higher, "Higher")
     ]
 
 
+def test_request_security_empty_provider_result_reuses_cache_across_request_shapes() -> None:
+    class EmptyProvider(StaticProvider):
+        def __init__(self) -> None:
+            super().__init__([])
+            self.metadata_calls: list[tuple[str, str]] = []
+
+        def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
+            self.metadata_calls.append((symbol, timeframe))
+            return {"syminfo": {"tickerid": f"EMPTY:{symbol}"}}
+
+    provider = EmptyProvider()
+
+    result = pn.run(
+        """
+indicator("Empty Provider Cache", overlay=True)
+higher = request.security("BTCUSDT", "2", close)
+lower = request.security_lower_tf("BTCUSDT", "2", close)
+plot(higher, "Higher")
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert provider.metadata_calls == [("BTCUSDT", "2")]
+    assert result.get_series("Higher") == []
+    assert result.values("Lower Count") == [0.0, 0.0, 0.0, 0.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security",
+            "symbol": "BTCUSDT",
+            "timeframe": "2",
+            "start": 1,
+            "end": 4,
+            "bars": 0,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+        {
+            "api": "request.security_lower_tf",
+            "symbol": "BTCUSDT",
+            "timeframe": "2",
+            "start": 1,
+            "end": 4,
+            "bars": 0,
+            "cacheHit": True,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+    ]
+
+
 def test_request_security_ignored_invalid_symbol_does_not_poison_cache() -> None:
     provider = InvalidSymbolProvider()
 

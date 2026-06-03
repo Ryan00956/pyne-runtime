@@ -38,6 +38,7 @@
   `ignore_invalid_symbol` behavior.
 - Added successful empty-data request diagnostics coverage for both
   higher-timeframe and lower-timeframe requests.
+- Added empty-data requested-context cache reuse coverage across request shapes.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.
