@@ -1820,6 +1820,68 @@ plot(lower.size(), "Lower Count")
         }
 
 
+def test_request_security_lower_tf_provider_data_errors_report_request_context() -> None:
+    class BrokenProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            raise RuntimeError("database offline")
+
+    class InvalidReturnProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> Any:
+            self.calls.append((symbol, timeframe, start, end))
+            return "not bars"
+
+    valid_requested_bars = [
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ]
+    cases = [
+        ("providerFailure", BrokenProvider(valid_requested_bars)),
+        ("invalidReturnType", InvalidReturnProvider(valid_requested_bars)),
+        (
+            "invalidBarShape",
+            StaticProvider([
+                {"open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+            ]),
+        ),
+    ]
+
+    for category, provider in cases:
+        result = pn.run(
+            """
+indicator("Lower Provider Data Error", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+            _bars(),
+            data_provider=provider,
+            executor_mode="inline",
+        )
+
+        assert not result.ok, category
+        assert result.error_detail is not None
+        assert result.error_detail["code"] == "PYNE_RUNTIME_ERROR"
+        assert result.error_detail["requestProviderCategory"] == category
+        assert result.error_detail["requestProviderRequest"] == {
+            "api": "request.security_lower_tf",
+            "symbol": "BTCUSDT",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+        }
+
+
 def test_request_provider_error_detail_categories_match_schema() -> None:
     class BrokenProvider(StaticProvider):
         def get_ohlcv(
