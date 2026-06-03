@@ -55,6 +55,20 @@ def nz(src: PyneSeries | np.ndarray | float, replacement: float = 0.0) -> PyneSe
     return src
 
 
+def fixnan(src: PyneSeries | np.ndarray | list | tuple | float) -> PyneSeries | np.ndarray | float:
+    """Carry the latest non-missing value forward through later missing values."""
+    if isinstance(src, PyneSeries):
+        values = _fixnan_array(to_numpy(src, dtype=np.float64))
+        return src.with_values(values)
+    if isinstance(src, np.ndarray):
+        return _fixnan_array(np.asarray(src, dtype=np.float64))
+    if isinstance(src, list | tuple):
+        return _fixnan_array(np.asarray(src, dtype=np.float64))
+    if is_na_value(src):
+        return np.nan
+    return src
+
+
 def na_check(src: PyneSeries | np.ndarray) -> PyneSeries | np.ndarray:
     """Check which elements are NaN.
 
@@ -73,6 +87,18 @@ def na_check(src: PyneSeries | np.ndarray) -> PyneSeries | np.ndarray:
 # ═══════════════════════════════════════════════════════════════
 #  Bar Offset / Shift
 # ═══════════════════════════════════════════════════════════════
+
+
+def _fixnan_array(values: np.ndarray) -> np.ndarray:
+    result = np.array(values, dtype=np.float64, copy=True)
+    last = np.nan
+    for idx, value in enumerate(result):
+        if np.isnan(value):
+            if not np.isnan(last):
+                result[idx] = last
+            continue
+        last = value
+    return result
 
 
 def shift(src: PyneSeries | np.ndarray, periods: int = 1) -> PyneSeries | np.ndarray:

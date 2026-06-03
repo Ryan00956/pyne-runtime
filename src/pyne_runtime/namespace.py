@@ -171,6 +171,7 @@ def install_utility_namespace(namespace: dict[str, Any], services: RuntimeServic
     namespace["shift"] = utils.shift
     namespace["na"] = utils.na
     namespace["nz"] = utils.nz
+    namespace["fixnan"] = utils.fixnan
     namespace["na_check"] = utils.na_check
     namespace["cum"] = utils.cum
     namespace["rising"] = utils.rising

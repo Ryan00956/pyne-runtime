@@ -42,6 +42,22 @@ plot(where(na(close[1]), close, na), "First Only")
     assert result.values("First Only") == [1.5]
 
 
+def test_fixnan_carries_forward_previous_non_missing_values() -> None:
+    result = pn.run(
+        """
+source = where(bar_index == 0, na, where(bar_index == 2, na, close))
+plot(fixnan(source), "Fixed")
+plot(nz(fixnan(na), 7), "Scalar Missing")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Fixed") == [2.5, 2.5]
+    assert result.values("Scalar Missing") == [7.0, 7.0, 7.0]
+
+
 def test_na_conditions_do_not_emit_markers_or_signals() -> None:
     result = pn.run(
         """

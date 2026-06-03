@@ -30,6 +30,12 @@ plot(nz(close[1], close), "Previous Or Current")
 plot(nz(close[1], 0), "Previous Filled")
 ```
 
+Use `fixnan()` when later missing values should reuse the latest known value:
+
+```python
+plot(fixnan(where(close > open, close, na)), "Last Up Close")
+```
+
 Missing conditions are treated as false by marker, signal, and coloring helpers:
 
 ```python
@@ -48,6 +54,8 @@ Current scope:
 - Numeric series use `np.nan` internally for missing values.
 - `na(x)` returns a boolean scalar or boolean `PyneSeries`.
 - `nz(x, replacement)` is series-aware.
+- `fixnan(x)` carries the latest non-`na` value forward and leaves leading
+  missing values as `na`.
 - `plot(na)` is a stable no-op.
 - Marker and signal conditions ignore `na`.
 

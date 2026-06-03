@@ -330,6 +330,7 @@ SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
             "shift",
             "na",
             "nz",
+            "fixnan",
             "na_check",
             "cum",
             "rising",
