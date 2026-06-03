@@ -33,6 +33,16 @@ def test_package_smoke_finds_built_wheel(tmp_path: Path) -> None:
     assert module._find_wheel(tmp_path) == new_wheel
 
 
+def test_package_smoke_checks_installed_type_marker() -> None:
+    module = _load_package_smoke()
+
+    command = module._type_marker_check_command(Path("python"))
+
+    assert command[:2] == ["python", "-c"]
+    assert "py.typed" in command[2]
+    assert "pyne_runtime" in command[2]
+
+
 def _load_package_smoke() -> ModuleType:
     spec = spec_from_file_location("package_smoke", SCRIPT)
     assert spec is not None

@@ -40,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
         _run([str(python), "-m", "pip", "install", "--upgrade", "pip"])
         _run([str(python), "-m", "pip", "install", str(wheel)])
 
+        _run(_type_marker_check_command(python))
         _run([str(python), "-m", "pyne_runtime", "--version"])
         schema = _run_json([str(python), "-m", "pyne_runtime", "schema"])
         if schema["output"]["schemaVersion"] != 1:
@@ -83,6 +84,17 @@ def _venv_python(venv_dir: Path) -> Path:
     if sys.platform == "win32":
         return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
+
+
+def _type_marker_check_command(python: Path) -> list[str]:
+    return [
+        str(python),
+        "-c",
+        (
+            "from importlib.resources import files; "
+            "raise SystemExit(0 if files('pyne_runtime').joinpath('py.typed').is_file() else 1)"
+        ),
+    ]
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:

@@ -115,8 +115,8 @@ scripts/check.sh
 
 The full package check builds into a temporary directory, runs
 `python -m twine check`, installs the built wheel into a temporary virtualenv,
-and exercises the installed CLI with `pyne --version`, `pyne schema`,
-`pyne validate`, and `pyne run`.
+verifies the installed `py.typed` marker, and exercises the installed CLI with
+`pyne --version`, `pyne schema`, `pyne validate`, and `pyne run`.
 
 ## Independence Check
 
