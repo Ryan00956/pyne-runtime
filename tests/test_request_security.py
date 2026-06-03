@@ -551,6 +551,41 @@ plot(lower.size(), "Lower Count")
     assert result.values("Lower Count") == [1.0, 1.0, 1.0, 1.0]
 
 
+def test_request_security_dict_capabilities_allow_any_truthy_alias() -> None:
+    provider = CapabilityProvider(
+        [
+            {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+            {"time": 2, "open": 20, "high": 21, "low": 19, "close": 20, "volume": 2000},
+            {"time": 3, "open": 30, "high": 31, "low": 29, "close": 30, "volume": 3000},
+            {"time": 4, "open": 40, "high": 41, "low": 39, "close": 40, "volume": 4000},
+        ],
+        capabilities={
+            "request.security": False,
+            "ohlcv": True,
+            "request.security_lower_tf": False,
+            "lower_tf": True,
+        },
+    )
+
+    result = pn.run(
+        """
+indicator("Capability Truthy Alias", overlay=True)
+higher = request.security("BTCUSDT", "2", close)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(higher, "Higher")
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "2", 1, 4), ("BTCUSDT", "1", 1, 4)]
+    assert result.values("Higher") == [10, 20, 30, 40]
+    assert result.values("Lower Count") == [1.0, 1.0, 1.0, 1.0]
+
+
 def test_request_security_accepts_sequence_capability_aliases() -> None:
     provider = CapabilityProvider(
         [

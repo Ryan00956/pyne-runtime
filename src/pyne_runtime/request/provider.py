@@ -108,10 +108,12 @@ def _provider_supports(provider: DataProvider, capability_names: tuple[str, ...]
     if declared_capabilities is None:
         return False
     if isinstance(declared_capabilities, dict):
-        for capability in capability_names:
-            if capability in declared_capabilities:
-                return bool(declared_capabilities[capability])
-        return False
+        matched_capabilities = [
+            declared_capabilities[capability]
+            for capability in capability_names
+            if capability in declared_capabilities
+        ]
+        return any(bool(value) for value in matched_capabilities)
     if isinstance(declared_capabilities, (set, list, tuple)):
         declared = set(declared_capabilities)
         return any(capability in declared for capability in capability_names)
