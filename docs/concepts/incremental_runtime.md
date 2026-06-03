@@ -56,6 +56,12 @@ when present. The seed result is committed history: its plotted lines, markers,
 drawing object snapshot, object events, and strategy report can be rendered as
 the durable chart state.
 
+Committed incremental `ctx.plot()` and `ctx.marker()` output follows the same
+host-facing renderer contract as batch `plot()` and `marker()` for the covered
+surface: line color, width, style, histogram/columns output, marker
+shape/location/size, and default pane assignment from `indicator(...,
+overlay=...)`. Explicit `pane=` values still override the indicator default.
+
 Send unconfirmed realtime ticks or partial OHLCV updates through
 `on_bar_updated()`:
 
