@@ -57,6 +57,12 @@ class PyneArray:
     def get(self, index: int) -> Any:
         return self._values[_resolve_index(index, len(self._values))]
 
+    def first(self) -> Any:
+        return self.get(0)
+
+    def last(self) -> Any:
+        return self.get(-1)
+
     def set(self, index: int, value: Any) -> None:
         _validate_stored_value(value)
         _enforce_child_depth(value, self._max_depth)
@@ -514,6 +520,12 @@ class ArrayNamespace:
 
     def get(self, arr: PyneArray, index: int) -> Any:
         return _array(arr).get(index)
+
+    def first(self, arr: PyneArray) -> Any:
+        return _array(arr).first()
+
+    def last(self, arr: PyneArray) -> Any:
+        return _array(arr).last()
 
     def set(self, arr: PyneArray, index: int, value: Any) -> None:
         _array(arr).set(index, value)

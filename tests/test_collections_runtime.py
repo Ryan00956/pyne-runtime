@@ -29,6 +29,8 @@ array.insert(prices, 2, 4.5)
 plot(array.size(prices), "Size")
 plot(array.get(prices, 0), "First")
 plot(array.get(prices, -1), "Last")
+plot(array.first(prices), "First Helper")
+plot(array.last(prices), "Last Helper")
 plot(removed, "Removed")
 plot(popped, "Popped")
 plot(array.indexof(prices, 4.5), "Index")
@@ -42,6 +44,8 @@ plot(array.includes(prices, 2.5), "Includes")
     assert result.values("Size") == [3.0, 3.0, 3.0]
     assert result.values("First") == [1.5, 1.5, 1.5]
     assert result.values("Last") == [4.5, 4.5, 4.5]
+    assert result.values("First Helper") == [1.5, 1.5, 1.5]
+    assert result.values("Last Helper") == [4.5, 4.5, 4.5]
     assert result.values("Removed") == [0.5, 0.5, 0.5]
     assert result.values("Popped") == [3.5, 3.5, 3.5]
     assert result.values("Index") == [2.0, 2.0, 2.0]
@@ -73,6 +77,8 @@ plot(values.max(), "Max")
 plot(copy.get(1), "Copy Changed")
 plot(values.get(1), "Original Kept")
 plot(window.get(0), "Window First")
+plot(window.first(), "Object First")
+plot(window.last(), "Object Last")
 plot(array.lastindexof(copy, 9), "Last Index")
 """,
         _bars(),
@@ -87,6 +93,8 @@ plot(array.lastindexof(copy, 9), "Last Index")
     assert result.values("Copy Changed") == [9.0, 9.0, 9.0]
     assert result.values("Original Kept") == [2.0, 2.0, 2.0]
     assert result.values("Window First") == [9.0, 9.0, 9.0]
+    assert result.values("Object First") == [9.0, 9.0, 9.0]
+    assert result.values("Object Last") == [9.0, 9.0, 9.0]
     assert result.values("Last Index") == [2.0, 2.0, 2.0]
 
 

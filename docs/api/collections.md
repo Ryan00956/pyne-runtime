@@ -66,6 +66,8 @@ Pine's `array.from(...)` name cannot be written as normal Python syntax because
 
 - `array.size(arr)`
 - `array.get(arr, index)`
+- `array.first(arr)`
+- `array.last(arr)`
 - `array.set(arr, index, value)`
 - `array.push(arr, value)`
 - `array.pop(arr)`

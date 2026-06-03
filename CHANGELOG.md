@@ -57,6 +57,7 @@
 - Added Pine-like `str.match()` regex matching helper.
 - Added series-aware `color.r/g/b/t()` channel helpers.
 - Added Pine-like `order.ascending` / `order.descending` for `array.sort()`.
+- Added Pine-like `array.first()` and `array.last()` helpers.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.
