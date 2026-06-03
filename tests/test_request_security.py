@@ -1514,6 +1514,51 @@ plot(lower_low.last(), "Lower Low Last")
     assert result.values("Lower Low Last") == [9.0, 19.0, 29.0, 39.0]
 
 
+def test_request_security_lower_tf_accepts_tuple_thunk_expression() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 12, "low": 9, "close": 11, "volume": 1000},
+        {"time": 1, "open": 12, "high": 15, "low": 11, "close": 14, "volume": 1100},
+        {"time": 2, "open": 20, "high": 23, "low": 19, "close": 21, "volume": 2000},
+        {"time": 3, "open": 30, "high": 33, "low": 28, "close": 31, "volume": 3000},
+        {"time": 3, "open": 32, "high": 36, "low": 30, "close": 35, "volume": 3100},
+        {"time": 4, "open": 40, "high": 44, "low": 39, "close": 41, "volume": 4000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Tuple Thunk", overlay=True)
+lower_sum, lower_range = request.security_lower_tf(
+    "BTCUSDT",
+    "1",
+    lambda ctx: (ctx.open + ctx.close, ctx.high - ctx.low),
+)
+plot(lower_sum.first(), "Lower Sum First")
+plot(lower_range.max(), "Lower Range Max")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert result.values("Lower Sum First") == [21.0, 41.0, 61.0, 81.0]
+    assert result.values("Lower Range Max") == [4.0, 4.0, 6.0, 5.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security_lower_tf",
+            "symbol": "BTCUSDT",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+            "bars": 6,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        }
+    ]
+
+
 def test_request_security_lower_tf_injects_provider_metadata_into_requested_context() -> None:
     class MetadataProvider(StaticProvider):
         request_metadata = {
