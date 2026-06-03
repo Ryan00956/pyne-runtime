@@ -64,6 +64,7 @@ strategy, request, and host-renderer output workflows.
   partial, and known-difference status by feature family.
 - [Compatibility](reference/compatibility.md): package and schema stability
   policy.
+- [Changelog](../CHANGELOG.md): release history and unreleased package changes.
 - [Release Process](reference/release_process.md): semver policy, release
   checklist, and changelog rules.
 - [Error Codes](reference/error_codes.md): structured diagnostic codes.

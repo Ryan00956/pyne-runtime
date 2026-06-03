@@ -19,7 +19,8 @@ contracts, CLI behavior, and packaged typing metadata.
 
 Before cutting a release candidate:
 
-1. Confirm `pyproject.toml` and `CHANGELOG.md` describe the intended release.
+1. Confirm `pyproject.toml` and [CHANGELOG.md](../../CHANGELOG.md) describe
+   the intended release.
 2. Run the full quality gate:
 
    ```bash
@@ -48,7 +49,7 @@ Before cutting a release candidate:
 
 ## Changelog Rules
 
-Update `CHANGELOG.md` when a change affects any of these:
+Update [CHANGELOG.md](../../CHANGELOG.md) when a change affects any of these:
 
 - public package-root imports;
 - script-visible namespaces or helper behavior;
