@@ -182,6 +182,34 @@ def on_bar(ctx, bar):
     assert "lines" not in incremental.output
 
 
+def test_incremental_committed_styled_line_plot_matches_batch_output() -> None:
+    batch_script = """
+indicator("Batch Styled Line", overlay=True)
+plot(close, "Styled Close", color=color.blue, linewidth=3, style="dashed")
+"""
+    incremental_script = """
+indicator("Incremental Styled Line", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    ctx.plot("Styled Close", bar.close, color=color.blue, linewidth=3, style="dashed")
+"""
+
+    batch = pn.run(batch_script, _bars(), executor_mode="inline")
+    incremental = pn.run(incremental_script, _bars(), executor_mode="inline")
+
+    assert batch.ok, batch.error
+    assert incremental.ok, incremental.error
+    assert _line_values(incremental, "styled_close") == _line_values_by_name(batch, "Styled Close")
+    assert incremental.lines[0]["lineWidth"] == batch.lines[0]["lineWidth"] == 3
+    assert incremental.lines[0]["lineStyle"] == batch.lines[0]["lineStyle"] == 2
+    incremental_line = incremental.output["lines"][0]
+    batch_line = batch.output["lines"][0]
+    assert incremental_line["color"] == batch_line["color"]
+    assert incremental_line["linewidth"] == batch_line["linewidth"]
+    assert incremental_line["style"] == batch_line["style"] == "dashed"
+    assert incremental_line["data"] == batch_line["data"]
+
+
 def test_incremental_stateful_indicator_matches_batch_committed_bars() -> None:
     bars = [
         {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.0, "volume": 100},

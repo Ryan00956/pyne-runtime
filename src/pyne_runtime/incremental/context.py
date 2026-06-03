@@ -248,6 +248,7 @@ class IncrementalContext(IncrementalDrawingMixin):
                 "pane": line.get("pane", "main"),
                 "lineWidth": line.get("linewidth", 2),
                 "lineStyle": _style_to_int(line.get("style", "solid")),
+                "style": line.get("style", "solid"),
                 "data": data,
             })
 
@@ -267,7 +268,7 @@ class IncrementalContext(IncrementalDrawingMixin):
                     "title": line.get("name"),
                     "color": line.get("color"),
                     "linewidth": line.get("lineWidth", 2),
-                    "style": "solid",
+                    "style": _line_output_style(line.get("style", "solid")),
                     "pane": line.get("pane", "main"),
                     "data": line.get("data") or [],
                 }
@@ -337,10 +338,20 @@ def _style_to_int(style: Any) -> int:
         return style
     normalized = str(style or "solid").lower()
     if normalized in {"dashed", "dash"}:
-        return 1
-    if normalized in {"dotted", "dot"}:
         return 2
+    if normalized in {"dotted", "dot"}:
+        return 1
     return 0
 
 def _is_histogram_style(style: Any) -> bool:
     return str(style or "").lower() in {"histogram", "columns", "column", "bar"}
+
+def _line_output_style(style: Any) -> str:
+    if isinstance(style, str):
+        normalized = style.lower()
+        if normalized in {"dashed", "dash"}:
+            return "dashed"
+        if normalized in {"dotted", "dot"}:
+            return "dotted"
+        return "solid"
+    return {1: "dotted", 2: "dashed"}.get(int(style or 0), "solid")
