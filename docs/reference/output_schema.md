@@ -208,6 +208,27 @@ Each event includes `action`, `kind`, `id`, and `object`.
 - `kind`: `line`, `label`, `box`, or `table`.
 - Optional bar context: `time`, `bar_index`, `confirmed`, and `realtime`.
 
+Host consumption example:
+
+```python
+import pyne_runtime as pn
+
+data = pn.read_ohlcv("examples/sample_ohlcv.csv")
+result = pn.run("examples/host_output_contract.py", data)
+schema = pn.schema()["output"]
+
+if result.schema_version != schema["schemaVersion"]:
+    raise RuntimeError("Unsupported Pyne output schema version")
+
+for key, contract in schema["renderables"].items():
+    for entry in result.output.get(key, []):
+        for field in contract["required"]:
+            assert field in entry
+```
+
+The packaged `examples/host_output_contract.py` script emits representative
+renderer collections, drawing objects, and signals for host integration tests.
+
 Strategy event format:
 
 ```json
