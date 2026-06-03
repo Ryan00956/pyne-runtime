@@ -1902,6 +1902,36 @@ plot(lower.size(), "Lower Count")
     assert provider.calls == []
 
 
+def test_request_security_lower_tf_expression_errors_report_request_context() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Expression Error", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", lambda ctx: 1 / 0)
+plot(lower.size(), "Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert result.error_detail is not None
+    assert result.error_detail["code"] == "PYNE_RUNTIME_ERROR"
+    assert result.error_detail["requestProviderCategory"] == "expressionFailure"
+    assert result.error_detail["requestProviderRequest"] == {
+        "api": "request.security_lower_tf",
+        "symbol": "BTCUSDT",
+        "timeframe": "1",
+        "start": 1,
+        "end": 4,
+    }
+
+
 def test_request_security_lower_tf_metadata_errors_report_request_context() -> None:
     class BadMetadataProvider(StaticProvider):
         request_metadata = ["not", "a", "mapping"]

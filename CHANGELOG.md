@@ -28,6 +28,7 @@
 - Added a runnable request provider contract example and refreshed host request
   tutorial coverage.
 - Documented and tested provider bar sorting before request alignment/grouping.
+- Added lower-timeframe expression failure request-context golden coverage.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.
