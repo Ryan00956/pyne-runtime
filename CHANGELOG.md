@@ -10,6 +10,7 @@
 - Added `meta.requestDiagnostics` for successful request calls and cache-hit
   visibility.
 - Added `errorDetail.requestProviderRequest` for failed request coordinates.
+- Documented and tested stable request exception metadata.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

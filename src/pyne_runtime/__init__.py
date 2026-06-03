@@ -43,6 +43,7 @@ from .request import (
     RequestSymbolMetadata,
     RequestTimeframeMetadata,
     PyneInvalidSymbolError,
+    PyneRequestError,
     barmerge,
 )
 from .result import PyneResult
@@ -83,6 +84,7 @@ __all__ = [
     "PyneIncrementalSessionManager",
     "PyneMath",
     "PyneInvalidSymbolError",
+    "PyneRequestError",
     "PyneResult",
     "PyneRuntime",
     "PyneSettings",

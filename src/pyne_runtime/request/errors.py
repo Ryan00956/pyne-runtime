@@ -28,3 +28,7 @@ class PyneRequestError(Exception):
 
 class PyneInvalidSymbolError(Exception):
     """Provider-side signal for Pine-like invalid symbol handling."""
+
+    def __init__(self, symbol: str, *, message: str | None = None) -> None:
+        super().__init__(message or str(symbol))
+        self.symbol = str(symbol)

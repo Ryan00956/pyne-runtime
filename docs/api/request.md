@@ -168,6 +168,14 @@ request coordinates in `result.errorDetail["requestProviderRequest"]`.
 `requestProviderRequest` contains `api`, `symbol`, `timeframe`, `start`, and
 `end`, matching the request range Pyne passed to the provider contract.
 
+Provider code should raise `pn.PyneInvalidSymbolError(symbol)` for invalid
+symbols. The exception exposes a stable `.symbol` attribute while preserving the
+message passed to `Exception`. Runtime and adapter errors use
+`pn.PyneRequestError`, which exposes stable `.code`, `.category`, and
+`.request_context` attributes. Hosts normally consume those fields through the
+serialized `result.errorDetail` contract, but the exception attributes are
+public for inline adapters and tests.
+
 For IDE and static typing support, Pyne exports provider typing helpers at both
 `pyne_runtime.request` and the package top level:
 
