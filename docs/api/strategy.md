@@ -515,6 +515,12 @@ quantity, while lifecycle fields preserve the wider replay context:
 
 Strategy output is serialized under `output["strategy"]`:
 
+Hosts can inspect the versioned strategy report contract through
+`pn.schema()["strategyReport"]`. That schema describes the public `orders`,
+`position`, `summary`, `risk`, `closedtrades`, `opentrades`, and `lifecycle`
+sections. Script-facing accessor implementation details, such as private trade
+fields beginning with `_`, are intentionally excluded from the public report.
+
 ```json
 {
   "strategy": {

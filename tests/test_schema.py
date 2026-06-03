@@ -10,6 +10,7 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert schema["output"]["schemaVersion"] == pn.PYNE_OUTPUT_SCHEMA_VERSION
     assert schema["params"]["schemaVersion"] == pn.PYNE_PARAM_SCHEMA_VERSION
     assert schema["requestProvider"]["schemaVersion"] == pn.PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
+    assert schema["strategyReport"]["schemaVersion"] == pn.PYNE_STRATEGY_REPORT_SCHEMA_VERSION
     assert schema["input"]["required"] == ["time", "open", "high", "low", "close", "volume"]
     assert "lines" in schema["output"]["outputKeys"]
     assert "timeframe" in schema["params"]["types"]
@@ -19,3 +20,14 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert schema["requestProvider"]["cache"]["key"] == ["symbol", "timeframe", "start", "end"]
     assert "request.security_lower_tf" in schema["requestProvider"]["cache"]["reusedFor"]
     assert schema["requestProvider"]["errors"]["capabilityFailure"] == "PYNE_RUNTIME_ERROR"
+    assert schema["strategyReport"]["outputKey"] == "strategy"
+    assert "closedtrades" in schema["strategyReport"]["sections"]
+    assert "netprofit" in schema["strategyReport"]["summary"]["required"]
+    assert "net_profit" in schema["strategyReport"]["trades"]["closedRequired"]
+    assert schema["strategyReport"]["lifecycle"]["statusValues"] == [
+        "pending",
+        "filled",
+        "canceled",
+        "rejected",
+        "submitted",
+    ]

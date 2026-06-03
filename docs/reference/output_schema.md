@@ -1,6 +1,8 @@
 # Output Schema
 
 Pyne results use `schemaVersion = 1`.
+The strategy report contract has its own version at
+`pn.schema()["strategyReport"]["schemaVersion"]`.
 
 Top-level result keys:
 
@@ -62,6 +64,14 @@ Structured output keys:
 - `signals`
 - `strategy`
 - `objects`
+
+Schema bundle keys:
+
+- `input`: OHLCV input contract.
+- `output`: top-level result and structured output contract.
+- `params`: collected script parameter contract.
+- `requestProvider`: host data-provider contract for `request.*`.
+- `strategyReport`: strategy report contract for `output["strategy"]`.
 
 Point format:
 
@@ -186,6 +196,26 @@ Strategy event format:
   }
 }
 ```
+
+Strategy report contract:
+
+`pn.schema()["strategyReport"]` describes the stable sections under
+`output["strategy"]`:
+
+- `orders`: compact fill/cancel/rejection ledger rows.
+- `position`: final strategy position snapshot with `size`, `side`, and
+  `avg_price`.
+- `summary`: capital, equity, net/open/gross profit, commission, fill-policy,
+  intrabar-path, and margin settings.
+- `risk`: configured deterministic risk limits and current lock state.
+- `closedtrades`: closed entry-lot rows with entry/exit ids, prices, profit,
+  commission, and net profit.
+- `opentrades`: open entry-lot rows with entry id, side, size, entry price,
+  optional commission, and current open profit.
+- `lifecycle`: expanded order lifecycle rows for pending, fill, cancel, and
+  rejection phases.
+
+Internal trade fields beginning with `_` are not part of the public report.
 
 Pane values:
 

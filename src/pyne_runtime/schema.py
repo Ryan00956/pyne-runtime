@@ -8,6 +8,7 @@ PYNE_INPUT_SCHEMA_VERSION = 1
 PYNE_OUTPUT_SCHEMA_VERSION = 1
 PYNE_PARAM_SCHEMA_VERSION = 1
 PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 3
+PYNE_STRATEGY_REPORT_SCHEMA_VERSION = 1
 
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
 OUTPUT_KEYS = (
@@ -161,6 +162,125 @@ def request_provider_schema() -> dict[str, Any]:
     }
 
 
+def strategy_report_schema() -> dict[str, Any]:
+    """Return the stable strategy report contract."""
+    return {
+        "schemaVersion": PYNE_STRATEGY_REPORT_SCHEMA_VERSION,
+        "outputKey": "strategy",
+        "sections": [
+            "orders",
+            "position",
+            "summary",
+            "risk",
+            "closedtrades",
+            "opentrades",
+            "lifecycle",
+        ],
+        "orders": {
+            "required": ["time", "id", "type", "side", "qty", "price", "position_after"],
+            "optional": [
+                "from_entry",
+                "reason",
+                "comment",
+                "limit",
+                "stop",
+                "commission",
+                "oca_name",
+                "oca_type",
+                "canceled",
+            ],
+        },
+        "position": {
+            "required": ["size", "side", "avg_price"],
+            "sideValues": ["long", "short", "flat"],
+        },
+        "summary": {
+            "required": [
+                "initial_capital",
+                "currency",
+                "equity",
+                "netprofit",
+                "openprofit",
+                "grossprofit",
+                "grossloss",
+                "commission",
+                "backtest_fill_limits_assumption",
+                "same_bar_fill_priority",
+                "intrabar_path",
+                "margin_long",
+                "margin_short",
+            ],
+        },
+        "risk": {
+            "required": [
+                "locked",
+                "max_drawdown",
+                "max_drawdown_type",
+                "max_intraday_loss",
+                "max_intraday_loss_type",
+                "max_position_size",
+                "max_intraday_filled_orders",
+            ],
+        },
+        "trades": {
+            "closedRequired": [
+                "entry_time",
+                "exit_time",
+                "entry_id",
+                "exit_id",
+                "side",
+                "qty",
+                "entry_price",
+                "exit_price",
+                "profit",
+                "commission",
+                "net_profit",
+            ],
+            "openRequired": [
+                "entry_time",
+                "entry_id",
+                "side",
+                "qty",
+                "entry_price",
+                "profit",
+            ],
+            "openOptional": ["commission"],
+            "privateFields": "Internal fields beginning with '_' are not part of the public report",
+        },
+        "lifecycle": {
+            "required": [
+                "id",
+                "type",
+                "status",
+                "phase",
+                "submitted_time",
+                "filled_time",
+                "canceled_time",
+                "rejected_time",
+            ],
+            "optional": [
+                "side",
+                "qty",
+                "price",
+                "position_after",
+                "reason",
+                "comment",
+                "commission",
+                "from_entry",
+                "target_qty",
+                "requested_qty",
+                "filled_qty",
+                "qty_percent",
+                "oca_name",
+                "oca_type",
+                "canceled",
+                "rejected_reason",
+            ],
+            "statusValues": ["pending", "filled", "canceled", "rejected", "submitted"],
+        },
+    }
+
+
 def schema() -> dict[str, Any]:
     """Return the public Pyne input/output schema bundle."""
     return {
@@ -168,5 +288,6 @@ def schema() -> dict[str, Any]:
         "output": output_schema(),
         "params": param_schema(),
         "requestProvider": request_provider_schema(),
+        "strategyReport": strategy_report_schema(),
     }
 

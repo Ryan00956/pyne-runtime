@@ -44,6 +44,7 @@ from .schema import (
     PYNE_OUTPUT_SCHEMA_VERSION,
     PYNE_PARAM_SCHEMA_VERSION,
     PYNE_REQUEST_PROVIDER_SCHEMA_VERSION,
+    PYNE_STRATEGY_REPORT_SCHEMA_VERSION,
 )
 from .series import PyneSeries
 from .settings import PyneSettings
@@ -90,6 +91,7 @@ __all__ = [
     "PYNE_OUTPUT_SCHEMA_VERSION",
     "PYNE_PARAM_SCHEMA_VERSION",
     "PYNE_REQUEST_PROVIDER_SCHEMA_VERSION",
+    "PYNE_STRATEGY_REPORT_SCHEMA_VERSION",
     "SharedPyneIncrementalSession",
     "SessionInfo",
     "SessionNamespace",
