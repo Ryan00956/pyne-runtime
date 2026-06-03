@@ -23,3 +23,4 @@ cd "$ROOT"
 rm -rf "$DIST"
 "$PYTHON" -m build --outdir "$DIST"
 "$PYTHON" -m twine check "$DIST"/*
+"$PYTHON" scripts/package_smoke.py --dist-dir "$DIST"

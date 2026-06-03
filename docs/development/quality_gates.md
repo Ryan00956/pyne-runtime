@@ -22,6 +22,7 @@ python -m pytest -q
 python scripts/request_capture_diff.py --assertion parity
 python scripts/strategy_capture_scaffold.py --check
 python scripts/strategy_capture_diff.py --assertion parity
+python scripts/ta_capture_diff.py --assertion parity
 git diff --check
 ```
 
@@ -112,7 +113,10 @@ On POSIX shells:
 scripts/check.sh
 ```
 
-The build output is written to a temporary directory, so the package tree stays clean.
+The full package check builds into a temporary directory, runs
+`python -m twine check`, installs the built wheel into a temporary virtualenv,
+and exercises the installed CLI with `pyne --version`, `pyne schema`,
+`pyne validate`, and `pyne run`.
 
 ## Independence Check
 
@@ -132,4 +136,5 @@ A release candidate is ready only when:
 - CLI smoke tests pass with `pyne run`, `pyne validate`, `pyne schema`, and `pyne --version`;
 - `python -m build` creates both wheel and source distribution;
 - `python -m twine check` passes for built artifacts;
+- `python scripts/package_smoke.py --dist-dir <dist>` passes against the built wheel;
 - documentation and changelog reflect public API changes.

@@ -53,6 +53,7 @@ try {
     $Artifacts = Get-ChildItem -LiteralPath $Dist | ForEach-Object { $_.FullName }
     $TwineArgs = @("-m", "twine", "check") + $Artifacts
     Invoke-PyneCheck -Arguments $TwineArgs
+    Invoke-PyneCheck -Arguments @("scripts/package_smoke.py", "--dist-dir", $Dist)
 }
 finally {
     Pop-Location

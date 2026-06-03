@@ -61,3 +61,6 @@ jobs:
 
       - name: Check distributions
         run: python -m twine check dist/*
+
+      - name: Smoke installed wheel
+        run: python scripts/package_smoke.py --dist-dir dist
