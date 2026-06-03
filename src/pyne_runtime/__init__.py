@@ -73,6 +73,7 @@ from .strategy import StrategyModule
 from .string_ext import StringNamespace, string_namespace
 from .ticker import TickerNamespace
 from .time_ext import TimeNamespace
+from .utils import fixnan, nz
 from .values import na
 
 __all__ = [
@@ -138,6 +139,7 @@ __all__ = [
     "TimeframeInfo",
     "execute_pyne_script",
     "execute_pyne_script_in_process",
+    "fixnan",
     "from_pandas",
     "is_incremental_pyne_script",
     "array_namespace",
@@ -146,6 +148,7 @@ __all__ = [
     "map_namespace",
     "matrix_namespace",
     "na",
+    "nz",
     "order_namespace",
     "pyne_cache",
     "read_ohlcv",

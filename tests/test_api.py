@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import pyne_runtime as pn
 
 
@@ -157,3 +159,12 @@ def test_barmerge_namespace_is_public_api() -> None:
 
 def test_invalid_symbol_error_is_public_api() -> None:
     assert issubclass(pn.PyneInvalidSymbolError, Exception)
+
+
+def test_missing_value_helpers_are_public_api() -> None:
+    fixed = pn.fixnan([pn.na, 1.0, pn.na, 3.0])
+
+    assert math.isnan(pn.nz(pn.na, pn.na))
+    assert pn.nz(pn.na, 7) == 7
+    assert math.isnan(fixed[0])
+    assert fixed.tolist()[1:] == [1.0, 1.0, 3.0]

@@ -64,10 +64,14 @@ pn.PYNE_OUTPUT_SCHEMA_VERSION
 pn.PYNE_PARAM_SCHEMA_VERSION
 pn.PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
 pn.na
+pn.nz
+pn.fixnan
 ```
 
 `PyneSeries` is the script-facing series value used for Pine-like history references such as `close[1]`.
 `pn.na` is the callable missing-value sentinel also injected into scripts as `na`.
+`pn.nz` and `pn.fixnan` expose the same missing-value helpers available to
+scripts as `nz()` and `fixnan()`.
 `PyneBarState` is the batch-runtime namespace type behind script-level `barstate.*` flags.
 `PyneVar` and `PyneStateNamespace` power script-level `var()` / `pyne.var()` state cells.
 `SymbolInfo`, `TimeframeInfo`, `SessionInfo`, and `SessionNamespace` back the
