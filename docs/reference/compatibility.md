@@ -20,6 +20,8 @@ The host request-provider contract has its own version:
 `PYNE_REQUEST_PROVIDER_SCHEMA_VERSION`.
 Schema migration policy and breaking-change requirements are documented in
 [Schema Migrations](schema_migrations.md).
+Release versioning and release-candidate checks are documented in
+[Release Process](release_process.md).
 
 ## Pine-Like Surface
 

@@ -33,6 +33,7 @@ def test_docs_index_covers_key_user_paths() -> None:
         "api/request.md",
         "reference/output_schema.md",
         "reference/schema_migrations.md",
+        "reference/release_process.md",
         "development/quality_gates.md",
     ):
         assert f"({required})" in body

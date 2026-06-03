@@ -130,6 +130,9 @@ Select-String -Path src/pyne_runtime/*.py -Pattern 'from app\.|import app\.|app\
 
 ## Release Readiness
 
+The full release flow and versioning policy live in
+[Release Process](../reference/release_process.md).
+
 A release candidate is ready only when:
 
 - package tests pass in a clean virtual environment;
