@@ -3,6 +3,8 @@
 Pyne results use `schemaVersion = 1`.
 The strategy report contract has its own version at
 `pn.schema()["strategyReport"]["schemaVersion"]`.
+Schema migration policy and version history are documented in
+[Schema Migrations](schema_migrations.md).
 
 Top-level result keys:
 
@@ -74,6 +76,13 @@ Schema bundle keys:
 - `params`: collected script parameter contract.
 - `requestProvider`: host data-provider contract for `request.*`.
 - `strategyReport`: strategy report contract for `output["strategy"]`.
+
+Output migration policy:
+
+`pn.schema()["output"]["migration"]` exposes the current output schema version,
+the breaking-change checklist, and version-specific migration notes. Hosts can
+read this section alongside `schemaVersion` when deciding how to handle output
+contract upgrades.
 
 Point format:
 

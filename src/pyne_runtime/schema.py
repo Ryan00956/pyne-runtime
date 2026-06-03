@@ -188,6 +188,31 @@ OBJECT_EVENT_CONTRACT: dict[str, Any] = {
     "semantics": "Incremental drawing object changes for the requested output window",
 }
 
+OUTPUT_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
+    "schema": "output",
+    "currentVersion": PYNE_OUTPUT_SCHEMA_VERSION,
+    "breakingChangeRequires": [
+        "schemaVersion bump",
+        "migration note",
+        "contract test",
+        "host consumption fixture update when renderer output changes",
+    ],
+    "versions": [
+        {
+            "version": 1,
+            "status": "current",
+            "breakingChanges": [],
+            "notes": [
+                "Initial versioned output contract.",
+                "Structured renderer collections live under result.output.",
+                "Top-level result.lines remains a backward-compatible flat plot view.",
+                "Top-level output.labels is a legacy simple text label collection; "
+                "prefer output.objects.labels for Pine-like drawing labels.",
+            ],
+        },
+    ],
+}
+
 
 def input_schema() -> dict[str, Any]:
     """Return the stable Pyne OHLCV input contract."""
@@ -231,6 +256,7 @@ def output_schema() -> dict[str, Any]:
         "renderables": RENDERABLE_CONTRACT,
         "objects": DRAWING_OBJECT_CONTRACT,
         "objectEvents": OBJECT_EVENT_CONTRACT,
+        "migration": OUTPUT_SCHEMA_MIGRATION_POLICY,
     }
 
 

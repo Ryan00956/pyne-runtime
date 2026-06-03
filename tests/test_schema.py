@@ -40,6 +40,15 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     ]
     assert schema["output"]["objectEvents"]["actions"] == ["create", "update", "delete"]
     assert schema["output"]["objectEvents"]["kinds"] == ["line", "label", "box", "table"]
+    assert schema["output"]["migration"]["currentVersion"] == pn.PYNE_OUTPUT_SCHEMA_VERSION
+    assert "migration note" in schema["output"]["migration"]["breakingChangeRequires"]
+    assert "contract test" in schema["output"]["migration"]["breakingChangeRequires"]
+    assert schema["output"]["migration"]["versions"][0]["version"] == 1
+    assert schema["output"]["migration"]["versions"][0]["breakingChanges"] == []
+    assert any(
+        "output.labels" in note
+        for note in schema["output"]["migration"]["versions"][0]["notes"]
+    )
     assert "timeframe" in schema["params"]["types"]
     assert schema["params"]["entry"]["id"]
     assert "get_ohlcv" in schema["requestProvider"]["method"]

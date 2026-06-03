@@ -18,6 +18,8 @@ Script parameter schemas have their own version:
 `PYNE_PARAM_SCHEMA_VERSION`.
 The host request-provider contract has its own version:
 `PYNE_REQUEST_PROVIDER_SCHEMA_VERSION`.
+Schema migration policy and breaking-change requirements are documented in
+[Schema Migrations](schema_migrations.md).
 
 ## Pine-Like Surface
 
