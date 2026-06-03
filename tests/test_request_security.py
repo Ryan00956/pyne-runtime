@@ -828,6 +828,56 @@ plot(market, "Requested Market")
     assert result.values("Requested Market") == [0.0, 0.0, 0.0]
 
 
+def test_request_security_accepts_provider_metadata_key_aliases() -> None:
+    class MetadataAliasProvider(StaticProvider):
+        def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
+            assert symbol == "AAPL"
+            assert timeframe == "1D"
+            return {
+                "symbol_info": {
+                    "tickerid": "NASDAQ:AAPL",
+                    "mintick": 0.01,
+                    "currency": "USD",
+                },
+                "timeframe_info": "1D",
+                "session_info": {"ismarket": False},
+            }
+
+    provider = MetadataAliasProvider([
+        {"time": 1, "open": 10, "high": 12, "low": 8, "close": 10, "volume": 1000},
+        {"time": 3, "open": 30, "high": 34, "low": 28, "close": 30, "volume": 3000},
+    ])
+
+    result = pn.run(
+        """
+indicator("MTF Metadata Aliases", overlay=True)
+mintick, prefix_match, daily, market = request.security(
+    "AAPL",
+    "1D",
+    lambda ctx: (
+        ctx.syminfo.mintick,
+        1 if ctx.syminfo.prefix == "NASDAQ" else 0,
+        1 if ctx.timeframe_info.isdaily else 0,
+        ctx.session.ismarket,
+    ),
+)
+plot(mintick, "Alias Mintick")
+plot(prefix_match, "Alias Prefix")
+plot(daily, "Alias Daily")
+plot(market, "Alias Market")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Alias Mintick") == [0.01, 0.01, 0.01]
+    assert result.values("Alias Prefix") == [1.0, 1.0, 1.0]
+    assert result.values("Alias Daily") == [1.0, 1.0, 1.0]
+    assert result.values("Alias Market") == [0.0, 0.0, 0.0]
+
+
 def test_request_security_uses_requested_time_close_session_and_timeframe() -> None:
     class MetadataProvider(StaticProvider):
         def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
@@ -1276,6 +1326,40 @@ plot(lower.last(), "Lower Metadata")
 
     assert result.ok, result.error
     assert result.values("Lower Metadata") == [5.25, 5.25, 5.25, 5.25]
+
+
+def test_request_security_lower_tf_accepts_provider_metadata_key_aliases() -> None:
+    class MetadataAliasProvider(StaticProvider):
+        request_metadata = {
+            "symbol_info": {"tickerid": "COINBASE:ETHUSD", "mintick": 0.25},
+            "timeframe_info": "5",
+            "session_info": {"ismarket": False},
+        }
+
+    provider = MetadataAliasProvider([
+        {"time": 1, "open": 10, "high": 12, "low": 9, "close": 11, "volume": 1000},
+        {"time": 2, "open": 20, "high": 22, "low": 19, "close": 21, "volume": 2000},
+        {"time": 3, "open": 30, "high": 32, "low": 29, "close": 31, "volume": 3000},
+        {"time": 4, "open": 40, "high": 42, "low": 39, "close": 41, "volume": 4000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Metadata Aliases", overlay=True)
+lower = request.security_lower_tf(
+    "ETHUSD",
+    "5",
+    lambda ctx: ctx.syminfo.mintick + ctx.timeframe_info.multiplier + ctx.session.ismarket,
+)
+plot(lower.last(), "Lower Alias Metadata")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Lower Alias Metadata") == [5.25, 5.25, 5.25, 5.25]
 
 
 def test_request_security_lower_tf_uses_requested_time_close_session_and_timeframe() -> None:
