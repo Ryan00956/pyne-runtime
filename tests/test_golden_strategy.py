@@ -460,7 +460,11 @@ def test_strategy_cancel_risk_costs_golden(case: dict) -> None:
     ids=lambda case: case["name"],
 )
 def test_strategy_trade_accessors_golden(case: dict) -> None:
-    result = pn.run(case["script"], case["bars"], executor_mode="inline")
+    result = pn.run(
+        case["script"],
+        case["bars"],
+        settings=pn.PyneSettings(executor_mode="inline", max_output_series=30),
+    )
 
     assert result.ok, result.error
     assert result.output["strategy"]["orders"] == case["orders"]
