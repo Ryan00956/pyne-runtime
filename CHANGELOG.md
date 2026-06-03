@@ -49,6 +49,7 @@
 - Added incremental marker `shape` and `location` enum namespaces.
 - Aligned incremental histogram plot output with batch `plot.style_columns`.
 - Aligned incremental styled line plot output with batch plot output.
+- Aligned incremental default plot and marker panes with indicator overlay.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

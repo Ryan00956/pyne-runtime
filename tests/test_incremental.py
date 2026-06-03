@@ -210,6 +210,30 @@ def on_bar(ctx, bar):
     assert incremental_line["data"] == batch_line["data"]
 
 
+def test_incremental_overlay_false_defaults_match_batch_panes() -> None:
+    batch_script = """
+indicator("Batch Pane", overlay=False)
+plot(close, "Close")
+marker(close > open, text="Up")
+"""
+    incremental_script = """
+indicator("Incremental Pane", mode="incremental", overlay=False)
+
+def on_bar(ctx, bar):
+    ctx.plot("Close", bar.close)
+    ctx.marker(bar.close > bar.open, text="Up")
+"""
+
+    batch = pn.run(batch_script, _bars(), executor_mode="inline")
+    incremental = pn.run(incremental_script, _bars(), executor_mode="inline")
+
+    assert batch.ok, batch.error
+    assert incremental.ok, incremental.error
+    assert incremental.output["lines"][0]["pane"] == batch.output["lines"][0]["pane"] == "separate"
+    assert incremental.output["markers"][0]["pane"] == batch.output["markers"][0]["pane"] == "separate"
+    assert incremental.output["markers"][0]["data"] == batch.output["markers"][0]["data"]
+
+
 def test_incremental_stateful_indicator_matches_batch_committed_bars() -> None:
     bars = [
         {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.0, "volume": 100},

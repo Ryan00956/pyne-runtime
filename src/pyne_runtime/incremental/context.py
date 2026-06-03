@@ -149,7 +149,7 @@ class IncrementalContext(IncrementalDrawingMixin):
         *,
         title: str | None = None,
         color: str = "#f59e0b",
-        pane: str = "main",
+        pane: str | None = None,
         linewidth: int = 2,
         style: str = "solid",
         type: str = "line",
@@ -173,6 +173,7 @@ class IncrementalContext(IncrementalDrawingMixin):
         if math.isnan(number):
             return
 
+        resolved_pane = pane or self._default_pane()
         local_id = _slug(name)
         normalized_type = "histogram" if _is_histogram_style(style) else type
         entry = self._series.setdefault(local_id, {
@@ -182,7 +183,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             "linewidth": linewidth,
             "style": style,
             "type": normalized_type,
-            "pane": pane,
+            "pane": resolved_pane,
             "data": [],
         })
         point: dict[str, Any] = {
@@ -202,10 +203,11 @@ class IncrementalContext(IncrementalDrawingMixin):
         color: str = "#f59e0b",
         position: str = "above",
         size: str = "normal",
-        pane: str = "main",
+        pane: str | None = None,
     ) -> None:
         if self.current_bar is None or not condition:
             return
+        resolved_pane = pane or self._default_pane()
         key = _slug(text or shape or "marker")
         entry = self._markers.setdefault(key, {
             "id": key,
@@ -214,7 +216,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             "text": text,
             "position": position,
             "size": size,
-            "pane": pane,
+            "pane": resolved_pane,
             "data": [],
         })
         entry["data"].append({
@@ -224,8 +226,11 @@ class IncrementalContext(IncrementalDrawingMixin):
             "text": text,
             "position": position,
             "size": size,
-            "pane": pane,
+            "pane": resolved_pane,
         })
+
+    def _default_pane(self) -> str:
+        return "main" if self.meta.get("overlay", True) else "separate"
 
 
     def to_result(
