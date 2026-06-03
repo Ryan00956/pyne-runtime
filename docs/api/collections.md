@@ -134,6 +134,7 @@ Supported map helpers:
 - `map.copy(m)`
 - `map.size(m)`
 - `map.put(m, key, value)`
+- `map.put_all(m, other)`
 - `map.get(m, key, default=None)`
 - `map.contains(m, key)`
 - `map.remove(m, key)`

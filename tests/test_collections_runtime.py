@@ -337,6 +337,35 @@ plot(copy.get("signal"), "Signal")
     assert result.values("Signal") == [8.0, 8.0, 8.0]
 
 
+def test_map_put_all_merges_source_map_and_overwrites_existing_keys() -> None:
+    result = pn.run(
+        """
+target = map.from_values("fast", 2, "slow", 4)
+source = map.from_values("slow", 8, "signal", 9)
+map.put_all(target, source)
+object_target = map.from_values("base", 1)
+object_target.put_all(source)
+
+label(array.join(map.keys(target), "|"))
+plot(map.size(target), "Merged Size")
+plot(map.get(target, "fast"), "Fast")
+plot(map.get(target, "slow"), "Slow")
+plot(map.get(target, "signal"), "Signal")
+plot(object_target.get("signal"), "Object Signal")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.output["labels"][0]["text"] == "fast|slow|signal"
+    assert result.values("Merged Size") == [3.0, 3.0, 3.0]
+    assert result.values("Fast") == [2.0, 2.0, 2.0]
+    assert result.values("Slow") == [8.0, 8.0, 8.0]
+    assert result.values("Signal") == [9.0, 9.0, 9.0]
+    assert result.values("Object Signal") == [9.0, 9.0, 9.0]
+
+
 def test_map_snapshot_freezes_nested_collection_values() -> None:
     result = pn.run(
         """
@@ -410,6 +439,23 @@ def test_map_limit_rejects_new_keys_past_settings_limit() -> None:
 levels = map.new()
 map.put(levels, "fast", 10)
 map.put(levels, "slow", 20)
+""",
+        _bars(),
+        executor_mode="inline",
+        settings=pn.PyneSettings(max_map_size=1),
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_SECURITY_ERROR"
+    assert "map size 2 exceeds limit 1" in str(result.error)
+
+
+def test_map_put_all_rejects_growth_past_settings_limit() -> None:
+    result = pn.run(
+        """
+target = map.from_values("fast", 1)
+source = map.from_values("slow", 2)
+map.put_all(target, source)
 """,
         _bars(),
         executor_mode="inline",

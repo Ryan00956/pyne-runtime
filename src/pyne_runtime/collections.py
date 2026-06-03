@@ -221,6 +221,10 @@ class PyneMap:
         _enforce_child_depth(value, self._max_depth)
         self._values[key] = value
 
+    def put_all(self, other: PyneMap) -> None:
+        for key, value in _map(other).to_dict().items():
+            self.put(key, value)
+
     def get(self, key: Any, default: Any = None) -> Any:
         _validate_map_key(key)
         return self._values.get(key, default)
@@ -646,6 +650,9 @@ class MapNamespace:
 
     def put(self, m: PyneMap, key: Any, value: Any) -> None:
         _map(m).put(key, value)
+
+    def put_all(self, m: PyneMap, other: PyneMap) -> None:
+        _map(m).put_all(other)
 
     def get(self, m: PyneMap, key: Any, default: Any = None) -> Any:
         return _map(m).get(key, default)

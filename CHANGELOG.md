@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added Pine-like `map.put_all()` merge helper.
 - Added output, parameter, request provider, strategy report, and script
   namespace schema contracts for host integrations.
 - Added request provider schema v4 structured error categories for host
