@@ -19,6 +19,7 @@
 - Added request metadata key alias golden coverage.
 - Added request capability alias golden coverage.
 - Aligned dict capability alias checks with schema truthy-alias semantics.
+- Added lower-timeframe ignored-invalid-symbol cache coverage.
 - Added schema migration policy, release process guidance, documentation index,
   and host integration guide.
 - Added host output contract and parameter schema examples.

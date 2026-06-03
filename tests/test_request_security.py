@@ -1334,6 +1334,27 @@ plot(lower.last(), "Lower Last")
     ]
 
 
+def test_request_security_lower_tf_ignored_invalid_symbol_does_not_poison_cache() -> None:
+    provider = InvalidSymbolProvider()
+
+    result = pn.run(
+        """
+indicator("Lower Invalid Symbol Cache", overlay=True)
+ignored = request.security_lower_tf("MISSING", "1", close, ignore_invalid_symbol=True)
+bad = request.security_lower_tf("MISSING", "1", close)
+plot(ignored.size(), "Ignored Lower Count")
+plot(bad.size(), "Bad Lower Count")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_INVALID_SYMBOL"
+    assert provider.calls == [("MISSING", "1", 1, 4), ("MISSING", "1", 1, 4)]
+
+
 def test_request_security_lower_tf_invalid_symbol_reports_request_context() -> None:
     provider = InvalidSymbolProvider()
 
