@@ -61,8 +61,12 @@ Compatibility notes:
   coordinates as `errorDetail.requestProviderRequest`.
 - Successful request calls append one entry to `meta.requestDiagnostics`; cache
   reuse is indicated by `cacheHit`.
+- Valid empty provider results are successful requested contexts: they report
+  `status="ok"`, `bars=0`, and can be reused from the request cache.
 - `invalidSymbol` remains the only provider-side error class that can be
   intentionally converted into empty request output by `ignore_invalid_symbol`.
+  Those ignored invalid-symbol results report `status="ignoredInvalidSymbol"`
+  and are not cached.
 
 ## Breaking Change Checklist
 

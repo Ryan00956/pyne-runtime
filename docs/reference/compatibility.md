@@ -50,6 +50,10 @@ Known differences:
   Pine native arrays. Higher-timeframe gaps/lookahead alignment and
   lower-timeframe grouping behavior are covered by golden-style fixtures in
   `tests/golden/`.
+- Request provider diagnostics distinguish legal empty provider results from
+  ignored invalid symbols: legal `[]` results are successful cached contexts,
+  while `PyneInvalidSymbolError` converted by `ignore_invalid_symbol=True`
+  returns empty output without populating the provider cache.
 - Strategy support emits deterministic events and a lightweight position
   timeline; it is not a full broker simulator and does not model a complete
   intrabar path or broker liquidation.
