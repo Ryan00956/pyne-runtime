@@ -88,6 +88,11 @@ same provider OHLCV response and requested metadata, while each expression is
 still evaluated independently. Pyne does not cache provider data across
 separate `pn.run()` executions.
 
+Provider bars may arrive out of order. Pyne normalizes the requested context by
+sorting returned bars by `time` before higher-timeframe alignment or
+lower-timeframe grouping. Duplicate `time` values are allowed for
+`request.security_lower_tf()` groups.
+
 Successful request calls append host-facing diagnostics under
 `result.meta["requestDiagnostics"]`. Each entry records `api`, `symbol`,
 `timeframe`, `start`, `end`, returned `bars`, `cacheHit`,

@@ -743,6 +743,41 @@ plot(lower.last(), "Lower Last")
     ]
 
 
+def test_request_security_sorts_provider_bars_before_alignment() -> None:
+    provider = StaticProvider([
+        {"time": 3, "open": 29, "high": 34, "low": 28, "close": 30, "volume": 3000},
+        {"time": 1, "open": 9, "high": 12, "low": 8, "close": 10, "volume": 1000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Sorted Provider Bars", overlay=True)
+higher = request.security("BTCUSDT", "2", "close")
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert result.values("Higher") == [10.0, 10.0, 30.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security",
+            "symbol": "BTCUSDT",
+            "timeframe": "2",
+            "start": 1,
+            "end": 4,
+            "bars": 2,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        }
+    ]
+
+
 def test_request_security_does_not_cache_provider_data_across_runs() -> None:
     class ChangingProvider(StaticProvider):
         def __init__(self) -> None:
@@ -1341,6 +1376,49 @@ plot(lower[1].last(), "Previous Lower Last")
     assert result.values("Lower Count") == [2.0, 1.0, 2.0, 1.0]
     assert result.values("Lower Last") == [11.0, 20.0, 31.0, 40.0]
     assert result.values("Previous Lower Last") == [11.0, 20.0, 31.0]
+
+
+def test_request_security_lower_tf_sorts_provider_bars_before_grouping() -> None:
+    provider = StaticProvider([
+        {"time": 3, "open": 30, "high": 31, "low": 29, "close": 30, "volume": 3000},
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+        {"time": 4, "open": 40, "high": 41, "low": 39, "close": 40, "volume": 4000},
+        {"time": 1, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 1100},
+        {"time": 3, "open": 31, "high": 32, "low": 30, "close": 31, "volume": 3100},
+        {"time": 2, "open": 20, "high": 21, "low": 19, "close": 20, "volume": 2000},
+    ])
+
+    result = pn.run(
+        """
+indicator("Lower Sorted Provider Bars", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", lambda ctx: ctx.close)
+plot(lower.size(), "Lower Count")
+plot(lower.last(), "Lower Last")
+plot(lower[1].last(), "Previous Lower Last")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert result.values("Lower Count") == [2.0, 1.0, 2.0, 1.0]
+    assert result.values("Lower Last") == [11.0, 20.0, 31.0, 40.0]
+    assert result.values("Previous Lower Last") == [11.0, 20.0, 31.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security_lower_tf",
+            "symbol": "BTCUSDT",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+            "bars": 6,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        }
+    ]
 
 
 def test_request_security_lower_tf_reuses_requested_context_for_repeated_requests() -> None:
