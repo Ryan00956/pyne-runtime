@@ -33,6 +33,14 @@ Before cutting a release candidate:
    scripts/check.sh
    ```
 
+   The check scripts use the repository-local ignored `.pyne-check-tmp`
+   directory for pytest and build artifacts. On POSIX shells, set
+   `PYNE_CHECK_TMP` to override that temporary root.
+   They build with `python -m build --no-isolation`, so run the release gate
+   from an environment that already has the project dev dependencies installed.
+   The package smoke step runs in offline mode, reusing local site packages for
+   dependencies while installing the built Pyne wheel itself.
+
 3. Confirm the package smoke gate installs the built wheel and checks:
    - `pyne_runtime/py.typed` is present;
    - `python -m pyne_runtime --version` works;

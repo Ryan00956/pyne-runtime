@@ -27,8 +27,27 @@ function Invoke-PyneCheck {
 
 Push-Location $Root
 try {
+    $CheckTmp = Join-Path $Root ".pyne-check-tmp"
+    $PytestTemp = Join-Path $CheckTmp "pytest"
+    $Dist = Join-Path $CheckTmp "dist"
+    if (Test-Path $CheckTmp) {
+        Remove-Item -LiteralPath $CheckTmp -Recurse -Force
+    }
+    New-Item -ItemType Directory -Force -Path $PytestTemp | Out-Null
+    $PreviousTemp = $env:TEMP
+    $PreviousTmp = $env:TMP
+    $env:TEMP = $CheckTmp
+    $env:TMP = $CheckTmp
+
     Invoke-PyneCheck -Arguments @("-m", "ruff", "check", ".")
-    Invoke-PyneCheck -Arguments @("-m", "pytest")
+    Invoke-PyneCheck -Arguments @(
+        "-m",
+        "pytest",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp",
+        (Join-Path $PytestTemp "run")
+    )
     Invoke-PyneCheck -Arguments @("scripts/strategy_capture_scaffold.py", "--check")
     Invoke-PyneCheck -Arguments @(
         "scripts/strategy_capture_diff.py",
@@ -45,16 +64,27 @@ try {
         "--assertion",
         "parity"
     )
-    $Dist = Join-Path $env:TEMP "pyne-runtime-dist-check"
     if (Test-Path $Dist) {
         Remove-Item -LiteralPath $Dist -Recurse -Force
     }
-    Invoke-PyneCheck -Arguments @("-m", "build", "--outdir", $Dist)
+    Invoke-PyneCheck -Arguments @("-m", "build", "--no-isolation", "--outdir", $Dist)
     $Artifacts = Get-ChildItem -LiteralPath $Dist | ForEach-Object { $_.FullName }
     $TwineArgs = @("-m", "twine", "check") + $Artifacts
     Invoke-PyneCheck -Arguments $TwineArgs
-    Invoke-PyneCheck -Arguments @("scripts/package_smoke.py", "--dist-dir", $Dist)
+    Invoke-PyneCheck -Arguments @("scripts/package_smoke.py", "--dist-dir", $Dist, "--offline")
 }
 finally {
+    if ($null -eq $PreviousTemp) {
+        Remove-Item Env:\TEMP -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:TEMP = $PreviousTemp
+    }
+    if ($null -eq $PreviousTmp) {
+        Remove-Item Env:\TMP -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:TMP = $PreviousTmp
+    }
     Pop-Location
 }

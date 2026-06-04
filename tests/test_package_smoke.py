@@ -21,6 +21,7 @@ def test_package_smoke_help() -> None:
 
     assert "--dist-dir" in result.stdout
     assert "--repo-root" in result.stdout
+    assert "--offline" in result.stdout
 
 
 def test_package_smoke_finds_built_wheel(tmp_path: Path) -> None:
@@ -41,6 +42,29 @@ def test_package_smoke_checks_installed_type_marker() -> None:
     assert command[:2] == ["python", "-c"]
     assert "py.typed" in command[2]
     assert "pyne_runtime" in command[2]
+
+
+def test_package_smoke_offline_commands_reuse_local_dependencies() -> None:
+    module = _load_package_smoke()
+    wheel = Path("dist/pyne_runtime-0.1.0-py3-none-any.whl")
+
+    assert module._venv_create_command(
+        "python",
+        Path("venv"),
+        offline=True,
+    ) == ["python", "-m", "venv", "--system-site-packages", "venv"]
+    assert module._wheel_install_command(
+        Path("python"),
+        wheel,
+        offline=True,
+    ) == [
+        "python",
+        "-m",
+        "pip",
+        "install",
+        "--no-deps",
+        str(wheel),
+    ]
 
 
 def _load_package_smoke() -> ModuleType:

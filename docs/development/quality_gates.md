@@ -117,6 +117,16 @@ The full package check builds into a temporary directory, runs
 `python -m twine check`, installs the built wheel into a temporary virtualenv,
 verifies the installed `py.typed` marker, and exercises the installed CLI with
 `pyne --version`, `pyne schema`, `pyne validate`, and `pyne run`.
+The scripts use the ignored `.pyne-check-tmp` directory as their pytest/build
+temporary root so the gate does not depend on system temp directory permissions.
+On POSIX shells, set `PYNE_CHECK_TMP=/path/to/tmp` to override that location.
+They also build with `python -m build --no-isolation`, so install the dev
+extras first with `python -m pip install -e .[dev]`.
+The package smoke step uses `scripts/package_smoke.py --offline`, which installs
+the just-built wheel with `--no-deps` inside a venv that can see local system
+site packages; this keeps the gate runnable without package-index access while
+still checking wheel contents, CLI entry points, schema output, and example
+execution.
 
 ## Independence Check
 

@@ -8,10 +8,13 @@ ROOT = Path(__file__).resolve().parents[1]
 CHANGELOG = ROOT / "CHANGELOG.md"
 PYPROJECT = ROOT / "pyproject.toml"
 RELEASE_DOC = ROOT / "docs" / "reference" / "release_process.md"
+CHECK_PS1 = ROOT / "scripts" / "check.ps1"
+CHECK_SH = ROOT / "scripts" / "check.sh"
 
 
 def test_release_process_documents_version_policy_and_gates() -> None:
     body = RELEASE_DOC.read_text(encoding="utf-8")
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
 
     for required in (
         "Patch releases should not break public root imports",
@@ -24,6 +27,8 @@ def test_release_process_documents_version_policy_and_gates() -> None:
         "CHANGELOG.md",
     ):
         assert required in body
+
+    assert "hatchling>=1.25" in project["project"]["optional-dependencies"]["dev"]
 
 
 def test_release_process_links_to_contract_docs() -> None:
@@ -59,3 +64,23 @@ def test_changelog_records_package_maturity_contracts() -> None:
         "py.typed",
     ):
         assert required in changelog
+
+
+def test_full_check_scripts_use_repo_local_temp_root() -> None:
+    powershell_body = CHECK_PS1.read_text(encoding="utf-8")
+    shell_body = CHECK_SH.read_text(encoding="utf-8")
+
+    for required in (".pyne-check-tmp", "no:cacheprovider", "--basetemp", "--no-isolation"):
+        assert required in powershell_body
+
+    for required in (
+        ".pyne-check-tmp",
+        "PYNE_CHECK_TMP",
+        "no:cacheprovider",
+        "--basetemp",
+        "--no-isolation",
+        "--offline",
+    ):
+        assert required in shell_body
+
+    assert "--offline" in powershell_body

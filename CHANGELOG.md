@@ -81,6 +81,9 @@
 - Narrowed public `data_provider` type hints to the request `DataProvider`
   protocol.
 - Added public API documentation drift coverage for package-root exports.
+- Made full package check scripts use a repository-local temporary root and
+  non-isolated local builds.
+- Added an offline package smoke mode for package-index-restricted environments.
 
 ## 0.1.0
 

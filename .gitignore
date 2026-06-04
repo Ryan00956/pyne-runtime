@@ -4,6 +4,7 @@
 .coverage
 htmlcov/
 .tmp/
+.pyne-check-tmp/
 
 __pycache__/
 *.py[cod]

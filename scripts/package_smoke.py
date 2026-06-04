@@ -27,6 +27,14 @@ def main(argv: list[str] | None = None) -> int:
         default=sys.executable,
         help="Python interpreter used to create the temporary virtualenv.",
     )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help=(
+            "Create the smoke virtualenv with system site packages and install "
+            "the wheel without resolving dependencies from an index."
+        ),
+    )
     args = parser.parse_args(argv)
 
     repo_root = args.repo_root.resolve()
@@ -35,10 +43,11 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory(prefix="pyne-runtime-smoke-") as tmp:
         tmp_path = Path(tmp)
         venv_dir = tmp_path / "venv"
-        _run([args.python, "-m", "venv", str(venv_dir)])
+        _run(_venv_create_command(args.python, venv_dir, offline=args.offline))
         python = _venv_python(venv_dir)
-        _run([str(python), "-m", "pip", "install", "--upgrade", "pip"])
-        _run([str(python), "-m", "pip", "install", str(wheel)])
+        if not args.offline:
+            _run([str(python), "-m", "pip", "install", "--upgrade", "pip"])
+        _run(_wheel_install_command(python, wheel, offline=args.offline))
 
         _run(_type_marker_check_command(python))
         _run([str(python), "-m", "pyne_runtime", "--version"])
@@ -84,6 +93,22 @@ def _venv_python(venv_dir: Path) -> Path:
     if sys.platform == "win32":
         return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
+
+
+def _venv_create_command(python: str, venv_dir: Path, *, offline: bool) -> list[str]:
+    command = [python, "-m", "venv"]
+    if offline:
+        command.append("--system-site-packages")
+    command.append(str(venv_dir))
+    return command
+
+
+def _wheel_install_command(python: Path, wheel: Path, *, offline: bool) -> list[str]:
+    command = [str(python), "-m", "pip", "install"]
+    if offline:
+        command.append("--no-deps")
+    command.append(str(wheel))
+    return command
 
 
 def _type_marker_check_command(python: Path) -> list[str]:

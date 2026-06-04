@@ -11,16 +11,20 @@ if [ -z "${PYTHON:-}" ]; then
     PYTHON="python"
   fi
 fi
-DIST="${TMPDIR:-/tmp}/pyne-runtime-dist-check"
+CHECK_TMP="${PYNE_CHECK_TMP:-$ROOT/.pyne-check-tmp}"
+PYTEST_TMP="$CHECK_TMP/pytest"
+DIST="$CHECK_TMP/dist"
 
 cd "$ROOT"
+rm -rf "$CHECK_TMP"
+mkdir -p "$PYTEST_TMP"
+export TMPDIR="$CHECK_TMP"
 "$PYTHON" -m ruff check .
-"$PYTHON" -m pytest
+"$PYTHON" -m pytest -p no:cacheprovider --basetemp "$PYTEST_TMP/run"
 "$PYTHON" scripts/strategy_capture_scaffold.py --check
 "$PYTHON" scripts/strategy_capture_diff.py --assertion parity
 "$PYTHON" scripts/ta_capture_diff.py --assertion parity
 "$PYTHON" scripts/request_capture_diff.py --assertion parity
-rm -rf "$DIST"
-"$PYTHON" -m build --outdir "$DIST"
+"$PYTHON" -m build --no-isolation --outdir "$DIST"
 "$PYTHON" -m twine check "$DIST"/*
-"$PYTHON" scripts/package_smoke.py --dist-dir "$DIST"
+"$PYTHON" scripts/package_smoke.py --dist-dir "$DIST" --offline
