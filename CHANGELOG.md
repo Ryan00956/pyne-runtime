@@ -80,6 +80,7 @@
 - Added public request-provider typing helpers and script namespace drift tests.
 - Narrowed public `data_provider` type hints to the request `DataProvider`
   protocol.
+- Added public API documentation drift coverage for package-root exports.
 
 ## 0.1.0
 

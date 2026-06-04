@@ -3,10 +3,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pyne_runtime as pn
+
 
 DOCS_ROOT = Path(__file__).resolve().parents[1] / "docs"
 INDEX = DOCS_ROOT / "index.md"
+PUBLIC_API_DOC = DOCS_ROOT / "api" / "public_api.md"
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)#]+)(?:#[^)]+)?\)")
+ROOT_EXPORT_RE = re.compile(r"\bpn\.([A-Za-z_][A-Za-z0-9_]*)\b")
 PUBLIC_DOC_DIRS = ("api", "concepts", "reference", "tutorials")
 
 
@@ -50,3 +54,12 @@ def test_docs_index_covers_public_documentation_pages() -> None:
         for path in sorted((DOCS_ROOT / directory).glob("*.md")):
             target = path.relative_to(DOCS_ROOT).as_posix()
             assert f"({target})" in body
+
+
+def test_public_api_doc_covers_root_exports() -> None:
+    body = PUBLIC_API_DOC.read_text(encoding="utf-8")
+    documented_exports = set(ROOT_EXPORT_RE.findall(body))
+
+    missing = sorted(set(pn.__all__) - documented_exports)
+
+    assert missing == []
