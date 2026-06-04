@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .metadata import normalize_session_info, normalize_symbol_info, normalize_timeframe_info
+
+if TYPE_CHECKING:
+    from .request.provider import DataProvider
 
 
 SECURITY_MODES = {"safe", "research", "unsafe"}
@@ -31,7 +34,7 @@ class PyneSettings:
     max_collection_depth: int = 8
     cache_max_items: int = 32
     allowed_imports: tuple[str, ...] = DEFAULT_ALLOWED_IMPORTS
-    data_provider: Any = None
+    data_provider: DataProvider | None = None
     syminfo: Any = None
     timeframe: Any = "1"
     session: Any = None

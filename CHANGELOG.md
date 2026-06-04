@@ -78,6 +78,8 @@
 - Added package smoke coverage for built wheels, `py.typed`, CLI entry points,
   packaged examples, and schema output.
 - Added public request-provider typing helpers and script namespace drift tests.
+- Narrowed public `data_provider` type hints to the request `DataProvider`
+  protocol.
 
 ## 0.1.0
 

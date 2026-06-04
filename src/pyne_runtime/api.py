@@ -8,6 +8,7 @@ from .data import PyneData, coerce_ohlcv
 from .errors import classify_security_error, error_detail
 from .executor import execute_pyne_script
 from .migration_diagnostics import migration_diagnostics, syntax_migration_diagnostics
+from .request.provider import DataProvider
 from .result import PyneResult
 from .schema import schema as schema_bundle
 from .security import PyneSecurityPolicy, validate_script_security
@@ -22,7 +23,7 @@ def run(
     settings: PyneSettings | None = None,
     security_mode: str | None = None,
     executor_mode: str | None = None,
-    data_provider: Any = None,
+    data_provider: DataProvider | None = None,
     syminfo: Any = None,
     timeframe: Any = None,
     session: Any = None,

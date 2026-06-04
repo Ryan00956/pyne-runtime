@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from typing import get_type_hints
 import math
 
 import pyne_runtime as pn
+import pyne_runtime.settings as settings_module
+from pyne_runtime.executor import execute_pyne_script
+from pyne_runtime.request import DataProvider
 
 
 def _bars() -> list[dict[str, float]]:
@@ -168,3 +172,14 @@ def test_missing_value_helpers_are_public_api() -> None:
     assert pn.nz(pn.na, 7) == 7
     assert math.isnan(fixed[0])
     assert fixed.tolist()[1:] == [1.0, 1.0, 3.0]
+
+
+def test_data_provider_annotations_use_public_protocol() -> None:
+    expected = DataProvider | None
+
+    assert get_type_hints(pn.run)["data_provider"] == expected
+    assert get_type_hints(
+        pn.PyneSettings,
+        globalns={**vars(settings_module), "DataProvider": DataProvider},
+    )["data_provider"] == expected
+    assert get_type_hints(execute_pyne_script)["data_provider"] == expected

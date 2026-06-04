@@ -62,7 +62,8 @@ class MyProvider:
 ```
 
 Pass it through `pn.run(..., data_provider=provider)` or
-`PyneSettings(data_provider=provider)`.
+`PyneSettings(data_provider=provider)`. Both public entry points type the
+argument as `DataProvider | None` for IDE and static checker support.
 
 ```python
 result = pn.run(
@@ -218,6 +219,8 @@ For IDE and static typing support, Pyne exports provider typing helpers at both
   `pn.schema()["requestProvider"]["metadata"]["acceptedKeys"]`.
 - `RequestCapabilities`: accepted capability declaration shapes.
 - `RequestMetadata`: typed dictionary for requested-context metadata.
+- `DataProvider`: protocol for objects passed to `pn.run(..., data_provider=...)`
+  or `PyneSettings(data_provider=...)`.
 - `RequestCapabilityProvider`: optional protocol for method-based capability
   declarations.
 - `RequestMetadataProvider`: optional protocol for method-based metadata

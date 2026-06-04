@@ -14,6 +14,7 @@ from dataclasses import replace
 from typing import Any
 
 from .errors import error_hint
+from .request.provider import DataProvider
 from .result import PyneResult
 from .runtime import PyneRuntime
 from .security import PyneSecurityPolicy
@@ -29,7 +30,7 @@ def execute_pyne_script(
     executor_mode: str | None = None,
     timeout_seconds: float | None = None,
     settings: PyneSettings | None = None,
-    data_provider: Any = None,
+    data_provider: DataProvider | None = None,
     syminfo: Any = None,
     timeframe: Any = None,
     session: Any = None,
