@@ -1,13 +1,18 @@
-# Pyne Python 包长期计划
+# Pyne Runtime Python 包长期方向
 
-本文档定义 Pyne 作为 Python 包的长期路线。核心边界很明确：
+本文档定义 Pyne Runtime 作为 Python 包的长期方向。它面向已经熟悉
+TradingView Pine 心智模型、但希望在 Python 里写指标和策略的用户，也面向
+需要把脚本运行、图表渲染、参数面板和数据 provider 组合起来的宿主应用。
 
-- Pyne 不做 TradingView Pine Script 源码编译器。
-- Pyne 不做 Pine 解释器。
-- Pyne 不承诺直接运行 `.pine` 脚本。
-- Pyne 的目标是让用户用 Python 语法写出尽量接近 Pine 逻辑模型的指标、策略和运行时对象。
+核心边界：
 
-换句话说，Pyne 的产品形态不是：
+- Pyne Runtime 不做 Pine Script 源码解析、编译或解释。
+- Pyne Runtime 不承诺直接运行 `.pine` 文件。
+- Pyne Runtime 不做 TradingView 完整图层克隆。
+- Pyne Runtime 不内置交易所、券商、行情存储或 UI。
+- Pyne Runtime 的目标是提供 Python-native、Pine-like 的运行时语义和稳定输出协议。
+
+换句话说，它的产品形态不是：
 
 ```text
 Pine source -> parser/compiler/interpreter -> execution
@@ -16,48 +21,74 @@ Pine source -> parser/compiler/interpreter -> execution
 而是：
 
 ```text
-Python script + Pine-like runtime API -> deterministic chart/strategy output
+Python script + Pine-like runtime API -> deterministic indicator/strategy output
 ```
 
 ## 1. 产品定位
 
-Pyne 应该是一个 Python-native 的 Pine-like runtime package。
+Pyne Runtime 应该成为一个轻量但语义扎实的 Pine-like Python runtime package。
 
-它服务三类用户：
+它主要服务三类场景：
 
-1. 想在 Python 里使用 Pine-like series、bar、plot、request、strategy 语义的脚本作者。
-2. 需要稳定指标和策略运行时的宿主应用。
-3. CandleScope 这类图表工作台，用 Pyne 执行用户脚本并渲染结构化输出。
+1. 熟悉 Pine 的用户，用 Python 语法写出类似 Pine 的指标、策略和多周期逻辑。
+2. 外部图表应用，把 Pyne 作为脚本运行引擎，并自行负责数据、渲染、账号和 UI。
+3. CandleScope 这类宿主，把 Pyne 输出的结构化结果渲染成图表、信号、策略报告和调试面板。
 
-Pyne 不需要和 Python 自身竞争。如果用户只想写普通数组、pandas、循环或自定义回测，他们可以直接写 Python。Pyne 存在的价值，是把 Pine 的心智模型带进 Python：
+Pyne 的价值不是替代普通 Python 回测库，也不是复刻 TradingView。它的价值是把 Pine 用户熟悉的运行时概念带到 Python：
 
 - `close[1]` 表示上一根 bar。
 - series 表达式按 bar 传播。
-- `barstate.*` 存在。
-- `request.security()` 负责跨上下文对齐。
-- `strategy.*` 记录确定性的订单、成交和持仓演化。
-- plot 和 drawing object 输出为宿主可渲染的数据结构。
+- `na`、`nz()`、`barstate.*` 和 `timeframe.*` 可用。
+- `request.security()` 负责跨上下文请求和对齐。
+- `strategy.*` 提供确定性的订单、持仓、成交和报告回放。
+- `plot()`、marker 和 drawing object 输出为宿主可消费的数据结构。
 
-## 2. 明确不做什么
+## 2. 当前基础
 
-这些能力不属于 Pyne Python 包路线：
+当前 Pyne 已经具备比较完整的底座：
 
-- Pine 源码 parser。
-- Pine AST。
-- Pine bytecode 或 compiler。
+- Python 包 API：`run()`、`PyneRuntime`、`PyneSettings`、`PyneData`、`PyneResult`。
+- CLI：`pyne run`、`pyne validate`、`pyne schema` 和 `python -m pyne_runtime`。
+- Series 语义：OHLCV source、历史引用、算术、比较、布尔组合、`na` / `nz()`。
+- Bar 语义：`bar_index`、`last_bar_index`、`time`、`time_close`、`barstate.*`。
+- Runtime metadata：`syminfo`、`timeframe`、`session`。
+- 状态：`var()`、`pyne.var()`、`set_each()`。
+- 表达式辅助：`when()`、`switch()`、`where()`。
+- TA：核心和扩展 `ta.*`，并有 TradingView-backed golden capture。
+- 集合：`array.*`、`map.*`、`matrix.*`。
+- 标准库：`math.*`、`str.*`、`time.*`、`ticker.*`、`color.*`。
+- Plot 输出：`plot()`、`hline()`、`fill()`、`plotshape()`、`plotchar()`、`plotarrow()`、marker、bar/bg color 和 alert/signal。
+- Drawing object：`line`、`label`、`box`、`table` 的 batch snapshot 和 incremental event。
+- Request：host-backed `request.security()`、`request.security_lower_tf()`、tuple return、callable thunk、gaps/lookahead、provider capability 和 metadata。
+- Strategy：`strategy()`、entry/order/exit/close/cancel、pending stop/limit、OCA、pyramiding、slippage、commission、margin、risk、trade ledger、summary、lifecycle。
+- Incremental runtime：`on_bar()`、preview/confirmed bar、增量 TA、增量 drawing、增量 strategy。
+
+因此后续工作不应该推倒重来，而应该继续加强三件事：
+
+1. Pine 用户迁移体验。
+2. 外部应用集成协议。
+3. Pine-like 语义覆盖和证据。
+
+## 3. 明确不做什么
+
+这些能力不属于 core package 的长期方向：
+
+- Pine 源码 parser / compiler / interpreter。
+- 未翻译地直接运行 TradingView `.pine` 脚本。
 - 完整 TradingView runtime clone。
-- 未翻译地直接运行用户复制来的 Pine 脚本。
-- 保证 TradingView 未公开细节的完全一致。
-- 在 core package 内置市场数据存储、交易所 adapter 或 broker connector。
-- 做完整真实券商撮合模拟器。
+- 完整 TradingView 视觉图层克隆。
+- 内置图表 UI、参数面板 UI 或可视化编辑器。
+- 内置行情数据库、交易所 adapter、broker connector。
+- tick 级真实撮合、订单簿、排队、部分成交、真实券商 margin call。
+- 试图保证 TradingView 未公开细节的完全一致。
 
-未来可以有独立项目把 Pine 源码翻译成 Pyne-style Python，但它不应该反向绑架 Pyne core 的架构。
+未来可以有独立工具把 Pine 源码辅助翻译成 Pyne-style Python，但该工具不应该反向绑架 Pyne core 的架构。
 
-## 3. 设计原则
+## 4. 设计原则
 
-### 3.1 Pine-like 语义优先
+### 4.1 Pine-like 语义优先
 
-如果一个 API 可以做成普通 Python 回测库风格，也可以做成 Pine-like 风格，默认选择 Pine-like。
+如果一个 API 可以做成普通 Python 回测库风格，也可以做成 Pine-like 风格，优先选择 Pine-like。
 
 例如：
 
@@ -70,496 +101,557 @@ strategy(
 )
 ```
 
-这种形式比 `slippage_price=...` 更好，因为它保留了 Pine 用户熟悉的心智模型。Python 用户如果不需要这种模型，本来就可以直接写普通 Python。
+这种形式比自定义一套回测参数名更适合本项目，因为它保留了 Pine 用户熟悉的心智模型。
 
-### 3.2 Python 语法保持 Python 语法
+### 4.2 Python 语法保持 Python 语法
 
 Pyne 不应该假装 Python 可以表达所有 Pine 语法。
 
-只能近似或显式替代的典型点：
+Python 无法天然复刻的点，应提供明确的一等替代 API：
 
-- Python `if` 不能对 series 条件逐 bar 分支。
-- Python 三元表达式不能变成 series-aware。
-- Pine `:=` 不能在 Python 中复刻为语法。
-- Pine `varip` 这类声明模式需要显式 Python API。
+- Pine 的 series `if` / 三元选择：使用 `when()`、`switch()`。
+- Pine 的 `:=` 递归赋值：使用 `var()` / `pyne.var()` 状态单元。
+- Pine 的 request expression capture：使用 `lambda ctx: ...` thunk。
+- Pine 的 realtime intrabar 状态：未来使用显式 `varip`-like API。
+- Python 关键字冲突：例如 `array.from(...)` 使用 `array.from_values(...)`。
 
-Pyne 应该给这些限制提供一等公民的替代 API：
+### 4.3 Core 与宿主边界清晰
 
-```python
-body = when(close > open, close - open, open - close)
-state = pyne.var("state", 0)
-```
+Pyne core 负责：
 
-### 3.3 宿主边界保持干净
+- 脚本执行。
+- Pine-like series、bar、request、strategy、state 语义。
+- 结构化 output schema。
+- provider protocol 和 metadata contract。
+- 错误诊断和 validation。
 
-Pyne 负责运行时语义。宿主负责：
+宿主应用负责：
 
-- 市场数据获取
-- symbol metadata
-- chart rendering
-- 用户、会话、权限
-- 持久化
-- broker connectivity
+- 市场数据获取和缓存。
+- symbol metadata。
+- 图表渲染。
+- 参数面板 UI。
+- 用户、权限、会话、持久化。
+- broker 或交易所连接。
 
-Pyne core 暴露 provider protocol 和结构化输出，不变成数据平台。
+### 4.4 每个兼容性声明都要有证据
 
-### 3.4 每个兼容性说法都要有证据
+只要文档说某个行为是 Pine-like，就应该有测试支撑。
 
-只要文档说某个行为是 Pine-like，就应该有自动化测试支撑。
+高风险区域优先使用 golden tests：
 
-高风险区域优先做 golden tests：
+- TA 函数。
+- `request.security()` 对齐。
+- `barstate` 和 realtime 行为。
+- strategy fill、risk、trade ledger 和 report。
+- collection history 和 mutation 边界。
 
-- TA 函数
-- `request.security` 对齐
-- barstate realtime 行为
-- strategy fill 和 trade ledger
+## 5. 长期能力方向
 
-## 4. 当前基础
+### 5.1 Pine 用户迁移体验
 
-当前 Pyne 已经具备比较完整的底座：
+这是下一阶段最高价值方向之一。功能已经不少，但 Pine 用户需要更少踩坑、更快上手。
 
-- `PyneSeries` 和 `close[1]` 这类历史引用。
-- series arithmetic、comparison、boolean composition。
-- callable `na` 和 series-aware `nz`。
-- `when()`、`switch()` 用于绕开 Python 语法限制。
-- `bar_index`、`last_bar_index`、`time`、`time_close`、`barstate.*`。
-- incremental `ctx.bar_index`、`bar.bar_index`、`ctx.barstate.*`。
-- `var()`、`pyne.var()` 和持久状态 cell。
-- core 和 expanded `ta.*`。
-- drawing objects：line、label、box、table。
-- host-backed `request.security()`，支持 callable expression thunk 和 tuple return。
-- `strategy(...)` 声明。
-- strategy entry/order/exit/close/cancel/OCA/pyramiding/slippage/commission。
-- CLI 和 package quality gates。
+目标：
 
-所以后续工作不是推倒重来，而是继续把语义深度、API 覆盖、测试证据和宿主协议做扎实。
-
-## 5. 长期工作流
-
-### 5.1 Runtime Metadata：`syminfo`、`timeframe`、`session`
-
-目标：提供 Pine-like 的运行时元数据对象。
-
-为什么优先级高：
-
-- strategy slippage 需要 `mintick`。
-- request 对齐需要 timeframe 信息。
-- session-aware 指标需要交易时段信息。
-- symbol-specific formatting 需要 currency、pointvalue 等元数据。
-
-目标 API：
-
-```python
-strategy("System", slippage=2)
-
-plot(syminfo.mintick, "Min Tick")
-plot(timeframe.multiplier, "TF Multiplier")
-marker(session.ismarket, text="Market")
-```
+- 让用户能把 Pine 思路稳定改写成 Pyne Python。
+- 让常见 Python/Pine 语法差异有清晰错误提示。
+- 让外部应用能在用户保存脚本前给出诊断。
 
 工作项：
 
-1. 给 `PyneSettings` 或执行输入增加 metadata 字段。
-2. 增加 `syminfo` namespace：
-   - `ticker`
-   - `tickerid`
-   - `prefix`
-   - `currency`
-   - `basecurrency`
-   - `mintick`
-   - `pointvalue`
-   - `type`
-3. 增加 `timeframe` namespace：
-   - `period`
-   - `multiplier`
-   - `isintraday`
-   - `isdaily`
-   - `isweekly`
-   - `ismonthly`
-4. 增加轻量 `session` namespace：
-   - `ismarket`
-   - `isfirstbar`
-   - `islastbar`
-5. `strategy(..., slippage=...)` 在未显式传 `mintick` 时使用 `syminfo.mintick`。
-6. 文档写清宿主必须提供哪些 metadata，以及缺省值是什么。
+1. 编写 Pine-to-Pyne cookbook：
+   - indicator declaration。
+   - `plot()` / marker。
+   - series condition。
+   - `var` / `:=`。
+   - `request.security()`。
+   - strategy entry/exit。
+   - array/map/matrix。
+2. 增强 `validate()`：
+   - AST 检测 `if close > open:`。
+   - AST 检测 series 条件 Python 三元表达式。
+   - 检测裸表达式传给 `request.security()` 的常见误用。
+   - 检测 `array.from` 这类 Python 关键字冲突。
+   - 检测可能 lookahead 的负向 history 或 unsupported shift。
+3. 错误提示教学化：
+   - 告诉用户为什么错。
+   - 给出对应 Pyne 写法。
+   - 返回稳定 error code，方便宿主 UI 展示。
+4. 增加迁移示例：
+   - 均线交叉。
+   - RSI 信号。
+   - Supertrend。
+   - 多周期过滤。
+   - 简单 strategy。
+   - 带参数 schema 的脚本。
 
 完成标准：
 
-- 脚本可以读取 `syminfo.*` 和 `timeframe.*`。
-- strategy slippage 有 metadata-backed mintick 路径。
-- 缺失 metadata 时行为确定，并且有文档。
+- 新用户不用阅读全部概念文档，也能根据 cookbook 写出可运行脚本。
+- 常见 Pine 写法误用能在 validate 阶段给出可执行建议。
 
-### 5.2 Request 语义扩展
+### 5.2 更完整的 `input.*` 和参数 schema
 
-目标：让 host-backed 多上下文请求更完整、更可预测。
+如果 Pyne 要服务外部应用，参数 schema 是核心能力。宿主需要根据脚本自动生成配置面板。
 
-目标 API：
+目标：
 
-```python
-higher_close = request.security("BTCUSDT", "1h", lambda ctx: ctx.close)
-lower_values = request.security_lower_tf("BTCUSDT", "1m", lambda ctx: ctx.close)
-```
+- 支持更完整的 Pine-like input family。
+- 输出稳定的参数 schema。
+- 保留 UI metadata，但不在 core 内实现 UI。
 
 工作项：
 
-1. 加强 timeframe parse 和比较。
-2. 给 provider 增加 capability metadata。
-3. 实现 `request.security_lower_tf()`，返回适合 lower-timeframe array 语义的数据结构。
-4. 扩展 gaps/lookahead 测试。
-5. 从 provider response 注入 symbol metadata。
-6. 对 unsupported provider capability 给出结构化错误。
+1. 扩展 input 类型：
+   - `input.int`
+   - `input.float`
+   - `input.bool`
+   - `input.string`
+   - `input.source`
+   - `input.color`
+   - `input.timeframe`
+   - `input.symbol`
+   - `input.session`
+   - `input.time`
+2. 支持参数 metadata：
+   - `title`
+   - `defval`
+   - `options`
+   - `minval`
+   - `maxval`
+   - `step`
+   - `tooltip`
+   - `group`
+   - `inline`
+   - `confirm`
+3. 输出 schema：
+   - 参数 id。
+   - 类型。
+   - 默认值。
+   - 当前值。
+   - UI metadata。
+   - source/timeframe/symbol 特殊类型说明。
+4. 参数 override：
+   - CLI override。
+   - `pn.run(..., params=...)`。
+   - 类型校验和错误诊断。
 
 完成标准：
 
-- higher-timeframe 和 lower-timeframe request 有分开的文档语义。
-- host provider 可以声明能力。
-- 对齐逻辑有 golden-style tests。
+- 外部应用可以只读取 Pyne 的 param schema，就生成可用参数面板。
+- 常见 Pine input 脚本能自然改写成 Pyne Python。
 
-### 5.3 Strategy Replay 深化
+### 5.3 Request 与 provider contract
 
-目标：保持 Pine-like，但定位为 deterministic replay layer，而不是完整真实 broker simulator。
+`request.*` 是 Pine-like runtime 的关键能力，但数据必须由宿主提供。长期方向是扩展 request 类型，同时把 provider contract 做稳定。
 
-已具备：
+目标：
 
-- `strategy(...)`
-- `entry`、`order`、`exit`、`close`、`close_all`
-- `cancel`、`cancel_all`
-- pending stop/limit triggers
-- OCA cancel/reduce
-- pyramiding
-- partial exits
-- slippage 和 commission
-- position size 和 average price
-
-剩余工作：
-
-1. 资本与权益字段：
-   - `initial_capital`
-   - `currency`
-   - `strategy.equity`
-   - `strategy.netprofit`
-   - `strategy.openprofit`
-   - `strategy.grossprofit`
-   - `strategy.grossloss`
-2. trade ledgers：
-   - `strategy.closedtrades`
-   - `strategy.opentrades`
-   - entry/exit time、price、size、profit
-3. risk namespace：
-   - `strategy.risk.max_drawdown`
-   - `strategy.risk.max_intraday_loss`
-   - `strategy.risk.allow_entry_in`
-4. margin 语义：
-   - `margin_long`
-   - `margin_short`
-5. fill assumptions：
-   - 当前 deterministic high/low scan。
-   - 可选 open/high/low/close path policy。
-   - 明确 same-bar ambiguity 规则。
-
-完成标准：
-
-- 常见 Pine strategy report 可以从输出推导。
-- strategy output 区分 orders、fills、positions、open trades、closed trades。
-- intrabar 假设明确并有测试。
-
-### 5.4 Drawing 和 Visual Output 完整性
-
-目标：扩展 Pine 视觉 API 词汇，同时保持 host-renderable。
+- `request.security()` 和 `request.security_lower_tf()` 成为稳定 host-backed 多上下文 API。
+- provider 能声明能力、metadata、错误口径。
+- 可以扩展更多 request family，而不把 core 变成数据平台。
 
 工作项：
 
-1. 增加 Pine-like namespaces 和 constants：
-   - `plot.style_*`
-   - `shape.*`
-   - `location.*`
-   - `size.*`
-   - `display.*`
-   - `position.*`
-2. 增加 API：
-   - `plotshape`
-   - `plotchar`
-   - `plotarrow`
-   - 更完整的 `plot()` style
-3. 增加 incremental object event stream：
-   - create
-   - update
-   - delete
-4. batch 模式继续保留 final snapshot。
+1. 强化当前 request：
+   - 更多 HTF/LTF gaps/lookahead golden。
+   - timezone / session / time_close 边界。
+   - requested context history。
+   - tuple thunk。
+   - invalid symbol 和 capability 组合。
+   - provider cache 行为。
+2. 扩展 provider protocol：
+   - OHLCV provider。
+   - metadata provider。
+   - capability provider。
+   - request diagnostics。
+   - stable exception types。
+3. 可选扩展 request family：
+   - `request.currency_rate`
+   - `request.financial`
+   - `request.economic`
+   - `request.dividends`
+   - `request.splits`
+   - `request.earnings`
+   - generic `request.data()`
+4. 保持边界：
+   - core 定义接口和对齐语义。
+   - 宿主实现数据来源。
+   - core 不直接访问外部网络或交易所。
 
 完成标准：
 
-- Pine-style visual scripts 不需要滥用 generic marker 输出。
-- 宿主可以选择 snapshot rendering 或 event-stream rendering。
+- 外部应用可以稳定实现 provider。
+- request 行为有足够 golden evidence。
+- 新 request 类型可以按 provider capability 安全开启或关闭。
 
-### 5.5 Pine-like Collections
+### 5.4 Realtime、incremental 与 `varip`-like 语义
 
-目标：用 Python API 提供 Pine-like collection 语义，而不是实现 Pine collection 语法。
+当前已有 incremental runtime 和 preview/confirmed bar 隔离。长期应该让 realtime 语义更接近 Pine 用户的预期。
 
-目标 API：
+目标：
 
-```python
-arr = array.new_float()
-array.push(arr, close)
-last = array.get(arr, array.size(arr) - 1)
-```
+- batch 和 incremental 在可比脚本上尽量收敛。
+- preview state 与 confirmed state 边界清楚。
+- 提供 `varip`-like API 表达 intrabar state。
 
 工作项：
 
-1. 增加 `array` namespace。
-2. 增加 `map` namespace。
-3. 增加 `matrix` namespace。
-4. 定义可存储值：
-   - scalar
-   - series
-   - drawing object handle
-5. 增加 safe-mode limits，避免无限内存增长。
+1. 明确 state 类型：
+   - `var()`：跨 confirmed bar 持久。
+   - future `varip()`：同一 realtime bar 内持久，bar 确认后按规则提交或重置。
+2. 增加 reference tests：
+   - batch vs incremental。
+   - preview update 不污染 confirmed state。
+   - object preview event 不污染 persistent session。
+   - strategy preview 和 confirmed fill 行为。
+3. 扩展 incremental docs：
+   - host 如何喂历史 bar。
+   - host 如何喂 realtime update。
+   - confirmed bar 如何提交。
+   - UI 如何消费 object events。
 
 完成标准：
 
-- 常见 Pine array/map/matrix 示例能用 Python 调用表达。
-- safe mode 可以限制内存风险。
+- 实时宿主可以用 Pyne 做低重复计算的脚本执行。
+- 用户能明确知道哪些状态会在 preview 中变化，哪些会提交。
 
-### 5.6 Standard Library Width
+### 5.5 Pine-like 标准库宽度
 
-目标：继续扩展脚本作者常用的 Pine-like namespace。
+Pyne 不需要追求一次性全量复刻 Pine 标准库，但应该优先补高频、迁移价值高的 namespace。
+
+目标：
+
+- 常见 Pine 指标和策略迁移时，少遇到 unsupported helper。
+- 每个 namespace 的 known differences 清楚。
 
 优先级：
 
-1. `str.*`
-2. `math.*`
-3. `time.*`
-4. `ticker.*`
-5. `ta.*` edge functions
-6. `color.*` completeness
+1. `input.*`
+2. `ta.*`
+3. `math.*`
+4. `time.*`
+5. `str.*`
+6. `color.*`
+7. `ticker.*`
+8. `array.*` / `map.*` / `matrix.*`
 
 工作项：
 
-1. 维护 API coverage matrix。
-2. 函数级测试。
-3. 按 namespace 写文档。
-4. 明确 known differences。
+- 维护 API matrix。
+- 按 namespace 增加函数级测试。
+- 对 TradingView 行为容易有差异的函数增加 golden。
+- 对冷门 overload 标注 unsupported 或 planned。
 
 完成标准：
 
-- 用户能按 namespace 发现支持情况。
-- 缺失函数有 planned 或 unsupported 状态。
+- 用户能通过文档快速判断某个 Pine helper 是否可用。
+- 缺失函数有明确状态，而不是运行时才猜。
 
-### 5.7 Realtime 和 Incremental Convergence
+### 5.6 Collection 历史与资源边界
 
-目标：让 batch execution 和 incremental execution 在语义上收敛。
+当前集合类型已经可用，但 Pine-like collection 的历史快照和 mutation 边界还可以继续深化。
+
+目标：
+
+- array/map/matrix 支持更清晰的历史和 mutation 语义。
+- 宿主可以配置资源限制，避免脚本无限增长内存。
 
 工作项：
 
-1. 为部分脚本定义 reference bar-by-bar evaluator。
-2. 对比 batch result 和 incremental replay result。
-3. 增加 incremental object events。
-4. 如果可行，增加显式 `varip`-like API。
-5. 改进 strategy events 在 preview/confirmed 下的行为。
+1. Collection history：
+   - array snapshot history。
+   - map snapshot history。
+   - matrix snapshot history。
+   - mutation 后历史引用口径。
+2. Value boundary：
+   - scalar。
+   - series。
+   - color。
+   - object handle。
+   - nested collection。
+3. Resource limits：
+   - max array size。
+   - max map size。
+   - max matrix cells。
+   - max nested depth。
+4. 错误语义：
+   - out-of-range。
+   - invalid key。
+   - invalid matrix shape。
+   - unsupported stored value。
 
 完成标准：
 
-- 同一脚本可以同时验证 batch 和 incremental 结果。
-- preview updates 被隔离，confirmed bars 确定提交。
+- 常见 Pine collection 示例能稳定改写。
+- 大脚本不会无约束消耗宿主内存。
 
-### 5.8 Error Model 和 Developer Experience
+### 5.7 Strategy deterministic replay 深化
 
-目标：让 Pyne 作为 Python 包更好用、更好调试。
+Strategy 的长期方向是 deterministic replay layer，而不是 broker emulator。
+
+目标：
+
+- 继续覆盖 Pine 用户常见策略报告和订单语义。
+- 保持 fill assumption 明确、可测试、可解释。
+- 不进入真实券商模拟器范围。
 
 工作项：
 
-1. 优化 series truthiness 错误：
-   - `if close > open`
-   - Python ternary with series
-2. 对 unsupported Pine-like API 给出诊断。
-3. 增强 `pn.validate()` 输出。
-4. 补齐 typed public API hints。
-5. 增加示例：
-   - indicator
-   - strategy
-   - request provider
-   - incremental session
-6. README 增加 recipe。
+1. Report 细化：
+   - 更多 `strategy.closedtrades.*` accessor。
+   - 更多 `strategy.opentrades.*` accessor。
+   - summary 字段完善。
+   - lifecycle 字段稳定化。
+2. Fill/risk golden：
+   - same-bar ambiguity。
+   - intrabar path policy。
+   - margin admission。
+   - risk lock。
+   - partial close / partial exit。
+   - OCA。
+   - commission allocation。
+3. 差异文档：
+   - 不做 tick/orderbook。
+   - 不做真实 margin call。
+   - 不做 broker-side liquidation。
+   - 不推断未知 intrabar path。
 
 完成标准：
 
-- 新用户能快速理解 Python 语法限制。
-- 常见错误能给出可执行建议。
+- 常见 Pine strategy 思路可以用 Pyne 表达，并获得可解释报告。
+- TradingView 对照覆盖继续扩大，但不承诺未公开 broker emulator 细节完全一致。
 
-### 5.9 Golden Tests 和兼容性证据
+### 5.8 Output schema 与宿主集成协议
 
-目标：从 best effort 走向 evidence-backed compatibility。
+既然复杂图形由外部应用渲染，Pyne 的 output contract 必须足够稳定。
+
+目标：
+
+- 宿主可以安全消费 Pyne 输出。
+- schema 变化可追踪、可迁移。
+- 1.0 前冻结关键 contract。
 
 工作项：
 
-1. 创建 `tests/golden/`。
-2. 为这些领域增加 deterministic fixtures：
-   - TA functions
-   - `request.security` alignment
-   - strategy fills
-   - barstate flags
-3. expected outputs 存为 JSON/CSV。
-4. 文档标明每个 golden 的来源：
-   - derived from Pine behavior
-   - derived from Pyne-defined behavior
-   - host-defined behavior
+1. Schema versioning：
+   - input schema version。
+   - output schema version。
+   - param schema version。
+   - strategy report schema version。
+2. Renderer contract：
+   - lines。
+   - markers。
+   - fills。
+   - colors。
+   - objects snapshot。
+   - object events。
+   - alerts/signals。
+3. Strategy contract：
+   - orders。
+   - lifecycle。
+   - position。
+   - summary。
+   - closedtrades。
+   - opentrades。
+4. Docs and fixtures：
+   - schema examples。
+   - host consumption examples。
+   - breaking change migration notes。
 
 完成标准：
 
-- 兼容性声明可以指向具体 fixture。
-- API 越扩越大时，回归风险仍可控。
+- 外部应用可以按 schemaVersion 分支处理。
+- 破坏性变化必须有迁移说明和测试。
 
-### 5.10 Packaging、Versioning 和 Host Contracts
+### 5.9 Developer experience 与包成熟度
 
-目标：让宿主应用可以稳定依赖 Pyne。
+Pyne 作为 Python 包需要逐步走向可依赖、可发布、可升级。
+
+目标：
+
+- IDE 体验更好。
+- 错误更可诊断。
+- 发布和升级更可控。
 
 工作项：
 
-1. 定义 semantic versioning 规则。
-2. 给 output schema 做版本化。
-3. 写 provider protocol docs：
-   - OHLCV provider
-   - symbol metadata provider
-   - request capability provider
-4. 写 breaking changes migration notes。
-5. 保持 `scripts/check.ps1` 和 `scripts/check.sh` 作为 release gates。
+1. Type hints：
+   - public API 完整 typing。
+   - namespace autocomplete。
+   - provider protocol typing。
+2. Packaging：
+   - wheel build。
+   - release checklist。
+   - changelog。
+   - semver policy。
+3. Docs：
+   - 文档站或清晰 docs index。
+   - API reference。
+   - tutorials。
+   - cookbook。
+   - host integration guide。
+4. Quality gates：
+   - unit tests。
+   - golden tests。
+   - capture diff。
+   - CLI contract tests。
+   - package smoke tests。
 
 完成标准：
 
-- 宿主应用可以有计划地升级 Pyne。
-- output schema 变化显式可追踪。
+- 宿主应用可以稳定依赖 Pyne minor version。
+- 用户能通过 docs 和 IDE 快速发现 API。
 
 ## 6. 推荐里程碑
 
-### Milestone A：Metadata 和 Runtime Context
+### Milestone A：Pine 用户迁移体验
 
 范围：
 
-- `syminfo`
-- `timeframe`
-- session basics
-- strategy slippage defaulting to `syminfo.mintick`
+- Pine-to-Pyne cookbook。
+- validate AST diagnostics。
+- 常见误用 error hints。
+- 更多迁移 examples。
 
-为什么先做：
+价值：
 
-它能同时加强 strategy、request 和 plotting 的语义基础。
+- 直接降低会 Pine 用户上手 Pyne 的成本。
+- 比继续堆冷门 API 更能改善实际体验。
 
-### Milestone B：Strategy Reporting
-
-范围：
-
-- equity
-- netprofit
-- openprofit
-- closed trades
-- open trades
-
-为什么第二：
-
-订单生命周期已经有基础，下一层最有价值的是报告和 ledger。
-
-### Milestone C：Request Lower Timeframe
+### Milestone B：Input schema 与宿主参数面板协议
 
 范围：
 
-- `request.security_lower_tf`
-- provider capability metadata
-- alignment goldens
+- 补齐高频 `input.*`。
+- 参数 metadata。
+- 参数 schema。
+- override 校验。
 
-为什么第三：
+价值：
 
-这是 Pine 用户很常见的工作流，而且会影响 provider contract。
+- 让外部应用可以自动生成脚本配置 UI。
+- 让 Pyne 更像真正可嵌入的 runtime。
 
-### Milestone D：Visual API Completion
-
-范围：
-
-- `plotshape`
-- `plotchar`
-- `plotarrow`
-- constants namespaces
-- incremental object events
-
-为什么第四：
-
-它提升图表表达能力，但不需要改变 core execution model。
-
-### Milestone E：Collections 和 Standard Library Width
+### Milestone C：Request provider contract 与更多 golden
 
 范围：
 
-- `array`
-- `map`
-- `matrix`
-- `str`
-- additional `math` and `ta`
+- HTF/LTF gaps/lookahead 边界。
+- provider metadata/capability。
+- request error model。
+- 更多 TradingView-backed request capture。
 
-为什么第五：
+价值：
 
-等 core runtime 更稳定后，再扩脚本 API 面更稳。
+- 多周期是 Pine 用户核心需求。
+- 也是宿主集成风险最高的区域之一。
 
-### Milestone F：Golden Compatibility Suite
-
-范围：
-
-- fixture framework
-- compatibility report
-- documented known differences
-
-为什么第六：
-
-Pyne 的 surface area 到这个阶段会很大，需要用证据维护兼容性说法。
-
-### Milestone G：1.0 Hardening
+### Milestone D：Realtime state 与 `varip`-like API
 
 范围：
 
-- public API freeze
-- output schema versioning
-- provider protocol freeze
-- migration guide
-- release checklist
+- `varip`-like state。
+- preview/confirmed tests。
+- batch/incremental convergence fixtures。
+- realtime host guide。
 
-为什么最后：
+价值：
 
-1.0 的核心不是再加功能，而是让宿主和用户相信升级不会随意破坏行为。
+- 支持实时图表应用。
+- 减少 batch 和 incremental 行为分裂。
+
+### Milestone E：Collection history 与资源限制
+
+范围：
+
+- array/map/matrix history snapshots。
+- nested values。
+- collection limits。
+- error semantics。
+
+价值：
+
+- 提升复杂 Pine-like 脚本迁移能力。
+- 保护宿主资源。
+
+### Milestone F：Strategy report 和 golden 扩展
+
+范围：
+
+- 更多 trade accessor。
+- lifecycle 稳定化。
+- risk/margin/cost 边界。
+- TradingView-backed captures 扩展。
+
+价值：
+
+- 继续增强策略用户信心。
+- 保持 deterministic replay 的清晰边界。
+
+### Milestone G：1.0 Contract Hardening
+
+范围：
+
+- public API freeze。
+- schema freeze。
+- semver。
+- migration guide。
+- release gates。
+
+价值：
+
+- 让外部应用可以长期依赖 Pyne。
 
 ## 7. 每个里程碑的完成标准
 
-每个里程碑都必须同时完成：
+每个里程碑都应该同时完成：
 
-1. runtime/API 实现。
-2. 单元测试和必要的 golden tests。
-3. `docs/reference/pine_like_api_matrix.md` 更新。
-4. 对应 API 文档或概念文档更新。
-5. 示例脚本能运行。
-6. `scripts/check.ps1` 或 `scripts/check.sh` 通过。
+1. Runtime/API 实现。
+2. 单元测试。
+3. 必要的 golden 或 capture diff。
+4. `docs/reference/pine_like_api_matrix.md` 更新。
+5. 对应 API 文档或概念文档更新。
+6. 至少一个可运行 example。
+7. 完整质量门禁通过。
 
 没有测试和文档的功能，不应该算完成。
 
-## 8. 近期下一步
+## 8. 近期建议
 
-下一步最适合做：
+当前代码已经完成了 Pine-to-Pyne cookbook、`validate()` 迁移诊断、
+完整 `input.*` metadata、param schema、`varip()`、collection limits、
+schema contract、TA capture 和 strategy capture。下一阶段不应该继续
+堆 A/B 里已经落地的基础能力，而应该补最薄的证据面：
 
 ```text
-Runtime metadata: syminfo + timeframe
+Milestone C: Request provider contract 与更多 TradingView-backed golden
 ```
 
-最小目标：
+已完成的第一个切片：
 
-```python
-strategy("Meta Strategy", slippage=2)
-plot(syminfo.mintick, "Min Tick")
-plot(timeframe.multiplier, "Timeframe Multiplier")
-```
+1. `request.security()` HTF alignment capture 已进入 parity。
+2. `request.security_lower_tf()` grouping、tuple thunk 和 slot 输出已进入 parity。
+3. `request.security()` requested `time_close` capture 已进入 parity。
+4. `request.security()` requested-context metadata/session capture 已进入 parity。
+5. capture pack、status、next、import、diff 工具已经能管理 request fixture。
+6. lower-timeframe slot plots 可以重建 provider bars，并参与 diff replay。
+7. diff replay 支持 fixture 级 `provider_metadata`，避免使用默认 metadata。
+8. `request.security()` 四种 `gaps` / `lookahead` 组合 capture 已进入 parity。
+9. `request.security()` daily requested-context capture 已进入 parity，覆盖
+   requested `time` / `time_close`、`timeframe.isdaily` 和非 intraday metadata。
+10. `request.security()` requested-context session flag capture 已进入 parity，
+    覆盖 `session.ismarket`、`session.isfirstbar` 和 `session.islastbar`。
 
-必需行为：
+推荐的下一个最小切片：
 
-- `syminfo.mintick` 默认是 `1.0`。
-- `strategy(..., slippage=2)` 在没有显式 `mintick` 时使用 `syminfo.mintick`。
-- `timeframe.period` 可读。
-- `timeframe.multiplier` 能解析 `"1"`、`"5"`、`"1h"`、`"1D"` 这类常见值。
-- 文档说明 metadata 由宿主提供。
-- 测试覆盖默认 metadata 和显式 metadata。
+1. 继续补 timezone 或 error-boundary request capture。
+2. 优先挑一个能暴露 requested-context 边界语义的小 fixture。
+3. 保持 fixture 小而可解释，每次只新增一个待导出的 capture。
+4. 等 TradingView CSV 导出后，用 `request_capture_import.py` 写入
+   `external_capture`，再用 `request_capture_diff.py --assertion parity` 守住 0 diff。
 
-这个切片不会把 Pyne 推向编译器或解释器方向，但会明显增强它作为 Python package 的 Pine-like 运行时基础。
+这个方向能把多周期 request 从“本地语义已覆盖”推进到“外部证据也足够厚”。
+它比继续补冷门 API 更能降低宿主集成风险，也能让
+`request.security()` / `request.security_lower_tf()` 的兼容性声明更有底气。

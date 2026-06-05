@@ -56,8 +56,14 @@ def main(argv: list[str] | None = None) -> int:
     }
     if "provider_bar_plots" in previous_capture:
         capture["provider_bar_plots"] = previous_capture["provider_bar_plots"]
+    if "provider_extra_bar_plots" in previous_capture:
+        capture["provider_extra_bar_plots"] = previous_capture["provider_extra_bar_plots"]
+    if "time_value_plots" in previous_capture:
+        capture["time_value_plots"] = previous_capture["time_value_plots"]
     if "provider_close_plots" in previous_capture:
         capture["provider_close_plots"] = previous_capture["provider_close_plots"]
+    if "provider_metadata" in previous_capture:
+        capture["provider_metadata"] = previous_capture["provider_metadata"]
     if args.note:
         capture["notes"] = args.note
     fixture["external_capture"] = capture
@@ -91,7 +97,9 @@ def load_csv_capture(path: Path, fixture: dict[str, Any]) -> dict[str, Any]:
             - {CAPTURE_INDEX_TITLE}
         )
         if unknown_titles:
-            raise SystemExit("CSV export contains unknown plot title(s): " + ", ".join(unknown_titles))
+            raise SystemExit(
+                "CSV export contains unknown plot title(s): " + ", ".join(unknown_titles)
+            )
         rows = [
             row for row in reader
             if (row.get(CAPTURE_INDEX_TITLE, "") or "").strip()
@@ -100,7 +108,8 @@ def load_csv_capture(path: Path, fixture: dict[str, Any]) -> dict[str, Any]:
     expected_length = len(fixture.get("chart_bars", []))
     if len(rows) != expected_length:
         raise SystemExit(
-            f"capture index row count must match fixture bar count {expected_length}; got {len(rows)}"
+            "capture index row count must match fixture bar count "
+            f"{expected_length}; got {len(rows)}"
         )
 
     bars = [parse_chart_bar(row) for row in rows]
@@ -112,6 +121,7 @@ def load_csv_capture(path: Path, fixture: dict[str, Any]) -> dict[str, Any]:
                 series[title].append({"time": bar["time"], "value": value})
     normalize_provider_time_series(fixture, series)
     provider_bars = build_provider_bars(fixture, series)
+    provider_bars = augment_provider_bars_from_extra_series(fixture, series, provider_bars)
     provider_bars = augment_provider_bars_from_close_series(fixture, series, provider_bars, bars)
     return {
         "series": series,
@@ -140,6 +150,10 @@ def build_provider_bars(
     series: dict[str, list[dict[str, Any]]],
 ) -> list[dict[str, Any]]:
     mapping = fixture.get("external_capture", {}).get("provider_bar_plots", {})
+    if isinstance(mapping, list):
+        return build_provider_bars_from_slot_plots(fixture, series, mapping)
+    if not isinstance(mapping, dict):
+        raise SystemExit("request fixture provider_bar_plots must be a mapping or slot list")
     missing_fields = [field for field in PROVIDER_FIELDS if field not in mapping]
     if missing_fields:
         raise SystemExit(
@@ -182,17 +196,130 @@ def build_provider_bars(
     return provider_bars
 
 
+def build_provider_bars_from_slot_plots(
+    fixture: dict[str, Any],
+    series: dict[str, list[dict[str, Any]]],
+    slot_mappings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    bars_by_time: dict[int, dict[str, Any]] = {}
+    for slot_index, mapping in enumerate(slot_mappings):
+        if not isinstance(mapping, dict):
+            raise SystemExit("request fixture provider_bar_plots slot entries must be mappings")
+        missing_fields = [field for field in PROVIDER_FIELDS if field not in mapping]
+        if missing_fields:
+            raise SystemExit(
+                "request fixture missing provider_bar_plots field(s) for slot "
+                f"{slot_index}: " + ", ".join(missing_fields)
+            )
+        by_chart_time = {
+            field: {point["time"]: point["value"] for point in series.get(mapping[field], [])}
+            for field in PROVIDER_FIELDS
+        }
+        for chart_time in sorted(by_chart_time["time"]):
+            if chart_time not in by_chart_time["time"]:
+                continue
+            missing = [
+                field for field in PROVIDER_FIELDS if chart_time not in by_chart_time[field]
+            ]
+            if missing:
+                raise SystemExit(
+                    "provider bar slot plot values missing field(s) at chart time "
+                    f"{chart_time} slot {slot_index}: " + ", ".join(missing)
+                )
+            provider_time = normalize_provider_time(
+                float(by_chart_time["time"][chart_time]),
+                chart_time,
+            )
+            bars_by_time.setdefault(
+                provider_time,
+                {
+                    "time": provider_time,
+                    "open": float(by_chart_time["open"][chart_time]),
+                    "high": float(by_chart_time["high"][chart_time]),
+                    "low": float(by_chart_time["low"][chart_time]),
+                    "close": float(by_chart_time["close"][chart_time]),
+                    "volume": float(by_chart_time["volume"][chart_time]),
+                },
+            )
+    return [bars_by_time[time] for time in sorted(bars_by_time)]
+
+
+def augment_provider_bars_from_extra_series(
+    fixture: dict[str, Any],
+    series: dict[str, list[dict[str, Any]]],
+    provider_bars: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    extra_plots = fixture.get("external_capture", {}).get("provider_extra_bar_plots", {})
+    if not extra_plots:
+        return provider_bars
+    if not isinstance(extra_plots, dict):
+        raise SystemExit("request fixture provider_extra_bar_plots must be a mapping")
+    provider_mapping = fixture.get("external_capture", {}).get("provider_bar_plots", {})
+    if not isinstance(provider_mapping, dict) or "time" not in provider_mapping:
+        raise SystemExit(
+            "request fixture provider_extra_bar_plots requires mapping provider_bar_plots"
+        )
+
+    time_title = provider_mapping["time"]
+    if time_title not in series:
+        return provider_bars
+    chart_to_provider_time = {
+        point["time"]: normalize_provider_time(float(point["value"]), int(point["time"]))
+        for point in series[time_title]
+    }
+    bars_by_time = {bar["time"]: dict(bar) for bar in provider_bars}
+    for field, title in extra_plots.items():
+        if title not in series:
+            continue
+        for point in series[title]:
+            provider_time = chart_to_provider_time.get(point["time"])
+            if provider_time is None or provider_time not in bars_by_time:
+                continue
+            bars_by_time[provider_time][field] = normalize_provider_extra_value(
+                str(field),
+                point["value"],
+            )
+    return [bars_by_time[time] for time in sorted(bars_by_time)]
+
+
+def normalize_provider_extra_value(field: str, value: Any) -> Any:
+    if field.startswith("session_") or field in {"ismarket", "isfirstbar", "islastbar"}:
+        if isinstance(value, (int, float)):
+            return bool(value)
+        return bool(value)
+    return value
+
+
 def normalize_provider_time_series(
     fixture: dict[str, Any],
     series: dict[str, list[dict[str, Any]]],
 ) -> None:
-    title = fixture.get("external_capture", {}).get("provider_bar_plots", {}).get("time")
-    if not title or title not in series:
-        return
+    capture = fixture.get("external_capture", {})
+    mapping = capture.get("provider_bar_plots", {})
+    if isinstance(mapping, list):
+        titles = [
+            slot.get("time")
+            for slot in mapping
+            if isinstance(slot, dict) and slot.get("time")
+        ]
+    elif isinstance(mapping, dict):
+        titles = [mapping.get("time")]
+    else:
+        titles = []
+    time_value_plots = capture.get("time_value_plots", [])
+    if isinstance(time_value_plots, str):
+        titles.append(time_value_plots)
+    elif isinstance(time_value_plots, list):
+        titles.extend(title for title in time_value_plots if isinstance(title, str))
+    elif time_value_plots:
+        raise SystemExit("request fixture time_value_plots must be a string or list")
     chart_times = fixture.get("chart_bars", [])
     chart_time = int(chart_times[0]["time"]) if chart_times else 0
-    for point in series[title]:
-        point["value"] = normalize_provider_time(float(point["value"]), chart_time)
+    for title in dict.fromkeys(title for title in titles if title):
+        if title not in series:
+            continue
+        for point in series[title]:
+            point["value"] = normalize_provider_time(float(point["value"]), chart_time)
 
 
 def normalize_provider_time(raw_provider_time: float, chart_time: int) -> int:

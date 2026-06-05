@@ -99,7 +99,8 @@ def build_entry(fixture_path: Path, fixture: dict[str, Any], index: int) -> dict
             "python scripts/request_capture_import.py "
             f"tests/golden/{fixture_name} "
             f"--values <export-dir>/{export_file} "
-            '--tolerance 1e-9 --note "TradingView export YYYY-MM-DD"'
+            f"--tolerance 1e-9 --assertion {diff_assertion} "
+            '--note "TradingView export YYYY-MM-DD"'
         ),
         "diff_command": (
             "python scripts/request_capture_diff.py "
@@ -111,6 +112,8 @@ def build_entry(fixture_path: Path, fixture: dict[str, Any], index: int) -> dict
 def capture_diff_assertion(capture: dict[str, Any]) -> str:
     if capture.get("status") == "captured":
         return capture.get("assertion", "parity")
+    if capture.get("assertion") in {"parity", "reference"}:
+        return capture["assertion"]
     return "reference"
 
 

@@ -25,7 +25,7 @@ Rules:
 - `session_ismarket`, `session_isfirstbar`, and `session_islastbar` are optional
   host-provided session flags used by the script-level `session.*` namespace.
   A nested `session` dict with `ismarket`, `isfirstbar`, and `islastbar` is also
-  accepted.
+  accepted. Explicit `false` values are preserved.
 - Data should be sorted by time before it is passed to Pyne.
 - Hosts are responsible for adapting exchange/database formats into this contract.
 

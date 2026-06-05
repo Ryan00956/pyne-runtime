@@ -135,15 +135,23 @@ def build_session_namespace(
         names=("session_isfirstbar", "isfirstbar", "is_firstbar", "session_is_first_bar"),
         default=info.isfirstbar,
     )
+    first_explicit = _has_session_flag(
+        ohlcv,
+        names=("session_isfirstbar", "isfirstbar", "is_firstbar", "session_is_first_bar"),
+    )
     last_values = _session_flag_values(
         ohlcv,
         names=("session_islastbar", "islastbar", "is_lastbar", "session_is_last_bar"),
         default=info.islastbar,
     )
+    last_explicit = _has_session_flag(
+        ohlcv,
+        names=("session_islastbar", "islastbar", "is_lastbar", "session_is_last_bar"),
+    )
 
-    if not any(first_values) and bar_count:
+    if not first_explicit and not any(first_values) and bar_count:
         first_values[0] = True
-    if not any(last_values) and bar_count:
+    if not last_explicit and not any(last_values) and bar_count:
         last_values[-1] = True
 
     return SessionNamespace(
@@ -212,6 +220,10 @@ def _lookup_session_flag(item: Mapping[str, Any], names: tuple[str, ...]) -> Any
         if name in item:
             return item[name]
     return None
+
+
+def _has_session_flag(ohlcv: list[dict[str, Any]], *, names: tuple[str, ...]) -> bool:
+    return any(_lookup_session_flag(item, names) is not None for item in ohlcv)
 
 
 def _parse_timeframe(period: str) -> TimeframeInfo:

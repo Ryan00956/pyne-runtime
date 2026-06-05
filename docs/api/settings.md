@@ -82,8 +82,10 @@ data = [
 
 When per-bar flags are omitted, `session.ismarket` uses the default setting,
 `session.isfirstbar` defaults to the first loaded bar, and
-`session.islastbar` defaults to the last loaded bar. Incremental scripts read
-the current bar's scalar flags through `ctx.session.*`.
+`session.islastbar` defaults to the last loaded bar. Explicit per-bar false
+values are preserved; the first/last fallbacks only apply when no matching
+per-bar flag is supplied. Incremental scripts read the current bar's scalar
+flags through `ctx.session.*`.
 
 `syminfo.mintick` defaults to `1.0`. Strategy slippage uses it when
 `strategy(..., slippage=...)` does not pass an explicit `mintick` / `min_tick`.

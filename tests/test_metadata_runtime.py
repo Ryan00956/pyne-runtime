@@ -143,6 +143,31 @@ plot(when(session.ismarket, close, 0), "Market Close")
     assert result.values("Market Close") == [1.5, 0.0, 3.5]
 
 
+def test_session_namespace_preserves_explicit_false_first_last_flags() -> None:
+    bars = [
+        {
+            **bar,
+            "session_isfirstbar": False,
+            "session_islastbar": False,
+        }
+        for bar in _bars()
+    ]
+
+    result = pn.run(
+        """
+indicator("Session Explicit False", overlay=False)
+plot(session.isfirstbar, "First")
+plot(session.islastbar, "Last")
+""",
+        bars,
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("First") == [0.0, 0.0, 0.0]
+    assert result.values("Last") == [0.0, 0.0, 0.0]
+
+
 def test_timeframe_parses_daily_weekly_and_monthly_periods() -> None:
     assert pn.TimeframeInfo.from_value("1D").isdaily
     assert pn.TimeframeInfo.from_value("2W").isweekly

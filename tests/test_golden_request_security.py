@@ -14,9 +14,14 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 
 
 class GoldenProvider:
-    def __init__(self, bars: list[dict[str, Any]] | dict[str, list[dict[str, Any]]]) -> None:
+    def __init__(
+        self,
+        bars: list[dict[str, Any]] | dict[str, list[dict[str, Any]]],
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
         self.calls: list[tuple[str, str, int, int]] = []
         self._bars = bars
+        self._metadata = metadata or {}
         self.capabilities = {
             "request.security": True,
             "request.security_lower_tf": True,
@@ -35,6 +40,9 @@ class GoldenProvider:
         else:
             bars = self._bars
         return [_normalize_provider_bar(bar) for bar in bars]
+
+    def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
+        return self._metadata.get(f"{symbol}|{timeframe}", self._metadata.get(timeframe, {}))
 
 
 def test_golden_request_security_lower_tf_alignment() -> None:
@@ -73,6 +81,108 @@ def test_golden_request_security_alignment() -> None:
 
 def test_golden_request_security_htf_capture() -> None:
     fixture = _load_fixture("request_security_htf_capture.json")
+    provider = GoldenProvider(fixture["provider_bars"])
+
+    result = pn.run(
+        fixture["script"],
+        fixture["chart_bars"],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
+    for name, expected in fixture["expected_series"].items():
+        _assert_series_matches(result.get_series(name), expected)
+
+
+def test_golden_request_security_lower_tf_capture() -> None:
+    fixture = _load_fixture("request_security_lower_tf_capture.json")
+    provider = GoldenProvider(fixture["provider_bars"])
+
+    result = pn.run(
+        fixture["script"],
+        fixture["chart_bars"],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
+    for name, expected in fixture["expected_series"].items():
+        _assert_series_matches(result.get_series(name), expected)
+
+
+def test_golden_request_security_time_close_capture() -> None:
+    fixture = _load_fixture("request_security_time_close_capture.json")
+    provider = GoldenProvider(fixture["provider_bars"])
+
+    result = pn.run(
+        fixture["script"],
+        fixture["chart_bars"],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
+    for name, expected in fixture["expected_series"].items():
+        _assert_series_matches(result.get_series(name), expected)
+
+
+def test_golden_request_security_metadata_capture() -> None:
+    fixture = _load_fixture("request_security_metadata_capture.json")
+    provider = GoldenProvider(fixture["provider_bars"], fixture["provider_metadata"])
+
+    result = pn.run(
+        fixture["script"],
+        fixture["chart_bars"],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
+    for name, expected in fixture["expected_series"].items():
+        _assert_series_matches(result.get_series(name), expected)
+
+
+def test_golden_request_security_gaps_lookahead_capture() -> None:
+    fixture = _load_fixture("request_security_gaps_lookahead_capture.json")
+    provider = GoldenProvider(fixture["provider_bars"])
+
+    result = pn.run(
+        fixture["script"],
+        fixture["chart_bars"],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
+    for name, expected in fixture["expected_series"].items():
+        _assert_series_matches(result.get_series(name), expected)
+
+
+def test_golden_request_security_daily_context_capture() -> None:
+    fixture = _load_fixture("request_security_daily_context_capture.json")
+    provider = GoldenProvider(fixture["provider_bars"])
+
+    result = pn.run(
+        fixture["script"],
+        fixture["chart_bars"],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
+    for name, expected in fixture["expected_series"].items():
+        _assert_series_matches(result.get_series(name), expected)
+
+
+def test_golden_request_security_session_flags_capture() -> None:
+    fixture = _load_fixture("request_security_session_flags_capture.json")
     provider = GoldenProvider(fixture["provider_bars"])
 
     result = pn.run(

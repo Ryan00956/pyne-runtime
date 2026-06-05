@@ -18,8 +18,13 @@ REQUEST_FIXTURE_GLOB = "request_security_*_capture.json"
 class FixtureProvider:
     capabilities = {"request.security": True, "request.security_lower_tf": True}
 
-    def __init__(self, bars: list[dict[str, Any]] | dict[str, list[dict[str, Any]]]) -> None:
+    def __init__(
+        self,
+        bars: list[dict[str, Any]] | dict[str, list[dict[str, Any]]],
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
         self._bars = bars
+        self._metadata = metadata or {}
 
     def get_ohlcv(
         self,
@@ -33,6 +38,9 @@ class FixtureProvider:
         else:
             bars = self._bars
         return [normalize_provider_bar(bar) for bar in bars]
+
+    def get_request_metadata(self, symbol: str, timeframe: str) -> dict[str, Any]:
+        return self._metadata.get(f"{symbol}|{timeframe}", self._metadata.get(timeframe, {}))
 
 
 def normalize_provider_bar(bar: dict[str, Any]) -> dict[str, Any]:
@@ -210,10 +218,11 @@ def diff_fixture(
 
     bars = capture.get("bars") or fixture["chart_bars"]
     provider_bars = capture.get("provider_bars") or fixture.get("provider_bars", [])
+    provider_metadata = capture.get("provider_metadata") or fixture.get("provider_metadata", {})
     result = pn.run(
         fixture["script"],
         bars,
-        data_provider=FixtureProvider(provider_bars),
+        data_provider=FixtureProvider(provider_bars, provider_metadata),
         executor_mode="inline",
     )
     if not result.ok:

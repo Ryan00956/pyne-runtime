@@ -25,15 +25,51 @@ def test_request_capture_status_json_report() -> None:
     report = json.loads(completed.stdout)
 
     assert report["counts"] == {
-        "total": 1,
-        "captured": 1,
+        "total": 7,
+        "captured": 7,
         "not_captured": 0,
         "missing": 0,
-        "priority_total": 1,
-        "priority_captured": 1,
+        "priority_total": 7,
+        "priority_captured": 7,
     }
     first = report["fixtures"][0]
     assert first["fixture"] == "request_security_htf_capture.json"
     assert first["priority"] is True
     assert first["status"] == "captured"
     assert first["assertion"] == "parity"
+    second = report["fixtures"][1]
+    assert second["fixture"] == "request_security_lower_tf_capture.json"
+    assert second["priority"] is True
+    assert second["status"] == "captured"
+    assert second["assertion"] == "parity"
+    assert second["plot_count"] == 20
+    third = report["fixtures"][2]
+    assert third["fixture"] == "request_security_time_close_capture.json"
+    assert third["priority"] is True
+    assert third["status"] == "captured"
+    assert third["assertion"] == "parity"
+    assert third["plot_count"] == 9
+    fourth = report["fixtures"][3]
+    assert fourth["fixture"] == "request_security_metadata_capture.json"
+    assert fourth["priority"] is True
+    assert fourth["status"] == "captured"
+    assert fourth["assertion"] == "parity"
+    assert fourth["plot_count"] == 11
+    fifth = report["fixtures"][4]
+    assert fifth["fixture"] == "request_security_gaps_lookahead_capture.json"
+    assert fifth["priority"] is True
+    assert fifth["status"] == "captured"
+    assert fifth["assertion"] == "parity"
+    assert fifth["plot_count"] == 10
+    sixth = report["fixtures"][5]
+    assert sixth["fixture"] == "request_security_daily_context_capture.json"
+    assert sixth["priority"] is True
+    assert sixth["status"] == "captured"
+    assert sixth["assertion"] == "parity"
+    assert sixth["plot_count"] == 13
+    seventh = report["fixtures"][6]
+    assert seventh["fixture"] == "request_security_session_flags_capture.json"
+    assert seventh["priority"] is True
+    assert seventh["status"] == "captured"
+    assert seventh["assertion"] == "parity"
+    assert seventh["plot_count"] == 9

@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Added a TradingView parity capture for lower-timeframe
+  `request.security_lower_tf()` grouping and request capture tooling for
+  lower-TF provider bar slots.
+- Added a TradingView parity capture for requested-context
+  `request.security()` `time_close` behavior.
+- Added a TradingView parity capture for requested-context `request.security()`
+  `syminfo`, `timeframe`, and `session` metadata.
+- Added a TradingView parity capture for `request.security()` gaps/lookahead
+  combinations.
+- Added a TradingView parity capture for `request.security()` daily-context
+  requested `time_close` and non-intraday timeframe metadata.
+- Added a TradingView parity capture for `request.security()` session-flags
+  requested-context `session.ismarket`, `session.isfirstbar`, and
+  `session.islastbar`.
+- Fixed batch session metadata so explicit per-bar `session_isfirstbar=False`
+  or `session_islastbar=False` values are not overwritten by default first/last
+  loaded-bar fallbacks.
 - Added strategy trade `profit_percent()` accessors.
 - Added strategy trade `entry_comment()` and `exit_comment()` accessors.
 - Tested environment-configured collection resource limits.

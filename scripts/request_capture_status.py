@@ -9,7 +9,15 @@ from typing import Any
 
 DEFAULT_GOLDEN_DIR = Path("tests") / "golden"
 REQUEST_FIXTURE_GLOB = "request_security_*_capture.json"
-PRIORITY_FIXTURES = ["request_security_htf_capture.json"]
+PRIORITY_FIXTURES = [
+    "request_security_htf_capture.json",
+    "request_security_lower_tf_capture.json",
+    "request_security_time_close_capture.json",
+    "request_security_metadata_capture.json",
+    "request_security_gaps_lookahead_capture.json",
+    "request_security_daily_context_capture.json",
+    "request_security_session_flags_capture.json",
+]
 
 
 def main(argv: list[str] | None = None) -> int:
