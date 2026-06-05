@@ -25,11 +25,11 @@ def test_request_capture_status_json_report() -> None:
     report = json.loads(completed.stdout)
 
     assert report["counts"] == {
-        "total": 7,
+        "total": 8,
         "captured": 7,
-        "not_captured": 0,
+        "not_captured": 1,
         "missing": 0,
-        "priority_total": 7,
+        "priority_total": 8,
         "priority_captured": 7,
     }
     first = report["fixtures"][0]
@@ -73,3 +73,8 @@ def test_request_capture_status_json_report() -> None:
     assert seventh["status"] == "captured"
     assert seventh["assertion"] == "parity"
     assert seventh["plot_count"] == 9
+    eighth = report["fixtures"][7]
+    assert eighth["fixture"] == "request_security_timezone_capture.json"
+    assert eighth["priority"] is True
+    assert eighth["status"] == "not_captured"
+    assert eighth["assertion"] == "parity"

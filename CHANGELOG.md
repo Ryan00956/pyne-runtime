@@ -16,6 +16,8 @@
 - Added a TradingView parity capture for `request.security()` session-flags
   requested-context `session.ismarket`, `session.isfirstbar`, and
   `session.islastbar`.
+- Added a prepared `request.security()` timezone TradingView capture fixture for
+  requested-context UTC and Asia/Shanghai hour and day-of-week components.
 - Fixed batch session metadata so explicit per-bar `session_isfirstbar=False`
   or `session_islastbar=False` values are not overwritten by default first/last
   loaded-bar fallbacks.

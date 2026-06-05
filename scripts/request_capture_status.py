@@ -17,6 +17,7 @@ PRIORITY_FIXTURES = [
     "request_security_gaps_lookahead_capture.json",
     "request_security_daily_context_capture.json",
     "request_security_session_flags_capture.json",
+    "request_security_timezone_capture.json",
 ]
 
 

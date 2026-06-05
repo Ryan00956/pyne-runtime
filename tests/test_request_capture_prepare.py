@@ -25,11 +25,11 @@ def test_request_capture_prepare_priority_manifest(tmp_path: Path) -> None:
         text=True,
     )
 
-    assert "prepared 7 request capture script(s)" in completed.stdout
+    assert "prepared 8 request capture script(s)" in completed.stdout
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["capture_type"] == "request"
     assert manifest["default_scope"] == "priority"
-    assert manifest["fixture_count"] == 7
+    assert manifest["fixture_count"] == 8
     first = manifest["entries"][0]
     assert first["fixture"] == "request_security_htf_capture.json"
     assert first["priority"] is True
@@ -175,3 +175,21 @@ def test_request_capture_prepare_priority_manifest(tmp_path: Path) -> None:
     assert "session.ismarket" in pine_text
     assert "session.isfirstbar" in pine_text
     assert "session.islastbar" in pine_text
+
+    eighth = manifest["entries"][7]
+    assert eighth["fixture"] == "request_security_timezone_capture.json"
+    assert eighth["priority"] is True
+    assert eighth["status"] == "not_captured"
+    assert eighth["bar_count"] == 12
+    assert "--assertion parity" in eighth["import_command"]
+    assert eighth["plot_titles"][:4] == [
+        "Requested UTC Hour",
+        "Requested Shanghai Hour",
+        "Requested UTC Day",
+        "Requested Shanghai Day",
+    ]
+    pine_text = (out_dir / eighth["pine_file"]).read_text(encoding="utf-8")
+    assert 'indicator("Pyne Request Capture - Timezone", overlay=true)' in pine_text
+    assert 'hour(time, "UTC")' in pine_text
+    assert 'hour(time, "Asia/Shanghai")' in pine_text
+    assert 'dayofweek(time, "Asia/Shanghai")' in pine_text
