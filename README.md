@@ -99,4 +99,5 @@ architecture plan to track staged module-boundary work.
 - [Quality Gates](docs/development/quality_gates.md)
 - [Architecture Execution Plan](docs/development/architecture_execution_plan_zh.md)
 - [Pine-Like Semantics Execution Plan](docs/development/pine_semantics_execution_plan_zh.md)
+- [Python Package Long-Term Direction](docs/development/python_package_long_term_plan_zh.md)
 - [Phase 11 Request Security Expression Thunks Plan](docs/development/request_security_expression_thunks_plan_zh.md)
