@@ -669,13 +669,12 @@ Milestone C: Request provider contract 与更多 TradingView-backed golden
     expression capture 已进入 parity；继续覆盖非法 lower timeframe 下 tuple
     slot 的空数组/fallback 语义。
 20. `request.security(..., ignore_invalid_symbol=True)` calculated expression
-    capture 已准备好，等待 TradingView CSV 导出；继续覆盖 ignored invalid
-    symbol 进入 callable expression / requested-expression 计算路径后的
-    `na` / fallback 语义。
+    capture 已进入 parity；继续覆盖 ignored invalid symbol 进入 callable
+    expression / requested-expression 计算路径后的 `na` / fallback 语义。
 
 推荐的下一个最小切片：
 
-1. 先导出当前 invalid-symbol expression ignore capture。
+1. 继续寻找下一个小而可外部导出的 request error-boundary capture。
 2. 保持 fixture 小而可解释，每次只新增一个待导出的 capture。
 3. 用 `request_capture_import.py` 写入 `external_capture`，再用
    `request_capture_diff.py --assertion parity` 守住 0 diff。
