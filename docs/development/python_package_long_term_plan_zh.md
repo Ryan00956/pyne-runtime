@@ -650,7 +650,8 @@ Milestone C: Request provider contract 与更多 TradingView-backed golden
 13. `request.security(..., ignore_invalid_symbol=True)` invalid-symbol capture
     已进入 parity，覆盖 invalid result 的 `na` / `nz()` fallback 可观测行为。
 14. `request.security_lower_tf(..., ignore_invalid_symbol=True)` invalid-symbol
-    capture 已准备好，等待 TradingView CSV 导出。
+    capture 已准备好，等待 TradingView CSV 导出；Pine 脚本需要先防护
+    TradingView 返回的 `na` array id，再调用 `array.*` 方法。
 
 推荐的下一个最小切片：
 
