@@ -645,10 +645,12 @@ Milestone C: Request provider contract 与更多 TradingView-backed golden
     覆盖 `session.ismarket`、`session.isfirstbar` 和 `session.islastbar`。
 11. `request.security()` requested-context timezone capture 已进入 parity，
     覆盖 UTC 与 Asia/Shanghai hour / day-of-week。
+12. request provider error categories 已用 schema-driven focused tests 覆盖
+    `request.security()` 与 `request.security_lower_tf()` 两条 API。
 
 推荐的下一个最小切片：
 
-1. 继续补 error-boundary request capture。
+1. 继续寻找可外部导出的 error-boundary request capture。
 2. 保持 fixture 小而可解释，每次只新增一个待导出的 capture。
 3. 用 `request_capture_import.py` 写入 `external_capture`，再用
    `request_capture_diff.py --assertion parity` 守住 0 diff。

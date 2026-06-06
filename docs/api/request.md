@@ -192,6 +192,9 @@ request coordinates in `result.errorDetail["requestProviderRequest"]`.
 
 `requestProviderRequest` contains `api`, `symbol`, `timeframe`, `start`, and
 `end`, matching the request range Pyne passed to the provider contract.
+The category table is contract-tested against both `request.security()` and
+`request.security_lower_tf()` so host error handling can branch on the same
+schema for either request API.
 
 Provider code should raise `pn.PyneInvalidSymbolError(symbol)` for invalid
 symbols. The exception exposes a stable `.symbol` attribute while preserving the

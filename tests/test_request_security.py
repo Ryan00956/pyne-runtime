@@ -2393,103 +2393,151 @@ def test_request_provider_error_detail_categories_match_schema() -> None:
     valid_requested_bars = [
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
     ]
-    cases = [
-        (
-            "missingProvider",
-            None,
-            """
+    invalid_bar_shape = [
+        {"open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ]
+
+    def provider_for(category: str, api: str) -> Any:
+        if category == "missingProvider":
+            return None
+        if category == "unsupportedCapability":
+            return CapabilityProvider(valid_requested_bars, capabilities={api: False})
+        if category == "capabilityFailure":
+            return BrokenCapabilityProvider(valid_requested_bars)
+        if category == "invalidSymbol":
+            return InvalidSymbolProvider()
+        if category == "providerFailure":
+            return BrokenProvider([])
+        if category == "invalidReturnType":
+            return InvalidReturnProvider([])
+        if category == "invalidBarShape":
+            return StaticProvider(invalid_bar_shape)
+        if category == "invalidMetadata":
+            return BadMetadataProvider(valid_requested_bars)
+        if category == "metadataFailure":
+            return BrokenMetadataProvider(valid_requested_bars)
+        if category == "expressionFailure":
+            return StaticProvider(valid_requested_bars)
+        raise AssertionError(f"unhandled category {category}")
+
+    security_scripts = {
+        "missingProvider": """
 indicator("Missing Provider", overlay=True)
 plot(request.security("BTCUSDT", "2", close), "Higher")
 """,
-        ),
-        (
-            "unsupportedCapability",
-            CapabilityProvider(valid_requested_bars, capabilities={"request.security": False}),
-            """
+        "unsupportedCapability": """
 indicator("Unsupported Capability", overlay=True)
 plot(request.security("BTCUSDT", "2", close), "Higher")
 """,
-        ),
-        (
-            "capabilityFailure",
-            BrokenCapabilityProvider(valid_requested_bars),
-            """
+        "capabilityFailure": """
 indicator("Capability Failure", overlay=True)
 plot(request.security("BTCUSDT", "2", close), "Higher")
 """,
-        ),
-        (
-            "invalidSymbol",
-            InvalidSymbolProvider(),
-            """
+        "invalidSymbol": """
 indicator("Invalid Symbol", overlay=True)
 plot(request.security("MISSING", "2", close), "Higher")
 """,
-        ),
-        (
-            "providerFailure",
-            BrokenProvider([]),
-            """
+        "providerFailure": """
 indicator("Provider Failure", overlay=True)
 plot(request.security("BTCUSDT", "2", close), "Higher")
 """,
-        ),
-        (
-            "invalidReturnType",
-            InvalidReturnProvider([]),
-            """
+        "invalidReturnType": """
 indicator("Invalid Return", overlay=True)
 plot(request.security("BTCUSDT", "2", close), "Higher")
 """,
-        ),
-        (
-            "invalidBarShape",
-            StaticProvider([{"open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000}]),
-            """
+        "invalidBarShape": """
 indicator("Invalid Bar", overlay=True)
 plot(request.security("BTCUSDT", "2", close), "Higher")
 """,
-        ),
-        (
-            "invalidMetadata",
-            BadMetadataProvider(valid_requested_bars),
-            """
+        "invalidMetadata": """
 indicator("Invalid Metadata", overlay=True)
 plot(request.security("BTCUSDT", "2", close), "Higher")
 """,
-        ),
-        (
-            "metadataFailure",
-            BrokenMetadataProvider(valid_requested_bars),
-            """
+        "metadataFailure": """
 indicator("Metadata Failure", overlay=True)
 plot(request.security("BTCUSDT", "2", close), "Higher")
 """,
-        ),
-        (
-            "expressionFailure",
-            StaticProvider(valid_requested_bars),
-            """
+        "expressionFailure": """
 indicator("Expression Failure", overlay=True)
 bad = request.security("BTCUSDT", "2", lambda ctx: 1 / 0)
 plot(bad, "Bad")
 """,
-        ),
-    ]
+    }
+    lower_tf_scripts = {
+        "missingProvider": """
+indicator("Missing Lower Provider", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        "unsupportedCapability": """
+indicator("Unsupported Lower Capability", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        "capabilityFailure": """
+indicator("Lower Capability Failure", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        "invalidSymbol": """
+indicator("Lower Invalid Symbol", overlay=True)
+lower = request.security_lower_tf("MISSING", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        "providerFailure": """
+indicator("Lower Provider Failure", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        "invalidReturnType": """
+indicator("Lower Invalid Return", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        "invalidBarShape": """
+indicator("Lower Invalid Bar", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        "invalidMetadata": """
+indicator("Lower Invalid Metadata", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        "metadataFailure": """
+indicator("Lower Metadata Failure", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", close)
+plot(lower.size(), "Lower Count")
+""",
+        "expressionFailure": """
+indicator("Lower Expression Failure", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1", lambda ctx: 1 / 0)
+plot(lower.size(), "Lower Count")
+""",
+    }
 
     error_categories = pn.schema()["requestProvider"]["errorCategories"]
 
-    for category, provider, script in cases:
-        result = pn.run(script, _bars(), data_provider=provider, executor_mode="inline")
+    for api, timeframe, scripts in (
+        (pn.REQUEST_SECURITY_API, "2", security_scripts),
+        (pn.REQUEST_SECURITY_LOWER_TF_API, "1", lower_tf_scripts),
+    ):
+        for category, script in scripts.items():
+            result = pn.run(
+                script,
+                _bars(),
+                data_provider=provider_for(category, api),
+                executor_mode="inline",
+            )
 
-        assert not result.ok, category
-        assert result.error_detail is not None
-        assert result.error_detail["requestProviderCategory"] == category
-        assert result.error_detail["requestProviderRequest"] == {
-            "api": "request.security",
-            "symbol": "BTCUSDT" if category != "invalidSymbol" else "MISSING",
-            "timeframe": "2",
-            "start": 1,
-            "end": 4,
-        }
-        assert result.error_detail["code"] == error_categories[category]["code"]
+            assert not result.ok, (api, category)
+            assert result.error_detail is not None
+            assert result.error_detail["requestProviderCategory"] == category
+            assert result.error_detail["requestProviderRequest"] == {
+                "api": api,
+                "symbol": "BTCUSDT" if category != "invalidSymbol" else "MISSING",
+                "timeframe": timeframe,
+                "start": 1,
+                "end": 4,
+            }
+            assert result.error_detail["code"] == error_categories[category]["code"]
