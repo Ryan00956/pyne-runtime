@@ -649,10 +649,12 @@ Milestone C: Request provider contract 与更多 TradingView-backed golden
     `request.security()` 与 `request.security_lower_tf()` 两条 API。
 13. `request.security(..., ignore_invalid_symbol=True)` invalid-symbol capture
     已进入 parity，覆盖 invalid result 的 `na` / `nz()` fallback 可观测行为。
+14. `request.security_lower_tf(..., ignore_invalid_symbol=True)` invalid-symbol
+    capture 已准备好，等待 TradingView CSV 导出。
 
 推荐的下一个最小切片：
 
-1. 继续寻找下一个可外部导出的 error-boundary request capture。
+1. 先导出当前 lower-TF invalid-symbol ignore capture。
 2. 保持 fixture 小而可解释，每次只新增一个待导出的 capture。
 3. 用 `request_capture_import.py` 写入 `external_capture`，再用
    `request_capture_diff.py --assertion parity` 守住 0 diff。
