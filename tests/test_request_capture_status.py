@@ -26,8 +26,8 @@ def test_request_capture_status_json_report() -> None:
 
     assert report["counts"] == {
         "total": 15,
-        "captured": 14,
-        "not_captured": 1,
+        "captured": 15,
+        "not_captured": 0,
         "missing": 0,
         "priority_total": 8,
         "priority_captured": 8,
@@ -122,6 +122,6 @@ def test_request_capture_status_json_report() -> None:
         "request_security_lower_tf_invalid_timeframe_tuple_ignore_capture.json"
     )
     assert fifteenth["priority"] is False
-    assert fifteenth["status"] == "not_captured"
+    assert fifteenth["status"] == "captured"
     assert fifteenth["assertion"] == "parity"
-    assert fifteenth["plot_count"] == 0
+    assert fifteenth["plot_count"] == 10
