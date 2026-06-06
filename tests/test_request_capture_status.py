@@ -25,9 +25,9 @@ def test_request_capture_status_json_report() -> None:
     report = json.loads(completed.stdout)
 
     assert report["counts"] == {
-        "total": 15,
+        "total": 16,
         "captured": 15,
-        "not_captured": 0,
+        "not_captured": 1,
         "missing": 0,
         "priority_total": 8,
         "priority_captured": 8,
@@ -86,42 +86,48 @@ def test_request_capture_status_json_report() -> None:
     assert ninth["assertion"] == "parity"
     assert ninth["plot_count"] == 9
     tenth = report["fixtures"][9]
-    assert tenth["fixture"] == "request_security_invalid_symbol_ignore_capture.json"
+    assert tenth["fixture"] == "request_security_invalid_symbol_expression_ignore_capture.json"
     assert tenth["priority"] is False
-    assert tenth["status"] == "captured"
+    assert tenth["status"] == "not_captured"
     assert tenth["assertion"] == "parity"
-    assert tenth["plot_count"] == 9
+    assert tenth["plot_count"] == 0
     eleventh = report["fixtures"][10]
-    assert eleventh["fixture"] == "request_security_invalid_symbol_tuple_ignore_capture.json"
+    assert eleventh["fixture"] == "request_security_invalid_symbol_ignore_capture.json"
     assert eleventh["priority"] is False
     assert eleventh["status"] == "captured"
     assert eleventh["assertion"] == "parity"
-    assert eleventh["plot_count"] == 12
+    assert eleventh["plot_count"] == 9
     twelfth = report["fixtures"][11]
-    assert twelfth["fixture"] == "request_security_lower_tf_invalid_symbol_ignore_capture.json"
+    assert twelfth["fixture"] == "request_security_invalid_symbol_tuple_ignore_capture.json"
     assert twelfth["priority"] is False
     assert twelfth["status"] == "captured"
     assert twelfth["assertion"] == "parity"
-    assert twelfth["plot_count"] == 6
+    assert twelfth["plot_count"] == 12
     thirteenth = report["fixtures"][12]
-    assert thirteenth["fixture"] == (
-        "request_security_lower_tf_invalid_symbol_tuple_ignore_capture.json"
-    )
+    assert thirteenth["fixture"] == "request_security_lower_tf_invalid_symbol_ignore_capture.json"
     assert thirteenth["priority"] is False
     assert thirteenth["status"] == "captured"
     assert thirteenth["assertion"] == "parity"
-    assert thirteenth["plot_count"] == 10
+    assert thirteenth["plot_count"] == 6
     fourteenth = report["fixtures"][13]
-    assert fourteenth["fixture"] == "request_security_lower_tf_invalid_timeframe_ignore_capture.json"
+    assert fourteenth["fixture"] == (
+        "request_security_lower_tf_invalid_symbol_tuple_ignore_capture.json"
+    )
     assert fourteenth["priority"] is False
     assert fourteenth["status"] == "captured"
     assert fourteenth["assertion"] == "parity"
-    assert fourteenth["plot_count"] == 6
+    assert fourteenth["plot_count"] == 10
     fifteenth = report["fixtures"][14]
-    assert fifteenth["fixture"] == (
-        "request_security_lower_tf_invalid_timeframe_tuple_ignore_capture.json"
-    )
+    assert fifteenth["fixture"] == "request_security_lower_tf_invalid_timeframe_ignore_capture.json"
     assert fifteenth["priority"] is False
     assert fifteenth["status"] == "captured"
     assert fifteenth["assertion"] == "parity"
-    assert fifteenth["plot_count"] == 10
+    assert fifteenth["plot_count"] == 6
+    sixteenth = report["fixtures"][15]
+    assert sixteenth["fixture"] == (
+        "request_security_lower_tf_invalid_timeframe_tuple_ignore_capture.json"
+    )
+    assert sixteenth["priority"] is False
+    assert sixteenth["status"] == "captured"
+    assert sixteenth["assertion"] == "parity"
+    assert sixteenth["plot_count"] == 10

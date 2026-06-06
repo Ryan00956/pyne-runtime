@@ -325,6 +325,47 @@ plot(nz(invalid_close, -222), "Invalid Close Fallback")
     ]
 
 
+def test_request_security_ignore_invalid_symbol_thunk_returns_na() -> None:
+    provider = InvalidSymbolProvider()
+
+    result = pn.run(
+        """
+indicator("Ignored Invalid Symbol Expression", overlay=True)
+invalid_mid = request.security(
+    "MISSING",
+    "2",
+    lambda ctx: (ctx.high + ctx.low) / 2,
+    ignore_invalid_symbol=True,
+)
+plot(invalid_mid, "Invalid Mid")
+plot(na(invalid_mid), "Invalid Mid Is NA")
+plot(nz(invalid_mid, -333), "Invalid Mid Fallback")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("MISSING", "2", 1, 4)]
+    assert result.get_series("Invalid Mid") == []
+    assert result.values("Invalid Mid Is NA") == [1.0, 1.0, 1.0, 1.0]
+    assert result.values("Invalid Mid Fallback") == [-333.0, -333.0, -333.0, -333.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security",
+            "symbol": "MISSING",
+            "timeframe": "2",
+            "start": 1,
+            "end": 4,
+            "bars": 0,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": True,
+            "status": "ignoredInvalidSymbol",
+        },
+    ]
+
+
 def test_request_security_empty_provider_result_is_successful_empty_data() -> None:
     class EmptyProvider(StaticProvider):
         def __init__(self) -> None:
