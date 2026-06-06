@@ -278,6 +278,53 @@ plot(higher, "Higher")
     ]
 
 
+def test_request_security_ignore_invalid_symbol_tuple_returns_na_slots() -> None:
+    provider = InvalidSymbolProvider()
+
+    result = pn.run(
+        """
+indicator("Ignored Invalid Symbol Tuple", overlay=True)
+invalid_open, invalid_close = request.security(
+    "MISSING",
+    "2",
+    ("open", "close"),
+    ignore_invalid_symbol=True,
+)
+plot(invalid_open, "Invalid Open")
+plot(invalid_close, "Invalid Close")
+plot(na(invalid_open), "Invalid Open Is NA")
+plot(na(invalid_close), "Invalid Close Is NA")
+plot(nz(invalid_open, -111), "Invalid Open Fallback")
+plot(nz(invalid_close, -222), "Invalid Close Fallback")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("MISSING", "2", 1, 4)]
+    assert result.get_series("Invalid Open") == []
+    assert result.get_series("Invalid Close") == []
+    assert result.values("Invalid Open Is NA") == [1.0, 1.0, 1.0, 1.0]
+    assert result.values("Invalid Close Is NA") == [1.0, 1.0, 1.0, 1.0]
+    assert result.values("Invalid Open Fallback") == [-111.0, -111.0, -111.0, -111.0]
+    assert result.values("Invalid Close Fallback") == [-222.0, -222.0, -222.0, -222.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security",
+            "symbol": "MISSING",
+            "timeframe": "2",
+            "start": 1,
+            "end": 4,
+            "bars": 0,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": True,
+            "status": "ignoredInvalidSymbol",
+        },
+    ]
+
+
 def test_request_security_empty_provider_result_is_successful_empty_data() -> None:
     class EmptyProvider(StaticProvider):
         def __init__(self) -> None:

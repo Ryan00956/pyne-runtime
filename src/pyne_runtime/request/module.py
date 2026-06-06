@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-import numpy as np
-
 from ..context import PyneContext
 from ..series import PyneSeries
 from ..ta import TaModule
@@ -143,9 +141,14 @@ class RequestModule:
             ignored_invalid_symbol=ignored_invalid_symbol,
         )
         if not requested:
-            return PyneSeries(
-                np.full(self._context.bar_count, np.nan, dtype=np.float64),
-                name=f"request.security({symbol},{timeframe})",
+            return self._empty_security_result(
+                symbol=symbol_text,
+                timeframe=timeframe_text,
+                expression=expression,
+                requested_ctx=requested_ctx,
+                request_context=request_context,
+                gaps=normalized_gaps,
+                lookahead=normalized_lookahead,
             )
 
         requested_times = requested_ctx.times
@@ -534,6 +537,46 @@ class RequestModule:
             chart_times=self._context.times,
             requested_times=requested_ctx.times,
             requested_values=requested_values,
+        )
+
+    def _empty_security_result(
+        self,
+        *,
+        symbol: str,
+        timeframe: str,
+        expression: PyneSeries
+        | str
+        | tuple[Any, ...]
+        | list[Any]
+        | Callable[[RequestEvalContext], Any],
+        requested_ctx: PyneContext,
+        request_context: dict[str, Any],
+        gaps: str,
+        lookahead: str,
+    ) -> PyneSeries | tuple[PyneSeries, ...]:
+        if callable(expression):
+            requested_values, expression_name = self._evaluate_expression_thunk(
+                expression,
+                symbol=symbol,
+                timeframe=timeframe,
+                requested_ctx=requested_ctx,
+                request_context=request_context,
+            )
+        else:
+            requested_values, expression_name = _values_from_field_expression(
+                expression,
+                [],
+                requested_ctx,
+            )
+        return _align_request_values(
+            symbol=symbol,
+            timeframe=timeframe,
+            expression_name=expression_name,
+            chart_times=self._context.times,
+            requested_times=requested_ctx.times,
+            requested_values=requested_values,
+            gaps=gaps,
+            lookahead=lookahead,
         )
 
 

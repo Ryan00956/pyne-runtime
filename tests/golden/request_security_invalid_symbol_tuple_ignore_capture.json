@@ -1,0 +1,326 @@
+{
+  "name": "request_security_invalid_symbol_tuple_ignore_capture",
+  "source": "Pyne-defined request.security invalid-symbol tuple ignore capture fixture",
+  "chart_bars": [
+    {
+      "time": 64800,
+      "open": 100,
+      "high": 101,
+      "low": 99,
+      "close": 100,
+      "volume": 1000
+    },
+    {
+      "time": 68400,
+      "open": 101,
+      "high": 102,
+      "low": 100,
+      "close": 101,
+      "volume": 1010
+    },
+    {
+      "time": 72000,
+      "open": 102,
+      "high": 103,
+      "low": 101,
+      "close": 102,
+      "volume": 1020
+    },
+    {
+      "time": 75600,
+      "open": 103,
+      "high": 104,
+      "low": 102,
+      "close": 103,
+      "volume": 1030
+    },
+    {
+      "time": 79200,
+      "open": 104,
+      "high": 105,
+      "low": 103,
+      "close": 104,
+      "volume": 1040
+    },
+    {
+      "time": 82800,
+      "open": 105,
+      "high": 106,
+      "low": 104,
+      "close": 105,
+      "volume": 1050
+    },
+    {
+      "time": 86400,
+      "open": 106,
+      "high": 107,
+      "low": 105,
+      "close": 106,
+      "volume": 1060
+    },
+    {
+      "time": 90000,
+      "open": 107,
+      "high": 108,
+      "low": 106,
+      "close": 107,
+      "volume": 1070
+    },
+    {
+      "time": 93600,
+      "open": 108,
+      "high": 109,
+      "low": 107,
+      "close": 108,
+      "volume": 1080
+    },
+    {
+      "time": 97200,
+      "open": 109,
+      "high": 110,
+      "low": 108,
+      "close": 109,
+      "volume": 1090
+    },
+    {
+      "time": 100800,
+      "open": 110,
+      "high": 111,
+      "low": 109,
+      "close": 110,
+      "volume": 1100
+    },
+    {
+      "time": 104400,
+      "open": 111,
+      "high": 112,
+      "low": 110,
+      "close": 111,
+      "volume": 1110
+    }
+  ],
+  "provider_bars": [],
+  "invalid_symbols": [
+    "BINANCE:PYNE_MISSING_SYMBOL"
+  ],
+  "script": "indicator(\"Request Invalid Symbol Tuple Ignore Capture\", overlay=True)\ninvalid_open, invalid_close = request.security(\n    \"BINANCE:PYNE_MISSING_SYMBOL\",\n    \"240\",\n    (\"open\", \"close\"),\n    gaps=barmerge.gaps_on,\n    ignore_invalid_symbol=True,\n)\nplot(invalid_open, \"Invalid Tuple Open\")\nplot(invalid_close, \"Invalid Tuple Close\")\nplot(na(invalid_open), \"Invalid Tuple Open Is NA\")\nplot(na(invalid_close), \"Invalid Tuple Close Is NA\")\nplot(nz(invalid_open, -111), \"Invalid Tuple Open Fallback\")\nplot(nz(invalid_close, -222), \"Invalid Tuple Close Fallback\")\n",
+  "pine_script": "//@version=5\n_pyne_capture_bars = 12\n_pyne_capture_use_last_bars = input.bool(true, \"Pyne capture: use last chart bars\")\n_pyne_capture_start_time = input.int(1704067200000, \"Pyne capture: start time (ms)\")\n_pyne_capture_invalid_symbol = input.string(\"BINANCE:PYNE_MISSING_SYMBOL\", \"Pyne capture: invalid symbol\")\n_pyne_capture_start_hit = time >= _pyne_capture_start_time and (na(time[1]) or time[1] < _pyne_capture_start_time)\n_pyne_capture_from_time = ta.barssince(_pyne_capture_start_hit)\n_pyne_capture_from_last = bar_index - (last_bar_index - _pyne_capture_bars)\n_pyne_capture_index = _pyne_capture_use_last_bars ? _pyne_capture_from_last : _pyne_capture_from_time\n_pyne_capture_active = _pyne_capture_index >= 0 and _pyne_capture_index < _pyne_capture_bars\n\nindicator(\"Pyne Request Capture - Invalid Symbol Tuple Ignore\", overlay=true)\nplot(_pyne_capture_active ? _pyne_capture_index : na, \"Pyne Capture Index\")\n\n[_invalid_open, _invalid_close] = request.security(_pyne_capture_invalid_symbol, \"240\", [open, close], gaps=barmerge.gaps_on, lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)\nplot(_pyne_capture_active ? _invalid_open : na, \"Invalid Tuple Open\")\nplot(_pyne_capture_active ? _invalid_close : na, \"Invalid Tuple Close\")\nplot(_pyne_capture_active ? (na(_invalid_open) ? 1 : 0) : na, \"Invalid Tuple Open Is NA\")\nplot(_pyne_capture_active ? (na(_invalid_close) ? 1 : 0) : na, \"Invalid Tuple Close Is NA\")\nplot(_pyne_capture_active ? nz(_invalid_open, -111) : na, \"Invalid Tuple Open Fallback\")\nplot(_pyne_capture_active ? nz(_invalid_close, -222) : na, \"Invalid Tuple Close Fallback\")\n",
+  "expected_provider_calls": [
+    [
+      "BINANCE:PYNE_MISSING_SYMBOL",
+      "240",
+      64800,
+      104400
+    ]
+  ],
+  "expected_series": {
+    "Invalid Tuple Open": [],
+    "Invalid Tuple Close": [],
+    "Invalid Tuple Open Is NA": [
+      {
+        "time": 64800,
+        "value": 1.0
+      },
+      {
+        "time": 68400,
+        "value": 1.0
+      },
+      {
+        "time": 72000,
+        "value": 1.0
+      },
+      {
+        "time": 75600,
+        "value": 1.0
+      },
+      {
+        "time": 79200,
+        "value": 1.0
+      },
+      {
+        "time": 82800,
+        "value": 1.0
+      },
+      {
+        "time": 86400,
+        "value": 1.0
+      },
+      {
+        "time": 90000,
+        "value": 1.0
+      },
+      {
+        "time": 93600,
+        "value": 1.0
+      },
+      {
+        "time": 97200,
+        "value": 1.0
+      },
+      {
+        "time": 100800,
+        "value": 1.0
+      },
+      {
+        "time": 104400,
+        "value": 1.0
+      }
+    ],
+    "Invalid Tuple Close Is NA": [
+      {
+        "time": 64800,
+        "value": 1.0
+      },
+      {
+        "time": 68400,
+        "value": 1.0
+      },
+      {
+        "time": 72000,
+        "value": 1.0
+      },
+      {
+        "time": 75600,
+        "value": 1.0
+      },
+      {
+        "time": 79200,
+        "value": 1.0
+      },
+      {
+        "time": 82800,
+        "value": 1.0
+      },
+      {
+        "time": 86400,
+        "value": 1.0
+      },
+      {
+        "time": 90000,
+        "value": 1.0
+      },
+      {
+        "time": 93600,
+        "value": 1.0
+      },
+      {
+        "time": 97200,
+        "value": 1.0
+      },
+      {
+        "time": 100800,
+        "value": 1.0
+      },
+      {
+        "time": 104400,
+        "value": 1.0
+      }
+    ],
+    "Invalid Tuple Open Fallback": [
+      {
+        "time": 64800,
+        "value": -111.0
+      },
+      {
+        "time": 68400,
+        "value": -111.0
+      },
+      {
+        "time": 72000,
+        "value": -111.0
+      },
+      {
+        "time": 75600,
+        "value": -111.0
+      },
+      {
+        "time": 79200,
+        "value": -111.0
+      },
+      {
+        "time": 82800,
+        "value": -111.0
+      },
+      {
+        "time": 86400,
+        "value": -111.0
+      },
+      {
+        "time": 90000,
+        "value": -111.0
+      },
+      {
+        "time": 93600,
+        "value": -111.0
+      },
+      {
+        "time": 97200,
+        "value": -111.0
+      },
+      {
+        "time": 100800,
+        "value": -111.0
+      },
+      {
+        "time": 104400,
+        "value": -111.0
+      }
+    ],
+    "Invalid Tuple Close Fallback": [
+      {
+        "time": 64800,
+        "value": -222.0
+      },
+      {
+        "time": 68400,
+        "value": -222.0
+      },
+      {
+        "time": 72000,
+        "value": -222.0
+      },
+      {
+        "time": 75600,
+        "value": -222.0
+      },
+      {
+        "time": 79200,
+        "value": -222.0
+      },
+      {
+        "time": 82800,
+        "value": -222.0
+      },
+      {
+        "time": 86400,
+        "value": -222.0
+      },
+      {
+        "time": 90000,
+        "value": -222.0
+      },
+      {
+        "time": 93600,
+        "value": -222.0
+      },
+      {
+        "time": 97200,
+        "value": -222.0
+      },
+      {
+        "time": 100800,
+        "value": -222.0
+      },
+      {
+        "time": 104400,
+        "value": -222.0
+      }
+    ]
+  },
+  "external_capture": {
+    "provider": "tradingview",
+    "status": "not_captured",
+    "assertion": "parity",
+    "series": {}
+  }
+}

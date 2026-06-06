@@ -659,10 +659,13 @@ Milestone C: Request provider contract 与更多 TradingView-backed golden
 16. `request.security_lower_tf(..., ignore_invalid_timeframe=True)` invalid-timeframe
     capture 已进入 parity；Pyne 先按可识别的 chart bar spacing 防护非法
     lower timeframe，并返回空 lower-TF groups。
+17. `request.security(..., ignore_invalid_symbol=True)` tuple expression
+    capture 已准备好，等待 TradingView CSV 导出；Pyne 已按表达式形状返回
+    多个全 `na` series，防止 ignored invalid symbol 时 tuple 解包失败。
 
 推荐的下一个最小切片：
 
-1. 继续寻找下一个小而可外部导出的 request error-boundary capture。
+1. 先导出当前 invalid-symbol tuple ignore capture。
 2. 保持 fixture 小而可解释，每次只新增一个待导出的 capture。
 3. 用 `request_capture_import.py` 写入 `external_capture`，再用
    `request_capture_diff.py --assertion parity` 守住 0 diff。
