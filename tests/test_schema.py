@@ -64,6 +64,7 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
         *pn.REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES,
     ]
     assert supported_apis[1]["supportsIgnoreInvalidSymbol"] is True
+    assert supported_apis[1]["supportsIgnoreInvalidTimeframe"] is True
     assert schema["requestProvider"]["capabilities"]["securityAliases"] == [
         *pn.REQUEST_SECURITY_CAPABILITY_ALIASES,
     ]
@@ -86,6 +87,10 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
         "PyneInvalidSymbolError ignored by ignore_invalid_symbol=True is not cached "
         "and reports status=ignoredInvalidSymbol"
     )
+    assert request_cache["ignoredInvalidTimeframe"] == (
+        "request.security_lower_tf ignored by ignore_invalid_timeframe=True is not "
+        "cached and reports status=ignoredInvalidTimeframe"
+    )
     request_diagnostics = schema["requestProvider"]["diagnostics"]
     assert request_diagnostics["resultLocation"] == "meta.requestDiagnostics"
     assert request_diagnostics["entryRequired"] == [
@@ -102,7 +107,11 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert request_diagnostics["apiValues"] == [
         *pn.REQUEST_API_VALUES,
     ]
-    assert request_diagnostics["statusValues"] == ["ok", "ignoredInvalidSymbol"]
+    assert request_diagnostics["statusValues"] == [
+        "ok",
+        "ignoredInvalidSymbol",
+        "ignoredInvalidTimeframe",
+    ]
     request_error_detail = schema["requestProvider"]["errorDetail"]
     assert request_error_detail["categoryField"] == "requestProviderCategory"
     assert request_error_detail["requestField"] == "requestProviderRequest"

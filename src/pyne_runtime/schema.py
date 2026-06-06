@@ -16,7 +16,7 @@ from ._request_contract import (
 PYNE_INPUT_SCHEMA_VERSION = 1
 PYNE_OUTPUT_SCHEMA_VERSION = 1
 PYNE_PARAM_SCHEMA_VERSION = 1
-PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 7
+PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 8
 PYNE_STRATEGY_REPORT_SCHEMA_VERSION = 1
 
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
@@ -34,6 +34,7 @@ REQUEST_PROVIDER_SUPPORTED_APIS: tuple[dict[str, Any], ...] = (
         "capabilityAliases": list(REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES),
         "result": "lower-timeframe grouped arrays or tuple of grouped arrays",
         "supportsIgnoreInvalidSymbol": True,
+        "supportsIgnoreInvalidTimeframe": True,
     },
 )
 OUTPUT_KEYS = (
@@ -450,13 +451,14 @@ REQUEST_PROVIDER_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
     ],
     "versions": [
         {
-            "version": 7,
+            "version": 8,
             "status": "current",
             "breakingChanges": [],
             "notes": [
-                "Adds supportedApis so hosts can discover stable request API "
-                "names, capability aliases, provider method, and result shape.",
-                "Keeps errorDetail.requestProviderRequest from version 6.",
+                "Adds request.security_lower_tf ignore_invalid_timeframe support "
+                "metadata and ignoredInvalidTimeframe diagnostics.",
+                "Keeps supportedApis and errorDetail.requestProviderRequest from "
+                "earlier request provider schema versions.",
             ],
         },
         {
@@ -631,6 +633,10 @@ def request_provider_schema() -> dict[str, Any]:
                 "PyneInvalidSymbolError ignored by ignore_invalid_symbol=True is not cached "
                 "and reports status=ignoredInvalidSymbol"
             ),
+            "ignoredInvalidTimeframe": (
+                "request.security_lower_tf ignored by ignore_invalid_timeframe=True is not "
+                "cached and reports status=ignoredInvalidTimeframe"
+            ),
         },
         "diagnostics": {
             "resultLocation": "meta.requestDiagnostics",
@@ -646,7 +652,7 @@ def request_provider_schema() -> dict[str, Any]:
                 "status",
             ],
             "apiValues": list(REQUEST_API_VALUES),
-            "statusValues": ["ok", "ignoredInvalidSymbol"],
+            "statusValues": ["ok", "ignoredInvalidSymbol", "ignoredInvalidTimeframe"],
             "semantics": (
                 "One entry is appended for each successful request.* call; repeated "
                 "symbol/timeframe/range contexts set cacheHit=true."

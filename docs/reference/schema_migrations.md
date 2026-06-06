@@ -40,12 +40,12 @@ Compatibility notes:
 `pn.schema()["requestProvider"]["migration"]` is the machine-readable migration
 policy for host-backed `request.*` integrations.
 
-Version 7 is the current request provider schema. It adds `supportedApis` so
-hosts can discover stable request API names, capability aliases, provider
-method, and result shape before wiring an adapter. It preserves the version 6
-`errorDetail.requestProviderRequest` for failed request calls, the version 5
-`meta.requestDiagnostics` entries, and the version 4 structured
-`errorCategories` for host-facing request diagnostics.
+Version 8 is the current request provider schema. It adds
+`request.security_lower_tf()` `ignore_invalid_timeframe` discovery metadata and
+the `ignoredInvalidTimeframe` diagnostic status. It preserves version 7
+`supportedApis`, version 6 `errorDetail.requestProviderRequest` for failed
+request calls, version 5 `meta.requestDiagnostics` entries, and version 4
+structured `errorCategories` for host-facing request diagnostics.
 
 Compatibility notes:
 
@@ -67,6 +67,10 @@ Compatibility notes:
   intentionally converted into empty request output by `ignore_invalid_symbol`.
   Those ignored invalid-symbol results report `status="ignoredInvalidSymbol"`
   and are not cached.
+- `request.security_lower_tf(..., ignore_invalid_timeframe=True)` can convert a
+  recognized invalid non-lower requested timeframe into empty lower-timeframe
+  groups before `get_ohlcv()` is called. Those results report
+  `status="ignoredInvalidTimeframe"` and are not cached.
 
 ## Breaking Change Checklist
 

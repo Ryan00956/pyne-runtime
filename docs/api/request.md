@@ -93,6 +93,9 @@ A legitimate empty provider result (`[]`) is still a successful requested
 context: it is cached, records `bars=0`, and reports `status="ok"`. Only
 `PyneInvalidSymbolError` converted by `ignore_invalid_symbol=True` reports
 `status="ignoredInvalidSymbol"`; those ignored empty results are not cached.
+For `request.security_lower_tf()`, `ignore_invalid_timeframe=True` can also
+short-circuit an invalid non-lower requested timeframe into empty groups and
+records `status="ignoredInvalidTimeframe"`.
 
 Provider bars may arrive out of order. Pyne normalizes the requested context by
 sorting returned bars by `time` before higher-timeframe alignment or
@@ -166,7 +169,7 @@ requested-context cache semantics, and stable error categories.
 `supportedApis` currently contains `request.security` and
 `request.security_lower_tf`. Each entry records the canonical API name, provider
 method, accepted capability aliases, result shape, and whether
-`ignore_invalid_symbol` is supported.
+invalid request contexts can be ignored.
 
 ## Provider Error Contract
 
@@ -337,7 +340,13 @@ returns `PYNE_RUNTIME_ERROR` with a request-metadata-specific message.
 ## `request.security_lower_tf`
 
 ```python
-request.security_lower_tf(symbol, timeframe, expression, ignore_invalid_symbol=False)
+request.security_lower_tf(
+    symbol,
+    timeframe,
+    expression,
+    ignore_invalid_symbol=False,
+    ignore_invalid_timeframe=False,
+)
 ```
 
 `request.security_lower_tf()` requests lower-timeframe OHLCV from the same host
@@ -360,6 +369,9 @@ Supported now:
 - bars-back on the grouped result, such as `lower[1].last()`
 - `ignore_invalid_symbol=True`: return empty lower-timeframe groups when the
   provider raises `pn.PyneInvalidSymbolError`
+- `ignore_invalid_timeframe=True`: return empty lower-timeframe groups when the
+  requested timeframe is not lower than the chart timeframe and can be
+  recognized from chart bar spacing
 
 The returned object exposes:
 

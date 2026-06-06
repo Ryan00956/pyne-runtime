@@ -186,6 +186,7 @@ class RequestModule:
         | Callable[[RequestEvalContext], Any],
         *,
         ignore_invalid_symbol: bool = False,
+        ignore_invalid_timeframe: bool = False,
     ) -> LowerTimeframeSeries | tuple[LowerTimeframeSeries, ...]:
         """Return lower-timeframe arrays grouped by chart bar.
 
@@ -231,6 +232,33 @@ class RequestModule:
                 code="PYNE_UNSUPPORTED_FEATURE",
             )
 
+        ignored_invalid_timeframe = False
+        if ignore_invalid_timeframe and _is_invalid_lower_timeframe(
+            timeframe_text,
+            self._context.times,
+        ):
+            ignored_invalid_timeframe = True
+            requested_ctx = self._empty_requested_context(symbol_text, timeframe_text)
+            self._record_diagnostic(
+                api=REQUEST_SECURITY_LOWER_TF_API,
+                symbol=symbol_text,
+                timeframe=timeframe_text,
+                start=start,
+                end=end,
+                requested=[],
+                cache_hit=False,
+                ignore_invalid_symbol=ignore_invalid_symbol,
+                ignored_invalid_symbol=False,
+                ignored_invalid_timeframe=True,
+            )
+            return self._empty_lower_tf_result(
+                symbol=symbol_text,
+                timeframe=timeframe_text,
+                expression=expression,
+                requested_ctx=requested_ctx,
+                request_context=request_context,
+            )
+
         requested, requested_ctx, cache_hit, ignored_invalid_symbol = self._requested_context(
             REQUEST_SECURITY_LOWER_TF_API,
             symbol_text,
@@ -249,6 +277,7 @@ class RequestModule:
             cache_hit=cache_hit,
             ignore_invalid_symbol=ignore_invalid_symbol,
             ignored_invalid_symbol=ignored_invalid_symbol,
+            ignored_invalid_timeframe=ignored_invalid_timeframe,
         )
         if callable(expression):
             requested_values, expression_name = self._evaluate_expression_thunk(
@@ -391,7 +420,13 @@ class RequestModule:
         cache_hit: bool,
         ignore_invalid_symbol: bool,
         ignored_invalid_symbol: bool,
+        ignored_invalid_timeframe: bool = False,
     ) -> None:
+        status = "ok"
+        if ignored_invalid_symbol:
+            status = "ignoredInvalidSymbol"
+        elif ignored_invalid_timeframe:
+            status = "ignoredInvalidTimeframe"
         self._diagnostics.append({
             "api": api,
             "symbol": symbol,
@@ -401,7 +436,8 @@ class RequestModule:
             "bars": len(requested),
             "cacheHit": cache_hit,
             "ignoreInvalidSymbol": ignore_invalid_symbol,
-            "status": "ignoredInvalidSymbol" if ignored_invalid_symbol else "ok",
+            **({"ignoreInvalidTimeframe": True} if ignored_invalid_timeframe else {}),
+            "status": status,
         })
 
     def _request_context_payload(
@@ -452,3 +488,96 @@ class RequestModule:
             self._evaluating = False
 
         return _values_from_expression_result(result, requested_ctx), "expression"
+
+    def _empty_requested_context(self, symbol: str, timeframe: str) -> PyneContext:
+        request_metadata = _default_request_metadata(symbol, timeframe)
+        return PyneContext.from_ohlcv(
+            [],
+            syminfo=request_metadata["syminfo"],
+            timeframe=request_metadata["timeframe"],
+            session=request_metadata["session"],
+            allow_empty=True,
+            require_unique_times=False,
+        )
+
+    def _empty_lower_tf_result(
+        self,
+        *,
+        symbol: str,
+        timeframe: str,
+        expression: PyneSeries
+        | str
+        | tuple[Any, ...]
+        | list[Any]
+        | Callable[[RequestEvalContext], Any],
+        requested_ctx: PyneContext,
+        request_context: dict[str, Any],
+    ) -> LowerTimeframeSeries | tuple[LowerTimeframeSeries, ...]:
+        if callable(expression):
+            requested_values, expression_name = self._evaluate_expression_thunk(
+                expression,
+                symbol=symbol,
+                timeframe=timeframe,
+                requested_ctx=requested_ctx,
+                request_context=request_context,
+            )
+        else:
+            requested_values, expression_name = _values_from_field_expression(
+                expression,
+                [],
+                requested_ctx,
+            )
+        return _group_lower_timeframe_values(
+            symbol=symbol,
+            timeframe=timeframe,
+            expression_name=expression_name,
+            chart_times=self._context.times,
+            requested_times=requested_ctx.times,
+            requested_values=requested_values,
+        )
+
+
+def _is_invalid_lower_timeframe(timeframe: str, chart_times: list[int]) -> bool:
+    requested_seconds = _timeframe_seconds_from_text(timeframe)
+    chart_seconds = _chart_seconds_from_times(chart_times)
+    if requested_seconds is None or chart_seconds is None:
+        return False
+    return requested_seconds >= chart_seconds
+
+
+def _chart_seconds_from_times(chart_times: list[int]) -> int | None:
+    if len(chart_times) < 2:
+        return None
+    intervals = [
+        int(later) - int(earlier)
+        for earlier, later in zip(chart_times, chart_times[1:])
+        if int(later) > int(earlier)
+    ]
+    if not intervals:
+        return None
+    interval = min(intervals)
+    return interval if interval >= 60 else None
+
+
+def _timeframe_seconds_from_text(timeframe: str) -> int | None:
+    value = str(timeframe).strip().upper()
+    if not value:
+        return None
+    if value.isdigit():
+        return int(value) * 60
+    amount_text = value[:-1] or "1"
+    unit = value[-1]
+    if not amount_text.isdigit():
+        return None
+    amount = int(amount_text)
+    if unit == "S":
+        return amount
+    if unit == "H":
+        return amount * 3600
+    if unit == "D":
+        return amount * 86_400
+    if unit == "W":
+        return amount * 7 * 86_400
+    if unit == "M":
+        return amount * 30 * 86_400
+    return None
