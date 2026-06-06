@@ -1788,6 +1788,57 @@ plot(lower.sum(default=0), "Lower Sum")
     ]
 
 
+def test_request_security_lower_tf_ignore_invalid_timeframe_tuple_returns_empty_groups() -> None:
+    provider = StaticProvider([
+        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
+    ])
+    bars = [
+        {"time": 0, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100},
+        {"time": 3600, "open": 2, "high": 3, "low": 1.5, "close": 2.5, "volume": 120},
+        {"time": 7200, "open": 3, "high": 4, "low": 2.5, "close": 3.5, "volume": 140},
+    ]
+
+    result = pn.run(
+        """
+indicator("Ignored Invalid Lower Timeframe Tuple", overlay=True)
+lower_open, lower_close = request.security_lower_tf(
+    "BTCUSDT",
+    "240",
+    ("open", "close"),
+    ignore_invalid_timeframe=True,
+)
+plot(lower_open.size(), "Lower Open Count")
+plot(lower_close.size(), "Lower Close Count")
+plot(lower_open.first(default=-111), "Lower Open First")
+plot(lower_close.last(default=-222), "Lower Close Last")
+""",
+        bars,
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == []
+    assert result.values("Lower Open Count") == [0.0, 0.0, 0.0]
+    assert result.values("Lower Close Count") == [0.0, 0.0, 0.0]
+    assert result.values("Lower Open First") == [-111.0, -111.0, -111.0]
+    assert result.values("Lower Close Last") == [-222.0, -222.0, -222.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security_lower_tf",
+            "symbol": "BTCUSDT",
+            "timeframe": "240",
+            "start": 0,
+            "end": 7200,
+            "bars": 0,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": False,
+            "ignoreInvalidTimeframe": True,
+            "status": "ignoredInvalidTimeframe",
+        },
+    ]
+
+
 def test_request_security_lower_tf_empty_provider_result_is_successful_empty_data() -> None:
     class EmptyProvider(StaticProvider):
         def __init__(self) -> None:
