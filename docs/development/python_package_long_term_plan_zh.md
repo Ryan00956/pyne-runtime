@@ -643,17 +643,15 @@ Milestone C: Request provider contract 与更多 TradingView-backed golden
    requested `time` / `time_close`、`timeframe.isdaily` 和非 intraday metadata。
 10. `request.security()` requested-context session flag capture 已进入 parity，
     覆盖 `session.ismarket`、`session.isfirstbar` 和 `session.islastbar`。
-11. `request.security()` requested-context timezone capture 已准备好，等待
-    TradingView CSV 导出。
+11. `request.security()` requested-context timezone capture 已进入 parity，
+    覆盖 UTC 与 Asia/Shanghai hour / day-of-week。
 
 推荐的下一个最小切片：
 
-1. 先导出当前 timezone capture，覆盖 requested-context 的 UTC 与
-   Asia/Shanghai hour / day-of-week。
-2. 导入并确认 parity 后，再继续补 error-boundary request capture。
-3. 保持 fixture 小而可解释，每次只新增一个待导出的 capture。
-4. 等 TradingView CSV 导出后，用 `request_capture_import.py` 写入
-   `external_capture`，再用 `request_capture_diff.py --assertion parity` 守住 0 diff。
+1. 继续补 error-boundary request capture。
+2. 保持 fixture 小而可解释，每次只新增一个待导出的 capture。
+3. 用 `request_capture_import.py` 写入 `external_capture`，再用
+   `request_capture_diff.py --assertion parity` 守住 0 diff。
 
 这个方向能把多周期 request 从“本地语义已覆盖”推进到“外部证据也足够厚”。
 它比继续补冷门 API 更能降低宿主集成风险，也能让

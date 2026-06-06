@@ -179,7 +179,7 @@ def test_request_capture_prepare_priority_manifest(tmp_path: Path) -> None:
     eighth = manifest["entries"][7]
     assert eighth["fixture"] == "request_security_timezone_capture.json"
     assert eighth["priority"] is True
-    assert eighth["status"] == "not_captured"
+    assert eighth["status"] == "captured"
     assert eighth["bar_count"] == 12
     assert "--assertion parity" in eighth["import_command"]
     assert eighth["plot_titles"][:4] == [
