@@ -653,13 +653,13 @@ Milestone C: Request provider contract 与更多 TradingView-backed golden
     capture 已进入 parity；TradingView 返回的是 `na` array id，Pine
     capture 脚本需先防护再调用 `array.*` 方法，Pyne 的空数组语义在
     `size()` / fallback / empty flag 观测上与 TradingView 对齐。
-15. `request.security()` requested-context expression capture 已准备好，等待
-    TradingView CSV 导出；覆盖复合表达式、条件表达式和 requested-context
-    history 表达式。
+15. `request.security()` requested-context expression capture 已进入 parity；
+    覆盖复合表达式、条件表达式和 requested-context history 表达式。history
+    表达式需要在 external capture 中保留窗口前一根 provider bar。
 
 推荐的下一个最小切片：
 
-1. 先导出当前 requested-context expression capture。
+1. 继续寻找下一个小而可外部导出的 request error-boundary capture。
 2. 保持 fixture 小而可解释，每次只新增一个待导出的 capture。
 3. 用 `request_capture_import.py` 写入 `external_capture`，再用
    `request_capture_diff.py --assertion parity` 守住 0 diff。
