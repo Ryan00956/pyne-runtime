@@ -1696,6 +1696,49 @@ plot(lower.last(), "Lower Last")
     ]
 
 
+def test_request_security_lower_tf_ignore_invalid_symbol_tuple_returns_empty_groups() -> None:
+    provider = InvalidSymbolProvider()
+
+    result = pn.run(
+        """
+indicator("Lower Invalid Symbol Tuple", overlay=True)
+lower_open, lower_close = request.security_lower_tf(
+    "MISSING",
+    "1",
+    ("open", "close"),
+    ignore_invalid_symbol=True,
+)
+plot(lower_open.size(), "Lower Open Count")
+plot(lower_close.size(), "Lower Close Count")
+plot(lower_open.first(default=-111), "Lower Open First")
+plot(lower_close.last(default=-222), "Lower Close Last")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("MISSING", "1", 1, 4)]
+    assert result.values("Lower Open Count") == [0.0, 0.0, 0.0, 0.0]
+    assert result.values("Lower Close Count") == [0.0, 0.0, 0.0, 0.0]
+    assert result.values("Lower Open First") == [-111.0, -111.0, -111.0, -111.0]
+    assert result.values("Lower Close Last") == [-222.0, -222.0, -222.0, -222.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security_lower_tf",
+            "symbol": "MISSING",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+            "bars": 0,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": True,
+            "status": "ignoredInvalidSymbol",
+        }
+    ]
+
+
 def test_request_security_lower_tf_ignore_invalid_timeframe_returns_empty_groups() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
