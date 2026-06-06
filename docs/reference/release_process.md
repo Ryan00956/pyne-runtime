@@ -33,8 +33,8 @@ Before cutting a release candidate:
    scripts/check.sh
    ```
 
-   The check scripts use the repository-local ignored `.pyne-check-tmp`
-   directory for pytest and build artifacts. On POSIX shells, set
+   The check scripts use per-run subdirectories under the repository-local
+   ignored `.pyne-check-tmp` directory for pytest and build artifacts. Set
    `PYNE_CHECK_TMP` to override that temporary root.
    They build with `python -m build --no-isolation`, so run the release gate
    from an environment that already has the project dev dependencies installed.

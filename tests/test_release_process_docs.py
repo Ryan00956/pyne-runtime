@@ -70,7 +70,13 @@ def test_full_check_scripts_use_repo_local_temp_root() -> None:
     powershell_body = CHECK_PS1.read_text(encoding="utf-8")
     shell_body = CHECK_SH.read_text(encoding="utf-8")
 
-    for required in (".pyne-check-tmp", "no:cacheprovider", "--basetemp", "--no-isolation"):
+    for required in (
+        ".pyne-check-tmp",
+        "PYNE_CHECK_TMP",
+        "no:cacheprovider",
+        "--basetemp",
+        "--no-isolation",
+    ):
         assert required in powershell_body
 
     for required in (
