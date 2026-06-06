@@ -142,6 +142,72 @@ def test_request_capture_diff_uses_provider_metadata(tmp_path: Path) -> None:
     assert report["counts"]["differences"] == 0
 
 
+def test_request_capture_diff_can_replay_ignored_invalid_symbol(tmp_path: Path) -> None:
+    fixture = tmp_path / "request_security_invalid_symbol_ignore_capture.json"
+    fixture.write_text(
+        json.dumps(
+            {
+                "name": "request_security_invalid_symbol_ignore_capture",
+                "chart_bars": [
+                    {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+                    {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 200},
+                ],
+                "provider_bars": [],
+                "invalid_symbols": ["MISSING"],
+                "script": (
+                    'missing = request.security("MISSING", "240", close, '
+                    "ignore_invalid_symbol=True)\n"
+                    'plot(nz(missing, -999), "Invalid NZ Fallback")\n'
+                ),
+                "expected_series": {
+                    "Invalid NZ Fallback": [
+                        {"time": 1, "value": -999},
+                        {"time": 2, "value": -999},
+                    ]
+                },
+                "external_capture": {
+                    "provider": "tradingview",
+                    "status": "captured",
+                    "assertion": "parity",
+                    "tolerance": 1e-9,
+                    "series": {
+                        "Invalid NZ Fallback": [
+                            {"time": 1, "value": -999},
+                            {"time": 2, "value": -999},
+                        ]
+                    },
+                    "bars": [
+                        {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+                        {"time": 2, "open": 11, "high": 12, "low": 10, "close": 11, "volume": 200},
+                    ],
+                    "provider_bars": [],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "request_capture_diff.py"),
+            "--assertion",
+            "parity",
+            str(fixture),
+            "--json",
+        ],
+        check=True,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    report = json.loads(completed.stdout)
+    assert report["counts"]["captured_fixtures"] == 1
+    assert report["counts"]["differences"] == 0
+
+
 def _write_fixture(tmp_path: Path, captured_value: float) -> Path:
     fixture = tmp_path / "request_security_sample_capture.json"
     fixture.write_text(

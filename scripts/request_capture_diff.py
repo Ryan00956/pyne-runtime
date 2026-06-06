@@ -22,9 +22,11 @@ class FixtureProvider:
         self,
         bars: list[dict[str, Any]] | dict[str, list[dict[str, Any]]],
         metadata: dict[str, Any] | None = None,
+        invalid_symbols: list[str] | None = None,
     ) -> None:
         self._bars = bars
         self._metadata = metadata or {}
+        self._invalid_symbols = set(invalid_symbols or [])
 
     def get_ohlcv(
         self,
@@ -33,6 +35,8 @@ class FixtureProvider:
         start: int,
         end: int,
     ) -> list[dict[str, Any]]:
+        if symbol in self._invalid_symbols:
+            raise pn.PyneInvalidSymbolError(symbol)
         if isinstance(self._bars, dict):
             bars = self._bars.get(f"{symbol}|{timeframe}", self._bars.get(timeframe, []))
         else:
@@ -219,10 +223,11 @@ def diff_fixture(
     bars = capture.get("bars") or fixture["chart_bars"]
     provider_bars = capture.get("provider_bars") or fixture.get("provider_bars", [])
     provider_metadata = capture.get("provider_metadata") or fixture.get("provider_metadata", {})
+    invalid_symbols = capture.get("invalid_symbols") or fixture.get("invalid_symbols", [])
     result = pn.run(
         fixture["script"],
         bars,
-        data_provider=FixtureProvider(provider_bars, provider_metadata),
+        data_provider=FixtureProvider(provider_bars, provider_metadata, invalid_symbols),
         executor_mode="inline",
     )
     if not result.ok:
