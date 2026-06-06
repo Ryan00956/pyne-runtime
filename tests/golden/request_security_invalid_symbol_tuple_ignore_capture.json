@@ -410,9 +410,421 @@
   },
   "external_capture": {
     "provider": "tradingview",
-    "status": "not_captured",
+    "status": "captured",
     "assertion": "parity",
-    "series": {},
+    "tolerance": 1e-09,
+    "series": {
+      "Invalid Tuple Open": [],
+      "Invalid Tuple Close": [],
+      "Invalid Tuple Open Is NA": [
+        {
+          "time": 1780682400,
+          "value": 1.0
+        },
+        {
+          "time": 1780686000,
+          "value": 1.0
+        },
+        {
+          "time": 1780689600,
+          "value": 1.0
+        },
+        {
+          "time": 1780693200,
+          "value": 1.0
+        },
+        {
+          "time": 1780696800,
+          "value": 1.0
+        },
+        {
+          "time": 1780700400,
+          "value": 1.0
+        },
+        {
+          "time": 1780704000,
+          "value": 1.0
+        },
+        {
+          "time": 1780707600,
+          "value": 1.0
+        },
+        {
+          "time": 1780711200,
+          "value": 1.0
+        },
+        {
+          "time": 1780714800,
+          "value": 1.0
+        },
+        {
+          "time": 1780718400,
+          "value": 1.0
+        },
+        {
+          "time": 1780722000,
+          "value": 1.0
+        }
+      ],
+      "Invalid Tuple Close Is NA": [
+        {
+          "time": 1780682400,
+          "value": 1.0
+        },
+        {
+          "time": 1780686000,
+          "value": 1.0
+        },
+        {
+          "time": 1780689600,
+          "value": 1.0
+        },
+        {
+          "time": 1780693200,
+          "value": 1.0
+        },
+        {
+          "time": 1780696800,
+          "value": 1.0
+        },
+        {
+          "time": 1780700400,
+          "value": 1.0
+        },
+        {
+          "time": 1780704000,
+          "value": 1.0
+        },
+        {
+          "time": 1780707600,
+          "value": 1.0
+        },
+        {
+          "time": 1780711200,
+          "value": 1.0
+        },
+        {
+          "time": 1780714800,
+          "value": 1.0
+        },
+        {
+          "time": 1780718400,
+          "value": 1.0
+        },
+        {
+          "time": 1780722000,
+          "value": 1.0
+        }
+      ],
+      "Invalid Tuple Open Fallback": [
+        {
+          "time": 1780682400,
+          "value": -111.0
+        },
+        {
+          "time": 1780686000,
+          "value": -111.0
+        },
+        {
+          "time": 1780689600,
+          "value": -111.0
+        },
+        {
+          "time": 1780693200,
+          "value": -111.0
+        },
+        {
+          "time": 1780696800,
+          "value": -111.0
+        },
+        {
+          "time": 1780700400,
+          "value": -111.0
+        },
+        {
+          "time": 1780704000,
+          "value": -111.0
+        },
+        {
+          "time": 1780707600,
+          "value": -111.0
+        },
+        {
+          "time": 1780711200,
+          "value": -111.0
+        },
+        {
+          "time": 1780714800,
+          "value": -111.0
+        },
+        {
+          "time": 1780718400,
+          "value": -111.0
+        },
+        {
+          "time": 1780722000,
+          "value": -111.0
+        }
+      ],
+      "Invalid Tuple Close Fallback": [
+        {
+          "time": 1780682400,
+          "value": -222.0
+        },
+        {
+          "time": 1780686000,
+          "value": -222.0
+        },
+        {
+          "time": 1780689600,
+          "value": -222.0
+        },
+        {
+          "time": 1780693200,
+          "value": -222.0
+        },
+        {
+          "time": 1780696800,
+          "value": -222.0
+        },
+        {
+          "time": 1780700400,
+          "value": -222.0
+        },
+        {
+          "time": 1780704000,
+          "value": -222.0
+        },
+        {
+          "time": 1780707600,
+          "value": -222.0
+        },
+        {
+          "time": 1780711200,
+          "value": -222.0
+        },
+        {
+          "time": 1780714800,
+          "value": -222.0
+        },
+        {
+          "time": 1780718400,
+          "value": -222.0
+        },
+        {
+          "time": 1780722000,
+          "value": -222.0
+        }
+      ],
+      "Control Provider Time": [
+        {
+          "time": 1780686000,
+          "value": 1780675200
+        },
+        {
+          "time": 1780700400,
+          "value": 1780689600
+        },
+        {
+          "time": 1780714800,
+          "value": 1780704000
+        }
+      ],
+      "Control Open": [
+        {
+          "time": 1780686000,
+          "value": 60400.8
+        },
+        {
+          "time": 1780700400,
+          "value": 60267.4
+        },
+        {
+          "time": 1780714800,
+          "value": 61022.0
+        }
+      ],
+      "Control High": [
+        {
+          "time": 1780686000,
+          "value": 61550.0
+        },
+        {
+          "time": 1780700400,
+          "value": 61985.1
+        },
+        {
+          "time": 1780714800,
+          "value": 61500.0
+        }
+      ],
+      "Control Low": [
+        {
+          "time": 1780686000,
+          "value": 59080.0
+        },
+        {
+          "time": 1780700400,
+          "value": 59903.8
+        },
+        {
+          "time": 1780714800,
+          "value": 60490.0
+        }
+      ],
+      "Control Provider Close": [
+        {
+          "time": 1780686000,
+          "value": 60267.7
+        },
+        {
+          "time": 1780700400,
+          "value": 61022.0
+        },
+        {
+          "time": 1780714800,
+          "value": 60662.6
+        }
+      ],
+      "Control Volume": [
+        {
+          "time": 1780686000,
+          "value": 127122.155
+        },
+        {
+          "time": 1780700400,
+          "value": 62535.952
+        },
+        {
+          "time": 1780714800,
+          "value": 23442.856000000003
+        }
+      ]
+    },
+    "bars": [
+      {
+        "time": 1780682400,
+        "open": 60786.5,
+        "high": 60933.0,
+        "low": 59105.4,
+        "close": 59362.2,
+        "volume": 32030.644
+      },
+      {
+        "time": 1780686000,
+        "open": 59362.1,
+        "high": 60435.2,
+        "low": 59080.0,
+        "close": 60267.7,
+        "volume": 23692.266
+      },
+      {
+        "time": 1780689600,
+        "open": 60267.4,
+        "high": 61800.0,
+        "low": 59903.8,
+        "close": 61586.2,
+        "volume": 22351.565
+      },
+      {
+        "time": 1780693200,
+        "open": 61586.1,
+        "high": 61985.1,
+        "low": 61400.0,
+        "close": 61639.5,
+        "volume": 12170.417
+      },
+      {
+        "time": 1780696800,
+        "open": 61639.4,
+        "high": 61942.4,
+        "low": 61169.1,
+        "close": 61556.6,
+        "volume": 13850.543
+      },
+      {
+        "time": 1780700400,
+        "open": 61556.7,
+        "high": 61745.0,
+        "low": 60458.0,
+        "close": 61022.0,
+        "volume": 14163.427
+      },
+      {
+        "time": 1780704000,
+        "open": 61022.0,
+        "high": 61500.0,
+        "low": 61012.0,
+        "close": 61238.4,
+        "volume": 7564.048
+      },
+      {
+        "time": 1780707600,
+        "open": 61238.4,
+        "high": 61349.7,
+        "low": 60912.3,
+        "close": 61025.6,
+        "volume": 4623.78
+      },
+      {
+        "time": 1780711200,
+        "open": 61025.6,
+        "high": 61164.5,
+        "low": 60642.4,
+        "close": 60918.4,
+        "volume": 5765.277
+      },
+      {
+        "time": 1780714800,
+        "open": 60918.3,
+        "high": 60940.5,
+        "low": 60490.0,
+        "close": 60662.6,
+        "volume": 5489.751
+      },
+      {
+        "time": 1780718400,
+        "open": 60662.6,
+        "high": 60847.5,
+        "low": 59451.3,
+        "close": 60068.4,
+        "volume": 22031.624
+      },
+      {
+        "time": 1780722000,
+        "open": 60068.5,
+        "high": 61070.2,
+        "low": 59578.8,
+        "close": 60918.9,
+        "volume": 20702.862
+      }
+    ],
+    "provider_bars": [
+      {
+        "time": 1780675200,
+        "open": 60400.8,
+        "high": 61550.0,
+        "low": 59080.0,
+        "close": 60267.7,
+        "volume": 127122.155
+      },
+      {
+        "time": 1780689600,
+        "open": 60267.4,
+        "high": 61985.1,
+        "low": 59903.8,
+        "close": 61022.0,
+        "volume": 62535.952
+      },
+      {
+        "time": 1780704000,
+        "open": 61022.0,
+        "high": 61500.0,
+        "low": 60490.0,
+        "close": 60662.6,
+        "volume": 23442.856000000003
+      }
+    ],
     "provider_bar_plots": {
       "time": "Control Provider Time",
       "open": "Control Open",
@@ -420,6 +832,9 @@
       "low": "Control Low",
       "close": "Control Provider Close",
       "volume": "Control Volume"
-    }
+    },
+    "notes": [
+      "TradingView export 2026-06-06: request.security invalid symbol tuple with ignore_invalid_symbol=true, BINANCE:BTCUSDT.P 60m."
+    ]
   }
 }

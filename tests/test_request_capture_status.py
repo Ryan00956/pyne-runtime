@@ -26,8 +26,8 @@ def test_request_capture_status_json_report() -> None:
 
     assert report["counts"] == {
         "total": 13,
-        "captured": 12,
-        "not_captured": 1,
+        "captured": 13,
+        "not_captured": 0,
         "missing": 0,
         "priority_total": 8,
         "priority_captured": 8,
@@ -94,9 +94,9 @@ def test_request_capture_status_json_report() -> None:
     eleventh = report["fixtures"][10]
     assert eleventh["fixture"] == "request_security_invalid_symbol_tuple_ignore_capture.json"
     assert eleventh["priority"] is False
-    assert eleventh["status"] == "not_captured"
+    assert eleventh["status"] == "captured"
     assert eleventh["assertion"] == "parity"
-    assert eleventh["plot_count"] == 0
+    assert eleventh["plot_count"] == 12
     twelfth = report["fixtures"][11]
     assert twelfth["fixture"] == "request_security_lower_tf_invalid_symbol_ignore_capture.json"
     assert twelfth["priority"] is False
