@@ -304,6 +304,25 @@ def test_golden_request_security_lower_tf_invalid_symbol_ignore_capture() -> Non
         _assert_series_matches(result.get_series(name), expected)
 
 
+def test_golden_request_security_lower_tf_invalid_symbol_expression_ignore_capture() -> None:
+    fixture = _load_fixture(
+        "request_security_lower_tf_invalid_symbol_expression_ignore_capture.json"
+    )
+    provider = GoldenProvider(fixture["provider_bars"], invalid_symbols=fixture["invalid_symbols"])
+
+    result = pn.run(
+        fixture["script"],
+        fixture["chart_bars"],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [list(call) for call in provider.calls] == fixture["expected_provider_calls"]
+    for name, expected in fixture["expected_series"].items():
+        _assert_series_matches(result.get_series(name), expected)
+
+
 def test_golden_request_security_lower_tf_invalid_symbol_tuple_ignore_capture() -> None:
     fixture = _load_fixture("request_security_lower_tf_invalid_symbol_tuple_ignore_capture.json")
     provider = GoldenProvider(fixture["provider_bars"], invalid_symbols=fixture["invalid_symbols"])

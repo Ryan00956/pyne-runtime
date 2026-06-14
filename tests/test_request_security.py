@@ -1780,6 +1780,47 @@ plot(lower_close.last(default=-222), "Lower Close Last")
     ]
 
 
+def test_request_security_lower_tf_ignore_invalid_symbol_thunk_returns_empty_groups() -> None:
+    provider = InvalidSymbolProvider()
+
+    result = pn.run(
+        """
+indicator("Lower Invalid Symbol Expression", overlay=True)
+lower_mid = request.security_lower_tf(
+    "MISSING",
+    "1",
+    lambda ctx: (ctx.high + ctx.low) / 2,
+    ignore_invalid_symbol=True,
+)
+plot(lower_mid.size(), "Lower Mid Count")
+plot(lower_mid.first(default=-111), "Lower Mid First")
+plot(lower_mid.last(default=-222), "Lower Mid Last")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("MISSING", "1", 1, 4)]
+    assert result.values("Lower Mid Count") == [0.0, 0.0, 0.0, 0.0]
+    assert result.values("Lower Mid First") == [-111.0, -111.0, -111.0, -111.0]
+    assert result.values("Lower Mid Last") == [-222.0, -222.0, -222.0, -222.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security_lower_tf",
+            "symbol": "MISSING",
+            "timeframe": "1",
+            "start": 1,
+            "end": 4,
+            "bars": 0,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": True,
+            "status": "ignoredInvalidSymbol",
+        }
+    ]
+
+
 def test_request_security_lower_tf_ignore_invalid_timeframe_returns_empty_groups() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
