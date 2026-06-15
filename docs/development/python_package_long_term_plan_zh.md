@@ -622,14 +622,15 @@ Pyne 作为 Python 包需要逐步走向可依赖、可发布、可升级。
 
 当前代码已经完成了 Pine-to-Pyne cookbook、`validate()` 迁移诊断、
 完整 `input.*` metadata、param schema、`varip()`、collection limits、
-schema contract、TA capture 和 strategy capture。下一阶段不应该继续
-堆 A/B 里已经落地的基础能力，而应该补最薄的证据面：
+schema contract、TA capture、strategy capture 和 request capture。下一阶段
+不应该继续堆 A/B/C 里已经落地的基础能力，而应该把已经有外部证据的
+provider contract 收紧：
 
 ```text
-Milestone C: Request provider contract 与更多 TradingView-backed golden
+Milestone C: Request provider contract 收口与 host 集成硬化
 ```
 
-已完成的第一个切片：
+已完成的 request 外部证据切片：
 
 1. `request.security()` HTF alignment capture 已进入 parity。
 2. `request.security_lower_tf()` grouping、tuple thunk 和 slot 输出已进入 parity。
@@ -681,17 +682,27 @@ Milestone C: Request provider contract 与更多 TradingView-backed golden
     parity；继续覆盖 lower-TF 内部 UTC / Asia/Shanghai hour 与 day-of-week。
 24. `request.security_lower_tf()` array helper capture 已进入 parity；继续覆盖
     lower-TF array `first` / `get(default)` / `min` / `max` / `sum` / `avg`。
-25. `request.security()` same-timeframe capture 已完成本地语义和 golden
-    scaffold，等待 TradingView CSV 导出；继续覆盖 same timeframe
-    close/history/tuple/gaps/lookahead 与 provider bar 重建。
+25. `request.security()` same-timeframe capture 已进入 parity；继续覆盖
+    same timeframe close/history/tuple/gaps/lookahead 与 provider bar 重建。
+    `close[1]` 需要在 external capture 中保留窗口前一根 provider bar。
+
+当前外部 capture 状态：
+
+- Request：21/21 captured，0 diff。
+- Strategy：27/27 captured，0 diff。
+- TA：9/9 captured，0 diff。
 
 推荐的下一个最小切片：
 
-1. 先导出当前 same-timeframe request capture。
-2. 保持 fixture 小而可解释，每次只新增一个待导出的 capture。
-3. 用 `request_capture_import.py` 写入 `external_capture`，再用
-   `request_capture_diff.py --assertion parity` 守住 0 diff。
+1. 收紧 provider cache 行为：同一 run 内相同
+   `(symbol, timeframe, start, end)` 请求应该复用 provider 结果，并用 focused
+   tests 固定调用次数。
+2. 补 request provider contract 文档：说明 capability、metadata、invalid symbol、
+   invalid timeframe、provider exception 和 external capture replay 的稳定边界。
+3. 保留 capture 工具链作为 regression gate：新增 request 语义时仍然走
+   scaffold -> TradingView CSV -> import -> diff -> check。
 
-这个方向能把多周期 request 从“本地语义已覆盖”推进到“外部证据也足够厚”。
+这个方向能把多周期 request 从“外部证据已足够厚”推进到“host 集成契约也足够稳”。
 它比继续补冷门 API 更能降低宿主集成风险，也能让
-`request.security()` / `request.security_lower_tf()` 的兼容性声明更有底气。
+`request.security()` / `request.security_lower_tf()` 的兼容性声明落到可执行的
+provider contract 上。

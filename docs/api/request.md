@@ -390,7 +390,8 @@ calling `get_ohlcv(...)`.
 
 ## Golden Coverage
 
-The request test suite includes deterministic fixtures for:
+The request test suite includes deterministic fixtures and TradingView-backed
+external captures for:
 
 - higher-timeframe `gaps` and `lookahead` alignment
 - history references evaluated in the requested context
@@ -404,8 +405,15 @@ The request test suite includes deterministic fixtures for:
 - requested-context cache reuse within one script run and cache reset across
   separate `pn.run()` executions
 - provider failure and provider metadata contract failures
-- TradingView-backed HTF capture parity for `gaps`, `lookahead`, history,
-  tuple thunks, and requested OHLCV fields
+- TradingView-backed request capture parity for `request.security()` and
+  `request.security_lower_tf()` across HTF, LTF, same-timeframe, invalid
+  symbol/timeframe ignore paths, requested-context metadata, timezone/session
+  fields, lower-timeframe array helpers, and requested OHLCV field replay
+
+The request capture gate currently keeps 21/21 fixtures in parity with
+TradingView exports. The broader release gate also checks strategy and TA
+TradingView-backed captures, so request changes are validated alongside the
+host-facing strategy and indicator evidence.
 
 ## Internal Responsibilities
 
