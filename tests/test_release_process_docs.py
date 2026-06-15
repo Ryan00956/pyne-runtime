@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CHANGELOG = ROOT / "CHANGELOG.md"
 PYPROJECT = ROOT / "pyproject.toml"
 RELEASE_DOC = ROOT / "docs" / "reference" / "release_process.md"
+PINE_LIKE_API_MATRIX = ROOT / "docs" / "reference" / "pine_like_api_matrix.md"
 CHECK_PS1 = ROOT / "scripts" / "check.ps1"
 CHECK_SH = ROOT / "scripts" / "check.sh"
 
@@ -64,6 +65,19 @@ def test_changelog_records_package_maturity_contracts() -> None:
         "py.typed",
     ):
         assert required in changelog
+
+
+def test_pine_like_api_matrix_tracks_completed_capture_gates() -> None:
+    body = PINE_LIKE_API_MATRIX.read_text(encoding="utf-8")
+
+    for required in (
+        "21/21 captured fixtures with 0 diff",
+        "all 27 strategy pine-equivalent cases are TradingView parity-gated",
+        "Host-facing request provider contract examples",
+    ):
+        assert required in body
+
+    assert "Additional request-context TradingView captures" not in body
 
 
 def test_full_check_scripts_use_repo_local_temp_root() -> None:
