@@ -26,8 +26,8 @@ def test_request_capture_status_json_report() -> None:
 
     assert report["counts"] == {
         "total": 21,
-        "captured": 20,
-        "not_captured": 1,
+        "captured": 21,
+        "not_captured": 0,
         "missing": 0,
         "priority_total": 8,
         "priority_captured": 8,
@@ -160,6 +160,6 @@ def test_request_capture_status_json_report() -> None:
     twentyfirst = report["fixtures"][20]
     assert twentyfirst["fixture"] == "request_security_same_timeframe_capture.json"
     assert twentyfirst["priority"] is False
-    assert twentyfirst["status"] == "not_captured"
+    assert twentyfirst["status"] == "captured"
     assert twentyfirst["assertion"] == "parity"
-    assert twentyfirst["plot_count"] == 0
+    assert twentyfirst["plot_count"] == 12
