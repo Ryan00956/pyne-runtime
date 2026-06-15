@@ -38,14 +38,17 @@ def test_examples_readme_covers_packaged_scripts_and_data_fixture() -> None:
 
 def test_request_provider_contract_example_exposes_request_diagnostics() -> None:
     data = pn.read_ohlcv(EXAMPLES_DIR / "sample_ohlcv.csv")
+    provider = _RequestExampleProvider()
     result = pn.run(
         EXAMPLES_DIR / "request_provider_contract.py",
         data,
-        data_provider=_RequestExampleProvider(),
+        data_provider=provider,
         executor_mode="inline",
     )
 
     assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "5", 1, 20), ("BTCUSDT", "1", 1, 20)]
+    assert provider.metadata_calls == [("BTCUSDT", "5"), ("BTCUSDT", "1")]
     assert result.get_series("Higher Open") == [
         {"time": 5, "value": 100.0},
         {"time": 6, "value": 100.0},
@@ -64,6 +67,7 @@ def test_request_provider_contract_example_exposes_request_diagnostics() -> None
         {"time": 19, "value": 110.0},
         {"time": 20, "value": 115.0},
     ]
+    assert result.values("Higher Mintick") == [0.01] * 16
     assert result.values("Lower Count") == [1.0] * 20
     assert result.meta["requestDiagnostics"] == [
         {
@@ -74,6 +78,17 @@ def test_request_provider_contract_example_exposes_request_diagnostics() -> None
             "end": 20,
             "bars": 4,
             "cacheHit": False,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+        {
+            "api": "request.security",
+            "symbol": "BTCUSDT",
+            "timeframe": "5",
+            "start": 1,
+            "end": 20,
+            "bars": 4,
+            "cacheHit": True,
             "ignoreInvalidSymbol": False,
             "status": "ok",
         },
@@ -132,6 +147,23 @@ class _RequestExampleProvider:
         "request.security_lower_tf": True,
     }
 
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, int, int]] = []
+        self.metadata_calls: list[tuple[str, str]] = []
+
+    def get_request_metadata(self, symbol: str, timeframe: str) -> pn.RequestMetadata:
+        self.metadata_calls.append((symbol, timeframe))
+        return {
+            "syminfo": {
+                "tickerid": f"BINANCE:{symbol}",
+                "mintick": 0.01,
+                "currency": "USDT",
+                "type": "crypto",
+            },
+            "timeframe": {"period": timeframe},
+            "session": {"ismarket": True},
+        }
+
     def get_ohlcv(
         self,
         symbol: str,
@@ -139,6 +171,7 @@ class _RequestExampleProvider:
         start: int,
         end: int,
     ) -> list[dict[str, Any]]:
+        self.calls.append((symbol, timeframe, start, end))
         bars = {
             "5": [
                 {"time": 1, "open": 100, "high": 106, "low": 99, "close": 105, "volume": 5000},
