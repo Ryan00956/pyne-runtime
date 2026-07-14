@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from capture_command import quote_command_path, render_capture_import_command
 from strategy_capture_status import DEFAULT_GOLDEN_DIR, build_report
 
 
@@ -42,7 +43,13 @@ def main(argv: list[str] | None = None) -> int:
 
     report = build_report(args.golden_dir)
     manifest = load_manifest(args.manifest)
-    task = find_next_task(report["cases"], manifest, include_all=args.all)
+    export_dir = args.manifest.parent if args.manifest is not None else DEFAULT_EXPORT_DIR
+    task = find_next_task(
+        report["cases"],
+        manifest,
+        include_all=args.all,
+        export_dir=export_dir,
+    )
     if task is None:
         payload = {"status": "complete", "message": "no pending capture task"}
         if args.json:
@@ -69,6 +76,7 @@ def find_next_task(
     manifest: dict[str, Any] | None,
     *,
     include_all: bool,
+    export_dir: Path,
 ) -> dict[str, Any] | None:
     pending = [
         case
@@ -80,7 +88,7 @@ def find_next_task(
 
     case = pending[0]
     entry = find_manifest_entry(manifest, case["fixture"], case["case"])
-    return build_task(case, entry)
+    return build_task(case, entry, export_dir=export_dir)
 
 
 def find_manifest_entry(
@@ -99,10 +107,14 @@ def find_manifest_entry(
 def build_task(
     status_case: dict[str, Any],
     manifest_entry: dict[str, Any] | None,
+    *,
+    export_dir: Path,
 ) -> dict[str, Any]:
     fixture = status_case["fixture"]
     case_name = status_case["case"]
-    export_dir = DEFAULT_EXPORT_DIR.as_posix()
+    quoted_export_dir = quote_command_path(export_dir)
+    quoted_manifest = quote_command_path(export_dir / "manifest.json")
+    quoted_export_placeholder = quote_command_path(export_dir / "<export.csv>")
     task = {
         "status": "pending",
         "fixture": fixture,
@@ -111,16 +123,16 @@ def build_task(
         "capture_status": status_case["status"],
         "prepare_command": (
             "python scripts/strategy_capture_prepare.py "
-            f"--out-dir {export_dir} --clean"
+            f"--out-dir {quoted_export_dir} --clean"
         ),
         "preflight_command": (
             "python scripts/strategy_capture_preflight.py "
-            f"{export_dir}/manifest.json --case {case_name}"
+            f"{quoted_manifest} --case {case_name}"
         ),
         "import_command": (
             "python scripts/strategy_capture_import.py "
             f"tests/golden/{fixture} --case {case_name} "
-            f"--values {export_dir}/<export.csv> "
+            f"--values {quoted_export_placeholder} "
             '--tolerance 1e-9 --note "TradingView export YYYY-MM-DD"'
         ),
         "diff_command": (
@@ -137,9 +149,10 @@ def build_task(
                 "expected_export_file": manifest_entry["expected_export_file"],
                 "plot_titles": manifest_entry["plot_titles"],
                 "bar_count": manifest_entry["bar_count"],
-                "import_command": manifest_entry["import_command"].replace(
-                    "<export-dir>",
+                "import_command": render_capture_import_command(
+                    manifest_entry["import_command"],
                     export_dir,
+                    manifest_entry["expected_export_file"],
                 ),
                 "diff_command": manifest_entry["diff_command"],
             }

@@ -205,3 +205,31 @@ def test_cli_run_failure_payload_uses_nonzero_exit(tmp_path: Path, capsys) -> No
     payload = json.loads(captured.out)
     assert payload["ok"] is False
     assert payload["code"] == "PYNE_SYNTAX_ERROR"
+
+
+def test_cli_validate_reports_missing_script_as_json(tmp_path: Path, capsys) -> None:
+    missing_script = tmp_path / "missing.py"
+
+    exit_code = main(["validate", str(missing_script)])
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.err)
+    assert exit_code == 2
+    assert captured.out == ""
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "PYNE_CLI_INPUT_ERROR"
+    assert missing_script.name in payload["error"]["message"]
+
+
+def test_cli_validate_reports_unreadable_text_as_json(tmp_path: Path, capsys) -> None:
+    script = tmp_path / "invalid-utf8.py"
+    script.write_bytes(b"\xff\xfe")
+
+    exit_code = main(["validate", str(script)])
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.err)
+    assert exit_code == 2
+    assert captured.out == ""
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "PYNE_CLI_INPUT_ERROR"

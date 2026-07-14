@@ -11,6 +11,7 @@ RELEASE_DOC = ROOT / "docs" / "reference" / "release_process.md"
 PINE_LIKE_API_MATRIX = ROOT / "docs" / "reference" / "pine_like_api_matrix.md"
 CHECK_PS1 = ROOT / "scripts" / "check.ps1"
 CHECK_SH = ROOT / "scripts" / "check.sh"
+CI = ROOT / ".github" / "workflows" / "ci.yml"
 
 
 def test_release_process_documents_version_policy_and_gates() -> None:
@@ -24,7 +25,8 @@ def test_release_process_documents_version_policy_and_gates() -> None:
         "scripts/check.ps1",
         "scripts/check.sh",
         "pyne_runtime/py.typed",
-        "python -m pyne_runtime schema",
+        "temporary wheel environment",
+        "pyne schema",
         "CHANGELOG.md",
     ):
         assert required in body
@@ -104,3 +106,21 @@ def test_full_check_scripts_use_repo_local_temp_root() -> None:
         assert required in shell_body
 
     assert "--offline" in powershell_body
+
+    assert "mktemp -d" in shell_body
+    assert 'case "$CHECK_TMP" in' in shell_body
+    assert '"$CHECK_TMP_ROOT"/run.*' in shell_body
+    assert "trap cleanup EXIT" in shell_body
+    assert 'rm -rf -- "$CHECK_TMP"' in shell_body
+    assert 'rm -rf "$CHECK_TMP_ROOT"' not in shell_body
+
+
+def test_ci_runs_all_external_capture_parity_gates() -> None:
+    body = CI.read_text(encoding="utf-8")
+
+    for command in (
+        "strategy_capture_diff.py --assertion parity",
+        "ta_capture_diff.py --assertion parity",
+        "request_capture_diff.py --assertion parity",
+    ):
+        assert command in body

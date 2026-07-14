@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from capture_clean import ensure_safe_capture_clean_target
 from strategy_capture_status import (
     DEFAULT_GOLDEN_DIR,
     PRIORITY_FIXTURES,
@@ -51,8 +52,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.clean and args.out_dir.exists():
-        ensure_safe_clean_target(args.out_dir, args.golden_dir)
-        shutil.rmtree(args.out_dir)
+        if ensure_safe_clean_target(args.out_dir, args.golden_dir):
+            shutil.rmtree(args.out_dir)
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     entries = prepare_capture_files(
@@ -62,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         case_filter=set(args.case),
     )
     manifest = {
+        "capture_type": "strategy",
         "default_scope": "all" if args.all else "priority",
         "case_count": len(entries),
         "entries": entries,
@@ -325,17 +327,12 @@ def slugify(value: str) -> str:
     return slug or "case"
 
 
-def ensure_safe_clean_target(out_dir: Path, golden_dir: Path) -> None:
-    target = out_dir.resolve()
-    cwd = Path.cwd().resolve()
-    protected = {
-        cwd,
-        cwd.parent,
-        golden_dir.resolve(),
-        golden_dir.resolve().parent,
-    }
-    if target in protected:
-        raise SystemExit(f"refusing to clean protected directory: {out_dir}")
+def ensure_safe_clean_target(out_dir: Path, golden_dir: Path) -> bool:
+    return ensure_safe_capture_clean_target(
+        out_dir,
+        golden_dir,
+        capture_type="strategy",
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover

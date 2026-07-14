@@ -43,10 +43,12 @@ Before cutting a release candidate:
 
 3. Confirm the package smoke gate installs the built wheel and checks:
    - `pyne_runtime/py.typed` is present;
+   - `pyne_runtime` imports from the temporary wheel environment, not the
+     repository `src` tree or an inherited `PYTHONPATH`;
    - `python -m pyne_runtime --version` works;
-   - `python -m pyne_runtime schema` prints the public schema bundle;
-   - `python -m pyne_runtime validate` runs against a packaged example;
-   - `python -m pyne_runtime run` writes a successful result payload.
+   - the installed console entry point runs `pyne --version`, `pyne schema`,
+     and `pyne validate` successfully;
+   - `pyne run` writes a successful result payload.
 4. Confirm public API changes are reflected in:
    - [Public API](../api/public_api.md);
    - [Pine-Like API Matrix](pine_like_api_matrix.md), when script behavior

@@ -73,7 +73,16 @@ class DataProvider(Protocol):
         start: int,
         end: int,
     ) -> list[OHLCVBar]:
-        """Return OHLCV bars for ``symbol`` and ``timeframe`` in ``[start, end]``."""
+        """Return OHLCV bars for ``symbol`` and ``timeframe`` in ``[start, end]``.
+
+        Pyne initially expands ``start`` by a bounded requested-context warmup
+        window and sets ``end`` to the last chart bar's close boundary. A
+        non-empty response with insufficient actual pre-chart bars can trigger
+        up to six retries with four times the prior lookback. Providers should
+        therefore filter against every supplied coordinate range rather than
+        the raw chart opening-time range. Diagnostics and request errors expose
+        the final actual or attempted range.
+        """
 
 
 class RequestCapabilityProvider(Protocol):

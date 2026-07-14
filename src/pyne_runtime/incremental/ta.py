@@ -11,18 +11,22 @@ from .limits import IncrementalLimits, _LimitTracker
 class _StepSMA:
     def __init__(self, period: int) -> None:
         self.period = max(int(period), 1)
-        self.window: deque[float] = deque()
+        self.window: deque[float | None] = deque()
         self.sum = 0.0
+        self.valid_count = 0
 
     def update(self, value: Any) -> float | None:
-        if value is None:
-            return None
-        number = float(value)
+        number = _number_or_none(value)
         self.window.append(number)
-        self.sum += number
+        if number is not None:
+            self.sum += number
+            self.valid_count += 1
         if len(self.window) > self.period:
-            self.sum -= self.window.popleft()
-        if len(self.window) < self.period:
+            removed = self.window.popleft()
+            if removed is not None:
+                self.sum -= removed
+                self.valid_count -= 1
+        if len(self.window) < self.period or self.valid_count < self.period:
             return None
         return self.sum / self.period
 
@@ -33,20 +37,26 @@ class _StepEMA:
         self.alpha = 2.0 / (self.period + 1)
         self.count = 0
         self.seed_sum = 0.0
+        self.seed_count = 0
         self.ema: float | None = None
 
     def update(self, value: Any) -> float | None:
-        if value is None:
+        number = _number_or_none(value)
+        if self.ema is not None:
+            if number is None:
+                return self.ema
+            self.ema = self.alpha * number + (1 - self.alpha) * self.ema
             return self.ema
-        number = float(value)
-        if self.ema is None:
-            self.count += 1
+
+        self.count += 1
+        if number is not None:
             self.seed_sum += number
-            if self.count < self.period:
-                return None
-            self.ema = self.seed_sum / self.period
+            self.seed_count += 1
+        if self.count < self.period:
+            return None
+        if self.seed_count == 0:
             return self.ema
-        self.ema = self.alpha * number + (1 - self.alpha) * self.ema
+        self.ema = self.seed_sum / self.seed_count
         return self.ema
 
 
@@ -54,22 +64,25 @@ class _StepBOLL:
     def __init__(self, period: int, multiplier: float = 2.0) -> None:
         self.period = max(int(period), 1)
         self.multiplier = float(multiplier)
-        self.window: deque[float] = deque()
+        self.window: deque[float | None] = deque()
         self.sum = 0.0
         self.sumsq = 0.0
+        self.valid_count = 0
 
     def update(self, value: Any) -> tuple[float | None, float | None, float | None]:
-        if value is None:
-            return None, None, None
-        number = float(value)
+        number = _number_or_none(value)
         self.window.append(number)
-        self.sum += number
-        self.sumsq += number * number
+        if number is not None:
+            self.sum += number
+            self.sumsq += number * number
+            self.valid_count += 1
         if len(self.window) > self.period:
             removed = self.window.popleft()
-            self.sum -= removed
-            self.sumsq -= removed * removed
-        if len(self.window) < self.period:
+            if removed is not None:
+                self.sum -= removed
+                self.sumsq -= removed * removed
+                self.valid_count -= 1
+        if len(self.window) < self.period or self.valid_count < self.period:
             return None, None, None
         mid = self.sum / self.period
         variance = max(self.sumsq / self.period - mid * mid, 0.0)
@@ -105,12 +118,13 @@ class _StepRSI:
         self.avg_loss: float | None = None
 
     def update(self, value: Any) -> float | None:
-        if value is None:
-            return None
-        current = float(value)
+        current = _number_or_none(value)
+        if current is None:
+            self.prev = None
+            return self._current_value()
         if self.prev is None:
             self.prev = current
-            return None
+            return self._current_value()
         delta = current - self.prev
         self.prev = current
         gain = max(delta, 0.0)
@@ -128,6 +142,11 @@ class _StepRSI:
             self.avg_loss = (self.avg_loss * (self.period - 1) + loss) / self.period
         return _rsi_from_avgs(self.avg_gain, self.avg_loss)
 
+    def _current_value(self) -> float | None:
+        if self.avg_gain is None or self.avg_loss is None:
+            return None
+        return _rsi_from_avgs(self.avg_gain, self.avg_loss)
+
 
 class _StepATR:
     def __init__(self, period: int = 14) -> None:
@@ -139,13 +158,17 @@ class _StepATR:
 
     def update(self, bar_or_high: Any, low: Any = None, close: Any = None) -> float | None:
         if low is None and close is None:
-            high = float(getattr(bar_or_high, "high"))
-            low = float(getattr(bar_or_high, "low"))
-            close = float(getattr(bar_or_high, "close"))
+            high = _number_or_none(getattr(bar_or_high, "high"))
+            low = _number_or_none(getattr(bar_or_high, "low"))
+            close = _number_or_none(getattr(bar_or_high, "close"))
         else:
-            high = float(bar_or_high)
-            low = float(low)
-            close = float(close)
+            high = _number_or_none(bar_or_high)
+            low = _number_or_none(low)
+            close = _number_or_none(close)
+
+        if high is None or low is None:
+            self.prev_close = close
+            return self.atr
 
         if self.prev_close is None:
             tr = high - low
@@ -172,23 +195,22 @@ class _StepMonotonic:
         self.window: deque[tuple[int, float]] = deque()
 
     def update(self, value: Any) -> float | None:
-        if value is None:
-            return None
         self.index += 1
-        number = float(value)
         expiry = self.index - self.period
         while self.window and self.window[0][0] <= expiry:
             self.window.popleft()
-        if self.highest:
-            while self.window and self.window[-1][1] <= number:
-                self.window.pop()
-        else:
-            while self.window and self.window[-1][1] >= number:
-                self.window.pop()
-        self.window.append((self.index, number))
+        number = _number_or_none(value)
+        if number is not None:
+            if self.highest:
+                while self.window and self.window[-1][1] <= number:
+                    self.window.pop()
+            else:
+                while self.window and self.window[-1][1] >= number:
+                    self.window.pop()
+            self.window.append((self.index, number))
         if self.index + 1 < self.period:
             return None
-        return self.window[0][1]
+        return self.window[0][1] if self.window else None
 
 
 class IncrementalTaNamespace:
@@ -279,3 +301,10 @@ def _rsi_from_avgs(avg_gain: float, avg_loss: float) -> float:
         return 0.0
     rs = avg_gain / avg_loss
     return 100.0 - 100.0 / (1.0 + rs)
+
+
+def _number_or_none(value: Any) -> float | None:
+    if value is None:
+        return None
+    number = float(value)
+    return None if math.isnan(number) else number

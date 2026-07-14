@@ -538,7 +538,9 @@ Required tests:
 
 11. Callable exception fails predictably.
 
-12. Provider call range remains chart start/end.
+12. Provider call range follows the current request-provider schema: an initial
+    warmup-expanded range with bounded adaptive widening and a final chart-close
+    boundary.
 
 ## 8. Example Provider Dataset
 

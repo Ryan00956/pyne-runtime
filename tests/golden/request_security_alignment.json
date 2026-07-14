@@ -58,8 +58,8 @@
     [
       "BTCUSDT",
       "2",
-      10,
-      40
+      0,
+      50
     ]
   ],
   "expected_series": {

@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 import numpy as np
 
-from .values import is_na_sentinel, to_missing_scalar
+from .values import is_na_sentinel, is_na_value, to_missing_scalar
 
 
 SeriesLike = "PyneSeries | np.ndarray | list[Any] | tuple[Any, ...] | int | float | bool"
@@ -228,7 +228,10 @@ def _truthy(value: Any) -> np.ndarray:
         return arr
     if np.issubdtype(arr.dtype, np.number):
         return np.isfinite(arr) & (arr != 0)
-    return arr.astype(bool)
+    return np.vectorize(
+        lambda item: False if is_na_value(item) else bool(item),
+        otypes=[bool],
+    )(arr)
 
 
 def _switch_length(cases: tuple[Any, ...], default: Any) -> int:

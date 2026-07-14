@@ -57,6 +57,29 @@ def test_ta_capture_preflight_reports_missing_index(tmp_path: Path) -> None:
     assert "missing_capture_index" in completed.stdout
 
 
+def test_ta_capture_preflight_rejects_unknown_fixture_filter(tmp_path: Path) -> None:
+    manifest = _write_manifest(tmp_path)
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "ta_capture_preflight.py"),
+            str(manifest),
+            "--fixture",
+            "typo.json",
+            "--json",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 1
+    report = json.loads(completed.stdout)
+    assert report["counts"] == {"fixtures": 0, "ok": 0, "issues": 1}
+    assert report["issues"][0]["kind"] == "unknown_fixture_filter"
+
+
 def _write_manifest(tmp_path: Path) -> Path:
     manifest = tmp_path / "manifest.json"
     manifest.write_text(

@@ -136,6 +136,15 @@ def _resolve_requested_field(expression: PyneSeries | str) -> tuple[str, int]:
         )
     return field, offset
 
+
+def _field_expression_history_bars(
+    expression: PyneSeries | str | tuple[Any, ...] | list[Any],
+) -> int:
+    """Return the largest bars-back offset required by a field expression."""
+    items = expression if isinstance(expression, tuple | list) else (expression,)
+    return max((_resolve_requested_field(item)[1] for item in items), default=0)
+
+
 def _values_from_field_expression(
     expression: PyneSeries | str | tuple[Any, ...] | list[Any],
     requested: list[dict[str, Any]],
@@ -176,12 +185,20 @@ def _split_history_name(name: str) -> tuple[str, int]:
             code="PYNE_UNSUPPORTED_FEATURE",
         )
     try:
-        return field, int(raw_offset.rstrip("]"))
+        offset = int(raw_offset.rstrip("]"))
     except ValueError:
         raise PyneRequestError(
             f"Invalid request.security() history offset in expression '{name}'",
             code="PYNE_UNSUPPORTED_FEATURE",
         ) from None
+    if offset < 0:
+        raise PyneRequestError(
+            f"Negative request.security() history offset in expression '{name}' "
+            "is a forward reference and is not supported",
+            code="PYNE_UNSUPPORTED_FEATURE",
+        )
+    return field, offset
+
 
 def _apply_history_offset(values: list[float], offset: int) -> list[float]:
     if offset <= 0:

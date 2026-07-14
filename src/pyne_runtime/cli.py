@@ -66,7 +66,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if result.ok else 1
 
     if args.command == "validate":
-        diagnostics = validate(Path(args.script))
+        try:
+            diagnostics = validate(Path(args.script))
+        except (OSError, UnicodeError) as exc:
+            return _emit_cli_error("PYNE_CLI_INPUT_ERROR", str(exc))
         print(json.dumps({"ok": not diagnostics, "diagnostics": diagnostics}, indent=2))
         return 0 if not diagnostics else 1
 

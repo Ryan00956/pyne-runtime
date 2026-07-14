@@ -11,12 +11,29 @@ if [ -z "${PYTHON:-}" ]; then
     PYTHON="python"
   fi
 fi
-CHECK_TMP="${PYNE_CHECK_TMP:-$ROOT/.pyne-check-tmp}"
+CHECK_TMP_ROOT="${PYNE_CHECK_TMP:-$ROOT/.pyne-check-tmp}"
+mkdir -p "$CHECK_TMP_ROOT"
+CHECK_TMP_ROOT="$(CDPATH= cd -- "$CHECK_TMP_ROOT" && pwd)"
+CHECK_TMP="$(mktemp -d "$CHECK_TMP_ROOT/run.XXXXXX")"
 PYTEST_TMP="$CHECK_TMP/pytest"
 DIST="$CHECK_TMP/dist"
 
+cleanup() {
+  case "$CHECK_TMP" in
+    "$CHECK_TMP_ROOT"/run.*) rm -rf -- "$CHECK_TMP" ;;
+    *)
+      echo "refusing to clean unexpected check temp directory: $CHECK_TMP" >&2
+      return 1
+      ;;
+  esac
+}
+
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 cd "$ROOT"
-rm -rf "$CHECK_TMP"
 mkdir -p "$PYTEST_TMP"
 export TMPDIR="$CHECK_TMP"
 "$PYTHON" -m ruff check .

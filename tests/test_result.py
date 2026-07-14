@@ -100,3 +100,19 @@ def test_result_to_frame_disambiguates_duplicate_series_names() -> None:
     assert frame.to_dict(orient="records") == [
         {"time": 1, "Close": 1.0, "Close_2": 2.0},
     ]
+
+
+def test_result_to_frame_returns_time_column_for_empty_result() -> None:
+    frame = PyneResult(lines=[]).to_frame()
+
+    assert list(frame.columns) == ["time"]
+    assert frame.empty
+
+
+def test_result_to_frame_returns_time_column_when_all_points_lack_time() -> None:
+    result = PyneResult(lines=[{"name": "Close", "data": [{"value": None}]}])
+
+    frame = result.to_frame()
+
+    assert list(frame.columns) == ["time"]
+    assert frame.empty

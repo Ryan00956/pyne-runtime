@@ -61,8 +61,18 @@ def build_report(
     case_filter: set[str],
 ) -> dict[str, Any]:
     cases: list[dict[str, Any]] = []
-    issues: list[dict[str, Any]] = []
-    for entry in manifest.get("entries", []):
+    entries = manifest.get("entries", [])
+    available_cases = {entry.get("case") for entry in entries}
+    issues: list[dict[str, Any]] = [
+        {
+            "fixture": "",
+            "case": case_name,
+            "kind": "unknown_case_filter",
+            "message": f"case filter does not match the manifest: {case_name}",
+        }
+        for case_name in sorted(case_filter - available_cases)
+    ]
+    for entry in entries:
         if case_filter and entry["case"] not in case_filter:
             continue
         case_report = check_entry(entry, manifest_dir, export_dir)

@@ -61,6 +61,34 @@ class MyProvider:
         ]
 ```
 
+`start` and `end` are the actual inclusive fetch coordinates, not merely the
+first and last chart opening timestamps. For a chart with `N` loaded bars, Pyne
+initially requests:
+
+```text
+warmup_bars = max(N, largest direct field history offset)
+start = max(0, chart_start - warmup_bars * requested_timeframe_seconds)
+end = last chart bar close boundary
+```
+
+If that non-empty response contains fewer than `warmup_bars` actual bars before
+`chart_start`, Pyne widens the lookback by a factor of four and retries. It can
+widen at most six times, and stops earlier when the requirement is met,
+`start` reaches zero, or the provider returns a valid empty list. This is a
+bounded best effort: a long market closure, a listing boundary, or unavailable
+archive data can still leave requested history unavailable. It is not an
+unlimited-history promise.
+
+If the requested timeframe cannot be parsed, observed chart spacing is used for
+the initial warmup interval. A valid explicit `time_close` on the final chart
+bar defines `end`; otherwise Pyne uses the last positive chart interval, with
+the context's derived `time_close` as the single-bar fallback.
+
+For `request.security_lower_tf()`, provider retrieval remains inclusive
+`[start, end]`, while grouping uses the final half-open chart bucket
+`[last_chart_open, end)`. A lower-timeframe bar opening exactly at `end` is
+therefore not part of the last chart bar.
+
 Pass it through `pn.run(..., data_provider=provider)` or
 `PyneSettings(data_provider=provider)`. Both public entry points type the
 argument as `DataProvider | None` for IDE and static checker support.
@@ -89,6 +117,11 @@ same provider OHLCV response and requested metadata, while each expression is
 still evaluated independently. Pyne does not cache provider data across
 separate `pn.run()` executions.
 
+The cache records the final adaptively widened range. If a range exhausts the
+six-widening budget without enough pre-chart bars, the same or a smaller warmup
+requirement reuses that result instead of repeating the widening sequence. A
+larger requirement may continue widening from the cached range.
+
 A legitimate empty provider result (`[]`) is still a successful requested
 context: it is cached, records `bars=0`, and reports `status="ok"`. Only
 `PyneInvalidSymbolError` converted by `ignore_invalid_symbol=True` reports
@@ -106,7 +139,8 @@ Successful request calls append host-facing diagnostics under
 `result.meta["requestDiagnostics"]`. Each entry records `api`, `symbol`,
 `timeframe`, `start`, `end`, returned `bars`, `cacheHit`,
 `ignoreInvalidSymbol`, and `status`. Repeated calls for the same requested
-context set `cacheHit=True`.
+context set `cacheHit=True`. The recorded `start` and `end` are the final actual
+range after adaptive widening, not necessarily the initial calculated range.
 
 Providers may optionally declare request capabilities with either a
 `capabilities` attribute or a `capabilities()` method:
@@ -194,7 +228,8 @@ request coordinates in `result.errorDetail["requestProviderRequest"]`.
 | `expressionFailure` | `PYNE_RUNTIME_ERROR` | Yes | A callable request expression raised unexpectedly. |
 
 `requestProviderRequest` contains `api`, `symbol`, `timeframe`, `start`, and
-`end`, matching the request range Pyne passed to the provider contract.
+`end`, matching the provider range for the failed call. If a later adaptive
+widening attempt fails, these coordinates identify that final attempted range.
 The category table is contract-tested against both `request.security()` and
 `request.security_lower_tf()` so host error handling can branch on the same
 schema for either request API.
@@ -264,6 +299,10 @@ Pyne also accepts the string aliases `"gaps_on"`, `"gaps_off"`,
 `"barmerge.gaps_off"`, `"barmerge.lookahead_on"`, and
 `"barmerge.lookahead_off"`. Unknown `gaps` or `lookahead` values return
 `PYNE_UNSUPPORTED_FEATURE` before the provider is called.
+
+String history references use non-negative bars-back offsets. For example,
+`"close[1]"` is supported, while `"close[-1]"` is an unsupported forward
+reference and returns `PYNE_UNSUPPORTED_FEATURE`.
 
 ## Expression Thunks
 
@@ -353,6 +392,9 @@ request.security_lower_tf(
 provider and returns an array-per-chart-bar object. Pyne evaluates the
 expression in the requested lower-timeframe context, then groups requested bars
 into chart-bar buckets using `[chart_time, next_chart_time)`.
+
+Timeframe suffixes preserve case: lowercase `m` means minutes (`15m`), while
+uppercase `M` means months (`1M`).
 
 ```python
 lower = request.security_lower_tf("BTCUSDT", "1", lambda ctx: ctx.close)

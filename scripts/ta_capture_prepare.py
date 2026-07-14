@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from capture_clean import ensure_safe_capture_clean_target
 from ta_capture_status import DEFAULT_GOLDEN_DIR, PRIORITY_FIXTURES, TA_FIXTURE_GLOB
 
 
@@ -50,8 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.clean and args.out_dir.exists():
-        ensure_safe_clean_target(args.out_dir, args.golden_dir)
-        shutil.rmtree(args.out_dir)
+        if ensure_safe_clean_target(args.out_dir, args.golden_dir):
+            shutil.rmtree(args.out_dir)
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     entries = prepare_capture_files(
@@ -426,11 +427,12 @@ def render_readme(entries: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def ensure_safe_clean_target(out_dir: Path, golden_dir: Path) -> None:
-    resolved_out = out_dir.resolve()
-    resolved_golden = golden_dir.resolve()
-    if resolved_out == resolved_golden or resolved_golden in resolved_out.parents:
-        raise SystemExit(f"refusing to clean golden fixture directory: {out_dir}")
+def ensure_safe_clean_target(out_dir: Path, golden_dir: Path) -> bool:
+    return ensure_safe_capture_clean_target(
+        out_dir,
+        golden_dir,
+        capture_type="ta",
+    )
 
 
 def slugify(value: str) -> str:

@@ -1,14 +1,28 @@
 """Long-lived incremental execution session."""
 from __future__ import annotations
 
+import builtins as python_builtins
+import copy
 import inspect
-from types import SimpleNamespace
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from types import (
+    BuiltinFunctionType,
+    BuiltinMethodType,
+    FunctionType,
+    GetSetDescriptorType,
+    MemberDescriptorType,
+    MethodType,
+    ModuleType,
+    SimpleNamespace,
+)
 from typing import Any, Callable
 
 from ..barstate import PyneIncrementalBarState
 from ..cache import pyne as pyne_cache_namespace
 from ..collections import ArrayNamespace, MapNamespace, MatrixNamespace, order_namespace
 from ..color import color as color_singleton
+from ..data import PyneData
 from ..math_ext import PyneMath
 from ..security import (
     PyneSecurityError,
@@ -37,7 +51,7 @@ class PyneIncrementalSession:
         settings: PyneSettings | None = None,
     ) -> None:
         self.script = script
-        self.params = params or {}
+        self.params = _readonly_params(params or {})
         self.settings = settings or PyneSettings.from_env()
         self.policy = policy or PyneSecurityPolicy.from_settings(self.settings, security_mode)
         self.security_mode = self.policy.mode
@@ -54,12 +68,16 @@ class PyneIncrementalSession:
         self._closed_count = 0
         self._active_preview_time: int | None = None
         self._preview_varip_states: dict[str, Any] = {}
+        self._base_namespace_names: set[str] = set()
+        self._base_namespace_values: dict[str, Any] = {}
 
     def prepare(self) -> None:
         if self._prepared:
             return
         validate_script_security(self.script, self.policy)
         self._globals = self._build_namespace()
+        self._base_namespace_names = set(self._globals)
+        self._base_namespace_values = dict(self._globals)
         with execution_timeout(self.policy.timeout_seconds):
             exec(self.script, self._globals)  # noqa: S102
         self._init_func = self._globals.get("init") if callable(self._globals.get("init")) else None
@@ -82,6 +100,9 @@ class PyneIncrementalSession:
         start_s: int | None = None,
         end_s: int | None = None,
     ) -> IncrementalPyneResult:
+        if len(ohlcv) > self.policy.max_bars:
+            raise PyneSecurityError(f"Too many data points (max {self.policy.max_bars})")
+        PyneData.from_ohlcv(ohlcv, allow_empty=True)
         self.prepare()
         self._ctx = IncrementalContext(
             params=self.params,
@@ -94,6 +115,7 @@ class PyneIncrementalSession:
         )
         self._call_optional(self._init_func, self._ctx)
         self._closed_count = 0
+        self.last_closed_time = None
         self._active_preview_time = None
         self._preview_varip_states = {}
         last_bar_index = len(ohlcv) - 1
@@ -120,6 +142,9 @@ class PyneIncrementalSession:
         return self._ctx.to_result(start_s=start_s, end_s=end_s)
 
     def on_bar_closed(self, item: dict[str, Any]) -> IncrementalPyneResult:
+        self._ensure_bar_capacity(1)
+        bar = IncrementalBar.from_dict(item, is_confirmed=True)
+        self._validate_event_time(bar, preview=False)
         self.prepare()
         if self._ctx is None:
             self._ctx = IncrementalContext(
@@ -132,7 +157,6 @@ class PyneIncrementalSession:
                 max_drawing_objects=self.settings.max_drawing_objects,
             )
             self._call_optional(self._init_func, self._ctx)
-        bar = IncrementalBar.from_dict(item, is_confirmed=True)
         bar_index = self._closed_count
         had_preview = self._active_preview_time == bar.time
         self._run_bar(
@@ -153,12 +177,15 @@ class PyneIncrementalSession:
         )
         self.last_closed_time = bar.time
         self._closed_count = bar_index + 1
-        if had_preview:
+        if self._active_preview_time is not None and bar.time >= self._active_preview_time:
             self._active_preview_time = None
             self._preview_varip_states = {}
         return self._ctx.to_result(start_s=bar.time, end_s=bar.time)
 
     def on_bar_updated(self, item: dict[str, Any]) -> IncrementalPyneResult:
+        self._ensure_bar_capacity(1)
+        bar = IncrementalBar.from_dict(item, is_confirmed=False)
+        self._validate_event_time(bar, preview=True)
         self.prepare()
         if self._ctx is None:
             self._ctx = IncrementalContext(
@@ -171,7 +198,6 @@ class PyneIncrementalSession:
                 max_drawing_objects=self.settings.max_drawing_objects,
             )
             self._call_optional(self._init_func, self._ctx)
-        bar = IncrementalBar.from_dict(item, is_confirmed=False)
         preview_ctx = self._ctx.clone_for_preview()
         bar_index = self._closed_count
         is_new = self._active_preview_time != bar.time
@@ -212,13 +238,69 @@ class PyneIncrementalSession:
         previous_ctx = self._active_ctx
         self._active_ctx = ctx
         try:
-            with execution_timeout(self.policy.timeout_seconds):
-                self._call_required(func, ctx, bar)
+            with self._preview_global_scope(enabled=preview, func=func) as active_func:
+                with execution_timeout(self.policy.timeout_seconds):
+                    self._call_required(active_func, ctx, bar)
         finally:
             self._active_ctx = previous_ctx
         ctx.strategy.end_bar()
         if barstate.isconfirmed and not preview:
             ctx.commit_state_history()
+
+    def _ensure_bar_capacity(self, additional: int) -> None:
+        requested = self._closed_count + max(int(additional), 0)
+        if requested > self.policy.max_bars:
+            raise PyneSecurityError(f"Too many data points (max {self.policy.max_bars})")
+
+    def _validate_event_time(self, bar: IncrementalBar, *, preview: bool) -> None:
+        if self.last_closed_time is not None and bar.time <= self.last_closed_time:
+            raise ValueError("OHLCV time values must be strictly increasing")
+        if self._active_preview_time is not None and bar.time < self._active_preview_time:
+            event = "preview" if preview else "closed"
+            raise ValueError(f"Incremental {event} bar time cannot move backwards")
+
+    @contextmanager
+    def _preview_global_scope(
+        self,
+        *,
+        enabled: bool,
+        func: Callable[..., Any] | None,
+    ) -> Iterator[Callable[..., Any] | None]:
+        if not enabled:
+            yield func
+            return
+
+        original_globals = dict(self._globals)
+        user_globals = {
+            key: value
+            for key, value in original_globals.items()
+            if key not in self._base_namespace_names
+            or value is not self._base_namespace_values[key]
+        }
+        try:
+            preview_globals, memo = _clone_preview_globals(
+                original_globals,
+                script_globals=self._globals,
+                base_values=self._base_namespace_values,
+            )
+        except PyneSecurityError:
+            raise
+        except Exception as exc:
+            failed_names = _unisolatable_preview_globals(user_globals)
+            names = ", ".join(failed_names) if failed_names else "unknown"
+            raise PyneSecurityError(
+                f"Incremental preview cannot isolate module globals: {names}. "
+                "Use deepcopy-compatible values or keep intrabar state in ctx.varip()."
+            ) from exc
+
+        preview_func = memo.get(id(func), func) if func is not None else None
+        self._globals.clear()
+        self._globals.update(preview_globals)
+        try:
+            yield preview_func
+        finally:
+            self._globals.clear()
+            self._globals.update(original_globals)
 
     def _build_namespace(self) -> dict[str, Any]:
         def indicator(title: str = "", overlay: bool = True, **kwargs: Any) -> None:
@@ -473,3 +555,420 @@ class PyneIncrementalSession:
             )
             self._call_optional(self._init_func, self._ctx)
         return self._ctx.to_result(start_s=start_s, end_s=end_s)
+
+
+class _ReadOnlyMapping(Mapping[Any, Any]):
+    __slots__ = ("__values",)
+
+    def __init__(self, values: Mapping[Any, Any]) -> None:
+        object.__setattr__(self, "_ReadOnlyMapping__values", dict(values))
+
+    def __getattribute__(self, name: str) -> Any:
+        if name in {"_values", "__values", "_ReadOnlyMapping__values", "__dict__"}:
+            raise AttributeError("incremental params storage is private")
+        return object.__getattribute__(self, name)
+
+    def __getitem__(self, key: Any) -> Any:
+        values = object.__getattribute__(self, "_ReadOnlyMapping__values")
+        return _param_value_for_read(values[key])
+
+    def __iter__(self) -> Iterator[Any]:
+        values = object.__getattribute__(self, "_ReadOnlyMapping__values")
+        return iter(values)
+
+    def __len__(self) -> int:
+        values = object.__getattribute__(self, "_ReadOnlyMapping__values")
+        return len(values)
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "_ReadOnlyMapping":
+        return self
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Mapping):
+            return False
+        return dict(self.items()) == dict(other.items())
+
+    def __repr__(self) -> str:
+        values = object.__getattribute__(self, "_ReadOnlyMapping__values")
+        return repr(values)
+
+
+def _readonly_params(params: Mapping[Any, Any]) -> _ReadOnlyMapping:
+    return _ReadOnlyMapping({key: _freeze_param_value(value) for key, value in params.items()})
+
+
+def _freeze_param_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return _readonly_params(value)
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_param_value(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(_freeze_param_value(item) for item in value)
+    if _is_deeply_immutable(value):
+        return value
+    _validate_param_class_state(value)
+    return _isolated_param_copy(value, label="caller params")
+
+
+def _param_value_for_read(value: Any) -> Any:
+    if isinstance(value, _ReadOnlyMapping) or _is_deeply_immutable(value):
+        return value
+    if isinstance(value, tuple):
+        return tuple(_param_value_for_read(item) for item in value)
+    if isinstance(value, frozenset):
+        return frozenset(_param_value_for_read(item) for item in value)
+    return _isolated_param_copy(value, label="incremental params")
+
+
+def _isolated_param_copy(value: Any, *, label: str) -> Any:
+    try:
+        cloned = copy.deepcopy(value)
+    except Exception as exc:
+        raise PyneSecurityError(
+            f"{label} contains a value that cannot be copied safely: "
+            f"{type(value).__qualname__}"
+        ) from exc
+    shared = _mutable_object_ids(value) & _mutable_object_ids(cloned)
+    if shared:
+        raise PyneSecurityError(
+            f"{label} contains shared mutable state that cannot be exposed safely: "
+            f"{type(value).__qualname__}"
+        )
+    return cloned
+
+
+def _validate_param_class_state(value: Any) -> None:
+    cls = type(value)
+    if cls.__module__ == "builtins":
+        return
+    for name, item in vars(cls).items():
+        if name.startswith("__"):
+            continue
+        if isinstance(
+            item,
+            (
+                FunctionType,
+                BuiltinFunctionType,
+                staticmethod,
+                classmethod,
+                property,
+                MemberDescriptorType,
+                GetSetDescriptorType,
+            ),
+        ):
+            continue
+        if not _is_deeply_immutable(item):
+            raise PyneSecurityError(
+                "caller params contains mutable class-level state that cannot be "
+                f"exposed safely: {cls.__qualname__}.{name}"
+            )
+
+
+def _mutable_object_ids(value: Any) -> set[int]:
+    mutable: set[int] = set()
+    seen: set[int] = set()
+    pending = [value]
+    while pending:
+        current = pending.pop()
+        identity = id(current)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        if isinstance(current, _ReadOnlyMapping) or _is_deeply_immutable(current):
+            continue
+        if isinstance(
+            current,
+            (
+                FunctionType,
+                BuiltinFunctionType,
+                BuiltinMethodType,
+                MethodType,
+                ModuleType,
+                type,
+            ),
+        ):
+            mutable.add(identity)
+            continue
+        if isinstance(current, tuple | frozenset):
+            pending.extend(current)
+            continue
+        mutable.add(identity)
+        if isinstance(current, Mapping):
+            pending.extend(current.keys())
+            pending.extend(current.values())
+        elif isinstance(current, (list, set)):
+            pending.extend(current)
+        elif hasattr(current, "__dict__"):
+            pending.extend(vars(current).values())
+    return mutable
+
+
+def _is_deeply_immutable(value: Any) -> bool:
+    if value is None or isinstance(value, (bool, int, float, complex, str, bytes, range)):
+        return True
+    if isinstance(value, tuple | frozenset):
+        return all(_is_deeply_immutable(item) for item in value)
+    return False
+
+
+def _clone_preview_globals(
+    values: Mapping[str, Any],
+    *,
+    script_globals: dict[str, Any],
+    base_values: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[int, Any]]:
+    class_names = _script_class_names(values, script_globals=script_globals)
+    if class_names:
+        names = ", ".join(class_names)
+        raise PyneSecurityError(
+            f"Incremental preview cannot safely isolate script classes: {names}. "
+            "Keep preview state in module values or ctx.varip()."
+        )
+
+    script_functions = _collect_functions(values, script_globals=script_globals)
+    closure_names = sorted(
+        {func.__qualname__ for func in script_functions if func.__closure__}
+    )
+    if closure_names:
+        names = ", ".join(closure_names)
+        raise PyneSecurityError(
+            f"Incremental preview cannot safely isolate function closures: {names}. "
+            "Keep preview state in module values or ctx.varip()."
+        )
+
+    base_functions = _collect_functions(base_values, script_globals=None)
+    cloned_functions = script_functions | base_functions
+    memo = _preview_copy_memo(values)
+    clones: list[tuple[FunctionType, FunctionType]] = []
+    for original in cloned_functions:
+        function_globals = (
+            script_globals if original.__globals__ is script_globals else original.__globals__
+        )
+        cloned = FunctionType(
+            original.__code__,
+            function_globals,
+            name=original.__name__,
+            argdefs=None,
+            closure=original.__closure__,
+        )
+        memo[id(original)] = cloned
+        clones.append((original, cloned))
+
+    preview_globals = copy.deepcopy(dict(values), memo)
+    for original, cloned in clones:
+        try:
+            cloned.__defaults__ = copy.deepcopy(original.__defaults__, memo)
+            cloned.__kwdefaults__ = copy.deepcopy(original.__kwdefaults__, memo)
+            cloned.__annotations__ = copy.deepcopy(original.__annotations__, memo)
+            cloned.__dict__.update(copy.deepcopy(original.__dict__, memo))
+        except Exception as exc:
+            raise PyneSecurityError(
+                "Incremental preview cannot isolate mutable function state: "
+                f"{original.__qualname__}. Keep state in module values or ctx.varip()."
+            ) from exc
+        cloned.__doc__ = original.__doc__
+        cloned.__module__ = original.__module__
+        cloned.__qualname__ = original.__qualname__
+    return preview_globals, memo
+
+
+def _preview_copy_memo(value: Any) -> dict[int, Any]:
+    memo: dict[int, Any] = {}
+    module_proxies: dict[int, _PreviewModuleProxy] = {}
+    seen: set[int] = set()
+    pending = [value]
+    while pending:
+        current = pending.pop()
+        identity = id(current)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        if isinstance(current, ModuleType):
+            proxy = module_proxies.setdefault(identity, _PreviewModuleProxy(current))
+            memo[identity] = proxy
+        elif isinstance(
+            current,
+            (BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType, type),
+        ):
+            memo[identity] = current
+        elif isinstance(current, Mapping):
+            pending.extend(current.keys())
+            pending.extend(current.values())
+        elif isinstance(current, (list, tuple, set, frozenset)):
+            pending.extend(current)
+        elif hasattr(current, "__dict__"):
+            pending.extend(vars(current).values())
+    return memo
+
+
+def _collect_functions(
+    value: Any,
+    *,
+    script_globals: dict[str, Any] | None,
+) -> set[FunctionType]:
+    functions: set[FunctionType] = set()
+    seen: set[int] = set()
+    pending = [value]
+    while pending:
+        current = pending.pop()
+        identity = id(current)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        if isinstance(current, FunctionType):
+            if script_globals is None or current.__globals__ is script_globals:
+                functions.add(current)
+                pending.extend(current.__defaults__ or ())
+                pending.extend((current.__kwdefaults__ or {}).values())
+                pending.extend(current.__dict__.values())
+            continue
+        if isinstance(current, (ModuleType, type, BuiltinFunctionType, BuiltinMethodType)):
+            continue
+        if isinstance(current, Mapping):
+            pending.extend(current.keys())
+            pending.extend(current.values())
+        elif isinstance(current, (list, tuple, set, frozenset)):
+            pending.extend(current)
+        elif isinstance(current, SimpleNamespace):
+            pending.extend(vars(current).values())
+    return functions
+
+
+def _script_class_names(
+    value: Any,
+    *,
+    script_globals: dict[str, Any],
+) -> list[str]:
+    names: set[str] = set()
+    seen: set[int] = set()
+    pending = [value]
+    while pending:
+        current = pending.pop()
+        identity = id(current)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        candidate = current if isinstance(current, type) else type(current)
+        is_unregistered_builtin_class = (
+            isinstance(current, type)
+            and candidate.__module__ == "builtins"
+            and getattr(python_builtins, candidate.__name__, None) is not candidate
+        )
+        if is_unregistered_builtin_class or _is_script_class(
+            candidate,
+            script_globals=script_globals,
+        ):
+            names.add(candidate.__qualname__)
+            continue
+        if isinstance(current, FunctionType):
+            pending.extend(current.__defaults__ or ())
+            pending.extend((current.__kwdefaults__ or {}).values())
+            pending.extend(current.__dict__.values())
+        elif isinstance(current, Mapping):
+            pending.extend(current.keys())
+            pending.extend(current.values())
+        elif isinstance(current, (list, tuple, set, frozenset)):
+            pending.extend(current)
+    return sorted(names)
+
+
+def _is_script_class(cls: type[Any], *, script_globals: dict[str, Any]) -> bool:
+    for item in vars(cls).values():
+        functions: tuple[Any, ...]
+        if isinstance(item, (staticmethod, classmethod)):
+            functions = (item.__func__,)
+        elif isinstance(item, property):
+            functions = (item.fget, item.fset, item.fdel)
+        else:
+            functions = (item,)
+        if any(
+            isinstance(func, FunctionType) and func.__globals__ is script_globals
+            for func in functions
+        ):
+            return True
+    return False
+
+
+_RISKY_MODULE_CALLS = {
+    "clear",
+    "disable",
+    "enable",
+    "reset",
+    "seed",
+    "set_state",
+    "setbufsize",
+    "seterr",
+    "seterrcall",
+    "set_numeric_ops",
+    "set_printoptions",
+    "set_string_function",
+}
+
+
+class _PreviewModuleProxy:
+    __slots__ = ("_cache", "_module")
+
+    def __init__(self, module: ModuleType) -> None:
+        object.__setattr__(self, "_module", module)
+        object.__setattr__(self, "_cache", {})
+
+    def __getattribute__(self, name: str) -> Any:
+        if name in {"_module", "_cache", "__dict__"}:
+            raise PyneSecurityError(
+                "Incremental preview cannot expose mutable external module state"
+            )
+        if name in {"__class__", "__repr__", "__getattr__", "__setattr__", "__delattr__"}:
+            return object.__getattribute__(self, name)
+        return object.__getattribute__(self, name)
+
+    def __getattr__(self, name: str) -> Any:
+        module = object.__getattribute__(self, "_module")
+        cache = object.__getattribute__(self, "_cache")
+        if name in cache:
+            return cache[name]
+        value = getattr(module, name)
+        if isinstance(value, ModuleType):
+            cloned: Any = _PreviewModuleProxy(value)
+        elif callable(value):
+            if name.lower() in _RISKY_MODULE_CALLS:
+                raise PyneSecurityError(
+                    "Incremental preview cannot call stateful external module API: "
+                    f"{module.__name__}.{name}"
+                )
+            cloned = value
+        elif _is_deeply_immutable(value):
+            cloned = value
+        else:
+            try:
+                cloned = copy.deepcopy(value, _preview_copy_memo(value))
+            except Exception as exc:
+                raise PyneSecurityError(
+                    "Incremental preview cannot isolate external module attribute: "
+                    f"{module.__name__}.{name}"
+                ) from exc
+        cache[name] = cloned
+        return cloned
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        module = object.__getattribute__(self, "_module")
+        raise PyneSecurityError(
+            "Incremental preview cannot mutate external module state: "
+            f"{module.__name__}.{name}"
+        )
+
+    def __delattr__(self, name: str) -> None:
+        self.__setattr__(name, None)
+
+    def __repr__(self) -> str:
+        module = object.__getattribute__(self, "_module")
+        return f"<preview module proxy {module.__name__}>"
+
+
+def _unisolatable_preview_globals(values: Mapping[str, Any]) -> list[str]:
+    failed: list[str] = []
+    for name, value in values.items():
+        try:
+            copy.deepcopy(value, _preview_copy_memo(value))
+        except Exception:
+            failed.append(name)
+    return failed

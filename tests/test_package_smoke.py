@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from importlib.util import module_from_spec, spec_from_file_location
@@ -65,6 +66,83 @@ def test_package_smoke_offline_commands_reuse_local_dependencies() -> None:
         "--no-deps",
         str(wheel),
     ]
+
+
+def test_package_smoke_sanitizes_source_import_environment() -> None:
+    module = _load_package_smoke()
+
+    env = module._sanitized_env({
+        "PATH": "bin",
+        "PYTHONPATH": "repo/src",
+        "PYTHONHOME": "host-python",
+        "PYTHONOPTIMIZE": "2",
+        "VIRTUAL_ENV": "repo/.venv",
+    })
+
+    assert env["PATH"] == "bin"
+    assert env["PYTHONNOUSERSITE"] == "1"
+    assert env["PYTHONSAFEPATH"] == "1"
+    assert "PYTHONPATH" not in env
+    assert "PYTHONHOME" not in env
+    assert "PYTHONOPTIMIZE" not in env
+    assert "VIRTUAL_ENV" not in env
+
+
+def test_package_smoke_checks_wheel_import_location(tmp_path: Path) -> None:
+    module = _load_package_smoke()
+
+    command = module._wheel_import_check_command(
+        Path("python"),
+        tmp_path / "venv",
+        ROOT,
+    )
+
+    assert command[:2] == ["python", "-c"]
+    assert "pyne_runtime.__file__" in command[2]
+    assert "wheel import escaped smoke venv" in command[2]
+    assert repr(str((ROOT / "src").resolve())) in command[2]
+    assert "assert " not in command[2]
+    assert "raise SystemExit" in command[2]
+
+
+def test_package_smoke_import_check_cannot_be_disabled_by_optimization(
+    tmp_path: Path,
+) -> None:
+    module = _load_package_smoke()
+    outside = tmp_path / "outside"
+    package = outside / "pyne_runtime"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    command = module._wheel_import_check_command(
+        Path(sys.executable),
+        tmp_path / "venv",
+        tmp_path / "repo",
+    )
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(outside)
+    env["PYTHONOPTIMIZE"] = "2"
+
+    completed = subprocess.run(
+        command,
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "wheel import escaped smoke venv" in completed.stderr
+
+
+def test_package_smoke_resolves_console_entry_point(tmp_path: Path) -> None:
+    module = _load_package_smoke()
+
+    path = module._venv_console_script(tmp_path / "venv")
+
+    if sys.platform == "win32":
+        assert path == tmp_path / "venv" / "Scripts" / "pyne.exe"
+    else:
+        assert path == tmp_path / "venv" / "bin" / "pyne"
 
 
 def _load_package_smoke() -> ModuleType:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -43,27 +44,53 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory(prefix="pyne-runtime-smoke-") as tmp:
         tmp_path = Path(tmp)
         venv_dir = tmp_path / "venv"
-        _run(_venv_create_command(args.python, venv_dir, offline=args.offline))
+        clean_env = _sanitized_env()
+        _run(
+            _venv_create_command(args.python, venv_dir, offline=args.offline),
+            cwd=tmp_path,
+            env=clean_env,
+        )
         python = _venv_python(venv_dir)
         if not args.offline:
-            _run([str(python), "-m", "pip", "install", "--upgrade", "pip"])
-        _run(_wheel_install_command(python, wheel, offline=args.offline))
+            _run(
+                [str(python), "-m", "pip", "install", "--upgrade", "pip"],
+                cwd=tmp_path,
+                env=clean_env,
+            )
+        _run(
+            _wheel_install_command(python, wheel, offline=args.offline),
+            cwd=tmp_path,
+            env=clean_env,
+        )
 
-        _run(_type_marker_check_command(python))
-        _run([str(python), "-m", "pyne_runtime", "--version"])
-        schema = _run_json([str(python), "-m", "pyne_runtime", "schema"])
+        _run(_type_marker_check_command(python), cwd=tmp_path, env=clean_env)
+        _run(
+            _wheel_import_check_command(python, venv_dir, repo_root),
+            cwd=tmp_path,
+            env=clean_env,
+        )
+        _run(
+            [str(python), "-m", "pyne_runtime", "--version"],
+            cwd=tmp_path,
+            env=clean_env,
+        )
+        pyne = _venv_console_script(venv_dir)
+        _run([str(pyne), "--version"], cwd=tmp_path, env=clean_env)
+        schema = _run_json(
+            [str(pyne), "schema"],
+            cwd=tmp_path,
+            env=clean_env,
+        )
         if schema["output"]["schemaVersion"] != 1:
             raise RuntimeError("unexpected output schema version")
 
         script = repo_root / "examples" / "host_output_contract.py"
         ohlcv = repo_root / "examples" / "sample_ohlcv.csv"
-        _run([str(python), "-m", "pyne_runtime", "validate", str(script)])
+        _run([str(pyne), "validate", str(script)], cwd=tmp_path, env=clean_env)
 
         out = tmp_path / "result.json"
         _run([
-            str(python),
-            "-m",
-            "pyne_runtime",
+            str(pyne),
             "run",
             str(script),
             "--ohlcv",
@@ -72,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
             "inline",
             "--out",
             str(out),
-        ])
+        ], cwd=tmp_path, env=clean_env)
         payload = json.loads(out.read_text(encoding="utf-8"))
         if not payload.get("ok"):
             raise RuntimeError(f"smoke run failed: {payload.get('error')}")
@@ -93,6 +120,12 @@ def _venv_python(venv_dir: Path) -> Path:
     if sys.platform == "win32":
         return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
+
+
+def _venv_console_script(venv_dir: Path) -> Path:
+    if sys.platform == "win32":
+        return venv_dir / "Scripts" / "pyne.exe"
+    return venv_dir / "bin" / "pyne"
 
 
 def _venv_create_command(python: str, venv_dir: Path, *, offline: bool) -> list[str]:
@@ -122,12 +155,60 @@ def _type_marker_check_command(python: Path) -> list[str]:
     ]
 
 
-def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, check=True, text=True)
+def _wheel_import_check_command(
+    python: Path,
+    venv_dir: Path,
+    repo_root: Path,
+) -> list[str]:
+    return [
+        str(python),
+        "-c",
+        (
+            "from pathlib import Path\n"
+            "import pyne_runtime\n"
+            "module = Path(pyne_runtime.__file__).resolve()\n"
+            f"venv = Path({str(venv_dir.resolve())!r})\n"
+            f"source = Path({str((repo_root / 'src').resolve())!r})\n"
+            "if not module.is_relative_to(venv):\n"
+            "    raise SystemExit(f'wheel import escaped smoke venv: {module}')\n"
+            "if module.is_relative_to(source):\n"
+            "    raise SystemExit(f'wheel smoke imported repository source: {module}')\n"
+        ),
+    ]
 
 
-def _run_json(command: list[str]) -> dict[str, object]:
-    result = subprocess.run(command, check=True, capture_output=True, text=True)
+def _sanitized_env(source: dict[str, str] | None = None) -> dict[str, str]:
+    env = dict(os.environ if source is None else source)
+    for key in ("PYTHONHOME", "PYTHONOPTIMIZE", "PYTHONPATH", "VIRTUAL_ENV"):
+        env.pop(key, None)
+    env["PYTHONNOUSERSITE"] = "1"
+    env["PYTHONSAFEPATH"] = "1"
+    return env
+
+
+def _run(
+    command: list[str],
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, check=True, text=True, cwd=cwd, env=env)
+
+
+def _run_json(
+    command: list[str],
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> dict[str, object]:
+    result = subprocess.run(
+        command,
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        env=env,
+    )
     payload = json.loads(result.stdout)
     if not isinstance(payload, dict):
         raise RuntimeError("expected JSON object")

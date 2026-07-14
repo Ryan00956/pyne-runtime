@@ -92,7 +92,7 @@
       "BTCUSDT",
       "60",
       0,
-      360
+      480
     ]
   ],
   "expected_series": {

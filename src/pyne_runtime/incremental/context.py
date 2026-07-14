@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import asdict
 from typing import Any
 
@@ -24,7 +25,7 @@ class IncrementalContext(IncrementalDrawingMixin):
     def __init__(
         self,
         *,
-        params: dict[str, Any],
+        params: Mapping[str, Any],
         meta: dict[str, Any] | None = None,
         limits: IncrementalLimits | None = None,
         syminfo: SymbolInfo | None = None,

@@ -91,14 +91,15 @@ def test_strategy_capture_preflight_case_filter(tmp_path: Path) -> None:
             "other",
             "--json",
         ],
-        check=True,
         cwd=ROOT,
         capture_output=True,
         text=True,
     )
 
     report = json.loads(completed.stdout)
-    assert report["counts"] == {"cases": 0, "ok": 0, "issues": 0}
+    assert completed.returncode == 1
+    assert report["counts"] == {"cases": 0, "ok": 0, "issues": 1}
+    assert report["issues"][0]["kind"] == "unknown_case_filter"
 
 
 def write_pack(tmp_path: Path) -> Path:

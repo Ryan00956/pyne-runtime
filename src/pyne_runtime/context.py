@@ -58,6 +58,7 @@ class PyneContext:
     _bar_index: PyneSeries | None = field(default=None, repr=False)
     _last_bar_index: PyneSeries | None = field(default=None, repr=False)
     _barstate: PyneBarState | None = field(default=None, repr=False)
+    _time_close_explicit: tuple[bool, ...] = field(default=(), repr=False)
 
     @classmethod
     def from_ohlcv(
@@ -101,6 +102,7 @@ class PyneContext:
             timeframe=timeframe_info,
             session=build_session_namespace(ohlcv, session),
             bar_count=len(ohlcv),
+            _time_close_explicit=tuple(item.get("time_close") is not None for item in ohlcv),
         )
 
     @property

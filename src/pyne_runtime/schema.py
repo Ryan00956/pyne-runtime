@@ -16,7 +16,7 @@ from ._request_contract import (
 PYNE_INPUT_SCHEMA_VERSION = 1
 PYNE_OUTPUT_SCHEMA_VERSION = 1
 PYNE_PARAM_SCHEMA_VERSION = 1
-PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 8
+PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 9
 PYNE_STRATEGY_REPORT_SCHEMA_VERSION = 1
 
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
@@ -451,8 +451,23 @@ REQUEST_PROVIDER_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
     ],
     "versions": [
         {
-            "version": 8,
+            "version": 9,
             "status": "current",
+            "breakingChanges": [
+                "Provider start/end coordinates now describe a warmup-expanded "
+                "fetch window ending at the last chart close boundary instead of "
+                "the raw first/last chart opening-time range.",
+            ],
+            "notes": [
+                "Keeps the inclusive get_ohlcv(symbol, timeframe, start, end) "
+                "signature and requested-context cache key.",
+                "Adds bounded adaptive warmup widening and complete final "
+                "lower-timeframe chart-bucket retrieval.",
+            ],
+        },
+        {
+            "version": 8,
+            "status": "previous",
             "breakingChanges": [],
             "notes": [
                 "Adds request.security_lower_tf ignore_invalid_timeframe support "
@@ -593,9 +608,40 @@ def request_provider_schema() -> dict[str, Any]:
         "supportedApis": [dict(item) for item in REQUEST_PROVIDER_SUPPORTED_APIS],
         "requiredBarFields": list(OHLCV_FIELDS),
         "range": {
-            "start": "Chart start time as Unix seconds",
-            "end": "Chart end time as Unix seconds",
-            "semantics": "Provider should return bars relevant to [start, end]",
+            "start": (
+                "Warmup-expanded current request start time as Unix seconds, "
+                "clamped to 0"
+            ),
+            "end": "Last chart bar close boundary as Unix seconds",
+            "semantics": "Provider should return bars relevant to inclusive [start, end]",
+            "warmup": (
+                "initially max(chart bar count, direct field history offset) "
+                "requested-timeframe bars; unknown requested timeframes fall back "
+                "to observed chart spacing"
+            ),
+            "adaptiveWidening": {
+                "condition": (
+                    "a non-empty provider result contains fewer actual bars before "
+                    "chart_start than the warmup requirement"
+                ),
+                "factor": 4,
+                "maxWidenings": 6,
+                "stopConditions": [
+                    "warmup requirement satisfied",
+                    "valid empty provider result",
+                    "start reaches 0",
+                    "maximum widening count reached",
+                ],
+                "guarantee": (
+                    "bounded best effort only; gaps longer than the widening budget "
+                    "can still leave requested history unavailable"
+                ),
+            },
+            "lowerTimeframeBoundary": (
+                "request.security_lower_tf groups the final chart bar as [last open, end), "
+                "using explicit final time_close or the last positive chart interval; "
+                "a provider bar opening exactly at end is not included in that group"
+            ),
         },
         "capabilities": {
             "declaredBy": "optional capabilities attribute or capabilities() method",
@@ -626,6 +672,10 @@ def request_provider_schema() -> dict[str, Any]:
                 "requested metadata",
             ],
             "separateRuns": "provider data is not cached across pn.run() executions",
+            "exhaustedWarmup": (
+                "an exhausted adaptive window is reused for the same or a smaller "
+                "warmup requirement; only a larger requirement resumes widening"
+            ),
             "emptyResults": (
                 "valid empty provider results are cached and reported as status=ok with bars=0"
             ),
@@ -655,7 +705,8 @@ def request_provider_schema() -> dict[str, Any]:
             "statusValues": ["ok", "ignoredInvalidSymbol", "ignoredInvalidTimeframe"],
             "semantics": (
                 "One entry is appended for each successful request.* call; repeated "
-                "symbol/timeframe/range contexts set cacheHit=true."
+                "symbol/timeframe/range contexts set cacheHit=true, and start/end "
+                "report the final actual provider range after adaptive widening."
             ),
         },
         "errorDetail": {
@@ -664,7 +715,8 @@ def request_provider_schema() -> dict[str, Any]:
             "requestRequired": ["api", "symbol", "timeframe", "start", "end"],
             "semantics": (
                 "Failed host-backed request.* calls include requestProviderCategory "
-                "and requestProviderRequest in result.errorDetail."
+                "and requestProviderRequest in result.errorDetail; provider failures "
+                "during adaptive widening report the final attempted range."
             ),
         },
         "errors": {

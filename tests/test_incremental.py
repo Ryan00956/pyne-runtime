@@ -1,6 +1,17 @@
 from __future__ import annotations
 
 import pyne_runtime as pn
+import pytest
+
+from pyne_runtime.incremental.ta import (
+    _StepATR,
+    _StepBOLL,
+    _StepEMA,
+    _StepMonotonic,
+    _StepRSI,
+    _StepSMA,
+)
+from pyne_runtime.security import PyneSecurityError
 
 
 def _bars() -> list[dict[str, float]]:
@@ -9,6 +20,11 @@ def _bars() -> list[dict[str, float]]:
         {"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100},
         {"time": 3, "open": 1, "high": 3, "low": 1, "close": 3.0, "volume": 100},
     ]
+
+
+class _MutableParam:
+    def __init__(self, values: list[int]) -> None:
+        self.values = list(values)
 
 
 def test_incremental_runtime_seeds_history() -> None:
@@ -113,7 +129,6 @@ def on_bar(ctx, bar):
         {**_bars()[1], "session_ismarket": False},
         {**_bars()[2], "session": {"ismarket": True, "islastbar": True}},
     ]
-
     result = pn.run(script, bars, executor_mode="inline")
 
     assert result.ok
@@ -508,11 +523,11 @@ def on_preview(ctx, bar):
     second_preview = session.on_bar_updated(
         {"time": 3, "open": 1, "high": 3, "low": 1, "close": 2.75, "volume": 100}
     )
-    next_preview = session.on_bar_updated(
-        {"time": 4, "open": 1, "high": 4, "low": 1, "close": 3.5, "volume": 100}
-    )
     closed = session.on_bar_closed(
         {"time": 3, "open": 1, "high": 3, "low": 1, "close": 3.0, "volume": 100}
+    )
+    next_preview = session.on_bar_updated(
+        {"time": 4, "open": 1, "high": 4, "low": 1, "close": 3.5, "volume": 100}
     )
     snapshot = session.snapshot_result()
 
@@ -2225,4 +2240,397 @@ def on_bar(ctx, bar):
     assert _line_values(snapshot, "equity") == _line_values(seeded, "equity")
     assert _line_values(snapshot, "net_profit") == _line_values(seeded, "net_profit")
     assert snapshot.output["strategy"] == seeded.output["strategy"]
+
+
+@pytest.mark.parametrize(
+    ("direction", "expected_position"),
+    [("buy", 1.0), ("sell", -1.0), ("1", 1.0), ("-1", -1.0)],
+)
+def test_incremental_strategy_direction_aliases_match_batch(
+    direction: str,
+    expected_position: float,
+) -> None:
+    script = f'''
+indicator("Incremental Direction", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("Alias", "{direction}", qty=1, price=bar.close)
+    ctx.plot("Position", ctx.strategy.position_size)
+'''
+
+    result = pn.run(script, _bars()[:1], executor_mode="inline")
+
+    assert result.ok, result.error
+    assert _line_values(result, "position") == [expected_position]
+
+
+def test_incremental_strategy_rejects_invalid_direction() -> None:
+    script = '''
+indicator("Incremental Direction", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    ctx.strategy.entry("Typo", "sel", qty=1, price=bar.close)
+'''
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    with pytest.raises(ValueError, match="strategy direction must"):
+        session.seed(_bars()[:1])
+
+
+def test_incremental_preview_isolates_module_globals_and_readonly_params() -> None:
+    script = '''
+indicator("Preview Isolation", mode="incremental", overlay=True)
+
+seen = []
+confirmed_count = 0
+
+def on_bar(ctx, bar):
+    global confirmed_count
+    ctx.plot("Seen Before", len(seen))
+    ctx.plot("Confirmed Before", confirmed_count)
+    ctx.plot("Limit", ctx.params["limit"])
+    ctx.plot("Nested Size", len(params["nested"]))
+    seen.append(bar.close)
+    confirmed_count += 1
+
+def on_preview(ctx, bar):
+    global confirmed_count
+    seen.append(999)
+    confirmed_count += 100
+    try:
+        params["limit"] = 99
+    except Exception:
+        ctx.plot("Readonly", 1)
+    try:
+        params["nested"].append(3)
+    except Exception:
+        ctx.plot("Nested Readonly", 1)
+    ctx.plot("Preview Seen", len(seen))
+'''
+    caller_params = {"limit": 7, "nested": [1, 2]}
+    session = pn.PyneIncrementalSession(
+        script=script,
+        params=caller_params,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    session.seed(_bars()[:1])
+    preview = session.on_bar_updated(_bars()[1])
+    closed = session.on_bar_closed(_bars()[1])
+
+    assert _line_values(preview, "readonly") == [1.0]
+    assert _line_values(preview, "nested_readonly") == [1.0]
+    assert _line_values(preview, "preview_seen") == [2.0]
+    assert _line_values(closed, "seen_before") == [1.0]
+    assert _line_values(closed, "confirmed_before") == [1.0]
+    assert _line_values(closed, "limit") == [7.0]
+    assert _line_values(closed, "nested_size") == [2.0]
+    assert caller_params == {"limit": 7, "nested": [1, 2]}
+
+
+def test_incremental_preview_isolates_mutable_function_defaults_and_base_namespace() -> None:
+    script = '''
+indicator("Preview Function State", mode="incremental", overlay=True)
+
+math.preview_values = []
+
+def remember(value, seen=[]):
+    seen.append(value)
+    return len(seen)
+
+def on_bar(ctx, bar):
+    ctx.plot("Default Size", remember(bar.close))
+    ctx.plot("Base Size", len(math.preview_values))
+    math.preview_values.append(bar.close)
+
+def on_preview(ctx, bar):
+    ctx.plot("Preview Default Size", remember(999))
+    math.preview_values.append(999)
+'''
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    session.seed(_bars()[:1])
+    preview = session.on_bar_updated(_bars()[1])
+    closed = session.on_bar_closed(_bars()[1])
+
+    assert _line_values(preview, "preview_default_size") == [2.0]
+    assert _line_values(closed, "default_size") == [2.0]
+    assert _line_values(closed, "base_size") == [1.0]
+
+
+def test_incremental_preview_rejects_mutable_closure_state_without_leaking() -> None:
+    script = '''
+indicator("Preview Closure", mode="incremental", overlay=True)
+
+def callbacks():
+    seen = []
+    def on_bar(ctx, bar):
+        seen.append(bar.close)
+    def on_preview(ctx, bar):
+        seen.append(999)
+    return on_bar, on_preview
+
+on_bar, on_preview = callbacks()
+'''
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+    session.seed(_bars()[:1])
+
+    with pytest.raises(PyneSecurityError, match="cannot safely isolate function closures"):
+        session.on_bar_updated(_bars()[1])
+
+    closure_values = next(
+        cell.cell_contents
+        for cell in session._on_bar.__closure__  # type: ignore[union-attr]
+        if isinstance(cell.cell_contents, list)
+    )
+    assert closure_values == [1.0]
+
+
+def test_incremental_preview_rejects_script_class_state_without_leaking() -> None:
+    script = '''
+indicator("Preview Class", mode="incremental", overlay=True)
+
+class SharedState:
+    values = []
+
+def on_bar(ctx, bar):
+    SharedState.values.append(bar.close)
+
+def on_preview(ctx, bar):
+    SharedState.values.append(999)
+'''
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline", security_mode="unsafe"),
+    )
+    session.seed(_bars()[:1])
+
+    with pytest.raises(PyneSecurityError, match="cannot safely isolate script classes"):
+        session.on_bar_updated(_bars()[1])
+
+    assert session._globals["SharedState"].values == [1.0]
+
+
+def test_incremental_preview_rejects_stateful_external_module_calls() -> None:
+    script = '''
+import random
+
+indicator("Preview Module", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    pass
+
+def on_preview(ctx, bar):
+    random.seed(1)
+'''
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(
+            executor_mode="inline",
+            security_mode="research",
+            allowed_imports=("random",),
+        ),
+    )
+    session.seed(_bars()[:1])
+
+    with pytest.raises(PyneSecurityError, match="stateful external module API"):
+        session.on_bar_updated(_bars()[1])
+
+
+def test_incremental_params_custom_objects_are_copy_on_read() -> None:
+    script = '''
+indicator("Readonly Custom Params", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    ctx.plot("Param Size", len(params["box"].values))
+
+def on_preview(ctx, bar):
+    box = params["box"]
+    box.values.append(999)
+    ctx.plot("Preview Param Size", len(box.values))
+    try:
+        params._values["box"] = box
+    except Exception:
+        ctx.plot("Private Storage", 1)
+'''
+    caller_value = _MutableParam([1])
+    session = pn.PyneIncrementalSession(
+        script=script,
+        params={"box": caller_value},
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    session.seed(_bars()[:1])
+    preview = session.on_bar_updated(_bars()[1])
+    closed = session.on_bar_closed(_bars()[1])
+
+    assert _line_values(preview, "preview_param_size") == [2.0]
+    assert _line_values(preview, "private_storage") == [1.0]
+    assert _line_values(closed, "param_size") == [1.0]
+    assert caller_value.values == [1]
+    assert session.params["box"].values == [1]
+
+
+def test_incremental_research_preview_allows_imported_module_globals() -> None:
+    script = '''
+import numpy as np
+
+indicator("Research Preview", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    ctx.plot("Close", bar.close)
+
+def on_preview(ctx, bar):
+    ctx.plot("Mean", np.mean([bar.open, bar.close]))
+'''
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(executor_mode="inline", security_mode="research"),
+    )
+
+    session.seed(_bars()[:1])
+    preview = session.on_bar_updated(_bars()[1])
+
+    assert _line_values(preview, "mean") == [1.5]
+
+
+def test_incremental_preview_reports_uncopyable_mutable_global() -> None:
+    script = '''
+import threading
+
+indicator("Research Preview", mode="incremental", overlay=True)
+guard = threading.Lock()
+
+def on_bar(ctx, bar):
+    ctx.plot("Close", bar.close)
+
+def on_preview(ctx, bar):
+    ctx.plot("Close", bar.close)
+'''
+    session = pn.PyneIncrementalSession(
+        script=script,
+        settings=pn.PyneSettings(
+            executor_mode="inline",
+            security_mode="research",
+            allowed_imports=("threading",),
+        ),
+    )
+    session.seed(_bars()[:1])
+
+    with pytest.raises(PyneSecurityError, match=r"module globals: guard.*ctx\.varip"):
+        session.on_bar_updated(_bars()[1])
+
+
+def test_incremental_seed_validates_required_ohlcv_and_time_order() -> None:
+    session = pn.PyneIncrementalSession(
+        script='indicator("Validation", mode="incremental")\ndef on_bar(ctx, bar):\n    pass',
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+
+    with pytest.raises(ValueError, match="missing required fields"):
+        session.seed([{"time": 1, "close": 1}])
+    with pytest.raises(ValueError, match="strictly increasing"):
+        session.seed([_bars()[1], _bars()[0]])
+
+
+@pytest.mark.parametrize(
+    "bar",
+    [
+        {"time": 4, "open": 2, "high": 1, "low": 0, "close": 2, "volume": 1},
+        {"time": 4, "open": 1, "high": 2, "low": 1, "close": 1, "volume": -1},
+    ],
+)
+def test_incremental_live_events_validate_ohlcv(bar: dict[str, float]) -> None:
+    session = pn.PyneIncrementalSession(
+        script='indicator("Validation", mode="incremental")\ndef on_bar(ctx, bar):\n    pass',
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+    session.seed(_bars())
+
+    with pytest.raises(ValueError, match="OHLCV"):
+        session.on_bar_closed(bar)
+    with pytest.raises(ValueError, match="OHLCV"):
+        session.on_bar_updated(bar)
+
+
+def test_incremental_live_events_reject_backwards_time() -> None:
+    session = pn.PyneIncrementalSession(
+        script='indicator("Validation", mode="incremental")\ndef on_bar(ctx, bar):\n    pass',
+        settings=pn.PyneSettings(executor_mode="inline"),
+    )
+    session.seed(_bars()[:1])
+    session.on_bar_updated({**_bars()[2], "time": 3})
+
+    with pytest.raises(ValueError, match="cannot move backwards"):
+        session.on_bar_updated({**_bars()[1], "time": 2})
+    with pytest.raises(ValueError, match="strictly increasing"):
+        session.on_bar_closed({**_bars()[0], "time": 1})
+    with pytest.raises(ValueError, match="closed bar time cannot move backwards"):
+        session.on_bar_closed({**_bars()[1], "time": 2})
+
+
+def test_incremental_session_enforces_max_bars_for_seed_and_live_events() -> None:
+    settings = pn.PyneSettings(executor_mode="inline", max_bars=1)
+    script = 'indicator("Limit", mode="incremental")\ndef on_bar(ctx, bar):\n    pass'
+
+    with pytest.raises(PyneSecurityError, match="max 1"):
+        pn.PyneIncrementalSession(script=script, settings=settings).seed(_bars()[:2])
+
+    session = pn.PyneIncrementalSession(script=script, settings=settings)
+    session.seed(_bars()[:1])
+    with pytest.raises(PyneSecurityError, match="max 1"):
+        session.on_bar_updated(_bars()[1])
+    with pytest.raises(PyneSecurityError, match="max 1"):
+        session.on_bar_closed(_bars()[1])
+
+
+def test_incremental_ta_helpers_recover_after_nan() -> None:
+    nan = float("nan")
+    sma = _StepSMA(2)
+    boll = _StepBOLL(2)
+    ema = _StepEMA(2)
+    rsi = _StepRSI(2)
+    atr = _StepATR(2)
+
+    assert [sma.update(value) for value in (1, nan, 3, 5)] == [None, None, None, 4.0]
+    assert [boll.update(value) for value in (1, nan, 3, 5)][-1] == (6.0, 4.0, 2.0)
+    assert [ema.update(value) for value in (1, nan, 3, nan, 5)] == pytest.approx(
+        [None, 1.0, 7 / 3, 7 / 3, 37 / 9],
+        nan_ok=True,
+    )
+
+    rsi_values = [rsi.update(value) for value in (1, 2, 3, nan, 4, 5)]
+    assert rsi_values[:2] == [None, None]
+    assert rsi_values[2:] == [100.0, 100.0, 100.0, 100.0]
+
+    assert atr.update(2, 1, 1.5) is None
+    assert atr.update(3, 1, 2) == 1.5
+    assert atr.update(nan, 2, 3) == 1.5
+    assert atr.update(5, 3, 4) == 1.75
+
+    highest = _StepMonotonic(2, highest=True)
+    lowest = _StepMonotonic(2, highest=False)
+    assert [highest.update(value) for value in (1, nan, 3, None, None)] == [
+        None,
+        1.0,
+        3.0,
+        3.0,
+        None,
+    ]
+    assert [lowest.update(value) for value in (3, nan, 1, None, None)] == [
+        None,
+        3.0,
+        1.0,
+        1.0,
+        None,
+    ]
 

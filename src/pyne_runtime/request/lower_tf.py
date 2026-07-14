@@ -119,6 +119,7 @@ def _group_lower_timeframe_values(
     timeframe: str,
     expression_name: str,
     chart_times: list[int],
+    chart_end: int,
     requested_times: list[int],
     requested_values: RequestValues,
 ) -> LowerTimeframeSeries | tuple[LowerTimeframeSeries, ...]:
@@ -129,6 +130,7 @@ def _group_lower_timeframe_values(
                 timeframe=timeframe,
                 expression_name=f"{expression_name}[{index}]",
                 chart_times=chart_times,
+                chart_end=chart_end,
                 requested_times=requested_times,
                 requested_values=values,
             )
@@ -139,6 +141,7 @@ def _group_lower_timeframe_values(
         timeframe=timeframe,
         expression_name=expression_name,
         chart_times=chart_times,
+        chart_end=chart_end,
         requested_times=requested_times,
         requested_values=requested_values,
     )
@@ -149,14 +152,15 @@ def _group_single_lower_timeframe_values(
     timeframe: str,
     expression_name: str,
     chart_times: list[int],
+    chart_end: int,
     requested_times: list[int],
     requested_values: list[Any],
 ) -> LowerTimeframeSeries:
     groups: list[tuple[Any, ...]] = []
     for index, chart_time in enumerate(chart_times):
-        next_time = chart_times[index + 1] if index + 1 < len(chart_times) else None
+        next_time = chart_times[index + 1] if index + 1 < len(chart_times) else chart_end
         start = bisect_left(requested_times, chart_time)
-        end = len(requested_times) if next_time is None else bisect_left(requested_times, next_time)
+        end = bisect_left(requested_times, next_time)
         groups.append(tuple(
             np.nan if is_na_value(value) else value
             for value in requested_values[start:end]

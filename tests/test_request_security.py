@@ -14,6 +14,17 @@ def _bars() -> list[dict[str, float]]:
     ]
 
 
+def _request_bar(timestamp: int, value: float) -> dict[str, float]:
+    return {
+        "time": timestamp,
+        "open": value,
+        "high": value,
+        "low": value,
+        "close": value,
+        "volume": 1,
+    }
+
+
 class StaticProvider:
     def __init__(self, bars: list[dict[str, Any]]) -> None:
         self.calls: list[tuple[str, str, int, int]] = []
@@ -69,7 +80,7 @@ plot(higher, "Higher")
     )
 
     assert result.ok
-    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5)]
     assert result.values("Higher") == [10, 10, 30]
 
 
@@ -139,6 +150,76 @@ plot(higher, "Higher")
     assert "history offset" in str(result.error)
 
 
+def test_request_security_rejects_negative_string_history_offset() -> None:
+    provider = StaticProvider([])
+
+    result = pn.run(
+        """
+indicator("Forward History", overlay=True)
+higher = request.security("BTCUSDT", "60", "close[-1]")
+plot(higher, "Higher")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert result.code == "PYNE_UNSUPPORTED_FEATURE"
+    assert "forward reference" in str(result.error)
+    assert provider.calls == []
+
+
+def test_request_security_provider_window_includes_history_and_chart_close() -> None:
+    class RangeProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            return [bar for bar in self._bars if start <= int(bar["time"]) <= end]
+
+    chart_bars = [
+        {"time": 10_800, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        {"time": 14_400, "open": 20, "high": 21, "low": 19, "close": 20, "volume": 200},
+        {"time": 18_000, "open": 30, "high": 31, "low": 29, "close": 30, "volume": 300},
+    ]
+    provider = RangeProvider([
+        {"time": 0, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 10},
+        {"time": 3_600, "open": 2, "high": 2, "low": 2, "close": 2, "volume": 20},
+        {"time": 7_200, "open": 4, "high": 4, "low": 4, "close": 4, "volume": 40},
+        {"time": 10_800, "open": 8, "high": 8, "low": 8, "close": 8, "volume": 80},
+        {"time": 14_400, "open": 16, "high": 16, "low": 16, "close": 16, "volume": 160},
+        {"time": 18_000, "open": 32, "high": 32, "low": 32, "close": 32, "volume": 320},
+        {"time": 21_600, "open": 64, "high": 64, "low": 64, "close": 64, "volume": 640},
+    ])
+
+    result = pn.run(
+        """
+indicator("Requested Warmup", overlay=True)
+previous = request.security("BTCUSDT", "60", "close[1]")
+average = request.security("BTCUSDT", "60", lambda ctx: ctx.ta.ema(ctx.close, 2))
+plot(previous, "Previous")
+plot(average, "EMA")
+""",
+        chart_bars,
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "60", 0, 21_600)]
+    assert result.values("Previous") == [4.0, 8.0, 16.0]
+    assert result.values("EMA") == [
+        6.38888889,
+        12.7962963,
+        25.59876543,
+    ]
+
+
 def test_request_security_accepts_barmerge_alignment_constants() -> None:
     provider = StaticProvider([
         {"time": 1, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1000},
@@ -159,7 +240,7 @@ plot(ahead, "Ahead")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5)]
     assert result.get_series("Gapped") == [
         {"time": 2, "value": 10.0},
         {"time": 4, "value": 30.0},
@@ -243,7 +324,7 @@ plot(higher, "Higher")
     assert not result.ok
     assert result.code == "PYNE_INVALID_SYMBOL"
     assert "MISSING" in str(result.error)
-    assert provider.calls == [("MISSING", "2", 1, 4)]
+    assert provider.calls == [("MISSING", "2", 0, 5)]
 
 
 def test_request_security_ignore_invalid_symbol_returns_na() -> None:
@@ -261,15 +342,15 @@ plot(higher, "Higher")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("MISSING", "2", 1, 4)]
+    assert provider.calls == [("MISSING", "2", 0, 5)]
     assert result.get_series("Higher") == []
     assert result.meta["requestDiagnostics"] == [
         {
             "api": "request.security",
             "symbol": "MISSING",
             "timeframe": "2",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": True,
@@ -303,7 +384,7 @@ plot(nz(invalid_close, -222), "Invalid Close Fallback")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("MISSING", "2", 1, 4)]
+    assert provider.calls == [("MISSING", "2", 0, 5)]
     assert result.get_series("Invalid Open") == []
     assert result.get_series("Invalid Close") == []
     assert result.values("Invalid Open Is NA") == [1.0, 1.0, 1.0, 1.0]
@@ -315,8 +396,8 @@ plot(nz(invalid_close, -222), "Invalid Close Fallback")
             "api": "request.security",
             "symbol": "MISSING",
             "timeframe": "2",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": True,
@@ -347,7 +428,7 @@ plot(nz(invalid_mid, -333), "Invalid Mid Fallback")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("MISSING", "2", 1, 4)]
+    assert provider.calls == [("MISSING", "2", 0, 5)]
     assert result.get_series("Invalid Mid") == []
     assert result.values("Invalid Mid Is NA") == [1.0, 1.0, 1.0, 1.0]
     assert result.values("Invalid Mid Fallback") == [-333.0, -333.0, -333.0, -333.0]
@@ -356,8 +437,8 @@ plot(nz(invalid_mid, -333), "Invalid Mid Fallback")
             "api": "request.security",
             "symbol": "MISSING",
             "timeframe": "2",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": True,
@@ -390,7 +471,7 @@ plot(higher, "Higher")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5)]
     assert provider.metadata_calls == [("BTCUSDT", "2")]
     assert result.get_series("Higher") == []
     assert result.meta["requestDiagnostics"] == [
@@ -398,8 +479,8 @@ plot(higher, "Higher")
             "api": "request.security",
             "symbol": "BTCUSDT",
             "timeframe": "2",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -434,7 +515,7 @@ plot(lower.size(), "Lower Count")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5)]
     assert provider.metadata_calls == [("BTCUSDT", "2")]
     assert result.get_series("Higher") == []
     assert result.values("Lower Count") == [0.0, 0.0, 0.0, 0.0]
@@ -443,8 +524,8 @@ plot(lower.size(), "Lower Count")
             "api": "request.security",
             "symbol": "BTCUSDT",
             "timeframe": "2",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -454,8 +535,8 @@ plot(lower.size(), "Lower Count")
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "2",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 0,
             "cacheHit": True,
             "ignoreInvalidSymbol": False,
@@ -482,7 +563,7 @@ plot(bad, "Bad")
 
     assert not result.ok
     assert result.code == "PYNE_INVALID_SYMBOL"
-    assert provider.calls == [("MISSING", "2", 1, 4), ("MISSING", "2", 1, 4)]
+    assert provider.calls == [("MISSING", "2", 0, 5), ("MISSING", "2", 0, 5)]
 
 
 def test_request_security_ignore_invalid_symbol_does_not_hide_invalid_return_type() -> None:
@@ -505,7 +586,7 @@ plot(higher, "Higher")
     )
 
     assert not result.ok
-    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5)]
     assert result.error_detail is not None
     assert result.error_detail["code"] == "PYNE_RUNTIME_ERROR"
     assert result.error_detail["requestProviderCategory"] == "invalidReturnType"
@@ -513,8 +594,8 @@ plot(higher, "Higher")
         "api": "request.security",
         "symbol": "BTCUSDT",
         "timeframe": "2",
-        "start": 1,
-        "end": 4,
+        "start": 0,
+        "end": 5,
     }
 
 
@@ -556,7 +637,7 @@ plot(valid_again, "Valid High")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("MISSING", "2", 1, 4), ("BTCUSDT", "2", 1, 4)]
+    assert provider.calls == [("MISSING", "2", 0, 5), ("BTCUSDT", "2", 0, 5)]
     assert result.get_series("Ignored") == []
     assert result.values("Valid") == [10, 10, 30]
     assert result.values("Valid High") == [11, 11, 31]
@@ -685,7 +766,7 @@ plot(higher, "Higher")
     assert result.code == "PYNE_RUNTIME_ERROR"
     assert "request data provider failed" in str(result.error)
     assert "database offline" in str(result.error)
-    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5)]
 
 
 def test_request_security_lower_tf_respects_provider_capability_false() -> None:
@@ -735,7 +816,7 @@ plot(lower.size(), "Lower Count")
     )
 
     assert result.ok
-    assert provider.calls == [("BTCUSDT", "2", 1, 4), ("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5), ("BTCUSDT", "1", 0, 5)]
     assert result.values("Higher") == [10, 10, 30]
     assert result.values("Lower Count") == [1.0, 0.0, 1.0, 0.0]
 
@@ -765,7 +846,7 @@ plot(lower.size(), "Lower Count")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "2", 1, 4), ("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5), ("BTCUSDT", "1", 0, 5)]
     assert result.values("Higher") == [10, 20, 30, 40]
     assert result.values("Lower Count") == [1.0, 1.0, 1.0, 1.0]
 
@@ -800,7 +881,7 @@ plot(lower.size(), "Lower Count")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "2", 1, 4), ("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5), ("BTCUSDT", "1", 0, 5)]
     assert result.values("Higher") == [10, 20, 30, 40]
     assert result.values("Lower Count") == [1.0, 1.0, 1.0, 1.0]
 
@@ -828,7 +909,7 @@ plot(lower.size(), "Lower Count")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "2", 1, 4), ("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5), ("BTCUSDT", "1", 0, 5)]
     assert result.values("Higher") == [10, 10, 30]
     assert result.values("Lower Count") == [1.0, 0.0, 1.0, 0.0]
 
@@ -865,7 +946,7 @@ plot(higher_open, "Higher Open")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5)]
     assert provider.metadata_calls == [("BTCUSDT", "2")]
     assert result.values("Higher Close") == [10, 10, 30]
     assert result.values("Higher High") == [12, 12, 34]
@@ -876,8 +957,8 @@ plot(higher_open, "Higher Open")
             "api": "request.security",
             "symbol": "BTCUSDT",
             "timeframe": "2",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 2,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -887,8 +968,8 @@ plot(higher_open, "Higher Open")
             "api": "request.security",
             "symbol": "BTCUSDT",
             "timeframe": "2",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 2,
             "cacheHit": True,
             "ignoreInvalidSymbol": False,
@@ -898,8 +979,8 @@ plot(higher_open, "Higher Open")
             "api": "request.security",
             "symbol": "BTCUSDT",
             "timeframe": "2",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 2,
             "cacheHit": True,
             "ignoreInvalidSymbol": False,
@@ -933,7 +1014,7 @@ plot(lower.last(), "Lower Last")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5)]
     assert result.values("Higher") == [10, 20, 30, 40]
     assert result.values("Lower Last") == [10.0, 20.0, 30.0, 40.0]
     assert result.meta["requestDiagnostics"] == [
@@ -941,8 +1022,8 @@ plot(lower.last(), "Lower Last")
             "api": "request.security",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 4,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -952,8 +1033,8 @@ plot(lower.last(), "Lower Last")
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 4,
             "cacheHit": True,
             "ignoreInvalidSymbol": False,
@@ -980,15 +1061,15 @@ plot(higher, "Higher")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "2", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5)]
     assert result.values("Higher") == [10.0, 10.0, 30.0]
     assert result.meta["requestDiagnostics"] == [
         {
             "api": "request.security",
             "symbol": "BTCUSDT",
             "timeframe": "2",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 2,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -1035,7 +1116,7 @@ plot(higher, "Higher")
 
     assert first.ok, first.error
     assert second.ok, second.error
-    assert provider.calls == [("BTCUSDT", "2", 1, 4), ("BTCUSDT", "2", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "2", 0, 5), ("BTCUSDT", "2", 0, 5)]
     assert first.values("Higher") == [10.0, 10.0, 30.0]
     assert second.values("Higher") == [20.0, 20.0, 40.0]
 
@@ -1078,7 +1159,7 @@ plot(lower.last(default=0), "Lower Last")
 
     assert first.ok, first.error
     assert second.ok, second.error
-    assert provider.calls == [("BTCUSDT", "1", 1, 4), ("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5), ("BTCUSDT", "1", 0, 5)]
     assert first.values("Lower Last") == [10.0, 0.0, 30.0, 0.0]
     assert second.values("Lower Last") == [20.0, 0.0, 40.0, 0.0]
 
@@ -1591,10 +1672,205 @@ plot(lower[1].last(), "Previous Lower Last")
     )
 
     assert result.ok
-    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5)]
     assert result.values("Lower Count") == [2.0, 1.0, 2.0, 1.0]
     assert result.values("Lower Last") == [11.0, 20.0, 31.0, 40.0]
     assert result.values("Previous Lower Last") == [11.0, 20.0, 31.0]
+
+
+def test_request_security_lower_tf_fetches_complete_last_chart_bucket() -> None:
+    class RangeProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            return [bar for bar in self._bars if start <= int(bar["time"]) <= end]
+
+    chart_bars = [
+        {"time": 10_800, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        {"time": 14_400, "open": 20, "high": 21, "low": 19, "close": 20, "volume": 200},
+        {"time": 18_000, "open": 30, "high": 31, "low": 29, "close": 30, "volume": 300},
+    ]
+    provider = RangeProvider([
+        {
+            "time": timestamp,
+            "open": timestamp,
+            "high": timestamp,
+            "low": timestamp,
+            "close": timestamp,
+            "volume": 1,
+        }
+        for timestamp in range(0, 21_601, 1_800)
+    ])
+
+    result = pn.run(
+        """
+indicator("Complete Lower Buckets", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "30m", "close")
+plot(lower.size(), "Lower Count")
+plot(lower.last(), "Lower Last")
+""",
+        chart_bars,
+        timeframe="60",
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "30m", 5_400, 21_600)]
+    assert result.values("Lower Count") == [2.0, 2.0, 2.0]
+    assert result.values("Lower Last") == [12_600.0, 16_200.0, 19_800.0]
+
+
+def test_request_security_provider_window_prefers_explicit_last_time_close() -> None:
+    class RangeProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            return [bar for bar in self._bars if start <= int(bar["time"]) <= end]
+
+    chart_bars = [
+        {"time": 10_800, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        {"time": 14_400, "open": 20, "high": 21, "low": 19, "close": 20, "volume": 200},
+        {
+            "time": 18_000,
+            "time_close": 20_700,
+            "open": 30,
+            "high": 31,
+            "low": 29,
+            "close": 30,
+            "volume": 300,
+        },
+    ]
+    provider = RangeProvider([
+        {
+            "time": timestamp,
+            "open": timestamp,
+            "high": timestamp,
+            "low": timestamp,
+            "close": timestamp,
+            "volume": 1,
+        }
+        for timestamp in range(0, 20_701, 900)
+    ])
+
+    result = pn.run(
+        """
+indicator("Explicit Chart Close", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "15m", "close")
+plot(lower.size(), "Lower Count")
+""",
+        chart_bars,
+        timeframe="60",
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "15m", 8_100, 20_700)]
+    assert result.values("Lower Count") == [4.0, 4.0, 3.0]
+
+
+def test_request_security_provider_window_single_bar_uses_derived_time_close() -> None:
+    provider = StaticProvider([
+        {
+            "time": 10_800,
+            "open": 10,
+            "high": 11,
+            "low": 9,
+            "close": 10,
+            "volume": 100,
+        },
+    ])
+
+    result = pn.run(
+        """
+indicator("Single Chart Bar", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "15m", "close")
+plot(lower.size(), "Lower Count")
+""",
+        [
+            {
+                "time": 10_800,
+                "open": 10,
+                "high": 11,
+                "low": 9,
+                "close": 10,
+                "volume": 100,
+            },
+        ],
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [
+        ("BTCUSDT", "15m", 9_900, 10_860),
+        ("BTCUSDT", "15m", 7_200, 10_860),
+        ("BTCUSDT", "15m", 0, 10_860),
+    ]
+    assert result.values("Lower Count") == [1.0]
+
+
+def test_request_security_lower_tf_treats_lowercase_m_as_minutes() -> None:
+    class RangeProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            return [bar for bar in self._bars if start <= int(bar["time"]) <= end]
+
+    chart_bars = [
+        {"time": 10_800, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 100},
+        {"time": 14_400, "open": 20, "high": 21, "low": 19, "close": 20, "volume": 200},
+        {"time": 18_000, "open": 30, "high": 31, "low": 29, "close": 30, "volume": 300},
+    ]
+    provider = RangeProvider([
+        {
+            "time": timestamp,
+            "open": timestamp,
+            "high": timestamp,
+            "low": timestamp,
+            "close": timestamp,
+            "volume": 1,
+        }
+        for timestamp in range(0, 21_601, 900)
+    ])
+
+    result = pn.run(
+        """
+indicator("Minute Suffix", overlay=True)
+lower = request.security_lower_tf(
+    "BTCUSDT",
+    "15m",
+    "close",
+    ignore_invalid_timeframe=True,
+)
+plot(lower.size(), "Lower Count")
+""",
+        chart_bars,
+        timeframe="60",
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [("BTCUSDT", "15m", 8_100, 21_600)]
+    assert result.values("Lower Count") == [4.0, 4.0, 4.0]
+    assert result.meta["requestDiagnostics"][0]["status"] == "ok"
 
 
 def test_request_security_lower_tf_sorts_provider_bars_before_grouping() -> None:
@@ -1621,7 +1897,7 @@ plot(lower[1].last(), "Previous Lower Last")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5)]
     assert result.values("Lower Count") == [2.0, 1.0, 2.0, 1.0]
     assert result.values("Lower Last") == [11.0, 20.0, 31.0, 40.0]
     assert result.values("Previous Lower Last") == [11.0, 20.0, 31.0]
@@ -1630,8 +1906,8 @@ plot(lower[1].last(), "Previous Lower Last")
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 6,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -1673,7 +1949,7 @@ plot(lower_high.max(), "Lower High")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5)]
     assert provider.metadata_calls == [("BTCUSDT", "1")]
     assert result.values("Lower Close") == [11.0, 20.0, 31.0, 40.0]
     assert result.values("Lower High") == [12.0, 21.0, 32.0, 41.0]
@@ -1682,8 +1958,8 @@ plot(lower_high.max(), "Lower High")
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 6,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -1693,8 +1969,8 @@ plot(lower_high.max(), "Lower High")
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 6,
             "cacheHit": True,
             "ignoreInvalidSymbol": False,
@@ -1719,7 +1995,7 @@ plot(lower.last(), "Lower Last")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("MISSING", "1", 1, 4)]
+    assert provider.calls == [("MISSING", "1", 0, 5)]
     assert result.values("Lower Count") == [0.0, 0.0, 0.0, 0.0]
     assert result.get_series("Lower Last") == []
     assert result.meta["requestDiagnostics"] == [
@@ -1727,8 +2003,8 @@ plot(lower.last(), "Lower Last")
             "api": "request.security_lower_tf",
             "symbol": "MISSING",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": True,
@@ -1760,7 +2036,7 @@ plot(lower_close.last(default=-222), "Lower Close Last")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("MISSING", "1", 1, 4)]
+    assert provider.calls == [("MISSING", "1", 0, 5)]
     assert result.values("Lower Open Count") == [0.0, 0.0, 0.0, 0.0]
     assert result.values("Lower Close Count") == [0.0, 0.0, 0.0, 0.0]
     assert result.values("Lower Open First") == [-111.0, -111.0, -111.0, -111.0]
@@ -1770,8 +2046,8 @@ plot(lower_close.last(default=-222), "Lower Close Last")
             "api": "request.security_lower_tf",
             "symbol": "MISSING",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": True,
@@ -1802,7 +2078,7 @@ plot(lower_mid.last(default=-222), "Lower Mid Last")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("MISSING", "1", 1, 4)]
+    assert provider.calls == [("MISSING", "1", 0, 5)]
     assert result.values("Lower Mid Count") == [0.0, 0.0, 0.0, 0.0]
     assert result.values("Lower Mid First") == [-111.0, -111.0, -111.0, -111.0]
     assert result.values("Lower Mid Last") == [-222.0, -222.0, -222.0, -222.0]
@@ -1811,8 +2087,8 @@ plot(lower_mid.last(default=-222), "Lower Mid Last")
             "api": "request.security_lower_tf",
             "symbol": "MISSING",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": True,
@@ -1860,7 +2136,7 @@ plot(lower.sum(default=0), "Lower Sum")
             "symbol": "BTCUSDT",
             "timeframe": "240",
             "start": 0,
-            "end": 7200,
+            "end": 10800,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -1911,7 +2187,7 @@ plot(lower_close.last(default=-222), "Lower Close Last")
             "symbol": "BTCUSDT",
             "timeframe": "240",
             "start": 0,
-            "end": 7200,
+            "end": 10800,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -1946,7 +2222,7 @@ plot(lower.last(), "Lower Last")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5)]
     assert provider.metadata_calls == [("BTCUSDT", "1")]
     assert result.values("Lower Count") == [0.0, 0.0, 0.0, 0.0]
     assert result.get_series("Lower Last") == []
@@ -1955,8 +2231,8 @@ plot(lower.last(), "Lower Last")
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 0,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -1983,7 +2259,7 @@ plot(bad.size(), "Bad Lower Count")
 
     assert not result.ok
     assert result.code == "PYNE_INVALID_SYMBOL"
-    assert provider.calls == [("MISSING", "1", 1, 4), ("MISSING", "1", 1, 4)]
+    assert provider.calls == [("MISSING", "1", 0, 5), ("MISSING", "1", 0, 5)]
 
 
 def test_request_security_lower_tf_ignore_invalid_symbol_does_not_hide_invalid_return_type() -> None:
@@ -2006,7 +2282,7 @@ plot(lower.size(), "Lower Count")
     )
 
     assert not result.ok
-    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5)]
     assert result.error_detail is not None
     assert result.error_detail["code"] == "PYNE_RUNTIME_ERROR"
     assert result.error_detail["requestProviderCategory"] == "invalidReturnType"
@@ -2014,8 +2290,8 @@ plot(lower.size(), "Lower Count")
         "api": "request.security_lower_tf",
         "symbol": "BTCUSDT",
         "timeframe": "1",
-        "start": 1,
-        "end": 4,
+        "start": 0,
+        "end": 5,
     }
 
 
@@ -2034,7 +2310,7 @@ plot(lower.size(), "Lower Count")
     )
 
     assert not result.ok
-    assert provider.calls == [("MISSING", "1", 1, 4)]
+    assert provider.calls == [("MISSING", "1", 0, 5)]
     assert result.error_detail is not None
     assert result.error_detail["code"] == "PYNE_INVALID_SYMBOL"
     assert result.error_detail["requestProviderCategory"] == "invalidSymbol"
@@ -2042,8 +2318,8 @@ plot(lower.size(), "Lower Count")
         "api": "request.security_lower_tf",
         "symbol": "MISSING",
         "timeframe": "1",
-        "start": 1,
-        "end": 4,
+        "start": 0,
+        "end": 5,
     }
 
 
@@ -2099,7 +2375,7 @@ plot(lower_range.max(), "Lower Range Max")
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5)]
     assert result.values("Lower Sum First") == [21.0, 41.0, 61.0, 81.0]
     assert result.values("Lower Range Max") == [4.0, 4.0, 6.0, 5.0]
     assert result.meta["requestDiagnostics"] == [
@@ -2107,8 +2383,8 @@ plot(lower_range.max(), "Lower Range Max")
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
             "bars": 6,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -2136,7 +2412,7 @@ plot(lower.size(), "Lower Count")
     assert not result.ok
     assert result.code == "PYNE_UNSUPPORTED_FEATURE"
     assert "series, tuple of series, or scalar" in str(result.error)
-    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5)]
 
 
 def test_request_security_lower_tf_rejects_nested_requests() -> None:
@@ -2162,7 +2438,7 @@ plot(lower.size(), "Lower Count")
     assert not result.ok
     assert result.code == "PYNE_UNSUPPORTED_FEATURE"
     assert "Nested request.security_lower_tf" in str(result.error)
-    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5)]
 
 
 def test_request_security_lower_tf_injects_provider_metadata_into_requested_context() -> None:
@@ -2460,8 +2736,8 @@ plot(lower.size(), "Lower Count")
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
         }
 
     assert provider.calls == []
@@ -2495,8 +2771,8 @@ plot(lower.size(), "Lower Count")
         "api": "request.security_lower_tf",
         "symbol": "BTCUSDT",
         "timeframe": "1",
-        "start": 1,
-        "end": 4,
+        "start": 0,
+        "end": 5,
     }
     assert provider.calls == []
 
@@ -2518,7 +2794,7 @@ plot(lower.size(), "Lower Count")
     )
 
     assert not result.ok
-    assert provider.calls == [("BTCUSDT", "1", 1, 4)]
+    assert provider.calls == [("BTCUSDT", "1", 0, 5)]
     assert result.error_detail is not None
     assert result.error_detail["code"] == "PYNE_RUNTIME_ERROR"
     assert result.error_detail["requestProviderCategory"] == "expressionFailure"
@@ -2526,8 +2802,8 @@ plot(lower.size(), "Lower Count")
         "api": "request.security_lower_tf",
         "symbol": "BTCUSDT",
         "timeframe": "1",
-        "start": 1,
-        "end": 4,
+        "start": 0,
+        "end": 5,
     }
 
 
@@ -2567,8 +2843,8 @@ plot(lower.size(), "Lower Count")
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
         }
 
 
@@ -2629,8 +2905,8 @@ plot(lower.size(), "Lower Count")
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 4,
+            "start": 0,
+            "end": 5,
         }
 
 
@@ -2809,7 +3085,351 @@ plot(lower.size(), "Lower Count")
                 "api": api,
                 "symbol": "BTCUSDT" if category != "invalidSymbol" else "MISSING",
                 "timeframe": timeframe,
-                "start": 1,
-                "end": 4,
+                "start": 0,
+                "end": 5,
             }
             assert result.error_detail["code"] == error_categories[category]["code"]
+
+
+def test_request_security_adaptively_widens_for_sparse_prechart_history_and_caches() -> None:
+    day = 86_400
+    chart_bars = [
+        _request_bar(100 * day, 10),
+        _request_bar(101 * day, 11),
+        _request_bar(102 * day, 12),
+    ]
+
+    class RangeProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            return [bar for bar in self._bars if start <= int(bar["time"]) <= end]
+
+    provider = RangeProvider([
+        _request_bar(95 * day, 1),
+        _request_bar(96 * day, 2),
+        _request_bar(97 * day, 3),
+        *chart_bars,
+    ])
+    result = pn.run(
+        """
+indicator("Sparse Requested History", overlay=True)
+first = request.security("BTCUSDT", "1D", "close[2]")
+second = request.security("BTCUSDT", "1D", "close[2]")
+plot(first, "First")
+plot(second, "Second")
+""",
+        chart_bars,
+        timeframe="1D",
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [
+        ("BTCUSDT", "1D", 97 * day, 103 * day),
+        ("BTCUSDT", "1D", 88 * day, 103 * day),
+    ]
+    assert result.values("First") == [2.0, 3.0, 10.0]
+    assert result.values("Second") == [2.0, 3.0, 10.0]
+    assert result.meta["requestDiagnostics"] == [
+        {
+            "api": "request.security",
+            "symbol": "BTCUSDT",
+            "timeframe": "1D",
+            "start": 88 * day,
+            "end": 103 * day,
+            "bars": 6,
+            "cacheHit": False,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+        {
+            "api": "request.security",
+            "symbol": "BTCUSDT",
+            "timeframe": "1D",
+            "start": 88 * day,
+            "end": 103 * day,
+            "bars": 6,
+            "cacheHit": True,
+            "ignoreInvalidSymbol": False,
+            "status": "ok",
+        },
+    ]
+
+
+def test_request_security_adaptive_widening_has_a_six_step_bound() -> None:
+    chart_start = 1_000_000_000
+    chart_bars = [_request_bar(chart_start, 10)]
+    provider = StaticProvider(chart_bars)
+
+    result = pn.run(
+        """
+indicator("Bounded Requested History", overlay=True)
+first = request.security("BTCUSDT", "1", "close")
+second = request.security("BTCUSDT", "1", "close")
+plot(first, "First")
+plot(second, "Second")
+""",
+        chart_bars,
+        timeframe="1",
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [call[2] for call in provider.calls] == [
+        chart_start - 60,
+        chart_start - 240,
+        chart_start - 960,
+        chart_start - 3_840,
+        chart_start - 15_360,
+        chart_start - 61_440,
+        chart_start - 245_760,
+    ]
+    assert result.meta["requestDiagnostics"][0]["start"] == chart_start - 245_760
+    assert result.meta["requestDiagnostics"][0]["cacheHit"] is False
+    assert result.meta["requestDiagnostics"][1]["start"] == chart_start - 245_760
+    assert result.meta["requestDiagnostics"][1]["cacheHit"] is True
+
+
+def test_request_security_valid_empty_result_stops_adaptive_widening() -> None:
+    chart_start = 1_000_000_000
+    provider = StaticProvider([])
+
+    result = pn.run(
+        """
+indicator("Empty Requested History", overlay=True)
+plot(request.security("BTCUSDT", "1", "close"), "Close")
+""",
+        [_request_bar(chart_start, 10)],
+        timeframe="1",
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [
+        ("BTCUSDT", "1", chart_start - 60, chart_start + 60),
+    ]
+
+
+def test_request_security_widening_failure_reports_final_attempted_range() -> None:
+    day = 86_400
+    chart_bars = [
+        _request_bar(100 * day, 10),
+        _request_bar(101 * day, 11),
+        _request_bar(102 * day, 12),
+    ]
+
+    class FailingWidenedProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            if start < 97 * day:
+                raise RuntimeError("archive unavailable")
+            return [
+                _request_bar(97 * day, 3),
+                *chart_bars,
+            ]
+
+    provider = FailingWidenedProvider([])
+    result = pn.run(
+        """
+indicator("Widening Failure", overlay=True)
+plot(request.security("BTCUSDT", "1D", "close[2]"), "Close")
+""",
+        chart_bars,
+        timeframe="1D",
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not result.ok
+    assert provider.calls == [
+        ("BTCUSDT", "1D", 97 * day, 103 * day),
+        ("BTCUSDT", "1D", 88 * day, 103 * day),
+    ]
+    assert result.error_detail is not None
+    assert result.error_detail["requestProviderCategory"] == "providerFailure"
+    assert result.error_detail["requestProviderRequest"] == {
+        "api": "request.security",
+        "symbol": "BTCUSDT",
+        "timeframe": "1D",
+        "start": 88 * day,
+        "end": 103 * day,
+    }
+
+
+def test_request_security_lower_tf_uses_last_positive_chart_interval_for_final_bucket() -> None:
+    day = 86_400
+    chart_bars = [
+        _request_bar(100 * day, 10),
+        _request_bar(129 * day, 20),
+        _request_bar(160 * day, 30),
+    ]
+
+    class RangeProvider(StaticProvider):
+        def get_ohlcv(
+            self,
+            symbol: str,
+            timeframe: str,
+            start: int,
+            end: int,
+        ) -> list[dict[str, Any]]:
+            self.calls.append((symbol, timeframe, start, end))
+            return [bar for bar in self._bars if start <= int(bar["time"]) <= end]
+
+    provider = RangeProvider([
+        _request_bar(97 * day, 1),
+        _request_bar(98 * day, 2),
+        _request_bar(99 * day, 3),
+        _request_bar(160 * day, 160),
+        _request_bar(190 * day, 190),
+        _request_bar(191 * day, 191),
+    ])
+    result = pn.run(
+        """
+indicator("Variable Calendar Buckets", overlay=True)
+lower = request.security_lower_tf("BTCUSDT", "1D", "close")
+plot(lower.size(), "Count")
+plot(lower.last(), "Last")
+""",
+        chart_bars,
+        timeframe="1M",
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert provider.calls == [
+        ("BTCUSDT", "1D", 97 * day, 191 * day),
+    ]
+    assert result.values("Count") == [0.0, 0.0, 2.0]
+    assert result.get_series("Last") == [
+        {"time": 160 * day, "value": 190.0},
+    ]
+
+
+def test_request_availability_checks_precede_invalid_field_expression_parsing() -> None:
+    cases = [
+        (
+            "request.security",
+            """
+indicator("Missing Provider Precedence", overlay=True)
+plot(request.security("BTCUSDT", "2", "close[-1]"), "Bad")
+""",
+            None,
+        ),
+        (
+            "request.security_lower_tf",
+            """
+indicator("Missing Lower Provider Precedence", overlay=True)
+bad = request.security_lower_tf("BTCUSDT", "1", "close[-1]")
+plot(bad.size(), "Bad")
+""",
+            None,
+        ),
+        (
+            "request.security",
+            """
+indicator("Capability Precedence", overlay=True)
+plot(request.security("BTCUSDT", "2", "close[-1]"), "Bad")
+""",
+            CapabilityProvider([], {"request.security": False}),
+        ),
+        (
+            "request.security_lower_tf",
+            """
+indicator("Lower Capability Precedence", overlay=True)
+bad = request.security_lower_tf("BTCUSDT", "1", "close[-1]")
+plot(bad.size(), "Bad")
+""",
+            CapabilityProvider([], {"request.security_lower_tf": False}),
+        ),
+    ]
+
+    for api, script, provider in cases:
+        result = pn.run(
+            script,
+            _bars(),
+            data_provider=provider,
+            executor_mode="inline",
+        )
+
+        assert not result.ok, api
+        assert result.error_detail is not None
+        expected_category = "missingProvider" if provider is None else "unsupportedCapability"
+        assert result.error_detail["requestProviderCategory"] == expected_category
+        assert result.error_detail["requestProviderRequest"]["api"] == api
+        if provider is not None:
+            assert provider.calls == []
+
+
+def test_request_options_and_nested_checks_precede_invalid_field_parsing() -> None:
+    provider = StaticProvider([
+        _request_bar(1, 10),
+    ])
+    invalid_option = pn.run(
+        """
+indicator("Option Precedence", overlay=True)
+plot(request.security("BTCUSDT", "2", "close[-1]", gaps="invalid"), "Bad")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+
+    assert not invalid_option.ok
+    assert "gaps must be one of" in str(invalid_option.error)
+    assert "forward reference" not in str(invalid_option.error)
+    assert provider.calls == []
+
+    nested_security = pn.run(
+        """
+indicator("Nested Security Precedence", overlay=True)
+bad = request.security(
+    "BTCUSDT",
+    "2",
+    lambda ctx: request.security("BTCUSDT", "2", "close[-1]"),
+)
+plot(bad, "Bad")
+""",
+        _bars(),
+        data_provider=provider,
+        executor_mode="inline",
+    )
+    assert not nested_security.ok
+    assert "Nested request.security" in str(nested_security.error)
+    assert "forward reference" not in str(nested_security.error)
+
+    lower_provider = StaticProvider([
+        _request_bar(1, 10),
+    ])
+    nested_lower = pn.run(
+        """
+indicator("Nested Lower Precedence", overlay=True)
+bad = request.security_lower_tf(
+    "BTCUSDT",
+    "1",
+    lambda ctx: request.security_lower_tf("BTCUSDT", "1", "close[-1]"),
+)
+plot(bad.size(), "Bad")
+""",
+        _bars(),
+        data_provider=lower_provider,
+        executor_mode="inline",
+    )
+    assert not nested_lower.ok
+    assert "Nested request.security_lower_tf" in str(nested_lower.error)
+    assert "forward reference" not in str(nested_lower.error)

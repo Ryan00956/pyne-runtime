@@ -52,6 +52,23 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert "timeframe" in schema["params"]["types"]
     assert schema["params"]["entry"]["id"]
     assert "get_ohlcv" in schema["requestProvider"]["method"]
+    request_range = schema["requestProvider"]["range"]
+    assert "Warmup-expanded" in request_range["start"]
+    assert "Last chart bar close boundary" in request_range["end"]
+    assert "inclusive [start, end]" in request_range["semantics"]
+    assert "chart bar count" in request_range["warmup"]
+    assert "[last open, end)" in request_range["lowerTimeframeBoundary"]
+    assert "last positive chart interval" in request_range["lowerTimeframeBoundary"]
+    adaptive_widening = request_range["adaptiveWidening"]
+    assert adaptive_widening["factor"] == 4
+    assert adaptive_widening["maxWidenings"] == 6
+    assert adaptive_widening["stopConditions"] == [
+        "warmup requirement satisfied",
+        "valid empty provider result",
+        "start reaches 0",
+        "maximum widening count reached",
+    ]
+    assert "bounded best effort" in adaptive_widening["guarantee"]
     supported_apis = schema["requestProvider"]["supportedApis"]
     assert [item["api"] for item in supported_apis] == [
         *pn.REQUEST_API_VALUES,
@@ -83,6 +100,8 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert request_cache["emptyResults"] == (
         "valid empty provider results are cached and reported as status=ok with bars=0"
     )
+    assert "same or a smaller" in request_cache["exhaustedWarmup"]
+    assert "larger requirement" in request_cache["exhaustedWarmup"]
     assert request_cache["ignoredInvalidSymbol"] == (
         "PyneInvalidSymbolError ignored by ignore_invalid_symbol=True is not cached "
         "and reports status=ignoredInvalidSymbol"

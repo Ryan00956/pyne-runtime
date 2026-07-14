@@ -40,9 +40,16 @@ Compatibility notes:
 `pn.schema()["requestProvider"]["migration"]` is the machine-readable migration
 policy for host-backed `request.*` integrations.
 
-Version 8 is the current request provider schema. It adds
-`request.security_lower_tf()` `ignore_invalid_timeframe` discovery metadata and
-the `ignoredInvalidTimeframe` diagnostic status. It preserves version 7
+Version 9 is the current request provider schema. Provider `start` / `end`
+coordinates now describe the bounded warmup-expanded fetch window and the last
+chart bar's close boundary, rather than the raw first/last chart opening-time
+range. A non-empty result with too few actual pre-chart bars can trigger a
+four-times wider lookback, capped at six widenings. A valid empty result stops
+the sequence immediately. This is bounded best effort and does not guarantee
+unlimited requested history. The
+`get_ohlcv(symbol, timeframe, start, end)` signature remains inclusive and
+unchanged. Version 9 preserves version 8
+`request.security_lower_tf()` invalid-timeframe discovery metadata, version 7
 `supportedApis`, version 6 `errorDetail.requestProviderRequest` for failed
 request calls, version 5 `meta.requestDiagnostics` entries, and version 4
 structured `errorCategories` for host-facing request diagnostics.
@@ -61,6 +68,15 @@ Compatibility notes:
   coordinates as `errorDetail.requestProviderRequest`.
 - Successful request calls append one entry to `meta.requestDiagnostics`; cache
   reuse is indicated by `cacheHit`.
+- Diagnostic `start` / `end` values match the expanded coordinates passed to
+  the final `get_ohlcv(...)` attempt after adaptive widening, so hosts upgrading
+  from version 8 must not assume they equal either the first and last chart
+  opening timestamps or the initially calculated warmup range.
+- A provider error during adaptive widening records the final attempted range
+  in `errorDetail.requestProviderRequest`.
+- Adaptive results are cached by their final range. When the widening budget is
+  exhausted, the same or a smaller warmup requirement reuses that result; only
+  a larger requirement resumes widening.
 - Valid empty provider results are successful requested contexts: they report
   `status="ok"`, `bars=0`, and can be reused from the request cache.
 - `invalidSymbol` remains the only provider-side error class that can be

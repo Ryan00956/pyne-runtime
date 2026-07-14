@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Hardened incremental previews by isolating mutable function defaults and
+  script namespace attributes, safely rejecting closure/class and stateful
+  external-module state, enforcing monotonic preview/close event times, and
+  making custom parameter objects copy-on-read.
+- Fixed incremental `highest()` and `lowest()` helpers so missing values advance
+  the rolling window without poisoning later extrema.
+- Fixed request-provider fetch windows with bounded four-times adaptive widening
+  (at most six widenings) across weekends and market halts, final-range
+  diagnostics/cache semantics, and complete final
+  `request.security_lower_tf()` chart buckets for variable calendar intervals.
+- Fixed lowercase minute timeframe suffixes such as `15m` being interpreted as
+  months, and reject negative string history offsets as unsupported forward
+  references.
+- Restored request error precedence so missing providers, unsupported
+  capabilities, nesting, and request options are checked before field-history
+  expressions are parsed.
+- Added request provider schema v9 fetch-window semantics while keeping the
+  inclusive `get_ohlcv(symbol, timeframe, start, end)` signature.
 - Added a TradingView parity capture for lower-timeframe
   `request.security_lower_tf()` grouping and request capture tooling for
   lower-TF provider bar slots.

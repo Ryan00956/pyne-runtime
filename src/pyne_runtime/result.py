@@ -93,6 +93,8 @@ class PyneResult:
                     continue
                 row = rows.setdefault(timestamp, {"time": timestamp})
                 row[name] = point.get("value")
+        if not rows:
+            return pd.DataFrame(columns=["time"])
         return pd.DataFrame(rows.values()).sort_values("time").reset_index(drop=True)
 
     def plot(self) -> Any:

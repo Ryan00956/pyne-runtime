@@ -65,6 +65,22 @@ plot(value, "Switch Series")
     assert result.values("Switch Series") == [1.5, 2.0, 5.0, 4.0]
 
 
+def test_switch_default_na_stays_false_when_reused_as_condition() -> None:
+    result = pn.run(
+        """
+value = switch((close > 10, 1))
+plot(value, "Switch")
+plot(when(value, 7, 0), "Switch Condition")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok
+    assert result.values("Switch") == []
+    assert result.values("Switch Condition") == [0.0, 0.0, 0.0, 0.0]
+
+
 def test_series_python_bool_error_is_actionable() -> None:
     result = pn.run(
         """

@@ -1,6 +1,7 @@
 """Pine-like request namespace facade."""
 from __future__ import annotations
 
+import math
 from typing import Any, Callable
 
 from ..context import PyneContext
@@ -16,6 +17,7 @@ from .errors import PyneInvalidSymbolError, PyneRequestError
 from .eval import (
     RequestEvalContext,
     RequestValues,
+    _field_expression_history_bars,
     _values_from_expression_result,
     _values_from_field_expression,
 )
@@ -32,6 +34,10 @@ from .provider import (
 )
 
 
+_ADAPTIVE_WIDENING_FACTOR = 4
+_MAX_ADAPTIVE_WIDENINGS = 6
+
+
 class RequestModule:
     """Pine-like ``request`` namespace bound to one execution context."""
 
@@ -45,7 +51,11 @@ class RequestModule:
         self._evaluating = False
         self._requested_context_cache: dict[
             tuple[str, str, int, int],
-            tuple[list[dict[str, Any]], PyneContext],
+            tuple[list[dict[str, Any]], PyneContext, int, int, bool],
+        ] = {}
+        self._requested_context_aliases: dict[
+            tuple[str, str, int, int],
+            tuple[str, str, int, int],
         ] = {}
         self._diagnostics: list[dict[str, Any]] = []
 
@@ -76,7 +86,11 @@ class RequestModule:
         """
         symbol_text = str(symbol)
         timeframe_text = str(timeframe)
-        start, end = self._context.times[0], self._context.times[-1]
+        start, end = _request_provider_window(
+            self._context,
+            timeframe_text,
+            warmup_bars=self._context.bar_count,
+        )
         request_context = self._request_context_payload(
             REQUEST_SECURITY_API,
             symbol_text,
@@ -121,13 +135,37 @@ class RequestModule:
             aliases=_LOOKAHEAD_ALIASES,
         )
 
-        requested, requested_ctx, cache_hit, ignored_invalid_symbol = self._requested_context(
+        direct_history = 0 if callable(expression) else _field_expression_history_bars(expression)
+        warmup_bars = max(self._context.bar_count, direct_history)
+        start, end = _request_provider_window(
+            self._context,
+            timeframe_text,
+            warmup_bars=warmup_bars,
+        )
+
+        (
+            requested,
+            requested_ctx,
+            cache_hit,
+            ignored_invalid_symbol,
+            start,
+            end,
+        ) = self._requested_context(
             REQUEST_SECURITY_API,
             symbol_text,
             timeframe_text,
             start,
             end,
+            chart_start=int(self._context.times[0]),
+            minimum_prechart_bars=warmup_bars,
             ignore_invalid_symbol=ignore_invalid_symbol,
+        )
+        request_context = self._request_context_payload(
+            REQUEST_SECURITY_API,
+            symbol_text,
+            timeframe_text,
+            start,
+            end,
         )
         self._record_diagnostic(
             api=REQUEST_SECURITY_API,
@@ -199,7 +237,11 @@ class RequestModule:
         """
         symbol_text = str(symbol)
         timeframe_text = str(timeframe)
-        start, end = self._context.times[0], self._context.times[-1]
+        start, end = _request_provider_window(
+            self._context,
+            timeframe_text,
+            warmup_bars=self._context.bar_count,
+        )
         request_context = self._request_context_payload(
             REQUEST_SECURITY_LOWER_TF_API,
             symbol_text,
@@ -262,13 +304,37 @@ class RequestModule:
                 request_context=request_context,
             )
 
-        requested, requested_ctx, cache_hit, ignored_invalid_symbol = self._requested_context(
+        direct_history = 0 if callable(expression) else _field_expression_history_bars(expression)
+        warmup_bars = max(self._context.bar_count, direct_history)
+        start, end = _request_provider_window(
+            self._context,
+            timeframe_text,
+            warmup_bars=warmup_bars,
+        )
+
+        (
+            requested,
+            requested_ctx,
+            cache_hit,
+            ignored_invalid_symbol,
+            start,
+            end,
+        ) = self._requested_context(
             REQUEST_SECURITY_LOWER_TF_API,
             symbol_text,
             timeframe_text,
             start,
             end,
+            chart_start=int(self._context.times[0]),
+            minimum_prechart_bars=warmup_bars,
             ignore_invalid_symbol=ignore_invalid_symbol,
+        )
+        request_context = self._request_context_payload(
+            REQUEST_SECURITY_LOWER_TF_API,
+            symbol_text,
+            timeframe_text,
+            start,
+            end,
         )
         self._record_diagnostic(
             api=REQUEST_SECURITY_LOWER_TF_API,
@@ -302,6 +368,7 @@ class RequestModule:
             timeframe=timeframe_text,
             expression_name=expression_name,
             chart_times=self._context.times,
+            chart_end=end,
             requested_times=requested_ctx.times,
             requested_values=requested_values,
         )
@@ -314,10 +381,12 @@ class RequestModule:
         start: int,
         end: int,
         *,
+        chart_start: int,
+        minimum_prechart_bars: int,
         ignore_invalid_symbol: bool,
-    ) -> tuple[list[dict[str, Any]], PyneContext, bool, bool]:
-        request_context = self._request_context_payload(api, symbol, timeframe, start, end)
+    ) -> tuple[list[dict[str, Any]], PyneContext, bool, bool, int, int]:
         if self._provider is None:
+            request_context = self._request_context_payload(api, symbol, timeframe, start, end)
             raise PyneRequestError(
                 "request context requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
@@ -325,64 +394,144 @@ class RequestModule:
                 request_context=request_context,
             )
 
-        key = (symbol, timeframe, int(start), int(end))
-        cached = self._requested_context_cache.get(key)
+        initial_key = (symbol, timeframe, int(start), int(end))
+        cache_key = initial_key
+        seen_aliases: set[tuple[str, str, int, int]] = set()
+        while cache_key not in seen_aliases:
+            seen_aliases.add(cache_key)
+            aliased_key = self._requested_context_aliases.get(cache_key)
+            if aliased_key is None or aliased_key == cache_key:
+                break
+            cache_key = aliased_key
+        cached = self._requested_context_cache.get(cache_key)
+        widenings = 0
         if cached is not None:
-            requested, requested_ctx = cached
-            return requested, requested_ctx, True, False
+            (
+                requested,
+                requested_ctx,
+                cached_prechart_bars,
+                attempted_requirement,
+                exhausted,
+            ) = cached
+            cached_span = chart_start - cache_key[2]
+            if (
+                not requested
+                or cached_prechart_bars >= minimum_prechart_bars
+                or cache_key[2] <= 0
+                or cached_span <= 0
+                or (exhausted and minimum_prechart_bars <= attempted_requirement)
+            ):
+                return requested, requested_ctx, True, False, cache_key[2], cache_key[3]
+            start = max(
+                0,
+                chart_start - cached_span * _ADAPTIVE_WIDENING_FACTOR,
+            )
+            widenings = 1
 
+        current_start = int(start)
+        current_end = int(end)
         ignored_invalid_symbol = False
-        try:
-            requested = self._provider.get_ohlcv(symbol, timeframe, start, end)
-        except PyneInvalidSymbolError as exc:
-            if not ignore_invalid_symbol:
+        exhausted = False
+        while True:
+            request_context = self._request_context_payload(
+                api,
+                symbol,
+                timeframe,
+                current_start,
+                current_end,
+            )
+            try:
+                requested = self._provider.get_ohlcv(
+                    symbol,
+                    timeframe,
+                    current_start,
+                    current_end,
+                )
+            except PyneInvalidSymbolError as exc:
+                if ignore_invalid_symbol:
+                    requested = []
+                    ignored_invalid_symbol = True
+                else:
+                    raise PyneRequestError(
+                        f"Invalid symbol for request.security(): {symbol}",
+                        code="PYNE_INVALID_SYMBOL",
+                        category="invalidSymbol",
+                        request_context=request_context,
+                    ) from exc
+            except PyneRequestError as exc:
+                raise exc.with_request_context(**request_context) from exc
+            except Exception as exc:
                 raise PyneRequestError(
-                    f"Invalid symbol for request.security(): {symbol}",
-                    code="PYNE_INVALID_SYMBOL",
-                    category="invalidSymbol",
+                    f"request data provider failed: {exc}",
+                    code="PYNE_RUNTIME_ERROR",
+                    category="providerFailure",
                     request_context=request_context,
                 ) from exc
-            requested = []
-            ignored_invalid_symbol = True
-        except PyneRequestError as exc:
-            raise exc.with_request_context(**request_context) from exc
-        except Exception as exc:
-            raise PyneRequestError(
-                f"request data provider failed: {exc}",
-                code="PYNE_RUNTIME_ERROR",
-                category="providerFailure",
-                request_context=request_context,
-            ) from exc
-        if requested is None:
-            raise PyneRequestError(
-                "request data provider must return a list of OHLCV bars",
-                code="PYNE_RUNTIME_ERROR",
-                category="invalidReturnType",
-                request_context=request_context,
-            )
-        if not isinstance(requested, list):
-            raise PyneRequestError(
-                "request data provider must return a list of OHLCV bars",
-                code="PYNE_RUNTIME_ERROR",
-                category="invalidReturnType",
-                request_context=request_context,
-            )
-        for index, item in enumerate(requested):
-            if not isinstance(item, dict):
+
+            if not isinstance(requested, list):
                 raise PyneRequestError(
-                    f"request data provider returned non-mapping bar at row {index}",
+                    "request data provider must return a list of OHLCV bars",
                     code="PYNE_RUNTIME_ERROR",
-                    category="invalidBarShape",
+                    category="invalidReturnType",
                     request_context=request_context,
                 )
-            if "time" not in item:
-                raise PyneRequestError(
-                    f"request data provider returned OHLCV bar without time at row {index}",
-                    code="PYNE_RUNTIME_ERROR",
-                    category="invalidBarShape",
-                    request_context=request_context,
+            for index, item in enumerate(requested):
+                if not isinstance(item, dict):
+                    raise PyneRequestError(
+                        f"request data provider returned non-mapping bar at row {index}",
+                        code="PYNE_RUNTIME_ERROR",
+                        category="invalidBarShape",
+                        request_context=request_context,
+                    )
+                if "time" not in item:
+                    raise PyneRequestError(
+                        f"request data provider returned OHLCV bar without time at row {index}",
+                        code="PYNE_RUNTIME_ERROR",
+                        category="invalidBarShape",
+                        request_context=request_context,
+                    )
+            requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
+            prechart_bars = sum(
+                1 for item in requested if int(item.get("time", 0)) < chart_start
+            )
+            if (
+                ignored_invalid_symbol
+                or not requested
+                or prechart_bars >= minimum_prechart_bars
+                or widenings >= _MAX_ADAPTIVE_WIDENINGS
+                or current_start <= 0
+            ):
+                exhausted = (
+                    bool(requested)
+                    and not ignored_invalid_symbol
+                    and prechart_bars < minimum_prechart_bars
+                    and (
+                        widenings >= _MAX_ADAPTIVE_WIDENINGS
+                        or current_start <= 0
+                    )
                 )
-        requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
+                break
+            current_span = chart_start - current_start
+            if current_span <= 0:
+                exhausted = True
+                break
+            next_start = max(
+                0,
+                chart_start - current_span * _ADAPTIVE_WIDENING_FACTOR,
+            )
+            if next_start >= current_start:
+                exhausted = True
+                break
+            current_start = next_start
+            widenings += 1
+
+        request_context = self._request_context_payload(
+            api,
+            symbol,
+            timeframe,
+            current_start,
+            current_end,
+        )
         if ignored_invalid_symbol:
             request_metadata = _default_request_metadata(symbol, timeframe)
         else:
@@ -406,10 +555,26 @@ class RequestModule:
                 category="invalidBarShape",
                 request_context=request_context,
             ) from exc
-        cached = (requested, requested_ctx)
+        cached = (
+            requested,
+            requested_ctx,
+            prechart_bars,
+            minimum_prechart_bars,
+            exhausted,
+        )
         if not ignored_invalid_symbol:
-            self._requested_context_cache[key] = cached
-        return requested, requested_ctx, False, ignored_invalid_symbol
+            final_key = (symbol, timeframe, current_start, current_end)
+            self._requested_context_cache[final_key] = cached
+            if initial_key != final_key:
+                self._requested_context_aliases[initial_key] = final_key
+        return (
+            requested,
+            requested_ctx,
+            False,
+            ignored_invalid_symbol,
+            current_start,
+            current_end,
+        )
 
     def _record_diagnostic(
         self,
@@ -535,6 +700,7 @@ class RequestModule:
             timeframe=timeframe,
             expression_name=expression_name,
             chart_times=self._context.times,
+            chart_end=_chart_close_boundary(self._context),
             requested_times=requested_ctx.times,
             requested_values=requested_values,
         )
@@ -602,8 +768,53 @@ def _chart_seconds_from_times(chart_times: list[int]) -> int | None:
     return interval if interval >= 60 else None
 
 
+def _request_provider_window(
+    context: PyneContext,
+    timeframe: str,
+    *,
+    warmup_bars: int,
+) -> tuple[int, int]:
+    """Return a bounded provider window with requested-context warmup history."""
+    chart_start = int(context.times[0])
+    chart_step = _last_positive_chart_step(context.times)
+    requested_step = _timeframe_seconds_from_text(timeframe) or chart_step
+    if requested_step is None:
+        start = chart_start
+    else:
+        start = max(0, chart_start - max(int(warmup_bars), 0) * requested_step)
+    return start, _chart_close_boundary(context, chart_step=chart_step)
+
+
+def _chart_close_boundary(context: PyneContext, *, chart_step: int | None = None) -> int:
+    """Return the exclusive close boundary of the last chart bar."""
+    last_time = int(context.times[-1])
+    time_close_values = context.time_close.to_numpy()
+    if len(time_close_values):
+        last_close = float(time_close_values[-1])
+        explicit = bool(context._time_close_explicit and context._time_close_explicit[-1])
+        if explicit and math.isfinite(last_close) and last_close > last_time:
+            return int(last_close)
+
+    step = chart_step if chart_step is not None else _last_positive_chart_step(context.times)
+    if step is not None:
+        return last_time + step
+    if len(time_close_values):
+        last_close = float(time_close_values[-1])
+        if math.isfinite(last_close) and last_close > last_time:
+            return int(last_close)
+    return last_time
+
+
+def _last_positive_chart_step(chart_times: list[int]) -> int | None:
+    for index in range(len(chart_times) - 1, 0, -1):
+        interval = int(chart_times[index]) - int(chart_times[index - 1])
+        if interval > 0:
+            return interval
+    return None
+
+
 def _timeframe_seconds_from_text(timeframe: str) -> int | None:
-    value = str(timeframe).strip().upper()
+    value = str(timeframe).strip()
     if not value:
         return None
     if value.isdigit():
@@ -613,13 +824,15 @@ def _timeframe_seconds_from_text(timeframe: str) -> int | None:
     if not amount_text.isdigit():
         return None
     amount = int(amount_text)
-    if unit == "S":
+    if unit in {"s", "S"}:
         return amount
-    if unit == "H":
+    if unit == "m":
+        return amount * 60
+    if unit in {"h", "H"}:
         return amount * 3600
-    if unit == "D":
+    if unit in {"d", "D"}:
         return amount * 86_400
-    if unit == "W":
+    if unit in {"w", "W"}:
         return amount * 7 * 86_400
     if unit == "M":
         return amount * 30 * 86_400

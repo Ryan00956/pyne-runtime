@@ -61,8 +61,17 @@ def build_report(
     fixture_filter: set[str],
 ) -> dict[str, Any]:
     fixtures: list[dict[str, Any]] = []
-    issues: list[dict[str, Any]] = []
-    for entry in manifest.get("entries", []):
+    entries = manifest.get("entries", [])
+    available_fixtures = {entry.get("fixture") for entry in entries}
+    issues: list[dict[str, Any]] = [
+        {
+            "fixture": fixture,
+            "kind": "unknown_fixture_filter",
+            "message": f"fixture filter does not match the manifest: {fixture}",
+        }
+        for fixture in sorted(fixture_filter - available_fixtures)
+    ]
+    for entry in entries:
         if fixture_filter and entry["fixture"] not in fixture_filter:
             continue
         fixture_report = check_entry(entry, manifest_dir, export_dir)

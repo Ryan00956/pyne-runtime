@@ -87,6 +87,56 @@ def test_incremental_session_manager_dedupes_repeated_bar_events() -> None:
     assert session.preview_calls == 1
 
 
+def test_incremental_session_manager_dedupe_includes_all_bar_metadata() -> None:
+    manager = PyneIncrementalSessionManager()
+    shared = manager.acquire("chart-a", DummySession)
+    session = shared.session
+    base = {"time": 1, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100}
+
+    first = manager.process_bar(shared, base, preview=False)
+    with_close = manager.process_bar(shared, {**base, "time_close": 2}, preview=False)
+    with_session = manager.process_bar(
+        shared,
+        {**base, "time_close": 2, "session": {"isfirstbar": True}},
+        preview=False,
+    )
+    with_raw = manager.process_bar(
+        shared,
+        {
+            **base,
+            "time_close": 2,
+            "session": {"isfirstbar": True},
+            "provider": {"flags": ["live", "adjusted"]},
+        },
+        preview=False,
+    )
+    duplicate = manager.process_bar(
+        shared,
+        {
+            "provider": {"flags": ["live", "adjusted"]},
+            "session": {"isfirstbar": "true"},
+            "time_close": "2",
+            "time": 1.0,
+            "open": 1.0,
+            "high": 2.0,
+            "low": 1.0,
+            "close": 1.5,
+            "volume": 100.0,
+        },
+        preview=False,
+    )
+
+    assert [first["calls"], with_close["calls"], with_session["calls"], with_raw["calls"]] == [
+        1,
+        2,
+        3,
+        4,
+    ]
+    assert duplicate == with_raw
+    assert duplicate is not with_raw
+    assert session.closed_calls == 4
+
+
 def test_incremental_limits_reject_oversized_windows() -> None:
     tracker = _LimitTracker(
         IncrementalLimits(

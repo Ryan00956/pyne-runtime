@@ -20,7 +20,7 @@
   ],
   "script": "indicator(\"Lower TF Golden\", overlay=True)\nlower = request.security_lower_tf(\"BTCUSDT\", \"1\", lambda ctx: ctx.close)\nplot(lower.size(), \"Lower Count\")\nplot(lower.last(), \"Lower Last\")\nplot(lower[1].last(), \"Previous Lower Last\")\nplot(lower.sum(), \"Lower Sum\")\nplot(lower.max(), \"Lower Max\")\nplot(lower.get(1, default=0), \"Lower Second\")\n",
   "expected_provider_calls": [
-    ["BTCUSDT", "1", 10, 40]
+    ["BTCUSDT", "1", 0, 50]
   ],
   "expected_series": {
     "Lower Count": [

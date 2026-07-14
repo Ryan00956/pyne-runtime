@@ -134,14 +134,14 @@
     [
       "BINANCE:PYNE_MISSING_SYMBOL",
       "240",
-      64800,
-      104400
+      0,
+      108000
     ],
     [
       "BTCUSDT",
       "240",
-      64800,
-      104400
+      0,
+      108000
     ]
   ],
   "expected_series": {

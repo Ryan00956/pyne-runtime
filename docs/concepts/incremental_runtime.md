@@ -76,6 +76,20 @@ does not mutate the persistent session. Repeated previews for the same bar time
 reuse `ctx.varip()` cells, while `ctx.state()` changes remain isolated inside
 the cloned preview context.
 
+Preview isolation also covers script module globals, mutable function defaults,
+and mutable attributes added to built-in script namespaces such as `math`.
+Functions that capture closure cells and scripts that define classes are
+rejected before a preview callback runs because those states cannot be isolated
+safely in-process. Imported modules remain usable for ordinary read/compute
+operations, while module attribute writes and known stateful APIs are rejected
+instead of being allowed to leak state outside the preview.
+
+Incremental `params` are read-only. Nested JSON-style mappings and collections
+are frozen, and a supported custom mutable object is copied each time it is
+read, so changing the returned object cannot mutate either the session's
+canonical parameters or the caller's original object. Values with uncopyable
+or shared mutable class-level state are rejected with `PyneSecurityError`.
+
 Treat preview drawing objects and strategy output as an overlay. A preview may
 create an object or submit a strategy order, including a pending stop/limit
 order, but those preview-only objects, lifecycle entries, orders, fills, and
@@ -94,6 +108,10 @@ This callback advances persistent state, TA helpers, drawing objects, and the
 strategy ledger. If a preview for the same `time` was already seen,
 `ctx.barstate.isnew` is false during the confirmed callback; if the host sends
 only a closed bar, it is true.
+
+Event times must remain monotonic. Once a host has submitted a preview for a
+later bar, it must not submit a closed event for an earlier bar; close the
+current preview bar before advancing to the next preview time.
 
 `ctx.state()` cells keep committed history snapshots. Use `cell[1]` to read the
 previous confirmed bar's value. If the cell stores an `array`, `map`, or

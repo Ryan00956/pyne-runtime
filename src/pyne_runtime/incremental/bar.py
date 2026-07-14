@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..data import PyneData
 from ..metadata import SessionInfo, normalize_session_info
 
 
@@ -28,15 +29,17 @@ class IncrementalBar:
 
     @classmethod
     def from_dict(cls, item: dict[str, Any], *, is_confirmed: bool = True) -> "IncrementalBar":
+        normalized = PyneData.from_ohlcv([item]).first
+        raw = {**item, **normalized}
         return cls(
-            time=int(item.get("time", 0)),
-            open=float(item.get("open", 0)),
-            high=float(item.get("high", 0)),
-            low=float(item.get("low", 0)),
-            close=float(item.get("close", 0)),
-            volume=float(item.get("volume", 0)),
+            time=int(normalized["time"]),
+            open=float(normalized["open"]),
+            high=float(normalized["high"]),
+            low=float(normalized["low"]),
+            close=float(normalized["close"]),
+            volume=float(normalized["volume"]),
             is_confirmed=is_confirmed,
-            raw=dict(item),
+            raw=raw,
         )
 
 def _session_info_for_bar(bar: IncrementalBar, default: SessionInfo) -> SessionInfo:

@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import copy
+import math
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from .bar import IncrementalBar
 from .result import IncrementalPyneResult
 from .session import PyneIncrementalSession
 
@@ -72,15 +75,8 @@ class PyneIncrementalSessionManager:
         *,
         preview: bool,
     ) -> IncrementalPyneResult:
-        event_key = (
-            "preview" if preview else "closed",
-            int(bar.get("time") or 0),
-            float(bar.get("open", 0)),
-            float(bar.get("high", 0)),
-            float(bar.get("low", 0)),
-            float(bar.get("close", 0)),
-            float(bar.get("volume", 0)),
-        )
+        normalized_bar = IncrementalBar.from_dict(bar, is_confirmed=not preview).raw
+        event_key = ("preview" if preview else "closed", _freeze_event_value(normalized_bar))
         with shared.lock:
             if shared.last_event_key == event_key and shared.last_event_result is not None:
                 return copy.deepcopy(shared.last_event_result)
@@ -102,3 +98,26 @@ class PyneIncrementalSessionManager:
                     for key, shared in self._sessions.items()
                 },
             }
+
+
+def _freeze_event_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        items = [
+            (_freeze_event_value(key), _freeze_event_value(item))
+            for key, item in value.items()
+        ]
+        return ("mapping", tuple(sorted(items, key=repr)))
+    if isinstance(value, (list, tuple)):
+        return ("sequence", tuple(_freeze_event_value(item) for item in value))
+    if isinstance(value, (set, frozenset)):
+        items = (_freeze_event_value(item) for item in value)
+        return ("set", tuple(sorted(items, key=repr)))
+    if isinstance(value, float):
+        if math.isnan(value):
+            return ("float", "nan")
+        if math.isinf(value):
+            return ("float", "inf" if value > 0 else "-inf")
+        return ("float", value)
+    if isinstance(value, (str, int, bool, bytes, type(None))):
+        return (type(value).__name__, value)
+    return (type(value).__qualname__, repr(value))

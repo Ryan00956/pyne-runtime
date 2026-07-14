@@ -1255,10 +1255,12 @@ class IncrementalStrategyNamespace:
         return _round8(closed_signed_qty), _round8(used_order_commission)
 
     def _normalize_direction(self, direction: str) -> str:
-        normalized = str(direction or "").lower()
-        if normalized in {self.short, "strategy.short", "-1"}:
+        normalized = str(direction or self.long).lower()
+        if normalized in {self.short, "strategy.short", "-1", "sell"}:
             return self.short
-        return self.long
+        if normalized in {self.long, "strategy.long", "1", "buy"}:
+            return self.long
+        raise ValueError("strategy direction must be strategy.long or strategy.short")
 
     def _price_or_current(self, price: float | None) -> float:
         return float(self._current_price() if price is None else price)

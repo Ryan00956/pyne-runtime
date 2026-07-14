@@ -47,7 +47,7 @@ def test_request_provider_contract_example_exposes_request_diagnostics() -> None
     )
 
     assert result.ok, result.error
-    assert provider.calls == [("BTCUSDT", "5", 1, 20), ("BTCUSDT", "1", 1, 20)]
+    assert provider.calls == [("BTCUSDT", "5", 0, 21), ("BTCUSDT", "1", 0, 21)]
     assert provider.metadata_calls == [("BTCUSDT", "5"), ("BTCUSDT", "1")]
     assert result.get_series("Higher Open") == [
         {"time": 5, "value": 100.0},
@@ -74,8 +74,8 @@ def test_request_provider_contract_example_exposes_request_diagnostics() -> None
             "api": "request.security",
             "symbol": "BTCUSDT",
             "timeframe": "5",
-            "start": 1,
-            "end": 20,
+            "start": 0,
+            "end": 21,
             "bars": 4,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,
@@ -85,8 +85,8 @@ def test_request_provider_contract_example_exposes_request_diagnostics() -> None
             "api": "request.security",
             "symbol": "BTCUSDT",
             "timeframe": "5",
-            "start": 1,
-            "end": 20,
+            "start": 0,
+            "end": 21,
             "bars": 4,
             "cacheHit": True,
             "ignoreInvalidSymbol": False,
@@ -96,8 +96,8 @@ def test_request_provider_contract_example_exposes_request_diagnostics() -> None
             "api": "request.security_lower_tf",
             "symbol": "BTCUSDT",
             "timeframe": "1",
-            "start": 1,
-            "end": 20,
+            "start": 0,
+            "end": 21,
             "bars": 20,
             "cacheHit": False,
             "ignoreInvalidSymbol": False,

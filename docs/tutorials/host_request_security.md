@@ -54,6 +54,23 @@ plot(higher_close, "Higher Close")
 print(result.values("Higher Close"))
 ```
 
+The supplied range is an inclusive provider fetch window. Pyne initially
+expands its start by a bounded requested-context warmup (the loaded chart-bar
+count, or a larger direct history offset) and advances its end to the last
+chart bar's close boundary. Providers should filter using the received
+coordinates rather than reconstructing the first/last chart opening-time range
+themselves.
+
+When a non-empty response contains too few actual bars before the first chart
+bar, Pyne retries with four times the prior lookback. It widens at most six
+times, stopping early after enough history, a valid empty response, or
+`start=0`. This improves history coverage across weekends and market halts, but
+does not promise unlimited archive history. The final lower-timeframe bucket is
+half-open, so a provider bar opening exactly at `end` belongs to the next chart
+bar and is excluded. Without an explicit final `time_close`, `end` uses the
+last positive chart interval, which preserves variable calendar periods such
+as 29-day and 31-day monthly bars.
+
 With `gaps="off"` this carries the latest requested value forward. With the data
 above, the plotted values are:
 
@@ -96,6 +113,10 @@ higher_previous = request.security(
 )
 ```
 
+The initial warmup targets callable indicator periods up to the number of
+loaded chart bars. Adaptive widening is still bounded, so hosts that need
+longer periods should load a correspondingly longer chart history.
+
 Tuple field expressions and tuple thunks return multiple aligned series:
 
 ```python
@@ -117,6 +138,9 @@ plot(lower_close.size(), "Lower TF Count")
 plot(lower_close.last(), "Lower TF Last Close")
 ```
 
+Timeframe suffixes are case-sensitive: `15m` is fifteen minutes and `1M` is one
+month.
+
 Lower-timeframe tuple expressions are also supported:
 
 ```python
@@ -133,6 +157,12 @@ requested `symbol` / `timeframe`, `start` / `end`, returned `bars`, `cacheHit`,
 `ignoreInvalidSymbol`, and `status`. Provider failures include
 `errorDetail.requestProviderCategory` and `errorDetail.requestProviderRequest`
 so hosts do not have to parse error messages.
+The diagnostic `start` / `end` values are the final actual coordinates passed
+to `get_ohlcv(...)` after any adaptive widening. A provider failure during a
+widening attempt reports that final attempted range in
+`errorDetail.requestProviderRequest`. An exhausted widening result is cached
+for the same or a smaller warmup requirement, so repeated calls do not repeat
+the same bounded retry sequence.
 
 Current scope:
 

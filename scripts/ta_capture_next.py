@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from capture_command import quote_command_path, render_capture_import_command
 from ta_capture_status import DEFAULT_GOLDEN_DIR, build_report
 
 
@@ -42,7 +43,13 @@ def main(argv: list[str] | None = None) -> int:
 
     report = build_report(args.golden_dir)
     manifest = load_manifest(args.manifest)
-    task = find_next_task(report["fixtures"], manifest, include_all=args.all)
+    export_dir = args.manifest.parent if args.manifest is not None else DEFAULT_EXPORT_DIR
+    task = find_next_task(
+        report["fixtures"],
+        manifest,
+        include_all=args.all,
+        export_dir=export_dir,
+    )
     if task is None:
         payload = {"status": "complete", "message": "no pending TA capture task"}
         if args.json:
@@ -69,6 +76,7 @@ def find_next_task(
     manifest: dict[str, Any] | None,
     *,
     include_all: bool,
+    export_dir: Path,
 ) -> dict[str, Any] | None:
     pending = [
         fixture
@@ -80,7 +88,12 @@ def find_next_task(
 
     fixture = pending[0]
     entry = find_manifest_entry(manifest, fixture["fixture"])
-    return build_task(fixture, entry, include_all=include_all)
+    return build_task(
+        fixture,
+        entry,
+        include_all=include_all,
+        export_dir=export_dir,
+    )
 
 
 def find_manifest_entry(
@@ -100,9 +113,12 @@ def build_task(
     manifest_entry: dict[str, Any] | None,
     *,
     include_all: bool,
+    export_dir: Path,
 ) -> dict[str, Any]:
     fixture = status_fixture["fixture"]
-    export_dir = DEFAULT_EXPORT_DIR.as_posix()
+    quoted_export_dir = quote_command_path(export_dir)
+    quoted_manifest = quote_command_path(export_dir / "manifest.json")
+    quoted_export_placeholder = quote_command_path(export_dir / "<export.csv>")
     prepare_flags = " --all" if include_all else ""
     task = {
         "status": "pending",
@@ -112,15 +128,15 @@ def build_task(
         "capture_status": status_fixture["status"],
         "prepare_command": (
             "python scripts/ta_capture_prepare.py "
-            f"--out-dir {export_dir} --clean{prepare_flags}"
+            f"--out-dir {quoted_export_dir} --clean{prepare_flags}"
         ),
         "preflight_command": (
             "python scripts/ta_capture_preflight.py "
-            f"{export_dir}/manifest.json --fixture {fixture}"
+            f"{quoted_manifest} --fixture {fixture}"
         ),
         "import_command": (
             "python scripts/ta_capture_import.py "
-            f"tests/golden/{fixture} --values {export_dir}/<export.csv> "
+            f"tests/golden/{fixture} --values {quoted_export_placeholder} "
             '--tolerance 1e-9 --note "TradingView export YYYY-MM-DD"'
         ),
         "diff_command": (
@@ -137,9 +153,10 @@ def build_task(
                 "plot_titles": manifest_entry["plot_titles"],
                 "capture_index_title": manifest_entry["capture_index_title"],
                 "bar_count": manifest_entry["bar_count"],
-                "import_command": manifest_entry["import_command"].replace(
-                    "<export-dir>",
+                "import_command": render_capture_import_command(
+                    manifest_entry["import_command"],
                     export_dir,
+                    manifest_entry["expected_export_file"],
                 ),
                 "diff_command": manifest_entry["diff_command"],
             }
