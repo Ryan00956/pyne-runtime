@@ -1,7 +1,9 @@
 """Strategy order lifecycle helpers."""
+
 from __future__ import annotations
 
-from typing import Any
+import heapq
+from typing import Any, Callable
 
 from .constants import StrategyIntrabarPath, StrategyOca, StrategySameBarPriority
 
@@ -79,19 +81,266 @@ def _is_pending_submission(order: dict[str, Any]) -> bool:
     return order.get("_limit") is not None or order.get("_stop") is not None
 
 
+class _PendingOrderBook:
+    """Price-indexed pending orders with sequence-stable candidate selection."""
+
+    def __init__(
+        self,
+        *,
+        tick_verify: float,
+        consume_operations: Callable[[int], None] | None = None,
+    ) -> None:
+        self._tick_verify = max(float(tick_verify), 0.0)
+        self._consume_operations = consume_operations
+        self._active: dict[int, dict[str, Any]] = {}
+        self._versions: dict[int, int] = {}
+        self._by_id: dict[str, set[int]] = {}
+        self._by_oca: dict[tuple[str, str], set[int]] = {}
+        self._long_stops: list[tuple[float, int, int]] = []
+        self._long_limits: list[tuple[float, int, int]] = []
+        self._short_stops: list[tuple[float, int, int]] = []
+        self._short_limits: list[tuple[float, int, int]] = []
+
+    def __bool__(self) -> bool:
+        return bool(self._active)
+
+    def __len__(self) -> int:
+        return len(self._active)
+
+    def add(self, order: dict[str, Any]) -> None:
+        seq = int(order.get("_seq", 0))
+        if seq in self._active:
+            self.reindex(order)
+            return
+        self._active[seq] = order
+        self._by_id.setdefault(str(order.get("id") or ""), set()).add(seq)
+        oca_key = self._oca_key(order)
+        if oca_key is not None:
+            self._by_oca.setdefault(oca_key, set()).add(seq)
+        self._push_thresholds(order)
+
+    def contains(self, order: dict[str, Any]) -> bool:
+        seq = int(order.get("_seq", 0))
+        return self._active.get(seq) is order
+
+    def remove(self, order: dict[str, Any]) -> bool:
+        seq = int(order.get("_seq", 0))
+        active = self._active.get(seq)
+        if active is not order:
+            return False
+        self._active.pop(seq, None)
+        self._versions[seq] = self._versions.get(seq, 0) + 1
+        self._discard_index(self._by_id, str(order.get("id") or ""), seq)
+        oca_key = self._oca_key(order)
+        if oca_key is not None:
+            self._discard_index(self._by_oca, oca_key, seq)
+        return True
+
+    def reindex(self, order: dict[str, Any]) -> None:
+        if self.contains(order):
+            self._push_thresholds(order)
+
+    def candidates(self, *, high: float, low: float) -> list[dict[str, Any]]:
+        candidate_seqs: set[int] = set()
+        self._collect_candidates(
+            self._long_stops,
+            threshold=float(high),
+            candidate_seqs=candidate_seqs,
+        )
+        self._collect_candidates(
+            self._long_limits,
+            threshold=-float(low),
+            candidate_seqs=candidate_seqs,
+        )
+        self._collect_candidates(
+            self._short_stops,
+            threshold=-float(low),
+            candidate_seqs=candidate_seqs,
+        )
+        self._collect_candidates(
+            self._short_limits,
+            threshold=float(high),
+            candidate_seqs=candidate_seqs,
+        )
+        return [self._active[seq] for seq in sorted(candidate_seqs) if seq in self._active]
+
+    def cancel_id(
+        self,
+        order_id: str,
+        *,
+        timestamp: int,
+        canceled_by: str,
+    ) -> list[dict[str, Any]]:
+        canceled: list[dict[str, Any]] = []
+        seqs = sorted(self._by_id.get(str(order_id), set()))
+        self._consume(len(seqs))
+        for seq in seqs:
+            order = self._active.get(seq)
+            if order is None:
+                continue
+            self._mark_canceled(order, timestamp=timestamp, canceled_by=canceled_by)
+            self.remove(order)
+            canceled.append(order)
+        return canceled
+
+    def cancel_all(self, *, timestamp: int, canceled_by: str) -> list[dict[str, Any]]:
+        canceled: list[dict[str, Any]] = []
+        seqs = sorted(self._active)
+        self._consume(len(seqs))
+        for seq in seqs:
+            order = self._active.get(seq)
+            if order is None:
+                continue
+            self._mark_canceled(order, timestamp=timestamp, canceled_by=canceled_by)
+            self.remove(order)
+            canceled.append(order)
+        return canceled
+
+    def apply_oca_after_fill(self, filled_order: dict[str, Any]) -> None:
+        oca_key = self._oca_key(filled_order)
+        if oca_key is None:
+            return
+        oca_type = filled_order.get("_oca_type")
+        filled_qty = abs(float(filled_order.get("qty", 0.0)))
+        seqs = sorted(self._by_oca.get(oca_key, set()))
+        self._consume(len(seqs))
+        for seq in seqs:
+            order = self._active.get(seq)
+            if order is None or order is filled_order:
+                continue
+            if oca_type == StrategyOca.cancel:
+                self._mark_canceled(
+                    order,
+                    timestamp=int(filled_order.get("time", 0)),
+                    canceled_by=str(filled_order.get("id") or ""),
+                )
+                self.remove(order)
+            elif oca_type == StrategyOca.reduce:
+                remaining = max(float(order.get("qty", 0.0)) - filled_qty, 0.0)
+                order["qty"] = remaining
+                if remaining <= 0:
+                    self._mark_canceled(
+                        order,
+                        timestamp=int(filled_order.get("time", 0)),
+                        canceled_by=str(filled_order.get("id") or ""),
+                    )
+                    self.remove(order)
+
+    def _push_thresholds(self, order: dict[str, Any]) -> None:
+        seq = int(order.get("_seq", 0))
+        version = self._versions.get(seq, 0) + 1
+        self._versions[seq] = version
+        side = str(order.get("side") or "")
+        stop = order.get("_stop")
+        limit = order.get("_limit")
+        if side == "long":
+            if stop is not None:
+                heapq.heappush(self._long_stops, (float(stop), seq, version))
+            if limit is not None:
+                adjusted = float(limit) - self._tick_verify
+                heapq.heappush(self._long_limits, (-adjusted, seq, version))
+            return
+        if stop is not None:
+            heapq.heappush(self._short_stops, (-float(stop), seq, version))
+        if limit is not None:
+            adjusted = float(limit) + self._tick_verify
+            heapq.heappush(self._short_limits, (adjusted, seq, version))
+
+    def _collect_candidates(
+        self,
+        heap: list[tuple[float, int, int]],
+        *,
+        threshold: float,
+        candidate_seqs: set[int],
+    ) -> None:
+        while heap and heap[0][0] <= threshold:
+            _price, seq, version = heapq.heappop(heap)
+            if self._versions.get(seq) == version and seq in self._active:
+                candidate_seqs.add(seq)
+
+    def _consume(self, count: int) -> None:
+        if count > 0 and self._consume_operations is not None:
+            self._consume_operations(count)
+
+    @staticmethod
+    def _discard_index(index: dict[Any, set[int]], key: Any, seq: int) -> None:
+        values = index.get(key)
+        if values is None:
+            return
+        values.discard(seq)
+        if not values:
+            index.pop(key, None)
+
+    @staticmethod
+    def _mark_canceled(order: dict[str, Any], *, timestamp: int, canceled_by: str) -> None:
+        order["_canceled"] = True
+        order["_canceled_time"] = timestamp
+        order["_canceled_by"] = canceled_by
+
+    @staticmethod
+    def _oca_key(order: dict[str, Any]) -> tuple[str, str] | None:
+        oca_name = str(order.get("_oca_name") or "")
+        oca_type = str(order.get("_oca_type") or StrategyOca.none)
+        if not oca_name or oca_type == StrategyOca.none:
+            return None
+        return oca_name, oca_type
+
+
 def _strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
-    for order in sorted(
+    for order in _orders_in_lifecycle_order(orders):
+        event = _strategy_lifecycle_event(order)
+        if event is not None:
+            events.append(event)
+    return events
+
+
+def _orders_in_replay_order(
+    orders: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return _orders_in_key_order(
+        orders,
+        key=lambda item: (item.get("time", 0), item.get("_seq", 0)),
+    )
+
+
+def _orders_in_lifecycle_order(
+    orders: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return _orders_in_key_order(
         orders,
         key=lambda item: (
             item.get("_submit_time", item.get("time", 0)),
             item.get("_seq", 0),
         ),
-    ):
-        event = _strategy_lifecycle_event(order)
-        if event is not None:
-            events.append(event)
-    return events
+    )
+
+
+def _orders_in_sequence_order(
+    orders: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return _orders_in_key_order(
+        orders,
+        key=lambda item: item.get("_seq", 0),
+    )
+
+
+def _orders_in_key_order(
+    orders: list[dict[str, Any]],
+    *,
+    key: Callable[[dict[str, Any]], Any],
+) -> list[dict[str, Any]]:
+    ordered = list(orders)
+    if len(ordered) < 2:
+        return ordered
+    previous = key(ordered[0])
+    for item in ordered[1:]:
+        current = key(item)
+        if current < previous:
+            ordered.sort(key=key)
+            break
+        previous = current
+    return ordered
 
 
 def _strategy_lifecycle_event(order: dict[str, Any]) -> dict[str, Any] | None:
@@ -406,7 +655,9 @@ def _normalize_oca_type(value: str | None) -> str:
         return StrategyOca.reduce
     if normalized in {"none", "", "strategy.oca.none"}:
         return StrategyOca.none
-    raise ValueError("oca_type must be strategy.oca.none, strategy.oca.cancel, or strategy.oca.reduce")
+    raise ValueError(
+        "oca_type must be strategy.oca.none, strategy.oca.cancel, or strategy.oca.reduce"
+    )
 
 
 def _apply_oca_after_fill(

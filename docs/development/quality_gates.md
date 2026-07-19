@@ -19,6 +19,7 @@ python -m compileall src tests -q
 python -m ruff check .
 python -m pytest tests/test_architecture.py -q
 python -m pytest -q
+python scripts/performance_smoke.py --check
 python scripts/request_capture_diff.py --assertion parity
 python scripts/strategy_capture_scaffold.py --check
 python scripts/strategy_capture_diff.py --assertion parity
@@ -57,6 +58,12 @@ the normal pytest suite. Add or update a fixture when a Pine-like compatibility
 claim depends on exact alignment or replay output, especially for
 `request.security` gaps/lookahead alignment, lower-timeframe grouping, strategy
 fills, and barstate flags.
+
+`performance_smoke.py` protects the algorithmic growth contracts that are easy
+to miss in semantic fixtures: dense strategy replay time and memory, incremental
+window indexing, long-period monotonic and pivot checks, TA NaN fast paths,
+weighted averages, and rolling order statistics. It uses relative growth ratios
+rather than machine-specific absolute latency budgets.
 
 The request capture gate protects TradingView-backed `request.security()`
 evidence. Captured `parity` fixtures must stay at 0 diff with

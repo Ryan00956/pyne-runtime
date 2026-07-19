@@ -15,6 +15,7 @@ def test_from_env_reads_collection_limits(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setenv("PYNE_MAX_MAP_SIZE", "12")
     monkeypatch.setenv("PYNE_MAX_MATRIX_CELLS", "13")
     monkeypatch.setenv("PYNE_MAX_COLLECTION_DEPTH", "3")
+    monkeypatch.setenv("PYNE_MAX_STRATEGY_PENDING_OPERATIONS", "14")
 
     settings = PyneSettings.from_env()
 
@@ -22,6 +23,7 @@ def test_from_env_reads_collection_limits(monkeypatch: pytest.MonkeyPatch) -> No
     assert settings.max_map_size == 12
     assert settings.max_matrix_cells == 13
     assert settings.max_collection_depth == 3
+    assert settings.max_strategy_pending_operations == 14
 
 
 def test_with_security_mode_preserves_all_existing_fields() -> None:

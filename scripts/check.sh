@@ -38,6 +38,7 @@ mkdir -p "$PYTEST_TMP"
 export TMPDIR="$CHECK_TMP"
 "$PYTHON" -m ruff check .
 "$PYTHON" -m pytest -p no:cacheprovider --basetemp "$PYTEST_TMP/run"
+"$PYTHON" scripts/performance_smoke.py --check
 "$PYTHON" scripts/strategy_capture_scaffold.py --check
 "$PYTHON" scripts/strategy_capture_diff.py --assertion parity
 "$PYTHON" scripts/ta_capture_diff.py --assertion parity

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from bisect import bisect_left
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import numpy as np
@@ -19,6 +19,12 @@ class LowerTimeframeSeries:
 
     groups: tuple[tuple[Any, ...], ...]
     name: str | None = None
+    _numeric_cache: tuple[np.ndarray, np.ndarray, np.ndarray] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     def __len__(self) -> int:
         return len(self.groups)
@@ -100,17 +106,58 @@ class LowerTimeframeSeries:
         default: Any,
         label: str,
     ) -> PyneSeries:
-        values: list[Any] = []
-        for group in self.groups:
-            clean = np.asarray(
-                [float(value) for value in group if not is_na_value(value)],
-                dtype=np.float64,
-            )
-            values.append(default if len(clean) == 0 else op(clean))
-        return _lower_tf_numeric_series(
-            values,
+        flat, offsets, counts = self._numeric_groups()
+        result = np.full(len(self.groups), np.nan, dtype=np.float64)
+        nonempty = counts > 0
+        if np.any(nonempty):
+            starts = offsets[:-1][nonempty]
+            if label == "sum" or label == "avg":
+                reduced = np.add.reduceat(flat, starts)
+                if label == "avg":
+                    reduced = reduced / counts[nonempty]
+            elif label == "min":
+                reduced = np.minimum.reduceat(flat, starts)
+            elif label == "max":
+                reduced = np.maximum.reduceat(flat, starts)
+            else:  # pragma: no cover - private callers use the four labels above
+                reduced = np.asarray([op(flat[start:stop]) for start, stop in zip(
+                    offsets[:-1][nonempty],
+                    offsets[1:][nonempty],
+                )])
+            result[nonempty] = reduced
+
+        empty = ~nonempty
+        if np.any(empty):
+            result[empty] = np.nan if is_na_value(default) else float(default)
+        return PyneSeries(
+            result,
             name=f"{self.name}.{label}" if self.name else None,
         )
+
+    def _numeric_groups(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        cached = self._numeric_cache
+        if cached is not None:
+            return cached
+
+        flat_values: list[float] = []
+        counts = np.empty(len(self.groups), dtype=np.intp)
+        for index, group in enumerate(self.groups):
+            start = len(flat_values)
+            for value in group:
+                if not is_na_value(value):
+                    flat_values.append(float(value))
+            counts[index] = len(flat_values) - start
+
+        flat = np.asarray(flat_values, dtype=np.float64)
+        offsets = np.empty(len(self.groups) + 1, dtype=np.intp)
+        offsets[0] = 0
+        np.cumsum(counts, out=offsets[1:])
+        flat.setflags(write=False)
+        offsets.setflags(write=False)
+        counts.setflags(write=False)
+        cached = (flat, offsets, counts)
+        object.__setattr__(self, "_numeric_cache", cached)
+        return cached
 
 
 def _group_lower_timeframe_values(

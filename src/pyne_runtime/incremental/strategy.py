@@ -230,6 +230,14 @@ class IncrementalStrategyNamespace:
         self._margin_long = 0.0
         self._margin_short = 0.0
 
+    def _append_order(self, order: dict[str, Any]) -> None:
+        self._context._limit_tracker.reserve_strategy_log()
+        self._orders.append(order)
+
+    def _append_closed_trade(self, trade: dict[str, Any]) -> None:
+        self._context._limit_tracker.reserve_strategy_log()
+        self._closed_trades.append(trade)
+
     def configure(self, **kwargs: Any) -> None:
         if "pyramiding" in kwargs:
             self._pyramiding = max(int(kwargs["pyramiding"]), 0)
@@ -455,7 +463,7 @@ class IncrementalStrategyNamespace:
             "_oca_name": str(oca_name or ""),
             "_oca_type": _normalize_oca_type(oca_type),
         }
-        self._orders.append(order)
+        self._append_order(order)
         self._touched = True
         if self._risk_locked:
             self._reject_order(order, reason="risk_locked")
@@ -723,7 +731,7 @@ class IncrementalStrategyNamespace:
         }
         if order_commission > 0:
             order["commission"] = _round8(order_commission)
-        self._orders.append(order)
+        self._append_order(order)
 
     def close_all(
         self,
@@ -795,7 +803,7 @@ class IncrementalStrategyNamespace:
         if canceled <= 0:
             return
         self._touched = True
-        self._orders.append({
+        self._append_order({
             "time": self._current_time(),
             "id": str(id),
             "type": "cancel",
@@ -816,7 +824,7 @@ class IncrementalStrategyNamespace:
         if canceled <= 0:
             return
         self._touched = True
-        self._orders.append({
+        self._append_order({
             "time": self._current_time(),
             "id": "cancel_all",
             "type": "cancel_all",
@@ -1007,7 +1015,7 @@ class IncrementalStrategyNamespace:
         }
         if order_commission > 0:
             public_order["commission"] = _round8(order_commission)
-        self._orders.append(public_order)
+        self._append_order(public_order)
         return True
 
     def _reject_order(self, order: dict[str, Any], *, reason: str) -> None:
@@ -1113,7 +1121,7 @@ class IncrementalStrategyNamespace:
         }
         if order_commission > 0:
             order["commission"] = _round8(order_commission)
-        self._orders.append(order)
+        self._append_order(order)
 
     def _position_after_fill(
         self,
@@ -1238,7 +1246,7 @@ class IncrementalStrategyNamespace:
                 closed_trade["entry_comment"] = str(trade.get("entry_comment", ""))
             if exit_comment:
                 closed_trade["exit_comment"] = str(exit_comment)
-            self._closed_trades.append(closed_trade)
+            self._append_closed_trade(closed_trade)
             closed_signed_qty += closing_qty if side == self.long else -closing_qty
             leftover_qty = trade_qty - closing_qty
             if leftover_qty > 1e-9:

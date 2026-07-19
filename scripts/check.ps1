@@ -66,6 +66,7 @@ try {
         "--basetemp",
         (Join-Path $PytestTemp "run")
     )
+    Invoke-PyneCheck -Arguments @("scripts/performance_smoke.py", "--check")
     Invoke-PyneCheck -Arguments @("scripts/strategy_capture_scaffold.py", "--check")
     Invoke-PyneCheck -Arguments @(
         "scripts/strategy_capture_diff.py",

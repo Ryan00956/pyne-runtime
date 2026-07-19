@@ -71,6 +71,12 @@ class PyneVar:
             self._value = to_missing_scalar(updates) if not is_na_value(updates) else initial
             return self._value
 
+        numeric_result = _numeric_carry_forward(source, initial)
+        if numeric_result is not None:
+            wrapped = wrap_like(numeric_result, updates, name=self.name)
+            self._value = wrapped
+            return wrapped
+
         result = np.empty(len(source), dtype=object)
         current = initial
         for idx, item in enumerate(source):
@@ -123,3 +129,31 @@ def _normalize_series_values(values: np.ndarray) -> np.ndarray:
         return values.astype(np.float64)
     except (TypeError, ValueError):
         return values
+
+
+def _numeric_carry_forward(source: np.ndarray, initial: Any) -> np.ndarray | None:
+    """Vectorized ``set_each`` path for real numeric arrays; object values fall back."""
+    values = np.asarray(source)
+    if values.dtype.kind not in "biuf":
+        return None
+
+    try:
+        initial_value = np.nan if is_na_value(initial) else float(initial)
+    except (TypeError, ValueError):
+        return None
+
+    numeric = values.astype(np.float64, copy=False)
+    if len(numeric) == 0:
+        return np.empty(0, dtype=np.float64)
+
+    missing = np.isnan(numeric)
+    if not np.any(missing):
+        return np.array(numeric, dtype=np.float64, copy=True)
+
+    indices = np.where(~missing, np.arange(len(numeric), dtype=np.intp), -1)
+    np.maximum.accumulate(indices, out=indices)
+    result = np.empty(len(numeric), dtype=np.float64)
+    leading = indices < 0
+    result[leading] = initial_value
+    result[~leading] = numeric[indices[~leading]]
+    return result

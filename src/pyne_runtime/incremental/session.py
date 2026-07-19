@@ -34,7 +34,11 @@ from ..security import (
 from ..settings import PyneSettings
 from .bar import IncrementalBar
 from .context import IncrementalContext
-from .limits import IncrementalLimits
+from .limits import (
+    IncrementalLimits,
+    IncrementalResourceLimitError,
+    _state_payload_items,
+)
 from .result import IncrementalPyneResult
 
 
@@ -70,8 +74,10 @@ class PyneIncrementalSession:
         self._preview_varip_states: dict[str, Any] = {}
         self._base_namespace_names: set[str] = set()
         self._base_namespace_values: dict[str, Any] = {}
+        self._poisoned_reason: str | None = None
 
     def prepare(self) -> None:
+        self._ensure_healthy()
         if self._prepared:
             return
         validate_script_security(self.script, self.policy)
@@ -100,8 +106,11 @@ class PyneIncrementalSession:
         start_s: int | None = None,
         end_s: int | None = None,
     ) -> IncrementalPyneResult:
+        self._ensure_healthy()
         if len(ohlcv) > self.policy.max_bars:
-            raise PyneSecurityError(f"Too many data points (max {self.policy.max_bars})")
+            error = PyneSecurityError(f"Too many data points (max {self.policy.max_bars})")
+            self._poison(error)
+            raise error
         PyneData.from_ohlcv(ohlcv, allow_empty=True)
         self.prepare()
         self._ctx = IncrementalContext(
@@ -142,6 +151,7 @@ class PyneIncrementalSession:
         return self._ctx.to_result(start_s=start_s, end_s=end_s)
 
     def on_bar_closed(self, item: dict[str, Any]) -> IncrementalPyneResult:
+        self._ensure_healthy()
         self._ensure_bar_capacity(1)
         bar = IncrementalBar.from_dict(item, is_confirmed=True)
         self._validate_event_time(bar, preview=False)
@@ -183,6 +193,7 @@ class PyneIncrementalSession:
         return self._ctx.to_result(start_s=bar.time, end_s=bar.time)
 
     def on_bar_updated(self, item: dict[str, Any]) -> IncrementalPyneResult:
+        self._ensure_healthy()
         self._ensure_bar_capacity(1)
         bar = IncrementalBar.from_dict(item, is_confirmed=False)
         self._validate_event_time(bar, preview=True)
@@ -203,7 +214,11 @@ class PyneIncrementalSession:
         is_new = self._active_preview_time != bar.time
         if is_new:
             self._preview_varip_states = {}
-        preview_ctx._varip_states = self._preview_varip_states
+        try:
+            preview_ctx.adopt_varip_states(self._preview_varip_states)
+        except (PyneSecurityError, IncrementalResourceLimitError) as exc:
+            self._poison(exc)
+            raise
         self._run_bar(
             preview_ctx,
             bar,
@@ -233,24 +248,51 @@ class PyneIncrementalSession:
         last_bar_index: int,
         barstate: PyneIncrementalBarState,
     ) -> None:
-        ctx.begin_bar(bar, bar_index=bar_index, last_bar_index=last_bar_index, barstate=barstate)
-        func = self._on_preview if preview and self._on_preview is not None else self._on_bar
-        previous_ctx = self._active_ctx
-        self._active_ctx = ctx
         try:
-            with self._preview_global_scope(enabled=preview, func=func) as active_func:
-                with execution_timeout(self.policy.timeout_seconds):
-                    self._call_required(active_func, ctx, bar)
-        finally:
-            self._active_ctx = previous_ctx
-        ctx.strategy.end_bar()
-        if barstate.isconfirmed and not preview:
-            ctx.commit_state_history()
+            ctx.begin_bar(
+                bar,
+                bar_index=bar_index,
+                last_bar_index=last_bar_index,
+                barstate=barstate,
+            )
+            func = self._on_preview if preview and self._on_preview is not None else self._on_bar
+            previous_ctx = self._active_ctx
+            self._active_ctx = ctx
+            try:
+                with self._preview_global_scope(enabled=preview, func=func) as active_func:
+                    with execution_timeout(self.policy.timeout_seconds):
+                        self._call_required(active_func, ctx, bar)
+            finally:
+                self._active_ctx = previous_ctx
+            ctx.sync_varip_payload()
+            ctx.strategy.end_bar()
+            if barstate.isconfirmed and not preview:
+                ctx.commit_state_history()
+        except (PyneSecurityError, IncrementalResourceLimitError) as exc:
+            self._poison(exc)
+            raise
 
     def _ensure_bar_capacity(self, additional: int) -> None:
         requested = self._closed_count + max(int(additional), 0)
         if requested > self.policy.max_bars:
-            raise PyneSecurityError(f"Too many data points (max {self.policy.max_bars})")
+            error = PyneSecurityError(f"Too many data points (max {self.policy.max_bars})")
+            self._poison(error)
+            raise error
+
+    def _ensure_healthy(self) -> None:
+        if self._poisoned_reason is not None:
+            raise PyneSecurityError(
+                "Incremental session is poisoned after a security or resource-limit failure: "
+                f"{self._poisoned_reason}"
+            )
+
+    def _poison(self, error: BaseException) -> None:
+        if self._poisoned_reason is None:
+            self._poisoned_reason = str(error)
+        self._ctx = None
+        self._active_ctx = None
+        self._active_preview_time = None
+        self._preview_varip_states = {}
 
     def _validate_event_time(self, bar: IncrementalBar, *, preview: bool) -> None:
         if self.last_closed_time is not None and bar.time <= self.last_closed_time:
@@ -277,6 +319,10 @@ class PyneIncrementalSession:
             if key not in self._base_namespace_names
             or value is not self._base_namespace_values[key]
         }
+        if self._ctx is not None:
+            self._ctx._limit_tracker.validate_preview_payload(
+                _preview_payload_items(user_globals.values())
+            )
         try:
             preview_globals, memo = _clone_preview_globals(
                 original_globals,
@@ -501,8 +547,12 @@ class PyneIncrementalSession:
     def _call_optional(self, func: Callable[..., Any] | None, ctx: IncrementalContext) -> None:
         if func is None:
             return
-        with execution_timeout(self.policy.timeout_seconds):
-            self._call_by_arity(func, ctx)
+        try:
+            with execution_timeout(self.policy.timeout_seconds):
+                self._call_by_arity(func, ctx)
+        except (PyneSecurityError, IncrementalResourceLimitError) as exc:
+            self._poison(exc)
+            raise
 
     def _call_required(
         self,
@@ -542,6 +592,7 @@ class PyneIncrementalSession:
         start_s: int | None = None,
         end_s: int | None = None,
     ) -> IncrementalPyneResult:
+        self._ensure_healthy()
         self.prepare()
         if self._ctx is None:
             self._ctx = IncrementalContext(
@@ -770,6 +821,22 @@ def _clone_preview_globals(
         cloned.__module__ = original.__module__
         cloned.__qualname__ = original.__qualname__
     return preview_globals, memo
+
+
+def _preview_payload_items(values: Any) -> int:
+    """Estimate deepcopy work before allocating a preview-global clone."""
+    total = 0
+    for value in values:
+        if _is_deeply_immutable(value):
+            continue
+        total += _state_payload_items(value)
+        if isinstance(value, FunctionType):
+            total += _state_payload_items(value.__defaults__)
+            total += _state_payload_items(value.__kwdefaults__)
+            total += _state_payload_items(value.__dict__)
+        elif hasattr(value, "__dict__"):
+            total += _state_payload_items(vars(value))
+    return total
 
 
 def _preview_copy_memo(value: Any) -> dict[int, Any]:

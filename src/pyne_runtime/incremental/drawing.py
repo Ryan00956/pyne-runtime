@@ -6,7 +6,7 @@ import math
 from typing import Any
 
 from ..plot import ObjectRef
-from .limits import StateCell
+from .limits import IncrementalResourceLimitError, StateCell
 from .strategy import _round8
 
 
@@ -220,12 +220,16 @@ class IncrementalDrawingMixin:
         border_width: int = 1,
         pane: str | None = None,
     ) -> ObjectRef:
+        column_count = int(columns)
+        row_count = int(rows)
+        if column_count <= 0 or row_count <= 0:
+            raise ValueError("Incremental table columns and rows must be positive")
         object_id = self._next_object_id("table")
         entry = {
             "id": object_id,
             "position": position,
-            "columns": int(columns),
-            "rows": int(rows),
+            "columns": column_count,
+            "rows": row_count,
             "bgcolor": bgcolor,
             "frame_color": frame_color,
             "frame_width": int(frame_width),
@@ -235,6 +239,7 @@ class IncrementalDrawingMixin:
             "cells": [],
         }
         self._object_tables[object_id] = entry
+        self._table_cell_indices[object_id] = {}
         self._record_object_event("create", "table", entry)
         return ObjectRef(id=object_id, kind="table")
 
@@ -254,9 +259,19 @@ class IncrementalDrawingMixin:
         entry = self._object_entry(ref, "table")
         if entry is None:
             return
+        normalized_column = int(column)
+        normalized_row = int(row)
+        columns = int(entry.get("columns", 0))
+        rows = int(entry.get("rows", 0))
+        if not 0 <= normalized_column < columns or not 0 <= normalized_row < rows:
+            raise IndexError(
+                "Incremental table cell "
+                f"({normalized_column}, {normalized_row}) is out of bounds for "
+                f"{columns} columns x {rows} rows"
+            )
         cell = {
-            "column": int(column),
-            "row": int(row),
+            "column": normalized_column,
+            "row": normalized_row,
             "text": str(_drawing_scalar(text)),
             "text_color": text_color,
             "bgcolor": bgcolor,
@@ -265,11 +280,33 @@ class IncrementalDrawingMixin:
             "text_halign": text_halign,
             "text_valign": text_valign,
         }
-        _upsert_table_cell(entry, cell)
-        self._record_object_event("update", "table", entry)
+        cell_indices = self._table_cell_indices.setdefault(ref.id, {})
+        cell_key = (normalized_column, normalized_row)
+        is_new = cell_key not in cell_indices
+        if is_new:
+            self._limit_tracker.reserve_table_cell()
+        _upsert_table_cell(entry, cell, cell_indices)
+        self._record_object_event(
+            "update",
+            "table",
+            entry,
+            event_object={"id": entry.get("id"), "cells": [cell]},
+        )
 
     def table_clear(self, ref: ObjectRef) -> None:
-        self._update_object(ref, "table", {"cells": []})
+        entry = self._object_entry(ref, "table")
+        if entry is None:
+            return
+        released = len(entry.get("cells") or [])
+        entry["cells"] = []
+        self._table_cell_indices.setdefault(ref.id, {}).clear()
+        self._limit_tracker.release_table_cells(released)
+        self._record_object_event(
+            "update",
+            "table",
+            entry,
+            event_object={"id": entry.get("id"), "cells": []},
+        )
 
     def table_set_position(self, ref: ObjectRef, position: str) -> None:
         self._update_object(ref, "table", {"position": position})
@@ -299,7 +336,9 @@ class IncrementalDrawingMixin:
             + len(self._object_tables)
         )
         if total >= self._max_drawing_objects:
-            raise RuntimeError(f"Drawing object limit exceeded (max {self._max_drawing_objects})")
+            raise IncrementalResourceLimitError(
+                f"Drawing object limit exceeded (max {self._max_drawing_objects})"
+            )
 
     def _object_entry(self, ref: ObjectRef, kind: str) -> dict[str, Any] | None:
         if not isinstance(ref, ObjectRef) or ref.kind != kind:
@@ -317,33 +356,52 @@ class IncrementalDrawingMixin:
         if entry is None:
             return
         entry.update(updates)
-        self._record_object_event("update", kind, entry)
+        event_object = {"id": entry.get("id"), **updates} if kind == "table" else entry
+        self._record_object_event("update", kind, entry, event_object=event_object)
 
     def _delete_object(self, ref: ObjectRef, kind: str) -> None:
         entry = self._object_entry(ref, kind)
         if entry is None:
             return
-        self._record_object_event("delete", kind, entry)
+        event_object = _table_snapshot(entry) if kind == "table" else entry
+        self._record_object_event("delete", kind, entry, event_object=event_object)
         {
             "line": self._object_lines,
             "label": self._object_labels,
             "box": self._object_boxes,
             "table": self._object_tables,
         }[kind].pop(ref.id, None)
+        if kind == "table":
+            self._table_cell_indices.pop(ref.id, None)
+            self._limit_tracker.release_table_cells(len(entry.get("cells") or []))
 
-    def _record_object_event(self, action: str, kind: str, entry: dict[str, Any]) -> None:
-        event: dict[str, Any] = {
-            "action": action,
-            "kind": kind,
-            "id": entry.get("id"),
-            "object": copy.deepcopy(entry),
-        }
-        if self.current_bar is not None:
-            event["time"] = self.current_bar.time
-            event["bar_index"] = self.bar_index
-            event["confirmed"] = self.barstate.isconfirmed
-            event["realtime"] = self.barstate.isrealtime
-        self._object_events.append(event)
+    def _record_object_event(
+        self,
+        action: str,
+        kind: str,
+        entry: dict[str, Any],
+        *,
+        event_object: dict[str, Any] | None = None,
+    ) -> None:
+        previous_total = self._limit_tracker.object_events
+        self._limit_tracker.reserve_object_event()
+        try:
+            event: dict[str, Any] = {
+                "action": action,
+                "kind": kind,
+                "id": entry.get("id"),
+                "object": copy.deepcopy(entry if event_object is None else event_object),
+            }
+            if self.current_bar is not None:
+                event["time"] = self.current_bar.time
+                event["bar_index"] = self.bar_index
+                event["confirmed"] = self.barstate.isconfirmed
+                event["realtime"] = self.barstate.isrealtime
+            self._object_events.append(event)
+            self._current_object_events.append(event)
+        except Exception:
+            self._limit_tracker.object_events = previous_total
+            raise
 
     def _objects_snapshot(self) -> dict[str, Any]:
         objects: dict[str, Any] = {}
@@ -354,7 +412,9 @@ class IncrementalDrawingMixin:
         if self._object_boxes:
             objects["boxes"] = list(copy.deepcopy(self._object_boxes).values())
         if self._object_tables:
-            objects["tables"] = list(copy.deepcopy(self._object_tables).values())
+            objects["tables"] = [
+                _table_snapshot(entry) for entry in self._object_tables.values()
+            ]
         return objects
 
 
@@ -393,11 +453,25 @@ def _drawing_scalar(value: Any) -> Any:
         return value
     return None if math.isnan(number) else _round8(number)
 
-def _upsert_table_cell(entry: dict[str, Any], cell: dict[str, Any]) -> None:
+def _upsert_table_cell(
+    entry: dict[str, Any],
+    cell: dict[str, Any],
+    cell_indices: dict[tuple[int, int], int],
+) -> None:
     cells = entry.setdefault("cells", [])
-    for idx, existing in enumerate(cells):
-        if existing.get("column") == cell["column"] and existing.get("row") == cell["row"]:
-            cells[idx] = cell
-            return
+    key = (cell["column"], cell["row"])
+    existing_index = cell_indices.get(key)
+    if existing_index is not None:
+        cells[existing_index] = cell
+        return
+    cell_indices[key] = len(cells)
     cells.append(cell)
-    cells.sort(key=lambda item: (item.get("row", 0), item.get("column", 0)))
+
+
+def _table_snapshot(entry: dict[str, Any]) -> dict[str, Any]:
+    snapshot = copy.deepcopy(entry)
+    snapshot["cells"] = sorted(
+        snapshot.get("cells") or [],
+        key=lambda item: (item.get("row", 0), item.get("column", 0)),
+    )
+    return snapshot

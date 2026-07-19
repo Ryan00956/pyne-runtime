@@ -1,7 +1,8 @@
 """Pine-like strategy event helpers."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -60,7 +61,13 @@ class StrategyModule:
     percent_of_equity = StrategyRiskMode.percent_of_equity
     cash = StrategyRiskMode.cash
 
-    def __init__(self, context: PyneContext, collector: OutputCollector) -> None:
+    def __init__(
+        self,
+        context: PyneContext,
+        collector: OutputCollector,
+        *,
+        max_pending_order_operations: int = 1_000_000,
+    ) -> None:
         self._context = context
         self._collector = collector
         self._position_size = np.zeros(context.bar_count, dtype=np.float64)
@@ -76,6 +83,7 @@ class StrategyModule:
         self._open_trades: list[dict[str, Any]] = []
         self._closed_trades_by_bar: list[list[dict[str, Any]]] = []
         self._open_trades_by_bar: list[list[dict[str, Any]]] = []
+        self._open_trade_events_by_bar: list[list[tuple[str, int, dict[str, Any] | None]]] = []
         self._closedtrades_namespace = StrategyTradesNamespace(self, "closedtrades")
         self._opentrades_namespace = StrategyTradesNamespace(self, "opentrades")
         self._touched = False
@@ -102,6 +110,8 @@ class StrategyModule:
         self._intrabar_path = StrategyIntrabarPath.same_bar_priority
         self._margin_long = 0.0
         self._margin_short = 0.0
+        self._max_pending_order_operations = max(int(max_pending_order_operations), 1)
+        self._pending_order_operations = 0
 
     def __call__(self, title: str = "", overlay: bool = True, **kwargs: Any) -> None:
         """Declare strategy metadata and Pine-like replay settings."""
@@ -180,9 +190,7 @@ class StrategyModule:
         if process_orders_on_close is not None:
             self._process_orders_on_close = bool(process_orders_on_close)
         if same_bar_fill_priority is not None:
-            self._same_bar_fill_priority = _normalize_same_bar_fill_priority(
-                same_bar_fill_priority
-            )
+            self._same_bar_fill_priority = _normalize_same_bar_fill_priority(same_bar_fill_priority)
         if intrabar_path is not None:
             self._intrabar_path = _normalize_intrabar_path(intrabar_path)
         if margin_long is not None:
@@ -282,24 +290,26 @@ class StrategyModule:
             if not flag:
                 continue
             event_price = prices[idx]
-            self._collector.strategy_orders.append({
-                "time": self._context.times[idx],
-                "id": str(id),
-                "type": "entry",
-                "side": side,
-                "qty": qty_abs,
-                "price": round(float(event_price), 8),
-                "position_after": 0.0,
-                "comment": comment,
-                "_base_price": float(event_price),
-                "_limit": limits[idx],
-                "_stop": stops[idx],
-                "_original_qty": qty_abs,
-                "_oca_name": str(oca_name or ""),
-                "_oca_type": _normalize_oca_type(oca_type),
-                "_submit_time": self._context.times[idx],
-                "_seq": self._next_event_seq(),
-            })
+            self._collector.strategy_orders.append(
+                {
+                    "time": self._context.times[idx],
+                    "id": str(id),
+                    "type": "entry",
+                    "side": side,
+                    "qty": qty_abs,
+                    "price": round(float(event_price), 8),
+                    "position_after": 0.0,
+                    "comment": comment,
+                    "_base_price": float(event_price),
+                    "_limit": limits[idx],
+                    "_stop": stops[idx],
+                    "_original_qty": qty_abs,
+                    "_oca_name": str(oca_name or ""),
+                    "_oca_type": _normalize_oca_type(oca_type),
+                    "_submit_time": self._context.times[idx],
+                    "_seq": self._next_event_seq(),
+                }
+            )
             self._touched = True
 
         self._replay_position()
@@ -363,24 +373,26 @@ class StrategyModule:
             if not flag:
                 continue
             event_price = prices[idx]
-            self._collector.strategy_orders.append({
-                "time": self._context.times[idx],
-                "id": str(id),
-                "type": "order",
-                "side": side,
-                "qty": qty_abs,
-                "price": round(float(event_price), 8),
-                "position_after": 0.0,
-                "comment": comment,
-                "_base_price": float(event_price),
-                "_limit": limits[idx],
-                "_stop": stops[idx],
-                "_original_qty": qty_abs,
-                "_oca_name": str(oca_name or ""),
-                "_oca_type": _normalize_oca_type(oca_type),
-                "_submit_time": self._context.times[idx],
-                "_seq": self._next_event_seq(),
-            })
+            self._collector.strategy_orders.append(
+                {
+                    "time": self._context.times[idx],
+                    "id": str(id),
+                    "type": "order",
+                    "side": side,
+                    "qty": qty_abs,
+                    "price": round(float(event_price), 8),
+                    "position_after": 0.0,
+                    "comment": comment,
+                    "_base_price": float(event_price),
+                    "_limit": limits[idx],
+                    "_stop": stops[idx],
+                    "_original_qty": qty_abs,
+                    "_oca_name": str(oca_name or ""),
+                    "_oca_type": _normalize_oca_type(oca_type),
+                    "_submit_time": self._context.times[idx],
+                    "_seq": self._next_event_seq(),
+                }
+            )
             self._touched = True
 
         self._replay_position()
@@ -398,17 +410,19 @@ class StrategyModule:
         for idx, flag in enumerate(flags):
             if not flag:
                 continue
-            self._collector.strategy_orders.append({
-                "time": self._context.times[idx],
-                "id": str(id),
-                "type": "cancel",
-                "side": "flat",
-                "qty": 0.0,
-                "price": None,
-                "position_after": 0.0,
-                "comment": comment,
-                "_seq": self._next_event_seq(),
-            })
+            self._collector.strategy_orders.append(
+                {
+                    "time": self._context.times[idx],
+                    "id": str(id),
+                    "type": "cancel",
+                    "side": "flat",
+                    "qty": 0.0,
+                    "price": None,
+                    "position_after": 0.0,
+                    "comment": comment,
+                    "_seq": self._next_event_seq(),
+                }
+            )
             self._touched = True
 
         self._replay_position()
@@ -425,17 +439,19 @@ class StrategyModule:
         for idx, flag in enumerate(flags):
             if not flag:
                 continue
-            self._collector.strategy_orders.append({
-                "time": self._context.times[idx],
-                "id": "cancel_all",
-                "type": "cancel_all",
-                "side": "flat",
-                "qty": 0.0,
-                "price": None,
-                "position_after": 0.0,
-                "comment": comment,
-                "_seq": self._next_event_seq(),
-            })
+            self._collector.strategy_orders.append(
+                {
+                    "time": self._context.times[idx],
+                    "id": "cancel_all",
+                    "type": "cancel_all",
+                    "side": "flat",
+                    "qty": 0.0,
+                    "price": None,
+                    "position_after": 0.0,
+                    "comment": comment,
+                    "_seq": self._next_event_seq(),
+                }
+            )
             self._touched = True
 
         self._replay_position()
@@ -476,12 +492,13 @@ class StrategyModule:
         qty_values = _optional_numeric_values(qty, self._context.bar_count)
         qty_percent_values = _optional_numeric_values(qty_percent, self._context.bar_count)
 
-        for idx, flag in enumerate(flags):
-            if not flag:
-                continue
-            current_position = float(self._position_size[idx])
-            if current_position == 0:
-                continue
+        def materialize_close(
+            idx: int,
+            timestamp: int,
+            current_position: float,
+        ) -> dict[str, Any] | None:
+            if not flags[idx] or current_position == 0:
+                return None
             event_price = prices[idx]
             target_qty = min(
                 abs(current_position),
@@ -492,9 +509,9 @@ class StrategyModule:
                 ),
             )
             if target_qty <= 0:
-                continue
-            self._collector.strategy_orders.append({
-                "time": self._context.times[idx],
+                return None
+            order = {
+                "time": timestamp,
                 "id": str(id),
                 "type": "close",
                 "side": "flat",
@@ -506,10 +523,11 @@ class StrategyModule:
                 "_requested_qty": qty_values[idx],
                 "_qty_percent": qty_percent_values[idx],
                 "_seq": self._next_event_seq(),
-            })
+            }
             self._touched = True
-            self._replay_position()
+            return order
 
+        self._replay_position(materialize_order=materialize_close)
         self._sync_position_snapshot()
 
     def close_all(
@@ -527,18 +545,20 @@ class StrategyModule:
             if not flag:
                 continue
             event_price = prices[idx]
-            self._collector.strategy_orders.append({
-                "time": self._context.times[idx],
-                "id": "close_all",
-                "type": "close_all",
-                "side": "flat",
-                "qty": 0.0,
-                "price": round(float(event_price), 8),
-                "position_after": 0.0,
-                "comment": comment,
-                "_base_price": float(event_price),
-                "_seq": self._next_event_seq(),
-            })
+            self._collector.strategy_orders.append(
+                {
+                    "time": self._context.times[idx],
+                    "id": "close_all",
+                    "type": "close_all",
+                    "side": "flat",
+                    "qty": 0.0,
+                    "price": round(float(event_price), 8),
+                    "position_after": 0.0,
+                    "comment": comment,
+                    "_base_price": float(event_price),
+                    "_seq": self._next_event_seq(),
+                }
+            )
             self._touched = True
 
         self._replay_position()
@@ -572,14 +592,17 @@ class StrategyModule:
         high_values = _price_values(self._context.high, self._context.high, self._context.bar_count)
         low_values = _price_values(self._context.low, self._context.low, self._context.bar_count)
         open_values = _price_values(self._context.open, self._context.open, self._context.bar_count)
-        close_values = _price_values(self._context.close, self._context.close, self._context.bar_count)
+        close_values = _price_values(
+            self._context.close, self._context.close, self._context.bar_count
+        )
 
-        for idx, flag in enumerate(flags):
-            if not flag:
-                continue
-            current_position = float(self._position_size[idx])
-            if current_position == 0:
-                continue
+        def materialize_exit(
+            idx: int,
+            timestamp: int,
+            current_position: float,
+        ) -> dict[str, Any] | None:
+            if not flags[idx] or current_position == 0:
+                return None
             process_on_close_new_exit = self._process_orders_on_close and (
                 idx == 0 or not flags[idx - 1]
             )
@@ -603,7 +626,7 @@ class StrategyModule:
                 intrabar_path=self._intrabar_path,
             )
             if trigger is None:
-                continue
+                return None
 
             reason, event_price = trigger
             event_qty = min(
@@ -615,9 +638,9 @@ class StrategyModule:
                 ),
             )
             if event_qty <= 0:
-                continue
-            self._collector.strategy_orders.append({
-                "time": self._context.times[idx],
+                return None
+            order = {
+                "time": timestamp,
                 "id": str(id),
                 "from_entry": str(from_entry),
                 "type": "exit",
@@ -633,14 +656,19 @@ class StrategyModule:
                 "_fifo_close": process_on_close_new_exit,
                 "_process_on_close_new_exit": process_on_close_new_exit,
                 "_seq": self._next_event_seq(),
-            })
+            }
             self._touched = True
-            self._replay_position()
+            return order
 
+        self._replay_position(materialize_order=materialize_exit)
         self._sync_position_snapshot()
 
-    def _replay_position(self) -> None:
-        replay_strategy_orders(self)
+    def _replay_position(
+        self,
+        *,
+        materialize_order: Callable[[int, int, float], dict[str, Any] | None] | None = None,
+    ) -> None:
+        replay_strategy_orders(self, materialize_order=materialize_order)
 
     def _sync_position_snapshot(self) -> None:
         if not self._touched:

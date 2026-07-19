@@ -13,6 +13,7 @@ settings = pn.PyneSettings(
     max_map_size=100_000,
     max_matrix_cells=100_000,
     max_collection_depth=8,
+    max_strategy_pending_operations=1_000_000,
     data_provider=None,
     syminfo={"tickerid": "NASDAQ:AAPL", "mintick": 0.01},
     timeframe="1h",
@@ -129,4 +130,11 @@ Collection limits:
   `array.*`, `map.*`, and `matrix.*` containers.
 - Environment variables: `PYNE_MAX_ARRAY_SIZE`, `PYNE_MAX_MAP_SIZE`,
   `PYNE_MAX_MATRIX_CELLS`, `PYNE_MAX_COLLECTION_DEPTH`.
+
+Strategy work limits:
+
+- `max_strategy_pending_operations`: maximum cumulative candidate, cancellation,
+  and OCA work consumed by pending orders across all replays in one execution.
+  Exceeding the budget fails closed with `PYNE_SECURITY_ERROR`.
+- Environment variable: `PYNE_MAX_STRATEGY_PENDING_OPERATIONS`.
 

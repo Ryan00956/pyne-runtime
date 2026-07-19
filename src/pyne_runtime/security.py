@@ -1,4 +1,5 @@
 """Security helpers for Pyne script execution."""
+
 from __future__ import annotations
 
 import ast
@@ -60,6 +61,7 @@ class PyneSecurityPolicy:
     max_map_size: int = 100_000
     max_matrix_cells: int = 100_000
     max_collection_depth: int = 8
+    max_strategy_pending_operations: int = 1_000_000
 
     @classmethod
     def from_settings(
@@ -80,6 +82,7 @@ class PyneSecurityPolicy:
             max_map_size=settings.max_map_size,
             max_matrix_cells=settings.max_matrix_cells,
             max_collection_depth=settings.max_collection_depth,
+            max_strategy_pending_operations=settings.max_strategy_pending_operations,
         )
 
     @classmethod
@@ -99,6 +102,7 @@ class PyneSecurityPolicy:
             "maxMapSize": self.max_map_size,
             "maxMatrixCells": self.max_matrix_cells,
             "maxCollectionDepth": self.max_collection_depth,
+            "maxStrategyPendingOperations": self.max_strategy_pending_operations,
         }
 
 
@@ -245,9 +249,7 @@ def _validate_imports(modules: list[str], policy: PyneSecurityPolicy) -> None:
     for module in modules:
         root = module.split(".", 1)[0]
         if root not in allowed:
-            raise PyneSecurityError(
-                f"Import '{root}' is not allowed in research mode"
-            )
+            raise PyneSecurityError(f"Import '{root}' is not allowed in research mode")
 
 
 def _build_limited_import(policy: PyneSecurityPolicy):

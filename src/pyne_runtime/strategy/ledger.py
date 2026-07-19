@@ -1,6 +1,8 @@
 """Strategy trade ledger helpers."""
+
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -42,19 +44,14 @@ class StrategyTradesNamespace:
         return self._trade_float(trade_num, "profit")
 
     def profit_percent(self, trade_num: int = -1) -> float | PyneSeries:
-        snapshots = (
-            self._strategy._closed_trades_by_bar
-            if self._kind == "closedtrades"
-            else self._strategy._open_trades_by_bar
-        )
-        if self._strategy._process_orders_on_close and snapshots:
+        if self._strategy._process_orders_on_close:
             close_values = self._strategy._context.close.values
             values = [
                 _trade_profit_percent(
-                    _trade_from_snapshot(trades, trade_num),
+                    trade,
                     close_price=close_values[idx] if self._kind == "opentrades" else None,
                 )
-                for idx, trades in enumerate(snapshots)
+                for idx, trade in enumerate(_trades_by_bar(self._strategy, self._kind, trade_num))
             ]
             if all(is_na_value(value) for value in values):
                 return float("nan")
@@ -119,15 +116,10 @@ class StrategyTradesNamespace:
         return trades[index]
 
     def _trade_float(self, trade_num: int, key: str) -> float | PyneSeries:
-        snapshots = (
-            self._strategy._closed_trades_by_bar
-            if self._kind == "closedtrades"
-            else self._strategy._open_trades_by_bar
-        )
-        if self._strategy._process_orders_on_close and snapshots:
+        if self._strategy._process_orders_on_close:
             values = [
-                _trade_float(_trade_from_snapshot(trades, trade_num), key)
-                for trades in snapshots
+                _trade_float(trade, key)
+                for trade in _trades_by_bar(self._strategy, self._kind, trade_num)
             ]
             if all(is_na_value(value) for value in values):
                 return float("nan")
@@ -167,18 +159,107 @@ def _trade_profit_percent(
     return round(float(profit) / denominator * 100.0, 8)
 
 
-def _trade_from_snapshot(trades: list[dict[str, Any]], trade_num: int) -> dict[str, Any]:
-    if not trades:
+def _trades_by_bar(
+    strategy: "StrategyModule",
+    kind: str,
+    trade_num: int,
+) -> Iterator[dict[str, Any]]:
+    if kind == "closedtrades":
+        for count in strategy._closedtrades_count:
+            yield _closed_trade_from_count(
+                strategy._closed_trades,
+                int(count),
+                trade_num,
+            )
+        return
+
+    lot_ids: list[int] = []
+    seen_lot_ids: set[int] = set()
+    for events in strategy._open_trade_events_by_bar:
+        for action, lot_id, _trade in events:
+            if action == "upsert" and lot_id not in seen_lot_ids:
+                seen_lot_ids.add(lot_id)
+                lot_ids.append(lot_id)
+
+    active_trades = _ActiveTradeIndex(lot_ids)
+    for events in strategy._open_trade_events_by_bar:
+        for action, lot_id, trade in events:
+            if action == "upsert" and trade is not None:
+                active_trades.upsert(lot_id, trade)
+            elif action == "remove":
+                active_trades.remove(lot_id)
+        yield active_trades.trade_at(trade_num)
+
+
+def _closed_trade_from_count(
+    trades: list[dict[str, Any]],
+    count: int,
+    trade_num: int,
+) -> dict[str, Any]:
+    visible_count = min(max(int(count), 0), len(trades))
+    if visible_count == 0:
         index = int(trade_num)
         return {"_empty_ledger": True} if index in {-1, 0, 1} else {}
     index = int(trade_num)
     if index < 0:
-        index = len(trades) + index
-    if index < 0 or index >= len(trades):
-        if index == len(trades):
+        index = visible_count + index
+    if index < 0 or index >= visible_count:
+        if index == visible_count:
             return {"_empty_ledger": True}
         return {}
     return trades[index]
+
+
+class _ActiveTradeIndex:
+    """Insertion-ordered active lots with O(log n) rank selection."""
+
+    def __init__(self, lot_ids: list[int]) -> None:
+        self._lot_ids = lot_ids
+        self._positions = {lot_id: index for index, lot_id in enumerate(lot_ids)}
+        self._tree = [0] * (len(lot_ids) + 1)
+        self._active: dict[int, dict[str, Any]] = {}
+
+    def upsert(self, lot_id: int, trade: dict[str, Any]) -> None:
+        if lot_id not in self._active:
+            self._add(self._positions[lot_id], 1)
+        self._active[lot_id] = trade
+
+    def remove(self, lot_id: int) -> None:
+        if self._active.pop(lot_id, None) is not None:
+            self._add(self._positions[lot_id], -1)
+
+    def trade_at(self, trade_num: int) -> dict[str, Any]:
+        count = len(self._active)
+        if count == 0:
+            index = int(trade_num)
+            return {"_empty_ledger": True} if index in {-1, 0, 1} else {}
+        index = int(trade_num)
+        if index < 0:
+            index = count + index
+        if index < 0 or index >= count:
+            if index == count:
+                return {"_empty_ledger": True}
+            return {}
+        lot_position = self._position_for_rank(index)
+        return self._active[self._lot_ids[lot_position]]
+
+    def _add(self, position: int, delta: int) -> None:
+        tree_index = position + 1
+        while tree_index < len(self._tree):
+            self._tree[tree_index] += delta
+            tree_index += tree_index & -tree_index
+
+    def _position_for_rank(self, rank: int) -> int:
+        target = rank + 1
+        position = 0
+        step = 1 << (len(self._lot_ids).bit_length() - 1)
+        while step:
+            candidate = position + step
+            if candidate < len(self._tree) and self._tree[candidate] < target:
+                position = candidate
+                target -= self._tree[candidate]
+            step >>= 1
+        return position
 
 
 def _record_fill(
@@ -194,6 +275,7 @@ def _record_fill(
     gross_profit: float,
     gross_loss: float,
     total_commission: float,
+    open_trade_events: list[tuple[str, int, dict[str, Any] | None]] | None = None,
 ) -> tuple[float, float, float, list[dict[str, Any]]]:
     total_commission += commission
     if signed_qty == 0:
@@ -227,33 +309,33 @@ def _record_fill(
             reported_profit = profit
             if entry_commission > 0 and close_qty < trade_qty_before:
                 reported_profit -= entry_commission
-            entry_commission_share = (
-                entry_commission * close_qty / max(trade_qty_before, 1e-12)
-            )
-            exit_commission_share = (
-                commission
-                * close_qty
-                / max(fill_qty_total, 1e-12)
-            )
+            entry_commission_share = entry_commission * close_qty / max(trade_qty_before, 1e-12)
+            exit_commission_share = commission * close_qty / max(fill_qty_total, 1e-12)
             remaining_order_commission -= exit_commission_share
             if profit >= 0:
                 gross_profit += profit
             else:
                 gross_loss += profit
-            closed_trades.append(_closed_trade(
-                previous_trade=trade,
-                order=order,
-                qty=close_qty,
-                exit_price=fill_price,
-                profit=reported_profit,
-                commission=entry_commission_share + exit_commission_share,
-            ))
+            closed_trades.append(
+                _closed_trade(
+                    previous_trade=trade,
+                    order=order,
+                    qty=close_qty,
+                    exit_price=fill_price,
+                    profit=reported_profit,
+                    commission=entry_commission_share + exit_commission_share,
+                )
+            )
             trade["qty"] = round(trade_qty_before - close_qty, 8)
             remaining_entry_commission = entry_commission - entry_commission_share
             if remaining_entry_commission > 0:
                 trade["commission"] = round(remaining_entry_commission, 8)
             else:
                 trade.pop("commission", None)
+            if float(trade.get("qty", 0.0)) > 0:
+                _record_open_trade_upsert(open_trade_events, trade)
+            else:
+                _record_open_trade_removal(open_trade_events, trade)
             remaining_to_close -= close_qty
             closed_qty_done += close_qty
 
@@ -265,13 +347,15 @@ def _record_fill(
         if remaining <= 0 and not open_trades:
             remaining = abs(next_size)
         if remaining > 0:
-            open_trades.append(_open_trade_from_order(
+            opened_trade = _open_trade_from_order(
                 order=order,
                 side=fill_side,
                 qty=remaining,
                 entry_price=fill_price,
                 commission=remaining_order_commission,
-            ))
+            )
+            open_trades.append(opened_trade)
+            _record_open_trade_upsert(open_trade_events, opened_trade)
 
     return gross_profit, gross_loss, total_commission, open_trades
 
@@ -309,6 +393,7 @@ def _open_trade_from_order(
     commission: float = 0.0,
 ) -> dict[str, Any]:
     trade = {
+        "_lot_id": int(order.get("_seq", 0)),
         "entry_time": int(order.get("time", 0)),
         "_entry_bar_index": int(order.get("_fill_bar_index", 0)),
         "entry_id": str(order.get("id", "")),
@@ -321,6 +406,25 @@ def _open_trade_from_order(
     if commission > 0:
         trade["commission"] = round(float(commission), 8)
     return trade
+
+
+def _record_open_trade_upsert(
+    events: list[tuple[str, int, dict[str, Any] | None]] | None,
+    trade: dict[str, Any],
+) -> None:
+    if events is None:
+        return
+    lot_id = int(trade.get("_lot_id", 0))
+    events.append(("upsert", lot_id, dict(trade)))
+
+
+def _record_open_trade_removal(
+    events: list[tuple[str, int, dict[str, Any] | None]] | None,
+    trade: dict[str, Any],
+) -> None:
+    if events is None:
+        return
+    events.append(("remove", int(trade.get("_lot_id", 0)), None))
 
 
 def _trade_realized_profit(trade: dict[str, Any], qty: float, exit_price: float) -> float:

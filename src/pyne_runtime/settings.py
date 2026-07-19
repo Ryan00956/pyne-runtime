@@ -1,4 +1,5 @@
 """Runtime settings for standalone Pyne execution."""
+
 from __future__ import annotations
 
 import os
@@ -32,6 +33,7 @@ class PyneSettings:
     max_map_size: int = 100_000
     max_matrix_cells: int = 100_000
     max_collection_depth: int = 8
+    max_strategy_pending_operations: int = 1_000_000
     cache_max_items: int = 32
     allowed_imports: tuple[str, ...] = DEFAULT_ALLOWED_IMPORTS
     data_provider: DataProvider | None = None
@@ -58,6 +60,11 @@ class PyneSettings:
         object.__setattr__(self, "max_map_size", max(int(self.max_map_size), 1))
         object.__setattr__(self, "max_matrix_cells", max(int(self.max_matrix_cells), 1))
         object.__setattr__(self, "max_collection_depth", max(int(self.max_collection_depth), 1))
+        object.__setattr__(
+            self,
+            "max_strategy_pending_operations",
+            max(int(self.max_strategy_pending_operations), 1),
+        )
         object.__setattr__(self, "cache_max_items", max(int(self.cache_max_items), 1))
         object.__setattr__(
             self,
@@ -73,7 +80,9 @@ class PyneSettings:
         """Build settings from PYNE_* environment variables."""
         allowed_imports = tuple(
             item.strip()
-            for item in os.getenv("PYNE_ALLOWED_IMPORTS", ",".join(DEFAULT_ALLOWED_IMPORTS)).split(",")
+            for item in os.getenv("PYNE_ALLOWED_IMPORTS", ",".join(DEFAULT_ALLOWED_IMPORTS)).split(
+                ","
+            )
             if item.strip()
         )
         return cls(
@@ -89,6 +98,10 @@ class PyneSettings:
             max_map_size=_int_env("PYNE_MAX_MAP_SIZE", 100_000),
             max_matrix_cells=_int_env("PYNE_MAX_MATRIX_CELLS", 100_000),
             max_collection_depth=_int_env("PYNE_MAX_COLLECTION_DEPTH", 8),
+            max_strategy_pending_operations=_int_env(
+                "PYNE_MAX_STRATEGY_PENDING_OPERATIONS",
+                1_000_000,
+            ),
             cache_max_items=_int_env("PYNE_CACHE_MAX_ITEMS", 32),
             allowed_imports=allowed_imports,
             syminfo={
@@ -137,4 +150,3 @@ def _int_env(name: str, default: int) -> int:
         return int(os.getenv(name, str(default)))
     except (TypeError, ValueError):
         return default
-

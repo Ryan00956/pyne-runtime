@@ -19,6 +19,7 @@ Usage::
     dif, dea, hist = ta.macd(close)
     mid, upper, lower = ta.bb(close, 20, 2)
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -41,6 +42,517 @@ def _fixnan(values: np.ndarray) -> np.ndarray:
                 result[idx] = last
             continue
         last = value
+    return result
+
+
+_ROLLING_REBASE_CHUNK = 4096
+_FLOAT_EXACT_SCALE = 1 << 1074
+
+
+def _window_sums(values: np.ndarray, period: int) -> np.ndarray:
+    cumulative = np.concatenate(
+        (np.zeros(1, dtype=values.dtype), np.cumsum(values, dtype=values.dtype))
+    )
+    return cumulative[period:] - cumulative[:-period]
+
+
+def _block_window_sums(values: np.ndarray, period: int) -> np.ndarray:
+    """Sum windows from block-local prefixes/suffixes, avoiding cumulative poisoning."""
+    source = np.asarray(values, dtype=np.float64)
+    n = len(source)
+    if period == 1:
+        return source.copy()
+
+    prefix = np.empty(n, dtype=np.float64)
+    suffix = np.empty(n, dtype=np.float64)
+    with np.errstate(over="ignore", invalid="ignore"):
+        for block_start in range(0, n, period):
+            block_stop = min(block_start + period, n)
+            block = source[block_start:block_stop]
+            prefix[block_start:block_stop] = np.cumsum(block)
+            suffix[block_start:block_stop] = np.cumsum(block[::-1])[::-1]
+
+        starts = np.arange(0, n - period + 1, dtype=np.intp)
+        ends = starts + period - 1
+        sums = suffix[starts] + prefix[ends]
+        same_block = starts // period == ends // period
+        sums[same_block] = prefix[ends[same_block]]
+    return sums
+
+
+def _exact_window_sums(values: np.ndarray, period: int) -> np.ndarray:
+    """Accumulate finite binary64 values exactly, rounding once per output window."""
+    source = np.asarray(values, dtype=np.float64)
+    result = np.empty(len(source) - period + 1, dtype=np.float64)
+    window = [0] * period
+    total = 0
+    for index, value in enumerate(source):
+        numerator, denominator = float(value).as_integer_ratio()
+        shift = 1074 - (denominator.bit_length() - 1)
+        scaled_value = numerator << shift
+        slot = index % period
+        if index >= period:
+            total -= window[slot]
+        window[slot] = scaled_value
+        total += scaled_value
+        if index < period - 1:
+            continue
+        output_index = index - period + 1
+        try:
+            result[output_index] = total / _FLOAT_EXACT_SCALE
+        except OverflowError:
+            result[output_index] = np.inf if total > 0 else -np.inf
+    return result
+
+
+def _rolling_nansum(values: np.ndarray, period: int) -> np.ndarray:
+    """Return full-window ``nansum`` values without letting infinities poison later windows."""
+    source = np.asarray(values, dtype=np.float64)
+    finite = np.isfinite(source)
+    finite_values = np.where(finite, source, 0.0)
+    with np.errstate(over="ignore", invalid="ignore"):
+        cumulative = np.concatenate(([0.0], np.cumsum(finite_values)))
+        left = cumulative[period:]
+        right = cumulative[:-period]
+        sums = left - right
+        cancellation_bound = (
+            np.maximum(np.abs(left), np.abs(right)) * np.finfo(np.float64).eps * 4.0
+        )
+    nonfinite_sums = ~np.isfinite(sums)
+    cancellation_risk = np.abs(sums) <= cancellation_bound
+    magnitudes = np.abs(finite_values[finite_values != 0.0])
+    dynamic_range_is_unsafe = bool(
+        len(magnitudes)
+        and np.min(magnitudes) <= np.max(magnitudes) * np.finfo(np.float64).eps * 4.0
+    )
+    if np.any(nonfinite_sums) or dynamic_range_is_unsafe:
+        # Binary64 has a bounded exponent range, so fixed-scale integer
+        # accumulation remains O(n) while recovering after finite overflow.
+        sums = _exact_window_sums(finite_values, period)
+    elif np.any(cancellation_risk):
+        # Prefix subtraction can erase a small window sum after a much larger
+        # historical cumulative value. Block-local prefix/suffix sums recover
+        # without an O(n*period) fallback.
+        sums = _block_window_sums(finite_values, period)
+    positive_infinity = _window_sums((source == np.inf).astype(np.int64), period)
+    negative_infinity = _window_sums((source == -np.inf).astype(np.int64), period)
+
+    both = (positive_infinity > 0) & (negative_infinity > 0)
+    sums[positive_infinity > 0] = np.inf
+    sums[negative_infinity > 0] = -np.inf
+    sums[both] = np.nan
+    return sums
+
+
+def _exact_rolling_weighted_sums(values: np.ndarray, period: int) -> np.ndarray:
+    """Return 1..period weighted sums with exact binary64 accumulation."""
+    source = np.asarray(values, dtype=np.float64)
+    result = np.empty(len(source) - period + 1, dtype=np.float64)
+    scaled_values: list[int] = []
+    for value in source:
+        numerator, denominator = float(value).as_integer_ratio()
+        shift = 1074 - (denominator.bit_length() - 1)
+        scaled_values.append(numerator << shift)
+
+    simple = sum(scaled_values[:period])
+    weighted = sum((index + 1) * value for index, value in enumerate(scaled_values[:period]))
+    for output_index in range(len(result)):
+        try:
+            result[output_index] = weighted / _FLOAT_EXACT_SCALE
+        except OverflowError:
+            result[output_index] = np.inf if weighted > 0 else -np.inf
+        next_index = output_index + period
+        if next_index >= len(source):
+            continue
+        outgoing = scaled_values[output_index]
+        incoming = scaled_values[next_index]
+        weighted = weighted - simple + period * incoming
+        simple = simple - outgoing + incoming
+    return result
+
+
+def _rolling_weighted_sums(values: np.ndarray, period: int) -> np.ndarray:
+    """Return 1..period weighted sums in O(n), periodically rebasing drift."""
+    source = np.asarray(values, dtype=np.float64)
+    n = len(source)
+    result = np.empty(n - period + 1, dtype=np.float64)
+    weights = np.arange(1, period + 1, dtype=np.float64)
+    chunk_size = max(period, _ROLLING_REBASE_CHUNK)
+    first_output = period - 1
+    with np.errstate(over="ignore", invalid="ignore"):
+        for output_start in range(first_output, n, chunk_size):
+            output_stop = min(output_start + chunk_size, n)
+            segment_start = output_start - period + 1
+            segment = source[segment_start:output_stop]
+            simple = float(np.sum(segment[:period]))
+            weighted = float(np.dot(segment[:period], weights))
+            for end_index in range(output_start, output_stop):
+                result[end_index - period + 1] = weighted
+                relative_end = end_index - output_start + period - 1
+                next_index = relative_end + 1
+                if next_index >= len(segment):
+                    continue
+                outgoing = segment[relative_end - period + 1]
+                incoming = segment[next_index]
+                weighted = weighted - simple + period * incoming
+                simple = simple - outgoing + incoming
+
+    # An overflowing recurrence can otherwise remain infinite after the large
+    # value leaves its window. Exact integer state preserves O(n) recovery.
+    if np.any(~np.isfinite(result)) and np.all(np.isfinite(source)):
+        return _exact_rolling_weighted_sums(source, period)
+    return result
+
+
+def _rolling_weighted_average_values(source: np.ndarray, period: int) -> np.ndarray:
+    """Compute finite weighted averages with block-local centering."""
+    values = np.asarray(source, dtype=np.float64)
+    n = len(values)
+    result = np.empty(n - period + 1, dtype=np.float64)
+    denominator = period * (period + 1) / 2.0
+    chunk_size = max(period, _ROLLING_REBASE_CHUNK)
+    first_output = period - 1
+    for output_start in range(first_output, n, chunk_size):
+        output_stop = min(output_start + chunk_size, n)
+        segment_start = output_start - period + 1
+        segment = values[segment_start:output_stop]
+        finite = np.isfinite(segment)
+        anchor = float(np.mean(segment[finite])) if np.any(finite) else 0.0
+        centered = np.where(finite, segment - anchor, 0.0)
+        weighted = _rolling_weighted_sums(centered, period)
+        result[output_start - period + 1 : output_stop - period + 1] = (
+            anchor + weighted / denominator
+        )
+    return result
+
+
+def _rolling_linear_regression_values(
+    source: np.ndarray,
+    period: int,
+    offset: int,
+) -> np.ndarray:
+    """Compute rolling least-squares values in O(n) with centered chunks."""
+    values = np.asarray(source, dtype=np.float64)
+    n = len(values)
+    result = np.full(n, np.nan)
+    if period <= 0 or period > n:
+        return result
+    if period == 1:
+        return values.copy()
+
+    x_mean = (period - 1) / 2.0
+    denom = period * (period * period - 1) / 12.0
+    target_x = float(period - 1 - offset)
+    chunk_size = max(period, _ROLLING_REBASE_CHUNK)
+    first_output = period - 1
+    for output_start in range(first_output, n, chunk_size):
+        output_stop = min(output_start + chunk_size, n)
+        segment_start = output_start - period + 1
+        segment = values[segment_start:output_stop]
+        finite = np.isfinite(segment)
+        if not np.any(finite):
+            continue
+        anchor = float(np.mean(segment[finite]))
+        centered = np.where(finite, segment - anchor, 0.0)
+        counts = _window_sums(finite.astype(np.int64), period)
+        sums = _window_sums(centered, period)
+        weighted = _rolling_weighted_sums(centered, period) - sums
+        slopes = (weighted - x_mean * sums) / denom
+        means = anchor + sums / period
+        values_at_target = means + slopes * (target_x - x_mean)
+        values_at_target[counts != period] = np.nan
+        result[output_start:output_stop] = values_at_target
+    return result
+
+
+class _FenwickTree:
+    """Coordinate-compressed rolling counts and sums in O(log n)."""
+
+    def __init__(self, size: int) -> None:
+        self.counts = np.zeros(size + 1, dtype=np.int64)
+        self.sums = [0] * (size + 1)
+
+    def add(self, index: int, count: int, value: int) -> None:
+        position = index + 1
+        while position < len(self.counts):
+            self.counts[position] += count
+            self.sums[position] += value
+            position += position & -position
+
+    def prefix(self, stop: int) -> tuple[int, int]:
+        count = 0
+        total = 0
+        position = stop
+        while position > 0:
+            count += int(self.counts[position])
+            total += self.sums[position]
+            position -= position & -position
+        return count, total
+
+    def kth(self, order: int) -> int:
+        """Return the zero-based coordinate containing a one-based order statistic."""
+        position = 0
+        size = len(self.counts) - 1
+        step = 1 << (size.bit_length() - 1)
+        remaining = int(order)
+        while step:
+            candidate = position + step
+            if candidate < len(self.counts) and self.counts[candidate] < remaining:
+                remaining -= int(self.counts[candidate])
+                position = candidate
+            step >>= 1
+        return position
+
+
+def _rolling_mean_and_mad(
+    source: np.ndarray,
+    period: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return full-window means and exact mean absolute deviations in O(n log n)."""
+    values = np.asarray(source, dtype=np.float64)
+    n = len(values)
+    means = np.full(n, np.nan)
+    deviations = np.full(n, np.nan)
+    if period <= 0 or period > n:
+        return means, deviations
+
+    finite = np.isfinite(values)
+    if period == 1:
+        means[finite] = values[finite]
+        deviations[finite] = 0.0
+        return means, deviations
+    if not np.any(finite):
+        return means, deviations
+    coordinates = np.unique(values[finite])
+    ranks = np.full(n, -1, dtype=np.intp)
+    ranks[finite] = np.searchsorted(coordinates, values[finite])
+    scaled_values = [0] * n
+    for index in np.flatnonzero(finite):
+        numerator, denominator = float(values[index]).as_integer_ratio()
+        shift = 1074 - (denominator.bit_length() - 1)
+        scaled_values[int(index)] = numerator << shift
+    tree = _FenwickTree(len(coordinates))
+    invalid_count = 0
+    window_sum = 0
+
+    for index in range(n):
+        if finite[index]:
+            scaled = scaled_values[index]
+            tree.add(int(ranks[index]), 1, scaled)
+            window_sum += scaled
+        else:
+            invalid_count += 1
+        if index >= period:
+            outgoing = index - period
+            if finite[outgoing]:
+                scaled = scaled_values[outgoing]
+                tree.add(int(ranks[outgoing]), -1, -scaled)
+                window_sum -= scaled
+            else:
+                invalid_count -= 1
+        if index < period - 1 or invalid_count:
+            continue
+
+        mean = window_sum / (_FLOAT_EXACT_SCALE * period)
+        split = int(np.searchsorted(coordinates, mean, side="right"))
+        left_count, left_sum = tree.prefix(split)
+        right_count = period - left_count
+        right_sum = window_sum - left_sum
+        minimum = tree.kth(1)
+        maximum = tree.kth(period)
+        if minimum == maximum:
+            means[index] = mean
+            deviations[index] = 0.0
+            continue
+        absolute_numerator = (
+            window_sum * left_count
+            - period * left_sum
+            + period * right_sum
+            - window_sum * right_count
+        )
+        means[index] = mean
+        deviations[index] = max(
+            absolute_numerator / (_FLOAT_EXACT_SCALE * period * period),
+            0.0,
+        )
+    return means, deviations
+
+
+def _interpolate_hazen(lower: float, upper: float, fraction: float) -> float:
+    with np.errstate(over="ignore", invalid="ignore"):
+        difference = upper - lower
+        if fraction >= 0.5:
+            return float(upper - difference * (1.0 - fraction))
+        return float(lower + difference * fraction)
+
+
+def _rolling_percentile_values(
+    source: np.ndarray,
+    period: int,
+    percentage: float,
+    *,
+    linear: bool,
+) -> np.ndarray:
+    """Compute exact rolling order statistics in O(n log n)."""
+    values = np.asarray(source, dtype=np.float64)
+    n = len(values)
+    result = np.full(n, np.nan)
+    if period <= 0 or period > n:
+        return result
+
+    valid = ~np.isnan(values)
+    if not np.any(valid):
+        return result
+    coordinates = np.unique(values[valid])
+    ranks = np.full(n, -1, dtype=np.intp)
+    ranks[valid] = np.searchsorted(coordinates, values[valid])
+    tree = _FenwickTree(len(coordinates))
+    invalid_count = 0
+    pct = float(np.clip(percentage, 0.0, 100.0))
+    nearest_rank = max(int(np.ceil(pct / 100.0 * period)), 1)
+    virtual_index = pct / 100.0 * period - 0.5
+
+    for index in range(n):
+        if valid[index]:
+            tree.add(int(ranks[index]), 1, 0.0)
+        else:
+            invalid_count += 1
+        if index >= period:
+            outgoing = index - period
+            if valid[outgoing]:
+                tree.add(int(ranks[outgoing]), -1, 0.0)
+            else:
+                invalid_count -= 1
+        if index < period - 1 or invalid_count:
+            continue
+
+        if not linear:
+            result[index] = coordinates[tree.kth(nearest_rank)]
+            continue
+        if virtual_index < 0.0:
+            boundary = float(coordinates[tree.kth(1)])
+            result[index] = _interpolate_hazen(boundary, boundary, 0.0)
+            continue
+        if virtual_index >= period - 1:
+            boundary = float(coordinates[tree.kth(period)])
+            result[index] = _interpolate_hazen(boundary, boundary, 0.0)
+            continue
+        lower_order = int(np.floor(virtual_index)) + 1
+        fraction = virtual_index - np.floor(virtual_index)
+        lower = float(coordinates[tree.kth(lower_order)])
+        upper = float(coordinates[tree.kth(lower_order + 1)])
+        result[index] = _interpolate_hazen(lower, upper, fraction)
+    return result
+
+
+_DIRECT_CONVOLUTION_WORK_LIMIT = 1_000_000
+
+
+def _valid_weighted_convolution(values: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    """Return valid correlation, switching to FFT before direct work can grow quadratic."""
+    source = np.asarray(values, dtype=np.float64)
+    kernel = np.asarray(weights, dtype=np.float64)
+    if len(source) * len(kernel) <= _DIRECT_CONVOLUTION_WORK_LIMIT:
+        return np.correlate(source, kernel, mode="valid")
+
+    finite = np.isfinite(source)
+    anchor = float(np.mean(source[finite])) if np.any(finite) else 0.0
+    centered = np.where(finite, source - anchor, 0.0)
+    output_size = len(source) + len(kernel) - 1
+    fft_size = 1 << (output_size - 1).bit_length()
+    transformed = np.fft.rfft(centered, fft_size) * np.fft.rfft(kernel[::-1], fft_size)
+    convolution = np.fft.irfft(transformed, fft_size)[:output_size]
+    return convolution[len(kernel) - 1 : len(source)] + anchor * np.sum(kernel)
+
+
+def _valid_boolean_correlation(values: np.ndarray, weights: np.ndarray) -> np.ndarray:
+    correlated = _valid_weighted_convolution(
+        np.asarray(values, dtype=np.float64),
+        np.asarray(weights, dtype=np.float64),
+    )
+    return np.rint(correlated).astype(np.int64)
+
+
+def _rolling_variance_values(source: np.ndarray, period: int, ddof: int) -> np.ndarray:
+    """Compute full-window variance in O(n) with periodically rebased centered moments."""
+    values = np.asarray(source, dtype=np.float64)
+    n = len(values)
+    result = np.full(n, np.nan)
+    if period <= 0 or period > n or period - ddof <= 0:
+        return result
+
+    chunk_size = max(period, _ROLLING_REBASE_CHUNK)
+    first_output = period - 1
+    for output_start in range(first_output, n, chunk_size):
+        output_stop = min(output_start + chunk_size, n)
+        segment_start = output_start - period + 1
+        segment = values[segment_start:output_stop]
+        valid = np.isfinite(segment)
+        if not np.any(valid):
+            continue
+
+        # Rebasing keeps the cumulative moments small even for 1e12-scale inputs.
+        anchor = float(np.mean(segment[valid]))
+        centered = np.where(valid, segment - anchor, 0.0)
+        counts = _window_sums(valid.astype(np.int64), period)
+        sums = _window_sums(centered, period)
+        squared_sums = _window_sums(centered * centered, period)
+        numerator = squared_sums - sums * sums / period
+        np.maximum(numerator, 0.0, out=numerator)
+        variances = numerator / (period - ddof)
+        variances[counts != period] = np.nan
+        result[output_start:output_stop] = variances
+    return result
+
+
+def _rolling_correlation_values(
+    source_a: np.ndarray,
+    source_b: np.ndarray,
+    period: int,
+) -> np.ndarray:
+    """Compute rolling Pearson correlation using periodically rebased moments."""
+    a = np.asarray(source_a, dtype=np.float64)
+    b = np.asarray(source_b, dtype=np.float64)
+    n = min(len(a), len(b))
+    result = np.full(n, np.nan)
+    if period <= 1 or period > n:
+        return result
+
+    a = a[:n]
+    b = b[:n]
+    chunk_size = max(period, _ROLLING_REBASE_CHUNK)
+    first_output = period - 1
+    for output_start in range(first_output, n, chunk_size):
+        output_stop = min(output_start + chunk_size, n)
+        segment_start = output_start - period + 1
+        a_segment = a[segment_start:output_stop]
+        b_segment = b[segment_start:output_stop]
+        valid = np.isfinite(a_segment) & np.isfinite(b_segment)
+        if not np.any(valid):
+            continue
+
+        a_anchor = float(np.mean(a_segment[valid]))
+        b_anchor = float(np.mean(b_segment[valid]))
+        a_centered = np.where(valid, a_segment - a_anchor, 0.0)
+        b_centered = np.where(valid, b_segment - b_anchor, 0.0)
+        counts = _window_sums(valid.astype(np.int64), period)
+        a_sums = _window_sums(a_centered, period)
+        b_sums = _window_sums(b_centered, period)
+        a_squared_sums = _window_sums(a_centered * a_centered, period)
+        b_squared_sums = _window_sums(b_centered * b_centered, period)
+        product_sums = _window_sums(a_centered * b_centered, period)
+
+        a_m2 = a_squared_sums - a_sums * a_sums / period
+        b_m2 = b_squared_sums - b_sums * b_sums / period
+        covariance = product_sums - a_sums * b_sums / period
+        np.maximum(a_m2, 0.0, out=a_m2)
+        np.maximum(b_m2, 0.0, out=b_m2)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            correlations = covariance / np.sqrt(a_m2 * b_m2)
+        invalid = (counts != period) | (a_m2 <= 0.0) | (b_m2 <= 0.0)
+        correlations[invalid] = np.nan
+        np.clip(correlations, -1.0, 1.0, out=correlations)
+        result[output_start:output_stop] = correlations
     return result
 
 
@@ -75,13 +587,13 @@ class TaModule:
         clean = np.where(np.isnan(source), 0.0, source)
         sums = np.cumsum(clean)
         counts = np.cumsum(~np.isnan(source))
-        window_sums = sums[period - 1:].copy()
-        window_counts = counts[period - 1:].copy()
+        window_sums = sums[period - 1 :].copy()
+        window_counts = counts[period - 1 :].copy()
         if period < n:
             window_sums[1:] -= sums[: n - period]
             window_counts[1:] -= counts[: n - period]
         valid = window_counts == period
-        result[period - 1:][valid] = window_sums[valid] / period
+        result[period - 1 :][valid] = window_sums[valid] / period
         return wrap_like(result, src)
 
     def ema(self, src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray:
@@ -130,13 +642,15 @@ class TaModule:
         if period <= 0 or period > n:
             return wrap_like(result, src)
 
-        weights = np.arange(1, period + 1, dtype=np.float64)
-        w_sum = weights.sum()
-
-        for i in range(period - 1, n):
-            window = source[i - period + 1: i + 1]
-            if not np.any(np.isnan(window)):
-                result[i] = np.dot(window, weights) / w_sum
+        window_values = _rolling_weighted_average_values(source, period)
+        nan_counts = _window_sums(np.isnan(source).astype(np.int64), period)
+        positive_infinity = _window_sums((source == np.inf).astype(np.int64), period)
+        negative_infinity = _window_sums((source == -np.inf).astype(np.int64), period)
+        window_values[positive_infinity > 0] = np.inf
+        window_values[negative_infinity > 0] = -np.inf
+        window_values[(positive_infinity > 0) & (negative_infinity > 0)] = np.nan
+        window_values[nan_counts > 0] = np.nan
+        result[period - 1 :] = window_values
 
         return wrap_like(result, src)
 
@@ -163,7 +677,7 @@ class TaModule:
         result = np.full(n, np.nan)
         weights = np.array([1.0, 2.0, 2.0, 1.0], dtype=np.float64)
         for idx in range(3, n):
-            window = source[idx - 3: idx + 1]
+            window = source[idx - 3 : idx + 1]
             if not np.any(np.isnan(window)):
                 result[idx] = float(np.dot(window, weights) / 6.0)
         return wrap_like(result, src)
@@ -191,10 +705,29 @@ class TaModule:
         weights = np.exp(-((positions - m) ** 2) / (2 * s * s))
         weights = weights / np.sum(weights)
 
-        for idx in range(period - 1, n):
-            window = source[idx - period + 1: idx + 1]
-            if not np.any(np.isnan(window)):
-                result[idx] = float(np.dot(window, weights))
+        clean = np.where(np.isfinite(source), source, 0.0)
+        window_values = _valid_weighted_convolution(clean, weights)
+        nan_counts = _window_sums(np.isnan(source).astype(np.int64), period)
+        nonzero_weights = weights != 0.0
+        zero_weights = ~nonzero_weights
+        positive_infinity = _valid_boolean_correlation(
+            source == np.inf,
+            nonzero_weights,
+        )
+        negative_infinity = _valid_boolean_correlation(
+            source == -np.inf,
+            nonzero_weights,
+        )
+        zero_weight_infinity = _valid_boolean_correlation(
+            np.isinf(source),
+            zero_weights,
+        )
+        window_values[positive_infinity > 0] = np.inf
+        window_values[negative_infinity > 0] = -np.inf
+        window_values[(positive_infinity > 0) & (negative_infinity > 0)] = np.nan
+        window_values[zero_weight_infinity > 0] = np.nan
+        window_values[nan_counts > 0] = np.nan
+        result[period - 1 :] = window_values
 
         return wrap_like(result, src)
 
@@ -212,7 +745,9 @@ class TaModule:
         """
         if volume is None:
             if self._ctx is None:
-                raise RuntimeError("ta.vwma() needs volume data — pass it explicitly or use within a Pyne script")
+                raise RuntimeError(
+                    "ta.vwma() needs volume data — pass it explicitly or use within a Pyne script"
+                )
             volume = self._ctx.volume
 
         source = to_numpy(src, dtype=np.float64)
@@ -223,12 +758,14 @@ class TaModule:
             return wrap_like(result, src)
 
         pv = source * volume_arr
-        for i in range(period - 1, n):
-            w = pv[i - period + 1: i + 1]
-            v = volume_arr[i - period + 1: i + 1]
-            v_sum = np.nansum(v)
-            if v_sum > 0:
-                result[i] = np.nansum(w) / v_sum
+        numerator = _rolling_nansum(pv, period)
+        denominator = _rolling_nansum(volume_arr, period)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result[period - 1 :] = np.where(
+                denominator > 0.0,
+                numerator / denominator,
+                np.nan,
+            )
 
         return wrap_like(result, src)
 
@@ -388,7 +925,9 @@ class TaModule:
         """
         if high is None:
             if self._ctx is None:
-                raise RuntimeError("ta.stoch() needs high/low — pass explicitly or use within Pyne script")
+                raise RuntimeError(
+                    "ta.stoch() needs high/low — pass explicitly or use within Pyne script"
+                )
             high = self._ctx.high
         if low is None:
             low = self._ctx.low
@@ -438,18 +977,11 @@ class TaModule:
             ) / 3.0
 
         source_arr = to_numpy(source, dtype=np.float64)
-        source_sma = self.sma(source_arr, period)
-
-        # Mean absolute deviation
-        n = len(source_arr)
-        mad = np.full(n, np.nan)
-        for i in range(period - 1, n):
-            window = source_arr[i - period + 1: i + 1]
-            mad[i] = np.nanmean(np.abs(window - source_sma[i]))
+        source_sma, mad = _rolling_mean_and_mad(source_arr, period)
 
         with np.errstate(divide="ignore", invalid="ignore"):
             result = np.where(mad != 0, (source_arr - source_sma) / (0.015 * mad), 0.0)
-        result[:period - 1] = np.nan
+        result[: period - 1] = np.nan
         return wrap_like(result, source)
 
     # ═══════════════════════════════════════════════════════════
@@ -498,25 +1030,7 @@ class TaModule:
         Pine equivalent: ``ta.linreg(source, length, offset)``.
         """
         source = to_numpy(src, dtype=np.float64)
-        n = len(source)
-        result = np.full(n, np.nan)
-        if period <= 0 or period > n:
-            return wrap_like(result, src)
-
-        x = np.arange(period, dtype=np.float64)
-        x_mean = float(np.mean(x))
-        denom = float(np.sum((x - x_mean) ** 2))
-        target_x = float(period - 1 - offset)
-
-        for idx in range(period - 1, n):
-            window = source[idx - period + 1: idx + 1]
-            if np.any(np.isnan(window)):
-                continue
-            y_mean = float(np.mean(window))
-            slope = float(np.sum((x - x_mean) * (window - y_mean)) / denom) if denom else 0.0
-            intercept = y_mean - slope * x_mean
-            result[idx] = intercept + slope * target_x
-
+        result = _rolling_linear_regression_values(source, period, offset)
         return wrap_like(result, src)
 
     def correlation(
@@ -531,22 +1045,7 @@ class TaModule:
         """
         a = to_numpy(source_a, dtype=np.float64)
         b = to_numpy(source_b, dtype=np.float64)
-        n = min(len(a), len(b))
-        result = np.full(n, np.nan)
-        if period <= 1 or period > n:
-            return wrap_like(result, source_a, source_b)
-
-        for idx in range(period - 1, n):
-            aw = a[idx - period + 1: idx + 1]
-            bw = b[idx - period + 1: idx + 1]
-            if np.any(np.isnan(aw)) or np.any(np.isnan(bw)):
-                continue
-            a_std = float(np.std(aw))
-            b_std = float(np.std(bw))
-            if a_std == 0.0 or b_std == 0.0:
-                continue
-            result[idx] = float(np.corrcoef(aw, bw)[0, 1])
-
+        result = _rolling_correlation_values(a, b, period)
         return wrap_like(result, source_a, source_b)
 
     def adx(
@@ -673,9 +1172,7 @@ class TaModule:
         high_arr = to_numpy(high, dtype=np.float64)
         low_arr = to_numpy(low, dtype=np.float64)
         close_arr = (
-            to_numpy(close, dtype=np.float64)
-            if close is not None
-            else (high_arr + low_arr) / 2.0
+            to_numpy(close, dtype=np.float64) if close is not None else (high_arr + low_arr) / 2.0
         )
         n = len(high_arr)
         result = np.full(n, np.nan)
@@ -893,46 +1390,13 @@ class TaModule:
 
         Pine equivalent: ``ta.stdev(close, 20)``
 
-        Uses the identity ``Var(X) = E[X²] − (E[X])²`` with cumulative
-        sums for O(n) computation instead of the naive O(n·period) loop.
-        Falls back to a per-window approach only when NaN values are present.
+        Uses periodically rebased centered moments. Windows containing missing
+        values remain missing without forcing the rest of the series onto a
+        per-window fallback path.
         """
         source = to_numpy(src, dtype=np.float64)
-        n = len(source)
-        result = np.full(n, np.nan)
-        if period <= 0 or period > n:
-            return wrap_like(result, src)
-
-        # If NaN values exist, fall back to window-based approach
-        if np.any(np.isnan(source)):
-            for i in range(period - 1, n):
-                window = source[i - period + 1: i + 1]
-                if not np.any(np.isnan(window)):
-                    result[i] = np.std(window, ddof=0)
-            return wrap_like(result, src)
-
-        # ── O(n) vectorized path ──
-        # Var(X) = E[X²] − (E[X])²
-        cs = np.cumsum(source)
-        cs2 = np.cumsum(source * source)
-
-        # First complete window [0 .. period-1]
-        s = cs[period - 1]
-        s2 = cs2[period - 1]
-        mean = s / period
-        result[period - 1] = np.sqrt(max(0.0, s2 / period - mean * mean))
-
-        # Subsequent windows via sliding cumsum difference
-        if period < n:
-            s_arr = cs[period:] - cs[:n - period]
-            s2_arr = cs2[period:] - cs2[:n - period]
-            means = s_arr / period
-            variance = s2_arr / period - means * means
-            # Clamp tiny negatives from floating-point rounding
-            np.maximum(variance, 0.0, out=variance)
-            np.sqrt(variance, out=variance)
-            result[period:] = variance
-
+        result = _rolling_variance_values(source, period, ddof=0)
+        np.sqrt(result, out=result)
         return wrap_like(result, src)
 
     def variance(
@@ -945,21 +1409,9 @@ class TaModule:
 
         Pine equivalent: ``ta.variance(close, 20, true)``.
         """
-        source = to_numpy(src, dtype=np.float64)
-        n = len(source)
-        result = np.full(n, np.nan)
-        if period <= 0 or period > n:
-            return wrap_like(result, src)
-
         ddof = 0 if biased else 1
-        if period - ddof <= 0:
-            return wrap_like(result, src)
-
-        for idx in range(period - 1, n):
-            window = source[idx - period + 1: idx + 1]
-            if not np.any(np.isnan(window)):
-                result[idx] = np.var(window, ddof=ddof)
-
+        source = to_numpy(src, dtype=np.float64)
+        result = _rolling_variance_values(source, period, ddof=ddof)
         return wrap_like(result, src)
 
     def dev(self, src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray:
@@ -968,17 +1420,7 @@ class TaModule:
         Pine equivalent: ``ta.dev(close, 20)``.
         """
         source = to_numpy(src, dtype=np.float64)
-        n = len(source)
-        result = np.full(n, np.nan)
-        if period <= 0 or period > n:
-            return wrap_like(result, src)
-
-        for idx in range(period - 1, n):
-            window = source[idx - period + 1: idx + 1]
-            if not np.any(np.isnan(window)):
-                mean = float(np.mean(window))
-                result[idx] = float(np.mean(np.abs(window - mean)))
-
+        _, result = _rolling_mean_and_mad(source, period)
         return wrap_like(result, src)
 
     def percentile_nearest_rank(
@@ -992,19 +1434,12 @@ class TaModule:
         Pine equivalent: ``ta.percentile_nearest_rank(source, length, percentage)``.
         """
         source = to_numpy(src, dtype=np.float64)
-        n = len(source)
-        result = np.full(n, np.nan)
-        if period <= 0 or period > n:
-            return wrap_like(result, src)
-
-        pct = float(np.clip(percentage, 0.0, 100.0))
-        rank = max(int(np.ceil(pct / 100.0 * period)), 1) - 1
-
-        for idx in range(period - 1, n):
-            window = source[idx - period + 1: idx + 1]
-            if not np.any(np.isnan(window)):
-                result[idx] = float(np.sort(window)[rank])
-
+        result = _rolling_percentile_values(
+            source,
+            period,
+            percentage,
+            linear=False,
+        )
         return wrap_like(result, src)
 
     def percentile_linear_interpolation(
@@ -1018,17 +1453,12 @@ class TaModule:
         Pine equivalent: ``ta.percentile_linear_interpolation(source, length, percentage)``.
         """
         source = to_numpy(src, dtype=np.float64)
-        n = len(source)
-        result = np.full(n, np.nan)
-        if period <= 0 or period > n:
-            return wrap_like(result, src)
-
-        pct = float(np.clip(percentage, 0.0, 100.0))
-        for idx in range(period - 1, n):
-            window = source[idx - period + 1: idx + 1]
-            if not np.any(np.isnan(window)):
-                result[idx] = float(np.percentile(window, pct, method="hazen"))
-
+        result = _rolling_percentile_values(
+            source,
+            period,
+            percentage,
+            linear=True,
+        )
         return wrap_like(result, src)
 
     def keltner(
@@ -1211,18 +1641,20 @@ def _ema_skip_leading_na(src: np.ndarray, period: int) -> np.ndarray:
     if period <= 0 or period > n:
         return result
 
+    valid_counts = _window_sums((~np.isnan(source)).astype(np.int64), period)
+    complete_windows = np.flatnonzero(valid_counts == period)
+    if len(complete_windows) == 0:
+        return result
+
+    start = int(complete_windows[0])
+    seed_index = start + period - 1
+    result[seed_index] = float(np.mean(source[start : seed_index + 1]))
     k = 2.0 / (period + 1)
-    for start in range(0, n - period + 1):
-        window = source[start: start + period]
-        if not np.any(np.isnan(window)):
-            seed_index = start + period - 1
-            result[seed_index] = float(np.mean(window))
-            for idx in range(seed_index + 1, n):
-                value = source[idx]
-                if np.isnan(value):
-                    result[idx] = result[idx - 1]
-                else:
-                    result[idx] = value * k + result[idx - 1] * (1 - k)
-            break
+    for idx in range(seed_index + 1, n):
+        value = source[idx]
+        if np.isnan(value):
+            result[idx] = result[idx - 1]
+        else:
+            result[idx] = value * k + result[idx - 1] * (1 - k)
 
     return result

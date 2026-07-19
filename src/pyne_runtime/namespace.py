@@ -1,4 +1,5 @@
 """Script namespace assembly for batch Pyne runtime execution."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -55,7 +56,11 @@ class RuntimeServices:
         )
         self.plot_functions = create_plot_functions(self.collector)
         self.request = RequestModule(self.ctx, provider=self.settings.data_provider)
-        self.strategy = StrategyModule(self.ctx, self.collector)
+        self.strategy = StrategyModule(
+            self.ctx,
+            self.collector,
+            max_pending_order_operations=self.policy.max_strategy_pending_operations,
+        )
 
 
 def build_script_namespace(services: RuntimeServices) -> dict[str, Any]:

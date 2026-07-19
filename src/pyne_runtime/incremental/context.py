@@ -13,7 +13,13 @@ from ..metadata import SessionInfo, SymbolInfo, TimeframeInfo
 from ..security import PyneSecurityError
 from .bar import IncrementalBar, _session_info_for_bar
 from .drawing import IncrementalDrawingMixin, _filter_object_events
-from .limits import IncrementalLimits, StateCell, Window, _LimitTracker
+from .limits import (
+    IncrementalLimits,
+    StateCell,
+    Window,
+    _LimitTracker,
+    _state_payload_items,
+)
 from .result import IncrementalPyneResult
 from .strategy import IncrementalStrategyNamespace
 from .ta import IncrementalTaNamespace
@@ -48,11 +54,15 @@ class IncrementalContext(IncrementalDrawingMixin):
         self._windows: dict[str, Window] = {}
         self._series: dict[str, dict[str, Any]] = {}
         self._markers: dict[str, dict[str, Any]] = {}
+        self._current_series: dict[str, dict[str, Any]] = {}
+        self._current_markers: dict[str, dict[str, Any]] = {}
         self._object_lines: dict[str, dict[str, Any]] = {}
         self._object_labels: dict[str, dict[str, Any]] = {}
         self._object_boxes: dict[str, dict[str, Any]] = {}
         self._object_tables: dict[str, dict[str, Any]] = {}
+        self._table_cell_indices: dict[str, dict[tuple[int, int], int]] = {}
         self._object_events: list[dict[str, Any]] = []
+        self._current_object_events: list[dict[str, Any]] = []
         self._object_counter = 0
         self._max_drawing_objects = max(int(max_drawing_objects), 1)
         self.current_bar: IncrementalBar | None = None
@@ -61,15 +71,59 @@ class IncrementalContext(IncrementalDrawingMixin):
         self.barstate = PyneIncrementalBarState()
 
     def clone_for_preview(self) -> "IncrementalContext":
-        clone = copy.deepcopy(self)
-        clone._series = {}
-        clone._markers = {}
-        clone.current_bar = None
+        discarded: dict[str, Any] = {
+            "_series": {},
+            "_markers": {},
+            "_object_events": [],
+            "_current_series": {},
+            "_current_markers": {},
+            "_current_object_events": [],
+            "current_bar": None,
+        }
+        clone = object.__new__(type(self))
+        memo = {id(self): clone}
+        state_mappings: dict[str, dict[str, StateCell]] = {}
+        state_pairs: list[tuple[StateCell, StateCell]] = []
+        for name in ("_states", "_varip_states"):
+            source = getattr(self, name)
+            cloned_mapping: dict[str, StateCell] = {}
+            memo[id(source)] = cloned_mapping
+            state_mappings[name] = cloned_mapping
+            for key, cell in source.items():
+                cell_clone = memo.get(id(cell))
+                if cell_clone is None:
+                    cell_clone = object.__new__(type(cell))
+                    memo[id(cell)] = cell_clone
+                    state_pairs.append((cell, cell_clone))
+                cloned_mapping[copy.deepcopy(key, memo)] = cell_clone
+        for name, value in vars(self).items():
+            if name in discarded:
+                setattr(clone, name, discarded[name])
+            elif name in state_mappings:
+                setattr(clone, name, state_mappings[name])
+            else:
+                setattr(clone, name, copy.deepcopy(value, memo))
+        for source, cell_clone in state_pairs:
+            object.__setattr__(
+                cell_clone,
+                "_StateCell__history",
+                object.__getattribute__(source, "_StateCell__history"),
+            )
+            object.__setattr__(cell_clone, "_StateCell__history_writable", False)
+            object.__setattr__(
+                cell_clone,
+                "_StateCell__limit_tracker",
+                clone._limit_tracker,
+            )
+            cell_clone.value = copy.deepcopy(source.value, memo)
         return clone
 
     def clear_outputs(self) -> None:
         self._series = {}
         self._markers = {}
+        self._current_series = {}
+        self._current_markers = {}
+        self._limit_tracker.clear_output()
 
     def begin_bar(
         self,
@@ -79,6 +133,9 @@ class IncrementalContext(IncrementalDrawingMixin):
         last_bar_index: int,
         barstate: PyneIncrementalBarState,
     ) -> None:
+        self._current_series = {}
+        self._current_markers = {}
+        self._current_object_events = []
         bar.bar_index = bar_index
         bar.last_bar_index = last_bar_index
         bar.is_first = barstate.isfirst
@@ -92,6 +149,7 @@ class IncrementalContext(IncrementalDrawingMixin):
         self.last_bar_index = last_bar_index
         self.barstate = barstate
         if barstate.isconfirmed:
+            self._limit_tracker.replace_varip_payload(0)
             self._varip_states = {}
         self.session = _session_info_for_bar(bar, self._default_session)
         self.strategy.begin_bar()
@@ -103,6 +161,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             self._states[key] = StateCell(
                 copy.deepcopy(default),
                 max_history=self._limits.max_state_history,
+                limit_tracker=self._limit_tracker,
             )
         return self._states[key]
 
@@ -117,11 +176,39 @@ class IncrementalContext(IncrementalDrawingMixin):
         key = str(name)
         if key not in self._varip_states:
             self._ensure_state_key_available()
-            self._varip_states[key] = StateCell(
-                copy.deepcopy(default),
-                max_history=self._limits.max_state_history,
+            existing_payload = self._measure_varip_payload()
+            previous_payload = self._limit_tracker.varip_payload_items
+            self._limit_tracker.replace_varip_payload(
+                existing_payload + _state_payload_items(default)
             )
+            try:
+                self._varip_states[key] = StateCell(
+                    copy.deepcopy(default),
+                    max_history=self._limits.max_state_history,
+                    limit_tracker=self._limit_tracker,
+                )
+                self.sync_varip_payload()
+            except Exception:
+                self._varip_states.pop(key, None)
+                self._limit_tracker.varip_payload_items = previous_payload
+                raise
         return self._varip_states[key]
+
+    def adopt_varip_states(self, states: dict[str, StateCell]) -> None:
+        self._varip_states = states
+        for cell in states.values():
+            object.__setattr__(
+                cell,
+                "_StateCell__limit_tracker",
+                self._limit_tracker,
+            )
+        self.sync_varip_payload()
+
+    def sync_varip_payload(self) -> None:
+        self._limit_tracker.replace_varip_payload(self._measure_varip_payload())
+
+    def _measure_varip_payload(self) -> int:
+        return sum(_state_payload_items(cell.value) for cell in self._varip_states.values())
 
     def commit_state_history(self) -> None:
         for cell in self._states.values():
@@ -177,6 +264,7 @@ class IncrementalContext(IncrementalDrawingMixin):
         resolved_pane = pane or self._default_pane()
         local_id = _slug(name)
         normalized_type = "histogram" if _is_histogram_style(style) else type
+        self._limit_tracker.reserve_output_point(series_key=f"series:{local_id}")
         entry = self._series.setdefault(local_id, {
             "id": local_id,
             "title": title or name,
@@ -194,6 +282,11 @@ class IncrementalContext(IncrementalDrawingMixin):
         if normalized_type == "histogram":
             point["color"] = color
         entry["data"].append(point)
+        current_entry = self._current_series.setdefault(
+            local_id,
+            {**entry, "data": []},
+        )
+        current_entry["data"].append(point)
 
     def marker(
         self,
@@ -210,6 +303,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             return
         resolved_pane = pane or self._default_pane()
         key = _slug(text or shape or "marker")
+        self._limit_tracker.reserve_output_point(series_key=f"marker:{key}")
         entry = self._markers.setdefault(key, {
             "id": key,
             "shape": shape,
@@ -220,7 +314,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             "pane": resolved_pane,
             "data": [],
         })
-        entry["data"].append({
+        point = {
             "time": self.current_bar.time,
             "shape": shape,
             "color": color,
@@ -228,7 +322,13 @@ class IncrementalContext(IncrementalDrawingMixin):
             "position": position,
             "size": size,
             "pane": resolved_pane,
-        })
+        }
+        entry["data"].append(point)
+        current_entry = self._current_markers.setdefault(
+            key,
+            {**entry, "data": []},
+        )
+        current_entry["data"].append(point)
 
     def _default_pane(self) -> str:
         return "main" if self.meta.get("overlay", True) else "separate"
@@ -240,8 +340,11 @@ class IncrementalContext(IncrementalDrawingMixin):
         start_s: int | None = None,
         end_s: int | None = None,
     ) -> IncrementalPyneResult:
+        current_bar_range = self._is_current_bar_range(start_s=start_s, end_s=end_s)
+        series = self._current_series if current_bar_range else self._series
+        marker_series = self._current_markers if current_bar_range else self._markers
         lines = []
-        for item in self._series.values():
+        for item in series.values():
             data = _filter_points(item.get("data") or [], start_s, end_s)
             if not data:
                 continue
@@ -259,7 +362,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             })
 
         markers = []
-        for item in self._markers.values():
+        for item in marker_series.values():
             data = _filter_points(item.get("data") or [], start_s, end_s)
             if data:
                 markers.append({**item, "data": data})
@@ -298,7 +401,8 @@ class IncrementalContext(IncrementalDrawingMixin):
         objects = self._objects_snapshot()
         if objects:
             output["objects"] = objects
-        object_events = _filter_object_events(self._object_events, start_s, end_s)
+        event_source = self._current_object_events if current_bar_range else self._object_events
+        object_events = _filter_object_events(event_source, start_s, end_s)
         if object_events:
             output["object_events"] = object_events
 
@@ -314,6 +418,21 @@ class IncrementalContext(IncrementalDrawingMixin):
                 "barstate": asdict(self.barstate),
             },
         )
+
+    def _is_current_bar_range(
+        self,
+        *,
+        start_s: int | None,
+        end_s: int | None,
+    ) -> bool:
+        return (
+            self.current_bar is not None
+            and start_s is not None
+            and end_s is not None
+            and start_s == self.current_bar.time
+            and end_s == self.current_bar.time
+        )
+
 
 def _slug(value: str) -> str:
     normalized = re.sub(r"[^a-zA-Z0-9_]+", "_", str(value).strip()).strip("_").lower()

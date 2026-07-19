@@ -1,10 +1,12 @@
 """Strategy order replay engine."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
+from ..security import PyneSecurityError
 from ..series import PyneSeries
 from ..state import PyneVar
 from ..values import is_na_value
@@ -12,8 +14,9 @@ from .constants import StrategyOca
 from .costs import _strategy_equity
 from .ledger import _open_profit, _record_fill, _target_open_qty
 from .orders import (
-    _apply_oca_after_fill,
     _is_pending_submission,
+    _orders_in_replay_order,
+    _PendingOrderBook,
     _pending_trigger,
     _reject_order,
 )
@@ -25,8 +28,23 @@ from .risk import (
 )
 
 
-def replay_strategy_orders(strategy: Any) -> None:
+def replay_strategy_orders(
+    strategy: Any,
+    *,
+    materialize_order: Callable[[int, int, float], dict[str, Any] | None] | None = None,
+) -> None:
+    """Replay collected orders, optionally materializing one command per bar.
+
+    ``materialize_order`` runs after existing same-time orders, so a vectorized
+    close/exit command can observe the live chronological position without
+    restarting the replay for every matching bar.
+    """
     self = strategy
+    source_orders = [
+        order for order in self._collector.strategy_orders if not order.get("_risk_liquidation")
+    ]
+    if len(source_orders) != len(self._collector.strategy_orders):
+        self._collector.strategy_orders[:] = source_orders
     current_size = 0.0
     current_avg = np.nan
     same_direction_entry_count = 0
@@ -35,7 +53,10 @@ def replay_strategy_orders(strategy: Any) -> None:
     total_commission = 0.0
     closed_trades: list[dict[str, Any]] = []
     open_trades: list[dict[str, Any]] = []
-    pending_orders: list[dict[str, Any]] = []
+    pending_orders = _PendingOrderBook(
+        tick_verify=self._limit_fill_verification_amount(),
+        consume_operations=lambda count: _consume_pending_order_operations(self, count),
+    )
     orders_by_time: dict[int, list[dict[str, Any]]] = {}
     drawdown_locked = False
     intraday_locked = False
@@ -48,16 +69,19 @@ def replay_strategy_orders(strategy: Any) -> None:
         filled_orders=intraday_filled_orders,
         threshold=self._max_intraday_filled_orders,
     )
-    self._closed_trades_by_bar = [[] for _ in range(self._context.bar_count)]
-    self._open_trades_by_bar = [[] for _ in range(self._context.bar_count)]
+    self._closed_trades_by_bar = []
+    self._open_trades_by_bar = []
+    self._open_trade_events_by_bar = (
+        [[] for _ in range(self._context.bar_count)] if self._process_orders_on_close else []
+    )
+    open_trade_events: list[tuple[str, int, dict[str, Any] | None]] | None = (
+        [] if self._process_orders_on_close else None
+    )
     session_first = _condition_values(
         self._context.session.isfirstbar,
         self._context.bar_count,
     )
-    for order in sorted(
-        self._collector.strategy_orders,
-        key=lambda item: (item.get("time", 0), item.get("_seq", 0)),
-    ):
+    for order in _orders_in_replay_order(source_orders):
         order["_active"] = False
         order.pop("_filled_qty", None)
         order.pop("_requested_fill_qty", None)
@@ -85,6 +109,7 @@ def replay_strategy_orders(strategy: Any) -> None:
             order.pop("canceled", None)
         orders_by_time.setdefault(int(order.get("time", 0)), []).append(order)
 
+    materialize_sentinel = object()
     for idx, timestamp in enumerate(self._context.times):
         if session_first[idx]:
             intraday_locked = False
@@ -94,9 +119,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                 threshold=self._max_intraday_filled_orders,
             )
             intraday_peak_equity = (
-                float(self._equity[idx - 1])
-                if idx > 0
-                else self._initial_capital
+                float(self._equity[idx - 1]) if idx > 0 else self._initial_capital
             )
         risk_locked = drawdown_locked or intraday_locked or filled_orders_locked
         same_bar_visible_fill = False
@@ -112,14 +135,26 @@ def replay_strategy_orders(strategy: Any) -> None:
                 total_commission=total_commission,
                 closed_trades=closed_trades,
                 open_trades=open_trades,
+                open_trade_events=open_trade_events,
             )
-        for order in orders_by_time.get(timestamp, []):
+        scheduled_orders = list(orders_by_time.get(timestamp, []))
+        if materialize_order is not None:
+            scheduled_orders.append(materialize_sentinel)
+        for scheduled_order in scheduled_orders:
+            if scheduled_order is materialize_sentinel:
+                visible_position = bar_open_size if self._process_orders_on_close else current_size
+                order = materialize_order(idx, timestamp, visible_position)
+                if order is None:
+                    continue
+                self._collector.strategy_orders.append(order)
+            else:
+                order = scheduled_order
             if order.get("type") == "entry":
                 if risk_locked:
                     _reject_order(order, timestamp=timestamp, reason="risk_locked")
                     continue
                 if _is_pending_submission(order):
-                    pending_orders.append(order)
+                    pending_orders.add(order)
                     continue
                 side = _normalize_direction(str(order.get("side", self.long)))
                 rejection_reason = _entry_rejection_reason(
@@ -207,6 +242,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     gross_profit=gross_profit,
                     gross_loss=gross_loss,
                     total_commission=total_commission,
+                    open_trade_events=open_trade_events,
                 )
                 order["_avg_price_after"] = (
                     round(float(avg_after), 8) if not is_na_value(avg_after) else None
@@ -224,7 +260,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     _reject_order(order, timestamp=timestamp, reason="risk_locked")
                     continue
                 if _is_pending_submission(order):
-                    pending_orders.append(order)
+                    pending_orders.add(order)
                     continue
                 side = _normalize_direction(str(order.get("side", self.long)))
                 fill_side = "buy" if side == self.long else "sell"
@@ -284,6 +320,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     gross_profit=gross_profit,
                     gross_loss=gross_loss,
                     total_commission=total_commission,
+                    open_trade_events=open_trade_events,
                 )
                 order["_avg_price_after"] = (
                     round(float(avg_after), 8) if not is_na_value(avg_after) else None
@@ -350,6 +387,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     gross_profit=gross_profit,
                     gross_loss=gross_loss,
                     total_commission=total_commission,
+                    open_trade_events=open_trade_events,
                 )
                 order["_active"] = True
                 if order.get("_fifo_close") and next_size != 0:
@@ -367,36 +405,34 @@ def replay_strategy_orders(strategy: Any) -> None:
                     current_avg = np.nan
                     same_direction_entry_count = 0
             elif order.get("type") == "cancel":
-                canceled = [item for item in pending_orders if item.get("id") == order.get("id")]
+                canceled = pending_orders.cancel_id(
+                    str(order.get("id") or ""),
+                    timestamp=timestamp,
+                    canceled_by=str(order.get("id") or ""),
+                )
                 if canceled:
-                    for item in canceled:
-                        item["_canceled"] = True
-                        item["_canceled_time"] = timestamp
-                        item["_canceled_by"] = order.get("id")
                     order["canceled"] = len(canceled)
                     order["_active"] = True
-                pending_orders = [item for item in pending_orders if not item.get("_canceled")]
             elif order.get("type") == "cancel_all":
                 if pending_orders:
-                    for item in pending_orders:
-                        item["_canceled"] = True
-                        item["_canceled_time"] = timestamp
-                        item["_canceled_by"] = "cancel_all"
-                    order["canceled"] = len(pending_orders)
+                    canceled = pending_orders.cancel_all(
+                        timestamp=timestamp,
+                        canceled_by="cancel_all",
+                    )
+                    order["canceled"] = len(canceled)
                     order["_active"] = True
-                pending_orders = []
 
-        if pending_orders:
+        if pending_orders and not risk_locked:
             open_price = float(self._context.open.values[idx])
             high = float(self._context.high.values[idx])
             low = float(self._context.low.values[idx])
-            remaining_pending = []
-            for order in sorted(pending_orders, key=lambda item: item.get("_seq", 0)):
-                if order.get("_canceled"):
+            for order in pending_orders.candidates(high=high, low=low):
+                if not pending_orders.contains(order):
                     continue
                 if risk_locked and order.get("type") in {"entry", "order"}:
-                    remaining_pending.append(order)
+                    pending_orders.reindex(order)
                     continue
+                _consume_pending_order_operations(self)
                 trigger_reference_price = open_price
                 if (
                     self._process_orders_on_close
@@ -415,7 +451,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     intrabar_path=self._intrabar_path,
                 )
                 if trigger is None:
-                    remaining_pending.append(order)
+                    pending_orders.reindex(order)
                     continue
                 reason, trigger_price = trigger
                 order["time"] = timestamp
@@ -432,6 +468,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     )
                     if rejection_reason is not None:
                         _reject_order(order, timestamp=timestamp, reason=rejection_reason)
+                        pending_orders.remove(order)
                         continue
                     fill_side = "buy" if side == self.long else "sell"
                     fill_price = self._fill_price(float(trigger_price), fill_side)
@@ -447,6 +484,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     if qty <= 0:
                         order["_filled_qty"] = 0.0
                         _reject_order(order, timestamp=timestamp, reason="max_position_size")
+                        pending_orders.remove(order)
                         continue
                     position_after, avg_after = _entry_position_after(
                         previous_size=current_size,
@@ -470,7 +508,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                         price=fill_price,
                         equity=pre_fill_equity,
                     ):
-                        remaining_pending.append(order)
+                        pending_orders.reindex(order)
                         continue
                     if current_size == 0 or (current_size > 0) != (position_after > 0):
                         same_direction_entry_count = 1
@@ -504,7 +542,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                         price=fill_price,
                         equity=pre_fill_equity,
                     ):
-                        remaining_pending.append(order)
+                        pending_orders.reindex(order)
                         continue
                     if position_after == 0:
                         same_direction_entry_count = 0
@@ -549,11 +587,13 @@ def replay_strategy_orders(strategy: Any) -> None:
                     gross_profit=gross_profit,
                     gross_loss=gross_loss,
                     total_commission=total_commission,
+                    open_trade_events=open_trade_events,
                 )
                 order["_avg_price_after"] = (
                     round(float(avg_after), 8) if not is_na_value(avg_after) else None
                 )
                 order["_active"] = True
+                pending_orders.remove(order)
                 if order.get("type") in {"entry", "order"}:
                     intraday_filled_orders += 1
                     if _intraday_filled_orders_hit(
@@ -562,8 +602,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     ):
                         filled_orders_locked = True
                         risk_locked = True
-                _apply_oca_after_fill(order, pending_orders)
-            pending_orders = [item for item in remaining_pending if not item.get("_canceled")]
+                pending_orders.apply_oca_after_fill(order)
         risk_liquidation = _risk_liquidation_reason(
             self,
             idx=idx,
@@ -579,12 +618,6 @@ def replay_strategy_orders(strategy: Any) -> None:
         if risk_liquidation is not None:
             intraday_locked = True
             risk_locked = True
-            if pending_orders:
-                for pending in pending_orders:
-                    pending["_canceled"] = True
-                    pending["_canceled_time"] = timestamp
-                    pending["_canceled_by"] = risk_liquidation
-                pending_orders = []
             if current_size != 0:
                 (
                     current_size,
@@ -604,6 +637,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                     total_commission=total_commission,
                     open_trades=open_trades,
                     closed_trades=closed_trades,
+                    open_trade_events=open_trade_events,
                 )
                 same_direction_entry_count = 0
                 same_bar_visible_fill = True
@@ -618,6 +652,7 @@ def replay_strategy_orders(strategy: Any) -> None:
                 total_commission=total_commission,
                 closed_trades=closed_trades,
                 open_trades=open_trades,
+                open_trade_events=open_trade_events,
             )
         net_profit = gross_profit + gross_loss - total_commission
         open_profit = _open_profit(
@@ -679,10 +714,14 @@ def _risk_liquidation_reason(
             else float(strategy._context.high.values[idx])
         )
     net_profit = gross_profit + gross_loss - total_commission
-    equity = strategy._initial_capital + net_profit + _open_profit(
-        current_size,
-        current_avg,
-        risk_price,
+    equity = (
+        strategy._initial_capital
+        + net_profit
+        + _open_profit(
+            current_size,
+            current_avg,
+            risk_price,
+        )
     )
     if strategy._max_intraday_loss_value is not None and _max_drawdown_hit(
         equity=float(equity),
@@ -706,6 +745,7 @@ def _force_close_for_risk(
     total_commission: float,
     open_trades: list[dict[str, Any]],
     closed_trades: list[dict[str, Any]],
+    open_trade_events: list[tuple[str, int, dict[str, Any] | None]] | None,
 ) -> tuple[float, float, float, float, float, list[dict[str, Any]]]:
     fill_qty = abs(current_size)
     fill_side = "sell" if current_size > 0 else "buy"
@@ -748,6 +788,7 @@ def _force_close_for_risk(
         gross_profit=gross_profit,
         gross_loss=gross_loss,
         total_commission=total_commission,
+        open_trade_events=open_trade_events,
     )
     return 0.0, np.nan, gross_profit, gross_loss, total_commission, open_trades
 
@@ -763,6 +804,7 @@ def _write_strategy_snapshot(
     total_commission: float,
     closed_trades: list[dict[str, Any]],
     open_trades: list[dict[str, Any]],
+    open_trade_events: list[tuple[str, int, dict[str, Any] | None]] | None,
 ) -> None:
     net_profit = gross_profit + gross_loss - total_commission
     open_profit = _open_profit(
@@ -778,12 +820,19 @@ def _write_strategy_snapshot(
     strategy._openprofit[idx] = open_profit
     strategy._equity[idx] = strategy._initial_capital + net_profit + open_profit
     strategy._closedtrades_count[idx] = len(closed_trades)
-    visible_open_trades = [
-        dict(trade) for trade in open_trades if float(trade.get("qty", 0.0)) > 0
-    ]
-    strategy._opentrades_count[idx] = len(visible_open_trades)
-    strategy._closed_trades_by_bar[idx] = [dict(trade) for trade in closed_trades]
-    strategy._open_trades_by_bar[idx] = visible_open_trades
+    strategy._opentrades_count[idx] = len(open_trades)
+    if strategy._process_orders_on_close and open_trade_events:
+        strategy._open_trade_events_by_bar[idx].extend(open_trade_events)
+        open_trade_events.clear()
+
+
+def _consume_pending_order_operations(strategy: Any, count: int = 1) -> None:
+    strategy._pending_order_operations += max(int(count), 0)
+    if strategy._pending_order_operations > strategy._max_pending_order_operations:
+        raise PyneSecurityError(
+            "Strategy pending-order operation budget exceeded "
+            f"(max {strategy._max_pending_order_operations})"
+        )
 
 
 def _condition_values(value: Any, length: int) -> list[bool]:
