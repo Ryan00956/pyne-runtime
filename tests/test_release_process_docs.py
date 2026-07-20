@@ -16,6 +16,8 @@ PROVIDER_CONTRACT_EXAMPLE = ROOT / "examples" / "request_provider_contract.py"
 CHECK_PS1 = ROOT / "scripts" / "check.ps1"
 CHECK_SH = ROOT / "scripts" / "check.sh"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
+RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
+README = ROOT / "README.md"
 
 COMMON_PYTHON_GATE_PREFIXES = (
     ("-m", "compileall", "src", "tests", "-q"),
@@ -131,11 +133,55 @@ def test_release_process_documents_version_policy_and_gates() -> None:
         "temporary wheel environment",
         "pyne schema",
         "CHANGELOG.md",
+        ".github/workflows/release.yml",
+        "SHA256SUMS",
     ):
         assert required in release_checklist
 
     assert "quality gates" in sections["Changelog Rules"]
     assert "hatchling>=1.25" in project["project"]["optional-dependencies"]["dev"]
+
+
+def test_github_release_workflow_publishes_verified_distribution_assets() -> None:
+    body = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+
+    for required in (
+        'tags:\n      - "v*"',
+        "contents: write",
+        "git merge-base --is-ancestor",
+        "python -m build",
+        "python -m twine check dist/*",
+        "python scripts/package_smoke.py --dist-dir dist",
+        "python scripts/release_assets.py",
+        "dist/*.whl dist/*.tar.gz dist/SHA256SUMS",
+        "gh release create",
+        "--verify-tag",
+        "--prerelease",
+    ):
+        assert required in body
+
+
+def test_workflows_use_current_node_24_official_actions() -> None:
+    for workflow in (CI, RELEASE_WORKFLOW):
+        body = workflow.read_text(encoding="utf-8")
+        assert "actions/checkout@v7.0.0" in body
+        assert "actions/setup-python@v7.0.0" in body
+        assert "actions/checkout@v4" not in body
+        assert "actions/setup-python@v5" not in body
+
+
+def test_readme_installs_the_current_release_wheel_without_a_source_checkout() -> None:
+    body = README.read_text(encoding="utf-8")
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    version = project["project"]["version"]
+    wheel_url = (
+        "https://github.com/Ryan00956/pyne-runtime/releases/download/"
+        f"v{version}/pyne_runtime-{version}-py3-none-any.whl"
+    )
+
+    assert wheel_url in body
+    assert "currently distributed from source" not in body
+    assert "SHA256SUMS" in body
 
 
 def test_release_process_links_to_contract_docs() -> None:

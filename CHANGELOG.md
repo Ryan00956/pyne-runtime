@@ -2,8 +2,14 @@
 
 ## Unreleased
 
-## 0.2.0rc1 - 2026-07-14
+## 0.2.0rc1 - 2026-07-20
 
+- Added a tag-gated GitHub Release workflow that publishes the universal wheel,
+  source distribution, changelog-derived notes, and SHA-256 checksums after an
+  installed-wheel smoke test.
+- Updated the official checkout and Python setup actions to their Node 24
+  releases so CI and release jobs do not rely on deprecated Node 20 runner
+  compatibility.
 - Added a generated current-status contract backed by package metadata and the
   request, strategy, and TA capture inventories, with fail-closed drift and
   parity checks in local and CI quality gates.

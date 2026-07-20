@@ -18,6 +18,7 @@
   <a href="docs/quickstart.md">Quickstart</a> &middot;
   <a href="examples/README.md">Examples</a> &middot;
   <a href="docs/index.md">Documentation</a> &middot;
+  <a href="https://github.com/Ryan00956/pyne-runtime/releases">Releases</a> &middot;
   <a href="docs/reference/current_status.md">Current status</a> &middot;
   <a href="docs/reference/pine_like_api_matrix.md">API matrix</a>
 </p>
@@ -43,21 +44,25 @@ OHLCV + host data provider
 
 ## See It in 60 Seconds
 
-Pyne Runtime is currently distributed from source. Clone the repository and
-install the package:
+Pyne Runtime is distributed as a universal wheel on GitHub Releases. Pin the
+release tag and exact asset when installing it into a host application:
 
 ```bash
-git clone https://github.com/Ryan00956/pyne-runtime.git
-cd pyne-runtime
-python -m pip install .
+python -m pip install "https://github.com/Ryan00956/pyne-runtime/releases/download/v0.2.0rc1/pyne_runtime-0.2.0rc1-py3-none-any.whl"
+pyne --version
 ```
 
-The core install depends only on NumPy. Pandas and Matplotlib integrations stay
-optional; install `.[pandas]`, `.[plot]`, or `.[all]` when you need them.
+Each release also includes the source distribution and `SHA256SUMS`. Host
+applications should verify the pinned wheel hash before installation. The core
+install depends only on NumPy; Pandas and Matplotlib integrations stay optional.
 
-Then run the packaged moving-average example:
+To run the repository examples, clone the matching tag and install the optional
+development dependencies:
 
 ```bash
+git clone --branch v0.2.0rc1 --depth 1 https://github.com/Ryan00956/pyne-runtime.git
+cd pyne-runtime
+python -m pip install -e ".[dev,pandas]"
 pyne run examples/ma_cross.py --ohlcv examples/sample_ohlcv.csv --out result.json
 ```
 
