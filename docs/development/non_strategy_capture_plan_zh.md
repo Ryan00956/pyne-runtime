@@ -1,5 +1,8 @@
 # Non-Strategy TradingView Capture 执行计划
 
+> [!IMPORTANT]
+> **状态：历史归档（不再作为当前路线图）。** 本文的 TA 与 Request 主线已分别完成 9/9 和 21/21 capture，当前 parity diff 均为 0；Collections Boundary 一节只是当时的候选扩展，不自动构成当前 backlog。当前状态与证据以 [Current Project Status](../reference/current_status.md) 为准，近期方向见 [Python 包长期方向](python_package_long_term_plan_zh.md)。
+
 本文记录 strategy capture 完成后的下一阶段：把真实 TradingView 导出证据扩展到
 TA、`request.security()` 与集合历史边界。目标仍然不是运行 Pine 源码，而是把可
 导出的 Pine plot 序列作为外部证据，接入 Pyne 现有 golden runner。

@@ -1,5 +1,8 @@
 # Pine-like 语义阶段进度
 
+> [!IMPORTANT]
+> **状态：历史进度快照（不再作为当前状态页）。** 本文中的“下一阶段”列表保留当时的推进背景，部分项目已经完成。当前能力、限制与验证证据以 [Current Project Status](../reference/current_status.md) 为准；近期方向见 [Python 包长期方向](python_package_long_term_plan_zh.md)。
+
 本文记录 Pyne 作为 Python 包时，向 Pine 运行时语义靠近的当前进度、
 剩余差距和下一步执行顺序。它不是编译器或解释器计划；Pyne 不直接运行
 TradingView Pine 源码，而是在 Python API 层提供尽量接近 Pine 的数据、

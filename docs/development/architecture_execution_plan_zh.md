@@ -1,5 +1,8 @@
 # Pyne Runtime 架构规范执行计划
 
+> [!IMPORTANT]
+> **状态：历史执行计划（不再作为当前路线图）。** 初始拆包与架构护栏已大部分落地；本文保留设计背景，未完成条目不自动构成当前 backlog。当前能力、限制与证据以 [Current Project Status](../reference/current_status.md) 为准；近期方向见 [Python 包长期方向](python_package_long_term_plan_zh.md)。
+
 本文档把当前架构审查结论转成可逐步落地的执行手册。目标不是推倒重写，而是在保持公共 API、测试金标和宿主集成稳定的前提下，把职责边界从“靠大文件经验维护”推进到“靠模块结构和契约维护”。
 
 核心判断：Pyne Runtime 的主执行链路清晰，测试和文档基础很好；迁移前主要风险集中在 strategy、incremental、plot、request 这些复杂领域单文件模块，以及 `runtime.py` 作为 namespace 总装配中心的持续膨胀。

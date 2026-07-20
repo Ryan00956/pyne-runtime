@@ -57,7 +57,13 @@ try {
     $env:TEMP = $CheckTmp
     $env:TMP = $CheckTmp
 
+    Invoke-PyneCheck -Arguments @("-m", "compileall", "src", "tests", "-q")
     Invoke-PyneCheck -Arguments @("-m", "ruff", "check", ".")
+    Invoke-PyneCheck -Arguments @("scripts/project_status.py", "--check")
+    & git diff --check
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed: git diff --check"
+    }
     Invoke-PyneCheck -Arguments @(
         "-m",
         "pytest",

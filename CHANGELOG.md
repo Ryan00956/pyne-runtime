@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.2.0rc1 - 2026-07-14
+
+- Added a generated current-status contract backed by package metadata and the
+  request, strategy, and TA capture inventories, with fail-closed drift and
+  parity checks in local and CI quality gates.
+- Unified the local and CI release-candidate gates around source compilation,
+  lint, tests, external-capture parity, distribution validation, and installed
+  wheel smoke checks, and routed superseded execution plans to the current
+  capability and roadmap document.
 - Hardened incremental previews by isolating mutable function defaults and
   script namespace attributes, safely rejecting closure/class and stateful
   external-module state, enforcing monotonic preview/close event times, and

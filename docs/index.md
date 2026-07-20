@@ -5,6 +5,8 @@ strategy, request, and host-renderer output workflows.
 
 ## Start Here
 
+- [Current Project Status](reference/current_status.md): verified current
+  capabilities, explicit non-capabilities, and validation evidence.
 - [Quickstart](quickstart.md): install the package and run the first script.
 - [First Indicator](tutorials/first_indicator.md): write and run a basic
   indicator.
@@ -78,6 +80,8 @@ strategy, request, and host-renderer output workflows.
 
 ## Compatibility And Development
 
+- [Current Project Status](reference/current_status.md): the source of truth
+  for current capability, boundaries, and evidence.
 - [Pine-Like API Matrix](reference/pine_like_api_matrix.md): supported,
   partial, and known-difference status by feature family.
 - [Compatibility](reference/compatibility.md): package and schema stability

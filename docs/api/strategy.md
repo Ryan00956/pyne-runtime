@@ -619,6 +619,8 @@ The position series remains a deterministic net-position replay.
 
 Known limits:
 
-- no intrabar path model
+- no observed tick-by-tick or bar-magnifier path; Pyne only applies the
+  configured deterministic `intrabar_path` policy when a bar touches both
+  relevant prices
 - Python `if` cannot branch directly on series conditions; use
   `entry_when()` and `close_when()`

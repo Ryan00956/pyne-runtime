@@ -1,5 +1,8 @@
 # TradingView Strategy Parity 下一步执行文档
 
+> [!IMPORTANT]
+> **状态：已完成 / 历史归档。** 本文描述的 priority parity 阶段已完成，后续扩展也已达到 27/27 captured、0 diff。本文保留实现顺序和验收方法；当前状态与证据以 [Current Project Status](../reference/current_status.md) 为准，近期方向见 [Python 包长期方向](python_package_long_term_plan_zh.md)。
+
 本文基于 2026-05-29 已导入的 10 份 TradingView strategy plot 导出数据，给出 Pyne strategy runtime 下一阶段的实现顺序、验收标准和质量门。
 
 目标不是继续扩大采集数量，而是先利用这 10 份真实 TradingView reference，把第一批 priority strategy case 从“可采集、可 diff”推进到“关键语义可对齐、可回归”。

@@ -1,5 +1,8 @@
 # Pyne Runtime Python 包长期方向
 
+> [!NOTE]
+> 本文定义长期产品方向，近期建议见第 8 节；它不作为当前能力清单。已验证能力、明确限制与质量证据以 [Current Project Status](../reference/current_status.md) 为准。
+
 本文档定义 Pyne Runtime 作为 Python 包的长期方向。它面向已经熟悉
 TradingView Pine 心智模型、但希望在 Python 里写指标和策略的用户，也面向
 需要把脚本运行、图表渲染、参数面板和数据 provider 组合起来的宿主应用。
@@ -623,11 +626,12 @@ Pyne 作为 Python 包需要逐步走向可依赖、可发布、可升级。
 当前代码已经完成了 Pine-to-Pyne cookbook、`validate()` 迁移诊断、
 完整 `input.*` metadata、param schema、`varip()`、collection limits、
 schema contract、TA capture、strategy capture 和 request capture。下一阶段
-不应该继续堆 A/B/C 里已经落地的基础能力，而应该把已经有外部证据的
-provider contract 收紧：
+不应该继续堆 A/B/C 里已经落地的基础能力。Requested-context provider
+cache、diagnostics、capability/metadata 文档和 host contract example 也已经
+落地，不应再次列为待实现事项。近期主线应进入：
 
 ```text
-Milestone C: Request provider contract 收口与 host 集成硬化
+0.2 Contract & Host Hardening
 ```
 
 已完成的 request 外部证据切片：
@@ -694,15 +698,16 @@ Milestone C: Request provider contract 收口与 host 集成硬化
 
 推荐的下一个最小切片：
 
-1. 收紧 provider cache 行为：同一 run 内相同
-   `(symbol, timeframe, start, end)` 请求应该复用 provider 结果，并用 focused
-   tests 固定调用次数。
-2. 补 request provider contract 文档：说明 capability、metadata、invalid symbol、
-   invalid timeframe、provider exception 和 external capture replay 的稳定边界。
-3. 保留 capture 工具链作为 regression gate：新增 request 语义时仍然走
-   scaffold -> TradingView CSV -> import -> diff -> check。
+1. 明确并测试运行隔离边界：`safe` / `research` 是受限执行策略，不是真正的
+   多租户沙箱；不可信脚本应进入独立进程并由容器或操作系统策略隔离。
+2. 把通用 `pyne_cache` 收敛到 execution/session 作用域，避免 inline 执行间
+   串扰。它不同于已经完成的 request requested-context provider cache。
+3. 用 typed provider error 取代字符串匹配分类，并提供可复用的 provider
+   conformance test kit，固定 capability、metadata、错误和结果形状契约。
+4. 保留 capture 工具链作为 regression gate：新增 request、strategy 或 TA
+   语义时继续走 scaffold -> TradingView CSV -> import -> diff -> check。
 
-这个方向能把多周期 request 从“外部证据已足够厚”推进到“host 集成契约也足够稳”。
-它比继续补冷门 API 更能降低宿主集成风险，也能让
-`request.security()` / `request.security_lower_tf()` 的兼容性声明落到可执行的
-provider contract 上。
+上述边界稳定后，再进入 incremental durability：rolling retention、session
+snapshot/恢复、稳定内存策略、batch/incremental parity 扩面，以及 TA/request/
+strategy 性能基线和回归预算。只有新 API 或新语义边界出现时才扩充 capture；
+不再把已经完成的 provider cache 或现有 capture 批次包装成下一阶段工作。

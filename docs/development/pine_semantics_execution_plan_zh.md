@@ -1,5 +1,8 @@
 # Pyne Pine-Like Semantics Execution Plan
 
+> [!IMPORTANT]
+> **状态：历史执行计划（不再作为当前路线图）。** 本文保留早期 Pine-like 语义扩展的设计与验收框架；其中多项已落地，剩余条目也不自动构成当前 backlog。当前能力、限制与证据以 [Current Project Status](../reference/current_status.md) 为准；近期方向见 [Python 包长期方向](python_package_long_term_plan_zh.md)。
+
 本文档是 Pyne 从“可运行的 Pine 风格 Python 指标包”升级为“逻辑上尽可能接近 Pine 的语义运行时”的执行手册。
 
 目标不是兼容 TradingView Pine Script 源码，也不是实现 Pine parser/compiler。目标是让用户用 Python 语法写脚本时，核心计算模型、序列语义、bar 语义、`na` 规则、技术指标行为、绘图对象和多周期数据逻辑都尽量接近 Pine。

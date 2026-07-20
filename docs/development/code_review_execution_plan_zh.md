@@ -1,5 +1,8 @@
 # Pyne Runtime 分阶段代码审查执行计划
 
+> [!IMPORTANT]
+> **状态：已完成 / 历史归档。** 本轮 P0-P10 审查、逐条核验和后续修复记录已经完成；本文仅保留审查方法与原始检查表。当前能力、剩余限制与证据以 [Current Project Status](../reference/current_status.md) 为准；近期方向见 [Python 包长期方向](python_package_long_term_plan_zh.md)。
+
 本文档用于把一次「逐文件、逐模块」的人工 + AI 协作代码审查拆成可控的阶段。
 目标是在不改变公共 API 与 golden 契约的前提下，系统性地走查全部源码，
 沉淀问题清单与改进项，而不是一次性读完上万行代码。

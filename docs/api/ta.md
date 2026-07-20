@@ -80,7 +80,10 @@ absolute deviation, variance, stochastic, CCI, MFI, VWMA, and Supertrend.
 where histogram is `macd_line - signal_line`. The signal line starts after the
 first complete non-`na` MACD-line window.
 
-The current fixture keeps a `pine_equivalent` script alongside the Pyne script
-so future TradingView-exported outputs can replace or extend the expected
-series without changing the test harness.
+All nine committed TA capture fixtures keep a `pine_equivalent` script beside
+the Pyne script and contain imported TradingView output. The parity gate
+currently checks 96 plots and 1,275 points with zero differences. This evidence
+applies to the captured inputs and configured tolerances; behavior outside
+those fixtures remains best-effort and should add a new capture before a
+broader parity claim is made.
 

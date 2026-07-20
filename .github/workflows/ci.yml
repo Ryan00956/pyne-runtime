@@ -29,8 +29,12 @@ jobs:
       - name: Install package
         run: python -m pip install -e .[dev,pandas]
 
-      - name: Lint
-        run: python -m ruff check .
+      - name: Static and project status gates
+        run: |
+          python -m compileall src tests -q
+          python -m ruff check .
+          python scripts/project_status.py --check
+          git diff --check
 
       - name: Test
         run: python -m pytest

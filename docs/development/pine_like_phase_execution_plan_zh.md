@@ -1,5 +1,8 @@
 # Pyne Pine-like 分阶段执行手册
 
+> [!IMPORTANT]
+> **状态：历史执行计划（不再作为当前路线图）。** 本文记录 2026-06-02 时点的差异与分片，其中多项已完成或被后续实现取代。当前能力、capture 证据与剩余限制以 [Current Project Status](../reference/current_status.md) 为准；近期方向见 [Python 包长期方向](python_package_long_term_plan_zh.md)。
+
 本文档把后续 Pine-like 支持拆成可逐步执行的大阶段和小 slice。每个 slice 都应遵循同一节奏：
 
 1. 先确认当前基线和工作区状态。

@@ -1,5 +1,8 @@
 # TradingView Capture 下一阶段执行计划
 
+> [!IMPORTANT]
+> **状态：已完成 / 历史归档。** Strategy 外部 capture 已完成 27/27，当前 parity diff 为 0。本文保留当时的批次与差异处理流程；当前状态与证据以 [Current Project Status](../reference/current_status.md) 为准，近期方向见 [Python 包长期方向](python_package_long_term_plan_zh.md)。
+
 本文是 strategy pine-equivalent 外部对照阶段的执行文档。目标不是让 Pyne
 运行 Pine 源码，而是把 TradingView 导出的 plot 序列作为外部证据接入现有
 golden runner，推动 Pyne strategy 回放语义从 Pyne-defined baseline 进入

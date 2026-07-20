@@ -36,7 +36,10 @@ trap 'exit 143' TERM
 cd "$ROOT"
 mkdir -p "$PYTEST_TMP"
 export TMPDIR="$CHECK_TMP"
+"$PYTHON" -m compileall src tests -q
 "$PYTHON" -m ruff check .
+"$PYTHON" scripts/project_status.py --check
+git diff --check
 "$PYTHON" -m pytest -p no:cacheprovider --basetemp "$PYTEST_TMP/run"
 "$PYTHON" scripts/performance_smoke.py --check
 "$PYTHON" scripts/strategy_capture_scaffold.py --check

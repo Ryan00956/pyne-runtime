@@ -1,5 +1,8 @@
 # Phase 11: `request.security()` Expression Thunks Execution Plan
 
+> [!IMPORTANT]
+> **状态：已完成 / 历史归档。** Callable expression thunk、tuple 返回、requested-context 求值与对应 TradingView capture 已落地。本文保留实现决策和迁移过程；当前能力与证据以 [Current Project Status](../reference/current_status.md) 为准，近期方向见 [Python 包长期方向](python_package_long_term_plan_zh.md)。
+
 本文档定义 Pyne 下一阶段对 `request.security()` 的升级计划。
 
 目标不是运行 TradingView Pine Script 源码，也不是引入 Pine parser。目标是在
