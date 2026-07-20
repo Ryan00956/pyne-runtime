@@ -56,6 +56,41 @@ Before cutting a release candidate:
    - [Schema Migrations](schema_migrations.md), when host-facing schema
      contracts change.
 5. Confirm no unrelated generated files or local artifacts are staged.
+6. Merge the release commit to `main` and confirm the `CI` workflow is green.
+7. Create and push an annotated tag that exactly matches `v` plus the package
+   version. For example:
+
+   ```bash
+   git tag -a v0.2.0rc1 -m "pyne-runtime 0.2.0rc1"
+   git push origin v0.2.0rc1
+   ```
+
+8. Wait for `.github/workflows/release.yml` to finish, then verify the GitHub
+   Release contains the wheel, source distribution, and `SHA256SUMS`.
+
+## GitHub Release Assets
+
+GitHub Releases are the host-application distribution channel. A release tag
+must match `project.version` exactly and the tagged commit must be contained in
+`main`; the release workflow fails closed when either condition is false.
+
+The workflow builds in a clean runner, checks both distributions with Twine,
+installs and runs the wheel in a temporary wheel environment, and publishes:
+
+- `pyne_runtime-<version>-py3-none-any.whl`;
+- `pyne_runtime-<version>.tar.gz`;
+- `SHA256SUMS` covering both artifacts.
+
+Release notes come from the matching dated section in
+[CHANGELOG.md](../../CHANGELOG.md). Versions containing `a`, `b`, `rc`, or
+`dev` are marked as GitHub prereleases.
+
+Host applications should pin the tag, exact wheel filename, and SHA-256 rather
+than follow a moving `latest` URL. For example:
+
+```bash
+python -m pip install "https://github.com/Ryan00956/pyne-runtime/releases/download/v0.2.0rc1/pyne_runtime-0.2.0rc1-py3-none-any.whl"
+```
 
 ## Changelog Rules
 
