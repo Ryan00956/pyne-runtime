@@ -51,11 +51,17 @@ These counts come directly from the request, strategy, and TA status `build_repo
 - **Stable integration surfaces:** the package exposes versioned output, parameter,
   request-provider, and strategy-report schemas together with CLI validation and
   process execution controls.
+- **Measured Pine migration inventory:** `scripts/pine_corpus_audit.py` inventories
+  an external Pine corpus without executing or copying source, classifies live
+  runtime/host/render boundaries, and keeps API-analogue counts distinct from
+  source-level compatibility.
 
 The detailed per-feature evidence and known differences remain in the
 [Pine-like API matrix](pine_like_api_matrix.md). Host contracts are documented in
 the [request API](../api/request.md), [strategy API](../api/strategy.md), and
-[incremental runtime guide](../concepts/incremental_runtime.md).
+[incremental runtime guide](../concepts/incremental_runtime.md). Corpus-based
+migration evidence is documented separately in the
+[Pine corpus compatibility audit](pine_corpus_compatibility.md).
 
 ## Explicit Boundaries
 

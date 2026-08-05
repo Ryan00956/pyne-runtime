@@ -29,6 +29,26 @@ handles. Scripts should pass those handles back to namespace methods such as
 Handles are not chart data by themselves. They identify mutable drawing objects
 inside the current execution.
 
+## Chart Points
+
+`chart.point` values carry `time`, `index`, and `price` fields. They are mutable
+and can be copied independently:
+
+```python
+start = chart.point.from_time(time[2], high[2])
+finish = chart.point.now(close)
+level = line.new(start, finish, xloc=xloc.bar_time)
+
+next_finish = chart.point.copy(finish)
+next_finish.price = high
+line.set_second_point(level, next_finish)
+```
+
+Lines, labels, and boxes accept chart-point constructor overloads and matching
+point setters. Batch points may carry series and resolve each selected field to
+its latest valid value; incremental points contain the current callback's scalar
+coordinates.
+
 ## Batch Snapshot Semantics
 
 Pyne batch execution returns the final drawing state:
@@ -120,9 +140,15 @@ Supported now:
 - `line.new`, `line.set_*`, `line.delete`
 - `label.new`, `label.set_*`, `label.delete`
 - `box.new`, `box.set_*`, `box.delete`
+- `chart.point` constructors/copy and line/label/box point overloads
+- live oldest-first `line.all` and `box.all` handle snapshots
 - `table.new`, `table.cell`, `table.set_*`, `table.clear`, `table.delete`
 - `position.*` constants for table placement
 - legacy `label("text")` fixed-position labels
 - final snapshot output under `output["objects"]`
 - incremental create/update/delete events under `output["object_events"]`
 - object count limits through `PyneSettings.max_drawing_objects`
+
+Merged table cells are outside the current Render IR. `table.merge_cells` will
+remain unsupported until both the object schema and the embedding host renderer
+define the same behavior.

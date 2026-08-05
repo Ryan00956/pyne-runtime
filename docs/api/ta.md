@@ -9,6 +9,7 @@ ta.sma(close, 20)
 ta.ema(close, 20)
 ta.wma(close, 20)
 ta.vwma(close, 20)
+ta.vwap(close)
 ta.hma(close, 20)
 ta.swma(close)
 ta.alma(close, 20, 0.85, 6)
@@ -48,6 +49,45 @@ Several helpers are also exposed as top-level script functions, such as `cross()
 `ta.bb(source, length, mult)` follows Pine's tuple order:
 `middle, upper, lower = ta.bb(close, 20, 2)`.
 
+`ta.vwap()` supports Pine's anchored overloads:
+
+```python
+session_vwap = ta.vwap(hlc3)
+anchored_vwap = ta.vwap(close, timeframe.change("1W"))
+value, upper, lower = ta.vwap(close, timeframe.change("1D"), 2.0)
+```
+
+When `anchor` is explicit, output stays `na` until the first true anchor and
+then resets on every later true value. Without an explicit anchor, Pyne uses
+recurring host `session.isfirstbar` markers when available; otherwise it uses
+daily boundaries in `syminfo.timezone`. The v4 spelling `vwap(source)` is also
+available as a top-level alias.
+
+VWAP has deterministic semantic unit tests, including reset and weighted
+standard-deviation behavior, but it is not yet part of the nine imported
+TradingView TA capture fixtures. Its broader numerical parity therefore
+remains best-effort until a dedicated capture is added.
+
+`ta.pivot_point_levels(type, anchor, developing=False)` returns a `PyneArray`
+containing eleven chart-aligned series in Pine order:
+`P, R1, S1, R2, S2, R3, S3, R4, S4, R5, S5`.
+
+```python
+levels = ta.pivot_point_levels("Traditional", timeframe.change("1W"))
+pivot = array.get(levels, 0)
+r1 = array.get(levels, 1)
+plot(pivot, "Weekly P")
+plot(r1, "Weekly R1")
+```
+
+With `developing=False`, a true anchor calculates levels from the completed
+period and holds them until the next anchor. With `developing=True`, levels
+recalculate from the current partial period on each bar, starting at bar zero
+when no anchor has occurred. Supported types are `Traditional`, `Fibonacci`,
+`Woodie`, `Classic`, `DM`, and `Camarilla`. As in Pine, Woodie cannot be
+combined with developing levels. Formula and reset semantics have deterministic
+tests, but no imported TradingView capture fixture yet.
+
 Several context-aware helpers also follow Pine's argument order:
 `ta.stoch(source, high, low, length)`, `ta.cci(source, length)`,
 `ta.mfi(source, length)`, and `ta.supertrend(factor, atrPeriod)`.
@@ -75,6 +115,8 @@ Wilder smoothing, RSI, rolling extremes, bars-back extreme offsets,
 `barssince()`, `valuewhen()`, MACD, Bollinger Bands, ATR, ALMA, DMI, and
 Parabolic SAR, HMA, SWMA, CMO, Williams %R, TSI, rolling percentiles, mean
 absolute deviation, variance, stochastic, CCI, MFI, VWMA, and Supertrend.
+Anchored VWAP is covered by deterministic runtime tests but is intentionally
+not counted in that imported-capture list.
 
 `ta.macd()` follows Pine's tuple shape: MACD line, signal line, and histogram,
 where histogram is `macd_line - signal_line`. The signal line starts after the

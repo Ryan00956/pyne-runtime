@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
+from datetime import datetime, tzinfo
 from typing import Any, Mapping
 
 import numpy as np
 
 from .series import PyneSeries
+from .timezone_ext import parse_timezone
 
 
 @dataclass(frozen=True)
@@ -22,6 +24,8 @@ class SymbolInfo:
     mintick: float = 1.0
     pointvalue: float = 1.0
     type: str = ""
+    timezone: str = ""
+    volumetype: str = ""
 
     @classmethod
     def from_value(cls, value: Any = None) -> "SymbolInfo":
@@ -42,10 +46,68 @@ class TimeframeInfo:
 
     period: str = "1"
     multiplier: int = 1
+    unit: str = ""
     isintraday: bool = True
     isdaily: bool = False
     isweekly: bool = False
     ismonthly: bool = False
+    _times: tuple[int, ...] = field(default=(), repr=False, compare=False)
+    _timezone: str = field(default="UTC", repr=False, compare=False)
+
+    @property
+    def isseconds(self) -> bool:
+        return self.unit == "S"
+
+    @property
+    def isminutes(self) -> bool:
+        return self.unit == ""
+
+    @property
+    def isdwm(self) -> bool:
+        return self.isdaily or self.isweekly or self.ismonthly
+
+    @property
+    def isticks(self) -> bool:
+        return self.unit == "T"
+
+    def in_seconds(self, timeframe: str | TimeframeInfo | None = None) -> float:
+        """Convert a Pine-style timeframe string to deterministic seconds.
+
+        Month values use TradingView's conventional 30-day conversion for
+        timeframe comparison. Tick timeframes do not have a seconds duration.
+        """
+        info = self if timeframe in {None, ""} else TimeframeInfo.from_value(timeframe)
+        seconds = _timeframe_seconds(info.period)
+        if seconds is None:
+            raise ValueError(f"timeframe {info.period!r} cannot be represented in seconds")
+        return float(seconds)
+
+    def from_seconds(self, seconds: int | float) -> str:
+        """Return the next valid Pine timeframe at or above ``seconds``."""
+        return _timeframe_from_seconds(seconds)
+
+    def change(self, timeframe: str | TimeframeInfo | None = None) -> PyneSeries:
+        """Mark the first available bar and each subsequent timeframe boundary.
+
+        Calendar boundaries use ``syminfo.timezone`` when the host supplies it;
+        otherwise they use UTC, which matches CandleScope's 24/7 crypto bars.
+        """
+        if not self._times:
+            raise RuntimeError("timeframe.change() requires a Pyne runtime context")
+        info = self if timeframe in {None, ""} else TimeframeInfo.from_value(timeframe)
+        keys = [_timeframe_bucket(value, info, self._timezone) for value in self._times]
+        changed = np.ones(len(keys), dtype=bool)
+        if len(keys) > 1:
+            changed[1:] = np.asarray(keys[1:]) != np.asarray(keys[:-1])
+        return PyneSeries(changed, name=f"timeframe.change({info.period})")
+
+    def bind(self, times: list[int], timezone: str = "") -> TimeframeInfo:
+        """Bind immutable chart metadata to one execution's bar timeline."""
+        return replace(
+            self,
+            _times=tuple(int(value) for value in times),
+            _timezone=str(timezone or "UTC"),
+        )
 
     @classmethod
     def from_value(cls, value: Any = None) -> "TimeframeInfo":
@@ -62,6 +124,7 @@ class TimeframeInfo:
                     parsed = cls(
                         period=parsed.period,
                         multiplier=max(int(multiplier), 1),
+                        unit=parsed.unit,
                         isintraday=parsed.isintraday,
                         isdaily=parsed.isdaily,
                         isweekly=parsed.isweekly,
@@ -184,6 +247,8 @@ def _symbol_from_mapping(value: Mapping[str, Any]) -> SymbolInfo:
         mintick=_positive_float(value.get("mintick", value.get("min_tick", 1.0)), 1.0),
         pointvalue=_positive_float(value.get("pointvalue", value.get("point_value", 1.0)), 1.0),
         type=str(value.get("type") or "").strip(),
+        timezone=str(value.get("timezone") or "").strip(),
+        volumetype=str(value.get("volumetype") or value.get("volume_type") or "").strip(),
     )
 
 
@@ -237,16 +302,19 @@ def _parse_timeframe(period: str) -> TimeframeInfo:
     amount = max(amount, 1)
 
     if not suffix:
-        return TimeframeInfo(period=raw, multiplier=amount, isintraday=True)
+        return TimeframeInfo(period=raw, multiplier=amount, unit="", isintraday=True)
 
-    if suffix in {"s", "S", "m"}:
-        return TimeframeInfo(period=raw, multiplier=amount, isintraday=True)
+    if suffix in {"s", "S"}:
+        return TimeframeInfo(period=raw, multiplier=amount, unit="S", isintraday=True)
+    if suffix == "m":
+        return TimeframeInfo(period=raw, multiplier=amount, unit="", isintraday=True)
     if suffix in {"h", "H"}:
-        return TimeframeInfo(period=raw, multiplier=amount * 60, isintraday=True)
+        return TimeframeInfo(period=raw, multiplier=amount * 60, unit="", isintraday=True)
     if suffix in {"d", "D"}:
         return TimeframeInfo(
             period=raw,
             multiplier=amount,
+            unit="D",
             isintraday=False,
             isdaily=True,
         )
@@ -254,6 +322,7 @@ def _parse_timeframe(period: str) -> TimeframeInfo:
         return TimeframeInfo(
             period=raw,
             multiplier=amount,
+            unit="W",
             isintraday=False,
             isweekly=True,
         )
@@ -261,7 +330,93 @@ def _parse_timeframe(period: str) -> TimeframeInfo:
         return TimeframeInfo(
             period=raw,
             multiplier=amount,
+            unit="M",
             isintraday=False,
             ismonthly=True,
         )
-    return TimeframeInfo(period=raw, multiplier=amount)
+    if suffix in {"t", "T"}:
+        return TimeframeInfo(period=raw, multiplier=amount, unit="T")
+    return TimeframeInfo(period=raw, multiplier=amount, unit=suffix.upper())
+
+
+def _timeframe_seconds(period: str) -> int | None:
+    raw = str(period or "1").strip() or "1"
+    match = re.fullmatch(r"(\d+)?([A-Za-z]?)", raw)
+    if match is None:
+        return None
+    number_text, suffix = match.groups()
+    amount = max(int(number_text) if number_text else 1, 1)
+    if not suffix or suffix == "m":
+        return amount * 60
+    if suffix in {"s", "S"}:
+        return amount
+    if suffix in {"h", "H"}:
+        return amount * 60 * 60
+    if suffix in {"d", "D"}:
+        return amount * 24 * 60 * 60
+    if suffix in {"w", "W"}:
+        return amount * 7 * 24 * 60 * 60
+    if suffix == "M":
+        return amount * 30 * 24 * 60 * 60
+    return None
+
+
+def _timeframe_from_seconds(seconds: int | float) -> str:
+    try:
+        requested = max(int(float(seconds)), 1)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError(f"invalid timeframe seconds: {seconds!r}") from None
+
+    candidates: list[tuple[int, int, str]] = []
+    for amount in (1, 5, 10, 15, 30, 45):
+        candidates.append((amount, 0, f"{amount}S"))
+    for amount in range(1, 1441):
+        candidates.append((amount * 60, 1, str(amount)))
+    for amount in range(1, 366):
+        candidates.append((amount * 86_400, 2, f"{amount}D"))
+    for amount in range(1, 53):
+        candidates.append((amount * 604_800, 3, f"{amount}W"))
+    # TradingView's from_seconds conversion treats a month as 30.5 days.
+    for amount in range(1, 13):
+        candidates.append((amount * 2_635_200, 4, f"{amount}M"))
+
+    durations = sorted({duration for duration, _, _ in candidates})
+    for duration in durations:
+        if duration < requested:
+            continue
+        matches = [item for item in candidates if item[0] == duration]
+        if requested == duration:
+            return max(matches, key=lambda item: item[1])[2]
+        return min(matches, key=lambda item: item[1])[2]
+    return "12M"
+
+
+def _timeframe_bucket(timestamp: int, timeframe: TimeframeInfo, timezone_name: str) -> int:
+    if timeframe.isticks:
+        raise ValueError("tick timeframes do not have calendar boundaries")
+    local = datetime.fromtimestamp(_timestamp_seconds(timestamp), tz=_timezone(timezone_name))
+    amount = max(int(timeframe.multiplier), 1)
+    if timeframe.unit == "M":
+        return (local.year * 12 + local.month - 1) // amount
+    if timeframe.unit == "W":
+        return (local.date().toordinal() - 1) // (7 * amount)
+    if timeframe.unit == "D":
+        return (local.date().toordinal() - 1) // amount
+
+    seconds = (
+        (local.date().toordinal() - 1) * 86_400
+        + local.hour * 3_600
+        + local.minute * 60
+        + local.second
+    )
+    duration = amount if timeframe.unit == "S" else amount * 60
+    return seconds // duration
+
+
+def _timestamp_seconds(value: int | float) -> float:
+    timestamp = float(value)
+    return timestamp / 1000.0 if abs(timestamp) > 100_000_000_000 else timestamp
+
+
+def _timezone(name: str) -> tzinfo:
+    return parse_timezone(name)

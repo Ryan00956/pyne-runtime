@@ -13,6 +13,12 @@ higher_tf = input.timeframe("60", "Higher TF", options=["15", "60", "1D"])
 symbol = input.symbol("NASDAQ:AAPL", "Symbol")
 session_value = input.session("0930-1600", "Session")
 start_time = input.time(1710000000, "Start Time")
+notes = input.text_area("line 1\nline 2", "Notes")
+level = input.price(100.0, "Level")
+theme = input.enum("dark", "Theme", options=["dark", "light"])
+
+# Pine v4-style inferred input remains available after rewriting as Python.
+legacy_length = input(20, "Legacy Length", type=input.integer)
 ```
 
 Declarations are collected into `result.param_schema`. The top-level result
@@ -23,13 +29,15 @@ Each schema entry includes:
 - `id`: stable parameter id. It currently matches `key`.
 - `key`: stable override key. By default this is the input title.
 - `type`: `int`, `float`, `bool`, `string`, `color`, `source`,
-  `timeframe`, `symbol`, `session`, or `time`.
+  `timeframe`, `symbol`, `session`, `time`, `text_area`, `price`, or `enum`.
 - `default`: declared default value.
 - `current`: value used for this run after params and validation.
 - `title`: display title.
 - `tooltip`, `group`: UI metadata.
 - `inline`: optional UI grouping hint for same-line controls.
 - `confirm`: optional flag for hosts that require explicit user confirmation.
+- `display`: optional Pine-like host display hint.
+- `active`: whether the host should allow editing the input.
 - `options`: dropdown choices for string and source inputs.
 - `minval`, `maxval`, `step`: numeric bounds and increment metadata.
 
@@ -79,5 +87,7 @@ Overrides are validated by the declared input type:
 - inputs with `options` reject values outside the declared choices.
 - `input.source()` rejects unknown source names.
 - `input.time()` requires a non-negative Unix timestamp in seconds.
+- `input.enum()` returns the selected declared option and exposes JSON-safe
+  option tokens to hosts.
 
 Invalid overrides return `PYNE_INVALID_PARAM` in the run result.

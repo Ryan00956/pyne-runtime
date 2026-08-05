@@ -27,7 +27,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from . import utils
+from .collections import PyneArray
 from .series import PyneSeries, to_numpy, wrap_like
+from .values import is_na_value
 
 if TYPE_CHECKING:
     from .context import PyneContext
@@ -556,6 +558,167 @@ def _rolling_correlation_values(
     return result
 
 
+def _broadcast_ta_input(
+    value: object,
+    length: int,
+    name: str,
+    *,
+    function: str = "ta.vwap()",
+) -> np.ndarray:
+    """Broadcast a scalar TA argument or validate a bar-aligned series."""
+    raw = to_numpy(value)
+    if raw.ndim == 0:
+        raw = np.full(length, raw.item())
+    elif raw.ndim != 1 or len(raw) != length:
+        raise ValueError(f"{function} {name} must be scalar or match the chart length")
+    try:
+        return np.asarray(raw, dtype=np.float64)
+    except (TypeError, ValueError):
+        raise TypeError(f"{function} {name} must contain numeric values") from None
+
+
+def _broadcast_pivot_types(value: object, length: int) -> tuple[str, ...]:
+    raw = to_numpy(value)
+    if raw.ndim == 0:
+        values = [raw.item()] * length
+    elif raw.ndim == 1 and len(raw) == length:
+        values = raw.tolist()
+    else:
+        raise ValueError("ta.pivot_point_levels() type must be scalar or match the chart length")
+    return tuple(_normalize_pivot_type(item) for item in values)
+
+
+def _normalize_pivot_type(value: object) -> str:
+    if not isinstance(value, str | np.str_):
+        raise TypeError("ta.pivot_point_levels() type must contain string values")
+    normalized = str(value).strip().lower()
+    aliases = {
+        "traditional": "traditional",
+        "fibonacci": "fibonacci",
+        "woodie": "woodie",
+        "classic": "classic",
+        "dm": "dm",
+        "demark": "dm",
+        "camarilla": "camarilla",
+    }
+    try:
+        return aliases[normalized]
+    except KeyError:
+        allowed = "Traditional, Fibonacci, Woodie, Classic, DM, Camarilla"
+        raise ValueError(f"ta.pivot_point_levels() type must be one of: {allowed}") from None
+
+
+def _pivot_level_values(
+    pivot_type: str,
+    *,
+    period_open: float,
+    period_high: float,
+    period_low: float,
+    period_close: float,
+    current_open: float,
+) -> np.ndarray:
+    levels = np.full(11, np.nan, dtype=np.float64)
+    required = (period_high, period_low)
+    if pivot_type == "woodie":
+        required += (current_open,)
+    else:
+        required += (period_close,)
+    if pivot_type == "dm":
+        required += (period_open,)
+    if not all(np.isfinite(value) for value in required):
+        return levels
+
+    high = period_high
+    low = period_low
+    close = period_close
+    price_range = high - low
+
+    if pivot_type == "traditional":
+        pivot = (high + low + close) / 3.0
+        levels[:] = (
+            pivot,
+            2.0 * pivot - low,
+            2.0 * pivot - high,
+            pivot + price_range,
+            pivot - price_range,
+            2.0 * pivot + high - 2.0 * low,
+            2.0 * pivot - 2.0 * high + low,
+            3.0 * pivot + high - 3.0 * low,
+            3.0 * pivot - 3.0 * high + low,
+            4.0 * pivot + high - 4.0 * low,
+            4.0 * pivot - 4.0 * high + low,
+        )
+    elif pivot_type == "fibonacci":
+        pivot = (high + low + close) / 3.0
+        levels[:7] = (
+            pivot,
+            pivot + 0.382 * price_range,
+            pivot - 0.382 * price_range,
+            pivot + 0.618 * price_range,
+            pivot - 0.618 * price_range,
+            pivot + price_range,
+            pivot - price_range,
+        )
+    elif pivot_type == "woodie":
+        pivot = (high + low + 2.0 * current_open) / 4.0
+        r3 = high + 2.0 * (pivot - low)
+        s3 = low - 2.0 * (high - pivot)
+        levels[:9] = (
+            pivot,
+            2.0 * pivot - low,
+            2.0 * pivot - high,
+            pivot + price_range,
+            pivot - price_range,
+            r3,
+            s3,
+            r3 + price_range,
+            s3 - price_range,
+        )
+    elif pivot_type == "classic":
+        pivot = (high + low + close) / 3.0
+        levels[:9] = (
+            pivot,
+            2.0 * pivot - low,
+            2.0 * pivot - high,
+            pivot + price_range,
+            pivot - price_range,
+            pivot + 2.0 * price_range,
+            pivot - 2.0 * price_range,
+            pivot + 3.0 * price_range,
+            pivot - 3.0 * price_range,
+        )
+    elif pivot_type == "dm":
+        if period_open == close:
+            x_value = high + low + 2.0 * close
+        elif close > period_open:
+            x_value = 2.0 * high + low + close
+        else:
+            x_value = 2.0 * low + high + close
+        levels[:3] = (
+            x_value / 4.0,
+            x_value / 2.0 - low,
+            x_value / 2.0 - high,
+        )
+    else:
+        pivot = (high + low + close) / 3.0
+        r5 = np.nan if low == 0.0 else (high / low) * close
+        s5 = np.nan if not np.isfinite(r5) else close - (r5 - close)
+        levels[:] = (
+            pivot,
+            close + 1.1 * price_range / 12.0,
+            close - 1.1 * price_range / 12.0,
+            close + 1.1 * price_range / 6.0,
+            close - 1.1 * price_range / 6.0,
+            close + 1.1 * price_range / 4.0,
+            close - 1.1 * price_range / 4.0,
+            close + 1.1 * price_range / 2.0,
+            close - 1.1 * price_range / 2.0,
+            r5,
+            s5,
+        )
+    return levels
+
+
 class TaModule:
     """Pine-style technical analysis namespace.
 
@@ -768,6 +931,205 @@ class TaModule:
             )
 
         return wrap_like(result, src)
+
+    def vwap(
+        self,
+        source: PyneSeries | np.ndarray | None = None,
+        anchor: PyneSeries | np.ndarray | bool | None = None,
+        stdev_mult: PyneSeries | np.ndarray | float | None = None,
+    ) -> (
+        PyneSeries
+        | np.ndarray
+        | tuple[
+            PyneSeries | np.ndarray,
+            PyneSeries | np.ndarray,
+            PyneSeries | np.ndarray,
+        ]
+    ):
+        """Session or explicitly anchored Volume-Weighted Average Price.
+
+        Pine equivalents:
+        ``ta.vwap(source)``, ``ta.vwap(source, anchor)``, and
+        ``ta.vwap(source, anchor, stdev_mult)``.
+        """
+        if self._ctx is None:
+            raise RuntimeError("ta.vwap() requires OHLCV data from a Pyne runtime context")
+        if source is None:
+            source = self._ctx.hlc3
+
+        source_values = to_numpy(source, dtype=np.float64)
+        volume_values = to_numpy(self._ctx.volume, dtype=np.float64)
+        if source_values.ndim != 1:
+            raise ValueError("ta.vwap() source must be a one-dimensional series")
+        if volume_values.ndim != 1 or len(volume_values) != len(source_values):
+            raise ValueError("ta.vwap() volume must match the source length")
+        length = len(source_values)
+
+        if anchor is None:
+            session_anchor = to_numpy(self._ctx.session.isfirstbar, dtype=bool)
+            if len(session_anchor) == length and np.any(session_anchor[1:]):
+                anchor_values = session_anchor
+            else:
+                anchor_values = to_numpy(self._ctx.timeframe.change("1D"), dtype=bool)
+        else:
+            raw_anchor = _broadcast_ta_input(anchor, length, "anchor")
+            anchor_values = np.isfinite(raw_anchor) & (raw_anchor != 0.0)
+
+        multipliers = (
+            None if stdev_mult is None else _broadcast_ta_input(stdev_mult, length, "stdev_mult")
+        )
+        result = np.full(length, np.nan, dtype=np.float64)
+        upper = np.full(length, np.nan, dtype=np.float64)
+        lower = np.full(length, np.nan, dtype=np.float64)
+        running = False
+        volume_sum = 0.0
+        weighted_sum = 0.0
+        weighted_square_sum = 0.0
+
+        for index in range(length):
+            if bool(anchor_values[index]):
+                running = True
+                volume_sum = 0.0
+                weighted_sum = 0.0
+                weighted_square_sum = 0.0
+            if not running:
+                continue
+
+            price = source_values[index]
+            bar_volume = volume_values[index]
+            if not np.isfinite(price) or not np.isfinite(bar_volume):
+                continue
+            volume_sum += bar_volume
+            weighted_sum += price * bar_volume
+            weighted_square_sum += price * price * bar_volume
+            if volume_sum == 0.0:
+                continue
+
+            value = weighted_sum / volume_sum
+            result[index] = value
+            if multipliers is None or is_na_value(multipliers[index]):
+                continue
+            variance = max(weighted_square_sum / volume_sum - value * value, 0.0)
+            deviation = np.sqrt(variance) * multipliers[index]
+            upper[index] = value + deviation
+            lower[index] = value - deviation
+
+        wrapped = wrap_like(result, source, name="vwap")
+        if multipliers is None:
+            return wrapped
+        return (
+            wrapped,
+            wrap_like(upper, source, name="vwap.upper"),
+            wrap_like(lower, source, name="vwap.lower"),
+        )
+
+    def pivot_point_levels(
+        self,
+        type: str | PyneSeries | np.ndarray,
+        anchor: PyneSeries | np.ndarray | bool,
+        developing: PyneSeries | np.ndarray | bool = False,
+    ) -> PyneArray:
+        """Return Pine-ordered pivot levels as eleven chart-aligned series.
+
+        The returned array order is ``P, R1, S1, ... R5, S5``. With
+        ``developing=False``, a true anchor calculates a fixed level set from
+        the completed period and keeps it until the next anchor. Developing
+        levels instead use the current partial period on every bar.
+        """
+        if self._ctx is None:
+            raise RuntimeError(
+                "ta.pivot_point_levels() requires OHLC data from a Pyne runtime context"
+            )
+
+        opens = to_numpy(self._ctx.open, dtype=np.float64)
+        highs = to_numpy(self._ctx.high, dtype=np.float64)
+        lows = to_numpy(self._ctx.low, dtype=np.float64)
+        closes = to_numpy(self._ctx.close, dtype=np.float64)
+        length = len(closes)
+        pivot_types = _broadcast_pivot_types(type, length)
+        anchor_values = _broadcast_ta_input(
+            anchor,
+            length,
+            "anchor",
+            function="ta.pivot_point_levels()",
+        )
+        developing_values = _broadcast_ta_input(
+            developing,
+            length,
+            "developing",
+            function="ta.pivot_point_levels()",
+        )
+        anchors = np.isfinite(anchor_values) & (anchor_values != 0.0)
+        is_developing = np.isfinite(developing_values) & (developing_values != 0.0)
+        if any(
+            pivot_type == "woodie" and bool(is_developing[index])
+            for index, pivot_type in enumerate(pivot_types)
+        ):
+            raise ValueError(
+                "ta.pivot_point_levels() does not allow developing=True with the Woodie type"
+            )
+
+        output = np.full((11, length), np.nan, dtype=np.float64)
+        fixed_levels = np.full(11, np.nan, dtype=np.float64)
+        period_open = np.nan
+        period_high = np.nan
+        period_low = np.nan
+        period_close = np.nan
+        period_has_bars = False
+
+        for index in range(length):
+            if bool(anchors[index]):
+                if period_has_bars:
+                    fixed_levels = _pivot_level_values(
+                        pivot_types[index],
+                        period_open=period_open,
+                        period_high=period_high,
+                        period_low=period_low,
+                        period_close=period_close,
+                        current_open=opens[index],
+                    )
+                else:
+                    fixed_levels = np.full(11, np.nan, dtype=np.float64)
+                period_open = np.nan
+                period_high = np.nan
+                period_low = np.nan
+                period_close = np.nan
+                period_has_bars = False
+
+            if not period_has_bars:
+                period_open = opens[index]
+                period_has_bars = True
+            if np.isfinite(highs[index]):
+                period_high = (
+                    highs[index] if not np.isfinite(period_high) else max(period_high, highs[index])
+                )
+            if np.isfinite(lows[index]):
+                period_low = (
+                    lows[index] if not np.isfinite(period_low) else min(period_low, lows[index])
+                )
+            if np.isfinite(closes[index]):
+                period_close = closes[index]
+
+            levels = fixed_levels
+            if bool(is_developing[index]):
+                levels = _pivot_level_values(
+                    pivot_types[index],
+                    period_open=period_open,
+                    period_high=period_high,
+                    period_low=period_low,
+                    period_close=period_close,
+                    current_open=period_open,
+                )
+            output[:, index] = levels
+
+        return PyneArray(
+            wrap_like(
+                output[level_index],
+                self._ctx.close,
+                name=f"pivot_point_levels[{level_index}]",
+            )
+            for level_index in range(11)
+        )
 
     def rma(self, src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray:
         """Running Moving Average (Wilder's smoothing).

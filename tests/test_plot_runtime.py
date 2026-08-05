@@ -85,6 +85,158 @@ label.set_xy(note, bar_index[1], low[1])
     assert label_object["color"] == "#ef5350"
 
 
+def test_chart_points_drive_drawing_overloads_and_point_setters() -> None:
+    result = pn.run(
+        """
+indicator("Chart Points", overlay=True)
+start = chart.point.from_time(time[1], high[1])
+finish = chart.point.new(time, na, low)
+trend = line.new(start, finish, xloc=xloc.bar_time)
+moved = chart.point.copy(start)
+moved.time = time[2]
+moved.price = close[2]
+line.set_first_point(trend, moved)
+line.set_second_point(trend, finish)
+
+note = label.new(chart.point.from_index(bar_index, high), "High")
+label.set_point(note, chart.point.from_index(bar_index[1], low[1]))
+
+zone = box.new(
+    chart.point.from_index(bar_index[2], high[2]),
+    chart.point.now(low),
+)
+box.set_top_left_point(zone, chart.point.from_index(bar_index[1], high[1]))
+box.set_bottom_right_point(zone, chart.point.from_index(bar_index, low))
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    objects = result.output["objects"]
+    assert objects["lines"][0] == {
+        "id": "line_1",
+        "x1": 1,
+        "y1": 1.5,
+        "x2": 3,
+        "y2": 2.5,
+        "color": "#2196f3",
+        "width": 1,
+        "style": "solid",
+        "extend": "none",
+        "xloc": "bar_time",
+        "pane": "main",
+    }
+    assert objects["labels"][0]["x"] == 1
+    assert objects["labels"][0]["y"] == 1.5
+    assert objects["labels"][0]["text"] == "High"
+    assert objects["boxes"][0]["left"] == 1
+    assert objects["boxes"][0]["top"] == 3
+    assert objects["boxes"][0]["right"] == 2
+    assert objects["boxes"][0]["bottom"] == 2.5
+
+
+def test_line_and_box_all_return_live_oldest_first_handle_snapshots() -> None:
+    result = pn.run(
+        """
+first = line.new(0, 1, 1, 2)
+second = line.new(1, 2, 2, 3)
+box.new(0, 3, 1, 1)
+box.new(1, 4, 2, 2)
+line.delete(array.get(line.all, 0))
+for zone in box.all:
+    box.delete(zone)
+plot(array.size(line.all), "Live Lines")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert [line["id"] for line in result.output["objects"]["lines"]] == ["line_2"]
+    assert "boxes" not in result.output["objects"]
+    assert result.values("Live Lines") == [1.0, 1.0, 1.0]
+
+
+def test_drawing_getters_expose_updated_scalar_coordinates() -> None:
+    result = pn.run(
+        """
+trend = line.new(0, 1.25, 2, 3.75)
+line.set_y1(trend, 1.5)
+note = label.new(2, 4.25, "before")
+label.set_text(note, "after")
+zone = box.new(0, 5, 2, 1)
+box.set_rightbottom(zone, 3, 0.5)
+plot(line.get_x1(trend), "Line X1")
+plot(line.get_y1(trend), "Line Y1")
+plot(line.get_x2(trend), "Line X2")
+plot(line.get_y2(trend), "Line Y2")
+plot(label.get_x(note), "Label X")
+plot(label.get_y(note), "Label Y")
+plot(1 if label.get_text(note) == "after" else 0, "Label Text")
+plot(box.get_left(zone), "Box Left")
+plot(box.get_top(zone), "Box Top")
+plot(box.get_right(zone), "Box Right")
+plot(box.get_bottom(zone), "Box Bottom")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Line X1") == [0.0, 0.0, 0.0]
+    assert result.values("Line Y1") == [1.5, 1.5, 1.5]
+    assert result.values("Line X2") == [2.0, 2.0, 2.0]
+    assert result.values("Line Y2") == [3.75, 3.75, 3.75]
+    assert result.values("Label X") == [2.0, 2.0, 2.0]
+    assert result.values("Label Y") == [4.25, 4.25, 4.25]
+    assert result.values("Label Text") == [1.0, 1.0, 1.0]
+    assert result.values("Box Left") == [0.0, 0.0, 0.0]
+    assert result.values("Box Top") == [5.0, 5.0, 5.0]
+    assert result.values("Box Right") == [3.0, 3.0, 3.0]
+    assert result.values("Box Bottom") == [0.5, 0.5, 0.5]
+
+
+def test_box_text_extend_copy_and_label_tooltip_are_preserved() -> None:
+    result = pn.run(
+        """
+zone = box.new(
+    0, 5, 2, 1,
+    text="before",
+    text_size=size.tiny,
+    text_halign=text.align_left,
+    text_valign=text.align_top,
+)
+box.set_extend(zone, extend.right)
+box.set_text(zone, "after")
+box.set_text_color(zone, color.red)
+box.set_text_size(zone, size.small)
+box.set_text_halign(zone, text.align_center)
+box.set_text_valign(zone, text.align_bottom)
+box.set_border_style(zone, line.style_dashed)
+copy = box.copy(zone)
+box.set_right(copy, 4)
+note = label.new(2, 4, "note")
+label.set_tooltip(note, "details")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    boxes = result.output["objects"]["boxes"]
+    assert [item["id"] for item in boxes] == ["box_1", "box_2"]
+    assert boxes[0]["extend"] == "right"
+    assert boxes[0]["text"] == "after"
+    assert boxes[0]["text_color"] == "#ef5350"
+    assert boxes[0]["text_size"] == "small"
+    assert boxes[0]["text_halign"] == "center"
+    assert boxes[0]["text_valign"] == "bottom"
+    assert boxes[0]["border_style"] == "dashed"
+    assert boxes[1]["right"] == 4
+    assert result.output["objects"]["labels"][0]["tooltip"] == "details"
+
+
 def test_drawing_objects_can_be_deleted() -> None:
     result = pn.run(
         """
@@ -223,6 +375,30 @@ table.cell(summary, 0, 0, "Aligned", text_halign=text.align_left, text_valign=te
     assert objects["tables"][0]["position"] == "bottom_center"
     assert objects["tables"][0]["cells"][0]["text_halign"] == "left"
     assert objects["tables"][0]["cells"][0]["text_valign"] == "top"
+
+
+def test_legacy_study_and_high_frequency_enum_aliases_are_available() -> None:
+    result = pn.run(
+        """
+study("Legacy Enums", overlay=False, format=format.mintick)
+plot(close, "Close")
+note = label.new(
+    bar_index,
+    high,
+    text="Enum",
+    style=label.style_labeldown,
+    size=size.auto,
+)
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.output["meta"]["title"] == "Legacy Enums"
+    assert result.output["meta"]["format"] == "mintick"
+    assert result.output["objects"]["labels"][0]["style"] == "label_down"
+    assert result.output["objects"]["labels"][0]["size"] == "auto"
 
 
 def test_indicator_and_plot_display_format_scale_namespaces() -> None:
@@ -425,7 +601,9 @@ plotarrow(
     assert last_arrow["title"] == "Last Arrow"
     assert last_arrow["offset"] == -1
     assert last_arrow["display"] == "status_line"
-    assert [(point["time"], point["direction"], point["value"]) for point in last_arrow["data"]] == [
+    assert [
+        (point["time"], point["direction"], point["value"]) for point in last_arrow["data"]
+    ] == [
         (2, "up", 2.0),
     ]
 

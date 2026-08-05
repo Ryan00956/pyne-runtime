@@ -35,6 +35,24 @@ plot(src * mult, kind, color=col)
     assert result.lines[0]["data"][-1]["value"] == 10.5
 
 
+def test_input_enum_exposes_json_safe_options_and_returns_selected_value() -> None:
+    result = pn.run(
+        """
+theme = input.enum("dark", "Theme", options=["dark", "light"])
+plot(1 if theme == "light" else 0, "Light")
+""",
+        _bars(),
+        params={"Theme": "light"},
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.param_schema[0]["type"] == "enum"
+    assert result.param_schema[0]["options"] == ["dark", "light"]
+    assert result.param_schema[0]["current"] == "light"
+    assert result.values("Light") == [1.0, 1.0, 1.0]
+
+
 def test_input_schema_includes_ui_metadata_and_current_values() -> None:
     result = pn.run(
         """
@@ -182,6 +200,66 @@ plot(start_time, "Start Time")
     assert result.values("Symbol Selected") == [1.0, 1.0, 1.0]
     assert result.values("Session Selected") == [1.0, 1.0, 1.0]
     assert result.values("Start Time") == [1710000600.0, 1710000600.0, 1710000600.0]
+
+
+def test_legacy_callable_input_infers_types_and_accepts_v4_type_aliases() -> None:
+    result = pn.run(
+        """
+length = input(14, "Length", minval=1)
+mult = input(2.5, "Multiplier")
+show = input(True, "Show")
+kind = input("EMA", "Kind", options=["SMA", "EMA"])
+legacy_length = input(defval=7, title="Legacy Length", type=input.integer)
+legacy_tf = input(defval="60", title="Legacy TF", type=input.resolution)
+legacy_color = input(defval="#ff0000", title="Legacy Color", type=input.color)
+legacy_source = input(defval=hlc3, title="Legacy Source", type=input.source)
+plot(length + mult + legacy_length, "Numeric")
+plot(1 if show and kind == "EMA" and legacy_tf == "1D" else 0, "Selections")
+plot(legacy_source, "Source", color=legacy_color)
+""",
+        _bars(),
+        params={"Legacy TF": "1D", "Legacy Source": "close"},
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    schema = {item["key"]: item for item in result.param_schema}
+    assert schema["Length"]["type"] == "int"
+    assert schema["Multiplier"]["type"] == "float"
+    assert schema["Show"]["type"] == "bool"
+    assert schema["Kind"]["type"] == "string"
+    assert schema["Legacy Length"]["type"] == "int"
+    assert schema["Legacy TF"]["type"] == "timeframe"
+    assert schema["Legacy Color"]["type"] == "color"
+    assert schema["Legacy Source"]["type"] == "source"
+    assert result.values("Numeric") == [23.5, 23.5, 23.5]
+    assert result.values("Selections") == [1.0, 1.0, 1.0]
+    assert result.values("Source") == [1.5, 2.5, 3.5]
+
+
+def test_modern_input_metadata_text_area_and_price_are_host_visible() -> None:
+    result = pn.run(
+        """
+length = input.int(20, "Length", display=display.none, active=False)
+message = input.text_area("line 1\\nline 2", "Message", group="Alert")
+level = input.price(100.5, "Level", confirm=True, group="Setup")
+plot(length + level, "Value")
+""",
+        _bars(),
+        params={"Message": "updated", "Level": 101},
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    schema = {item["key"]: item for item in result.param_schema}
+    assert schema["Length"]["display"] == "none"
+    assert schema["Length"]["active"] is False
+    assert schema["Message"]["type"] == "text_area"
+    assert schema["Message"]["current"] == "updated"
+    assert schema["Level"]["type"] == "price"
+    assert schema["Level"]["confirm"] is True
+    assert schema["Level"]["current"] == 101.0
+    assert result.values("Value") == [121.0, 121.0, 121.0]
 
 
 def test_input_context_options_reject_invalid_overrides() -> None:

@@ -58,6 +58,9 @@ def on_bar(ctx, bar):
 - `array.new_bool(size=0, initial_value=None)`
 - `array.new_string(size=0, initial_value=None)`
 - `array.new_color(size=0, initial_value=None)`
+- `array.new_line(size=0, initial_value=None)`
+- `array.new_label(size=0, initial_value=None)`
+- `array.new_box(size=0, initial_value=None)`
 - `array.from_values(*values)`
 - `array.from_list(values)`
 

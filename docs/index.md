@@ -84,6 +84,8 @@ strategy, request, and host-renderer output workflows.
   for current capability, boundaries, and evidence.
 - [Pine-Like API Matrix](reference/pine_like_api_matrix.md): supported,
   partial, and known-difference status by feature family.
+- [Pine Corpus Compatibility Audit](reference/pine_corpus_compatibility.md):
+  aggregate, non-executing corpus evidence and remaining boundaries.
 - [Compatibility](reference/compatibility.md): package and schema stability
   policy.
 - [Changelog](../CHANGELOG.md): release history and unreleased package changes.

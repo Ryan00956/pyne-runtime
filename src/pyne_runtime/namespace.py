@@ -10,6 +10,7 @@ import numpy as np
 
 from . import utils
 from .cache import pyne_cache
+from .chart import ChartNamespace
 from .collections import ArrayNamespace, MapNamespace, MatrixNamespace, order_namespace
 from .color import color as color_singleton
 from .context import PyneContext
@@ -17,6 +18,7 @@ from .input import InputModule
 from .math_ext import PyneMath
 from .plot import OutputCollector, create_plot_functions
 from .request import RequestModule, barmerge
+from .runtime_ext import runtime_namespace
 from .security import PyneSecurityPolicy, build_builtins
 from .series import switch as series_switch
 from .series import when as series_when
@@ -27,7 +29,7 @@ from .strategy import StrategyModule
 from .string_ext import string_namespace
 from .ta import TaModule
 from .ticker import TickerNamespace
-from .time_ext import time_namespace
+from .time_ext import dayofweek_namespace, time_namespace
 
 
 @dataclass
@@ -99,7 +101,12 @@ def install_data_namespace(namespace: dict[str, Any], services: RuntimeServices)
     namespace["low"] = ctx.low
     namespace["close"] = ctx.close
     namespace["volume"] = ctx.volume
-    namespace["time"] = time_namespace(ctx.time)
+    namespace["time"] = time_namespace(
+        ctx.time,
+        timeframe=ctx.timeframe,
+        timezone=ctx.syminfo.timezone or "UTC",
+    )
+    namespace["dayofweek"] = dayofweek_namespace(ctx.time, ctx.syminfo.timezone or "UTC")
     namespace["time_close"] = ctx.time_close
     namespace["bar_index"] = ctx.bar_index
     namespace["last_bar_index"] = ctx.last_bar_index
@@ -120,6 +127,7 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
     namespace["ta"] = services.ta
     namespace["input"] = services.input
     namespace["request"] = services.request
+    namespace["runtime"] = runtime_namespace
     namespace["barmerge"] = barmerge
     namespace["strategy"] = services.strategy
     namespace["array"] = ArrayNamespace(
@@ -141,6 +149,10 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
     namespace["ticker"] = TickerNamespace(ctx.syminfo)
     namespace["color"] = color_singleton
     namespace["math"] = PyneMath(mintick=getattr(ctx.syminfo, "mintick", 1.0))
+    namespace["chart"] = ChartNamespace(
+        current_time=ctx.time,
+        current_index=ctx.bar_index,
+    )
     namespace["pyne"] = _pyne_namespace(services)
     namespace["cache"] = namespace["pyne"].cache
     namespace["cache_clear"] = namespace["pyne"].cache_clear
@@ -157,6 +169,8 @@ def install_plot_namespace(namespace: dict[str, Any], services: RuntimeServices)
 def install_utility_namespace(namespace: dict[str, Any], services: RuntimeServices) -> None:
     """Install top-level utility functions and common TA aliases."""
     ta = services.ta
+    math_namespace = namespace["math"]
+    chart_time = namespace["time"]
     namespace["crossover"] = utils.crossover
     namespace["cross"] = utils.cross
     namespace["crossunder"] = utils.crossunder
@@ -188,10 +202,49 @@ def install_utility_namespace(namespace: dict[str, Any], services: RuntimeServic
     namespace["wma"] = ta.wma
     namespace["rma"] = ta.rma
     namespace["vwma"] = ta.vwma
+    namespace["vwap"] = ta.vwap
     namespace["rsi"] = ta.rsi
     namespace["macd"] = ta.macd
     namespace["atr"] = ta.atr
     namespace["bb"] = ta.bb
+    namespace["cci"] = ta.cci
+    namespace["linreg"] = ta.linreg
+    namespace["mfi"] = ta.mfi
+    namespace["mom"] = ta.mom
+    namespace["pivothigh"] = ta.pivothigh
+    namespace["pivotlow"] = ta.pivotlow
+    namespace["stdev"] = ta.stdev
+    namespace["stoch"] = ta.stoch
+    namespace["tostring"] = string_namespace.tostring
+    namespace["security"] = _legacy_security(services.request)
+    namespace["heikinashi"] = namespace["ticker"].heikinashi
+    namespace["timestamp"] = chart_time.timestamp
+    namespace["year"] = chart_time.year
+    namespace["month"] = chart_time.month
+    namespace["dayofmonth"] = chart_time.dayofmonth
+    namespace["hour"] = chart_time.hour
+    namespace["minute"] = chart_time.minute
+    namespace["second"] = chart_time.second
+    for name in (
+        "abs",
+        "avg",
+        "ceil",
+        "cos",
+        "exp",
+        "floor",
+        "log",
+        "log10",
+        "max",
+        "min",
+        "pow",
+        "round",
+        "sign",
+        "sin",
+        "sqrt",
+        "sum",
+        "tan",
+    ):
+        namespace[name] = getattr(math_namespace, name)
 
 
 def install_compat_namespace(namespace: dict[str, Any], services: RuntimeServices) -> None:
@@ -215,3 +268,24 @@ def _pyne_namespace(services: RuntimeServices) -> SimpleNamespace:
         state=services.state.state,
         state_snapshot=services.state.snapshot,
     )
+
+
+def _legacy_security(request: RequestModule) -> Any:
+    """Expose Pine v4's positional ``security`` spelling over request.security."""
+
+    def security(
+        symbol: str,
+        timeframe: str,
+        expression: Any,
+        gaps: str = barmerge.gaps_off,
+        lookahead: str = barmerge.lookahead_off,
+    ) -> Any:
+        return request.security(
+            symbol,
+            timeframe,
+            expression,
+            gaps=gaps,
+            lookahead=lookahead,
+        )
+
+    return security

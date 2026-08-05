@@ -50,6 +50,11 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
         for note in schema["output"]["migration"]["versions"][0]["notes"]
     )
     assert "timeframe" in schema["params"]["types"]
+    assert "text_area" in schema["params"]["types"]
+    assert "price" in schema["params"]["types"]
+    assert "enum" in schema["params"]["types"]
+    assert schema["params"]["entry"]["display"]
+    assert schema["params"]["entry"]["active"]
     assert schema["params"]["entry"]["id"]
     assert "get_ohlcv" in schema["requestProvider"]["method"]
     request_range = schema["requestProvider"]["range"]

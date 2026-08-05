@@ -113,6 +113,8 @@ class PyneSettings:
                 "mintick": _float_env("PYNE_MINTICK", 1.0),
                 "pointvalue": _float_env("PYNE_POINTVALUE", 1.0),
                 "type": os.getenv("PYNE_SYMBOL_TYPE", ""),
+                "timezone": os.getenv("PYNE_TIMEZONE", ""),
+                "volumetype": os.getenv("PYNE_VOLUME_TYPE", ""),
             },
             timeframe=os.getenv("PYNE_TIMEFRAME", "1"),
         )

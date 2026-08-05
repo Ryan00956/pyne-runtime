@@ -1,4 +1,5 @@
 """Long-lived incremental execution session."""
+
 from __future__ import annotations
 
 import builtins as python_builtins
@@ -20,10 +21,12 @@ from typing import Any, Callable
 
 from ..barstate import PyneIncrementalBarState
 from ..cache import pyne as pyne_cache_namespace
+from ..chart import ChartNamespace
 from ..collections import ArrayNamespace, MapNamespace, MatrixNamespace, order_namespace
 from ..color import color as color_singleton
 from ..data import PyneData
 from ..math_ext import PyneMath
+from ..plot.objects import _DrawingNamespace
 from ..security import (
     PyneSecurityError,
     PyneSecurityPolicy,
@@ -91,9 +94,7 @@ class PyneIncrementalSession:
             self._globals.get("on_bar") if callable(self._globals.get("on_bar")) else None
         )
         self._on_preview = (
-            self._globals.get("on_preview")
-            if callable(self._globals.get("on_preview"))
-            else None
+            self._globals.get("on_preview") if callable(self._globals.get("on_preview")) else None
         )
         if self._on_bar is None:
             raise PyneSecurityError("Incremental Pyne scripts must define on_bar(ctx, bar)")
@@ -354,9 +355,7 @@ class PyneIncrementalSession:
 
         def active_ctx(feature: str) -> IncrementalContext:
             if self._active_ctx is None:
-                raise PyneSecurityError(
-                    f"{feature} can only be used inside incremental callbacks"
-                )
+                raise PyneSecurityError(f"{feature} can only be used inside incremental callbacks")
             return self._active_ctx
 
         def state(name: str, default: Any = None):
@@ -418,10 +417,23 @@ class PyneIncrementalSession:
                 )
             return self._active_ctx
 
-        line_namespace = SimpleNamespace(
+        def current_time() -> int | None:
+            active = ctx()
+            return None if active.current_bar is None else active.current_bar.time
+
+        line_namespace = _DrawingNamespace(
+            all_getter=lambda: ctx().line_all(),
             new=lambda *args, **kwargs: ctx().line_new(*args, **kwargs),
             set_xy1=lambda *args, **kwargs: ctx().line_set_xy1(*args, **kwargs),
             set_xy2=lambda *args, **kwargs: ctx().line_set_xy2(*args, **kwargs),
+            set_first_point=lambda *args, **kwargs: ctx().line_set_first_point(
+                *args,
+                **kwargs,
+            ),
+            set_second_point=lambda *args, **kwargs: ctx().line_set_second_point(
+                *args,
+                **kwargs,
+            ),
             set_x1=lambda *args, **kwargs: ctx().line_set_x1(*args, **kwargs),
             set_y1=lambda *args, **kwargs: ctx().line_set_y1(*args, **kwargs),
             set_x2=lambda *args, **kwargs: ctx().line_set_x2(*args, **kwargs),
@@ -439,9 +451,11 @@ class PyneIncrementalSession:
             extend_right="right",
             extend_both="both",
         )
-        label_namespace = SimpleNamespace(
+        label_namespace = _DrawingNamespace(
+            all_getter=lambda: ctx().label_all(),
             new=lambda *args, **kwargs: ctx().label_new(*args, **kwargs),
             set_xy=lambda *args, **kwargs: ctx().label_set_xy(*args, **kwargs),
+            set_point=lambda *args, **kwargs: ctx().label_set_point(*args, **kwargs),
             set_x=lambda *args, **kwargs: ctx().label_set_x(*args, **kwargs),
             set_y=lambda *args, **kwargs: ctx().label_set_y(*args, **kwargs),
             set_text=lambda *args, **kwargs: ctx().label_set_text(*args, **kwargs),
@@ -458,7 +472,8 @@ class PyneIncrementalSession:
             style_label_right="label_right",
             style_label_center="label_center",
         )
-        box_namespace = SimpleNamespace(
+        box_namespace = _DrawingNamespace(
+            all_getter=lambda: ctx().box_all(),
             new=lambda *args, **kwargs: ctx().box_new(*args, **kwargs),
             set_left=lambda *args, **kwargs: ctx().box_set_left(*args, **kwargs),
             set_top=lambda *args, **kwargs: ctx().box_set_top(*args, **kwargs),
@@ -466,6 +481,14 @@ class PyneIncrementalSession:
             set_bottom=lambda *args, **kwargs: ctx().box_set_bottom(*args, **kwargs),
             set_lefttop=lambda *args, **kwargs: ctx().box_set_lefttop(*args, **kwargs),
             set_rightbottom=lambda *args, **kwargs: ctx().box_set_rightbottom(*args, **kwargs),
+            set_top_left_point=lambda *args, **kwargs: ctx().box_set_top_left_point(
+                *args,
+                **kwargs,
+            ),
+            set_bottom_right_point=lambda *args, **kwargs: ctx().box_set_bottom_right_point(
+                *args,
+                **kwargs,
+            ),
             set_bgcolor=lambda *args, **kwargs: ctx().box_set_bgcolor(*args, **kwargs),
             set_border_color=lambda *args, **kwargs: ctx().box_set_border_color(*args, **kwargs),
             set_border_width=lambda *args, **kwargs: ctx().box_set_border_width(*args, **kwargs),
@@ -485,6 +508,10 @@ class PyneIncrementalSession:
             delete=lambda *args, **kwargs: ctx().table_delete(*args, **kwargs),
         )
         return {
+            "chart": ChartNamespace(
+                current_time=current_time,
+                current_index=lambda: ctx().bar_index,
+            ),
             "line": line_namespace,
             "label": label_namespace,
             "box": box_namespace,
@@ -676,8 +703,7 @@ def _isolated_param_copy(value: Any, *, label: str) -> Any:
         cloned = copy.deepcopy(value)
     except Exception as exc:
         raise PyneSecurityError(
-            f"{label} contains a value that cannot be copied safely: "
-            f"{type(value).__qualname__}"
+            f"{label} contains a value that cannot be copied safely: {type(value).__qualname__}"
         ) from exc
     shared = _mutable_object_ids(value) & _mutable_object_ids(cloned)
     if shared:
@@ -777,9 +803,7 @@ def _clone_preview_globals(
         )
 
     script_functions = _collect_functions(values, script_globals=script_globals)
-    closure_names = sorted(
-        {func.__qualname__ for func in script_functions if func.__closure__}
-    )
+    closure_names = sorted({func.__qualname__ for func in script_functions if func.__closure__})
     if closure_names:
         names = ", ".join(closure_names)
         raise PyneSecurityError(
@@ -1019,8 +1043,7 @@ class _PreviewModuleProxy:
     def __setattr__(self, name: str, value: Any) -> None:
         module = object.__getattribute__(self, "_module")
         raise PyneSecurityError(
-            "Incremental preview cannot mutate external module state: "
-            f"{module.__name__}.{name}"
+            f"Incremental preview cannot mutate external module state: {module.__name__}.{name}"
         )
 
     def __delattr__(self, name: str) -> None:

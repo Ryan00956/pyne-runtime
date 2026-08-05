@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
+
 import pyne_runtime as pn
 import pyne_runtime.utils as utils
+from pyne_runtime.context import PyneContext
 from pyne_runtime.ta import TaModule
 
 
@@ -11,14 +14,16 @@ def _bars(count: int = 40) -> list[dict[str, float]]:
     bars = []
     for idx in range(count):
         close = 100.0 + idx
-        bars.append({
-            "time": idx + 1,
-            "open": close - 0.5,
-            "high": close + 1.0,
-            "low": close - 1.0,
-            "close": close,
-            "volume": 1000.0 + idx * 10,
-        })
+        bars.append(
+            {
+                "time": idx + 1,
+                "open": close - 0.5,
+                "high": close + 1.0,
+                "low": close - 1.0,
+                "close": close,
+                "volume": 1000.0 + idx * 10,
+            }
+        )
     return bars
 
 
@@ -45,6 +50,224 @@ plot(ta.rma(close, 3), "RMA")
     assert len(result.lines) == 4
     assert _series_values(result, "SMA")[-1] == 138.0
     assert _series_values(result, "WMA")[-1] > _series_values(result, "SMA")[-1]
+
+
+def test_vwap_supports_explicit_anchor_and_standard_deviation_bands() -> None:
+    bars = [
+        {
+            "time": 1704067200 + index * 60,
+            "open": close,
+            "high": close,
+            "low": close,
+            "close": close,
+            "volume": volume,
+        }
+        for index, (close, volume) in enumerate(
+            [
+                (10.0, 1.0),
+                (20.0, 3.0),
+                (30.0, 2.0),
+                (40.0, 2.0),
+            ]
+        )
+    ]
+    result = pn.run(
+        """
+reset = (bar_index == 1) | (bar_index == 3)
+value, upper, lower = ta.vwap(close, reset, 1)
+plot(nz(value, -1), "VWAP")
+plot(nz(upper, -1), "Upper")
+plot(nz(lower, -1), "Lower")
+""",
+        bars,
+        settings=pn.PyneSettings(timeframe="1", syminfo={"timezone": "UTC"}),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    deviation = math.sqrt(24.0)
+    assert result.values("VWAP") == [-1.0, 20.0, 24.0, 40.0]
+    upper_values = result.values("Upper")
+    lower_values = result.values("Lower")
+    assert upper_values[:2] == [-1.0, 20.0]
+    assert upper_values[-1] == 40.0
+    assert lower_values[:2] == [-1.0, 20.0]
+    assert lower_values[-1] == 40.0
+    assert math.isclose(upper_values[2], 24.0 + deviation, abs_tol=1e-8)
+    assert math.isclose(lower_values[2], 24.0 - deviation, abs_tol=1e-8)
+
+
+def test_pivot_point_levels_follow_pine_order_and_official_formulas() -> None:
+    bars = [
+        {"time": 1, "open": 10, "high": 12, "low": 9, "close": 11, "volume": 1},
+        {"time": 2, "open": 11, "high": 14, "low": 10, "close": 13, "volume": 1},
+        {"time": 3, "open": 13, "high": 15, "low": 11, "close": 14, "volume": 1},
+        {"time": 4, "open": 20, "high": 22, "low": 19, "close": 21, "volume": 1},
+        {"time": 5, "open": 21, "high": 23, "low": 20, "close": 22, "volume": 1},
+    ]
+    context = PyneContext.from_ohlcv(bars)
+    ta = TaModule(context)
+    anchor = np.array([False, False, False, True, False])
+    expected = {
+        "Traditional": [
+            38 / 3,
+            49 / 3,
+            31 / 3,
+            56 / 3,
+            20 / 3,
+            67 / 3,
+            13 / 3,
+            26,
+            2,
+            89 / 3,
+            -1 / 3,
+        ],
+        "Fibonacci": [
+            38 / 3,
+            38 / 3 + 0.382 * 6,
+            38 / 3 - 0.382 * 6,
+            38 / 3 + 0.618 * 6,
+            38 / 3 - 0.618 * 6,
+            56 / 3,
+            20 / 3,
+            np.nan,
+            np.nan,
+            np.nan,
+            np.nan,
+        ],
+        "Woodie": [16, 23, 17, 22, 10, 29, 11, 35, 5, np.nan, np.nan],
+        "Classic": [
+            38 / 3,
+            49 / 3,
+            31 / 3,
+            56 / 3,
+            20 / 3,
+            74 / 3,
+            2 / 3,
+            92 / 3,
+            -16 / 3,
+            np.nan,
+            np.nan,
+        ],
+        "DM": [13.25, 17.5, 11.5, *([np.nan] * 8)],
+        "Camarilla": [
+            38 / 3,
+            14.55,
+            13.45,
+            15.1,
+            12.9,
+            15.65,
+            12.35,
+            17.3,
+            10.7,
+            70 / 3,
+            14 / 3,
+        ],
+    }
+
+    for pivot_type, values in expected.items():
+        levels = ta.pivot_point_levels(pivot_type, anchor)
+        assert levels.size() == 11
+        actual = [level.to_numpy()[3] for level in levels]
+        np.testing.assert_allclose(actual, values, rtol=0, atol=1e-10, equal_nan=True)
+        for level in levels:
+            assert np.isnan(level.to_numpy()[:3]).all()
+            np.testing.assert_allclose(level.to_numpy()[4], level.to_numpy()[3])
+
+
+def test_pivot_point_levels_support_developing_periods_and_array_access() -> None:
+    result = pn.run(
+        """
+levels = ta.pivot_point_levels("Traditional", false, true)
+plot(array.get(levels, 0), "P")
+plot(levels.get(1), "R1")
+""",
+        [
+            {"time": 1, "open": 10, "high": 12, "low": 9, "close": 11, "volume": 1},
+            {"time": 2, "open": 11, "high": 14, "low": 10, "close": 13, "volume": 1},
+            {"time": 3, "open": 13, "high": 15, "low": 11, "close": 14, "volume": 1},
+        ],
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    np.testing.assert_allclose(
+        _series_values(result, "P"),
+        [32 / 3, 12, 38 / 3],
+        rtol=0,
+        atol=1e-8,
+    )
+    np.testing.assert_allclose(
+        _series_values(result, "R1"),
+        [37 / 3, 15, 49 / 3],
+        rtol=0,
+        atol=1e-8,
+    )
+
+
+def test_pivot_point_levels_reject_developing_woodie() -> None:
+    context = PyneContext.from_ohlcv(_bars(3))
+
+    with np.testing.assert_raises_regex(ValueError, "Woodie"):
+        TaModule(context).pivot_point_levels("Woodie", False, True)
+
+
+def test_vwap_defaults_to_daily_anchor_and_keeps_v4_alias() -> None:
+    closes = [10.0, 20.0, 30.0]
+    volumes = [1.0, 1.0, 3.0]
+    bars = [
+        {
+            "time": timestamp,
+            "open": close,
+            "high": close,
+            "low": close,
+            "close": close,
+            "volume": volume,
+        }
+        for timestamp, close, volume in zip(
+            [1704150000, 1704153600, 1704157200],
+            closes,
+            volumes,
+            strict=True,
+        )
+    ]
+    result = pn.run(
+        """
+plot(ta.vwap(close), "Namespaced")
+plot(vwap(close), "Legacy")
+""",
+        bars,
+        settings=pn.PyneSettings(timeframe="60", syminfo={"timezone": "UTC"}),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Namespaced") == [10.0, 20.0, 27.5]
+    assert result.values("Legacy") == [10.0, 20.0, 27.5]
+
+
+def test_vwap_prefers_recurring_host_session_open_markers() -> None:
+    bars = [
+        {
+            "time": 1704067200 + index * 60,
+            "open": close,
+            "high": close,
+            "low": close,
+            "close": close,
+            "volume": 1.0,
+            "session_isfirstbar": index in {0, 2},
+        }
+        for index, close in enumerate([10.0, 20.0, 30.0, 40.0])
+    ]
+    result = pn.run(
+        'plot(ta.vwap(close), "Session VWAP")',
+        bars,
+        settings=pn.PyneSettings(timeframe="1", syminfo={"timezone": "UTC"}),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Session VWAP") == [10.0, 15.0, 30.0, 35.0]
 
 
 def test_sma_returns_nan_for_windows_containing_nan() -> None:
@@ -100,7 +323,14 @@ plot(lower, "Lower")
     )
 
     assert result.ok
-    assert {line["name"] for line in result.lines} >= {"DIF", "DEA", "HIST", "Upper", "Middle", "Lower"}
+    assert {line["name"] for line in result.lines} >= {
+        "DIF",
+        "DEA",
+        "HIST",
+        "Upper",
+        "Middle",
+        "Lower",
+    }
     assert result.output["histograms"][0]["title"] == "HIST"
     assert _series_values(result, "DEA")
     assert _series_values(result, "HIST")
@@ -245,13 +475,62 @@ def test_percentile_linear_interpolation_uses_hazen_interpolation() -> None:
     result = pn.run(
         'plot(ta.percentile_linear_interpolation(close, 7, 75), "PLI")',
         [
-            {"time": 1, "open": 71099.4, "high": 71099.4, "low": 71099.4, "close": 71099.4, "volume": 100},
-            {"time": 2, "open": 71470.1, "high": 71470.1, "low": 71470.1, "close": 71470.1, "volume": 100},
-            {"time": 3, "open": 71537.7, "high": 71537.7, "low": 71537.7, "close": 71537.7, "volume": 100},
-            {"time": 4, "open": 71548.5, "high": 71548.5, "low": 71548.5, "close": 71548.5, "volume": 100},
-            {"time": 5, "open": 71571.0, "high": 71571.0, "low": 71571.0, "close": 71571.0, "volume": 100},
-            {"time": 6, "open": 71617.9, "high": 71617.9, "low": 71617.9, "close": 71617.9, "volume": 100},
-            {"time": 7, "open": 71698.7, "high": 71698.7, "low": 71698.7, "close": 71698.7, "volume": 100},
+            {
+                "time": 1,
+                "open": 71099.4,
+                "high": 71099.4,
+                "low": 71099.4,
+                "close": 71099.4,
+                "volume": 100,
+            },
+            {
+                "time": 2,
+                "open": 71470.1,
+                "high": 71470.1,
+                "low": 71470.1,
+                "close": 71470.1,
+                "volume": 100,
+            },
+            {
+                "time": 3,
+                "open": 71537.7,
+                "high": 71537.7,
+                "low": 71537.7,
+                "close": 71537.7,
+                "volume": 100,
+            },
+            {
+                "time": 4,
+                "open": 71548.5,
+                "high": 71548.5,
+                "low": 71548.5,
+                "close": 71548.5,
+                "volume": 100,
+            },
+            {
+                "time": 5,
+                "open": 71571.0,
+                "high": 71571.0,
+                "low": 71571.0,
+                "close": 71571.0,
+                "volume": 100,
+            },
+            {
+                "time": 6,
+                "open": 71617.9,
+                "high": 71617.9,
+                "low": 71617.9,
+                "close": 71617.9,
+                "volume": 100,
+            },
+            {
+                "time": 7,
+                "open": 71698.7,
+                "high": 71698.7,
+                "low": 71698.7,
+                "close": 71698.7,
+                "volume": 100,
+            },
         ],
         executor_mode="inline",
     )
@@ -330,4 +609,12 @@ plot(highestbars(close, 3), "Top Level Highest Bars")
     assert _series_values(result, "Bars Since") == [0.0, 0.0, 1.0, 0.0, 1.0]
     assert _series_values(result, "Last Condition Close") == [5.0, 5.0, 5.0, 4.0, 4.0]
     assert _series_values(result, "Previous Condition Close") == [5.0, 5.0, 5.0, 5.0]
-    assert _series_values(result, "Top Level Highest Bars") == [0.0, -1.0, 0.0, 0.0, -1.0, -2.0, -1.0]
+    assert _series_values(result, "Top Level Highest Bars") == [
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        -1.0,
+        -2.0,
+        -1.0,
+    ]

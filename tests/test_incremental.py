@@ -72,10 +72,23 @@ def _assert_strategy_matches_batch(incremental: object, batch: object) -> None:
     assert _line_values(incremental, "equity") == _line_values_by_name(batch, "Equity")
     assert _line_values(incremental, "net_profit") == _line_values_by_name(batch, "Net Profit")
     assert incremental.output["strategy"]["position"] == batch.output["strategy"]["position"]
-    for key in ("initial_capital", "equity", "netprofit", "openprofit", "grossprofit", "grossloss", "commission"):
-        assert incremental.output["strategy"]["summary"][key] == batch.output["strategy"]["summary"][key]
+    for key in (
+        "initial_capital",
+        "equity",
+        "netprofit",
+        "openprofit",
+        "grossprofit",
+        "grossloss",
+        "commission",
+    ):
+        assert (
+            incremental.output["strategy"]["summary"][key]
+            == batch.output["strategy"]["summary"][key]
+        )
     assert incremental.output["strategy"]["orders"] == batch.output["strategy"]["orders"]
-    assert incremental.output["strategy"]["closedtrades"] == batch.output["strategy"]["closedtrades"]
+    assert (
+        incremental.output["strategy"]["closedtrades"] == batch.output["strategy"]["closedtrades"]
+    )
     assert incremental.output["strategy"]["opentrades"] == batch.output["strategy"]["opentrades"]
 
 
@@ -191,7 +204,9 @@ def on_bar(ctx, bar):
 
     assert batch.ok, batch.error
     assert incremental.ok, incremental.error
-    assert _line_values(incremental, "volume_columns") == _line_values_by_name(batch, "Volume Columns")
+    assert _line_values(incremental, "volume_columns") == _line_values_by_name(
+        batch, "Volume Columns"
+    )
     assert incremental.lines[0]["type"] == batch.lines[0]["type"] == "histogram"
     assert incremental.output["histograms"] == batch.output["histograms"]
     assert "lines" not in incremental.output
@@ -245,7 +260,9 @@ def on_bar(ctx, bar):
     assert batch.ok, batch.error
     assert incremental.ok, incremental.error
     assert incremental.output["lines"][0]["pane"] == batch.output["lines"][0]["pane"] == "separate"
-    assert incremental.output["markers"][0]["pane"] == batch.output["markers"][0]["pane"] == "separate"
+    assert (
+        incremental.output["markers"][0]["pane"] == batch.output["markers"][0]["pane"] == "separate"
+    )
     assert incremental.output["markers"][0]["data"] == batch.output["markers"][0]["data"]
 
 
@@ -478,7 +495,9 @@ def on_preview(ctx, bar):
 
     session.seed(_bars()[:2])
     session.on_bar_updated({"time": 3, "open": 1, "high": 3, "low": 1, "close": 2.5, "volume": 100})
-    closed = session.on_bar_closed({"time": 3, "open": 1, "high": 3, "low": 1, "close": 3.0, "volume": 100})
+    closed = session.on_bar_closed(
+        {"time": 3, "open": 1, "high": 3, "low": 1, "close": 3.0, "volume": 100}
+    )
     snapshot = session.snapshot_result()
 
     assert _line_values(closed, "seen") == [3.0]
@@ -676,6 +695,50 @@ def on_bar(ctx, bar):
     assert events[-1]["confirmed"] is True
 
 
+def test_incremental_chart_points_and_live_object_collections() -> None:
+    script = """
+indicator("Incremental Chart Points", mode="incremental", overlay=True)
+
+def on_bar(ctx, bar):
+    level = ctx.state("level")
+    zone = ctx.state("zone")
+    if ctx.bar_index == 0:
+        level.value = line.new(
+            chart.point.now(bar.close),
+            chart.point.from_time(bar.time + 1, bar.high),
+            xloc=xloc.bar_time,
+        )
+        zone.value = box.new(
+            chart.point.from_index(ctx.bar_index, bar.high),
+            chart.point.from_index(ctx.bar_index + 1, bar.low),
+        )
+    else:
+        line.set_second_point(level.value, chart.point.now(bar.high))
+        box.set_top_left_point(
+            zone.value,
+            chart.point.from_index(ctx.bar_index - 1, bar.high),
+        )
+        box.set_bottom_right_point(
+            zone.value,
+            chart.point.from_index(ctx.bar_index, bar.low),
+        )
+    ctx.plot("Line Count", line.all.size())
+    ctx.plot("Box Count", box.all.size())
+"""
+
+    result = pn.run(script, _bars()[:2], executor_mode="inline")
+
+    assert result.ok, result.error
+    line_object = result.output["objects"]["lines"][0]
+    assert (line_object["x1"], line_object["y1"]) == (1, 1)
+    assert (line_object["x2"], line_object["y2"]) == (2, 2)
+    box_object = result.output["objects"]["boxes"][0]
+    assert (box_object["left"], box_object["top"]) == (0, 2)
+    assert (box_object["right"], box_object["bottom"]) == (1, 1)
+    assert result.values("Line Count") == [1.0, 1.0]
+    assert result.values("Box Count") == [1.0, 1.0]
+
+
 def test_incremental_drawing_object_preview_does_not_persist() -> None:
     script = """
 indicator("Preview Objects", mode="incremental", overlay=True)
@@ -698,9 +761,13 @@ def on_preview(ctx, bar):
     )
 
     seed = session.seed(_bars()[:1])
-    preview = session.on_bar_updated({"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100})
+    preview = session.on_bar_updated(
+        {"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100}
+    )
     snapshot = session.snapshot_result()
-    closed = session.on_bar_closed({"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100})
+    closed = session.on_bar_closed(
+        {"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100}
+    )
 
     assert seed.output["objects"]["lines"][0]["color"] == "#f59e0b"
     assert preview.output["objects"]["lines"][0]["color"] == "#ef5350"
@@ -733,9 +800,13 @@ def on_preview(ctx, bar):
     )
 
     seed = session.seed(_bars()[:1])
-    preview = session.on_bar_updated({"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100})
+    preview = session.on_bar_updated(
+        {"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100}
+    )
     snapshot = session.snapshot_result()
-    closed = session.on_bar_closed({"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100})
+    closed = session.on_bar_closed(
+        {"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100}
+    )
 
     assert len(seed.output["objects"]["lines"]) == 1
     assert "labels" not in seed.output["objects"]
@@ -781,9 +852,13 @@ def on_preview(ctx, bar):
     )
 
     seed = session.seed(_bars()[:1])
-    preview = session.on_bar_updated({"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100})
+    preview = session.on_bar_updated(
+        {"time": 2, "open": 1, "high": 2, "low": 1, "close": 1.5, "volume": 100}
+    )
     snapshot = session.snapshot_result()
-    closed = session.on_bar_closed({"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100})
+    closed = session.on_bar_closed(
+        {"time": 2, "open": 1, "high": 2, "low": 1, "close": 2.0, "volume": 100}
+    )
 
     assert _line_values(seed, "position") == [0.0]
     assert _line_values(preview, "preview_position") == [1.0]
@@ -818,10 +893,16 @@ def on_preview(ctx, bar):
     )
 
     seed = session.seed(_bars()[:1])
-    preview = session.on_bar_updated({"time": 2, "open": 1, "high": 2.0, "low": 1, "close": 1.5, "volume": 100})
+    preview = session.on_bar_updated(
+        {"time": 2, "open": 1, "high": 2.0, "low": 1, "close": 1.5, "volume": 100}
+    )
     snapshot = session.snapshot_result()
-    closed = session.on_bar_closed({"time": 2, "open": 1, "high": 2.0, "low": 1, "close": 2.0, "volume": 100})
-    triggered = session.on_bar_closed({"time": 3, "open": 2, "high": 3.5, "low": 2, "close": 3.0, "volume": 100})
+    closed = session.on_bar_closed(
+        {"time": 2, "open": 1, "high": 2.0, "low": 1, "close": 2.0, "volume": 100}
+    )
+    triggered = session.on_bar_closed(
+        {"time": 3, "open": 2, "high": 3.5, "low": 2, "close": 3.0, "volume": 100}
+    )
 
     assert _line_values(seed, "position") == [0.0]
     assert _line_values(preview, "preview_position") == [0.0]
@@ -2265,12 +2346,12 @@ def on_bar(ctx, bar):
 
 
 def test_incremental_strategy_rejects_invalid_direction() -> None:
-    script = '''
+    script = """
 indicator("Incremental Direction", mode="incremental", overlay=True)
 
 def on_bar(ctx, bar):
     ctx.strategy.entry("Typo", "sel", qty=1, price=bar.close)
-'''
+"""
     session = pn.PyneIncrementalSession(
         script=script,
         settings=pn.PyneSettings(executor_mode="inline"),
@@ -2281,7 +2362,7 @@ def on_bar(ctx, bar):
 
 
 def test_incremental_preview_isolates_module_globals_and_readonly_params() -> None:
-    script = '''
+    script = """
 indicator("Preview Isolation", mode="incremental", overlay=True)
 
 seen = []
@@ -2309,7 +2390,7 @@ def on_preview(ctx, bar):
     except Exception:
         ctx.plot("Nested Readonly", 1)
     ctx.plot("Preview Seen", len(seen))
-'''
+"""
     caller_params = {"limit": 7, "nested": [1, 2]}
     session = pn.PyneIncrementalSession(
         script=script,
@@ -2332,7 +2413,7 @@ def on_preview(ctx, bar):
 
 
 def test_incremental_preview_isolates_mutable_function_defaults_and_base_namespace() -> None:
-    script = '''
+    script = """
 indicator("Preview Function State", mode="incremental", overlay=True)
 
 math.preview_values = []
@@ -2349,7 +2430,7 @@ def on_bar(ctx, bar):
 def on_preview(ctx, bar):
     ctx.plot("Preview Default Size", remember(999))
     math.preview_values.append(999)
-'''
+"""
     session = pn.PyneIncrementalSession(
         script=script,
         settings=pn.PyneSettings(executor_mode="inline"),
@@ -2365,7 +2446,7 @@ def on_preview(ctx, bar):
 
 
 def test_incremental_preview_rejects_mutable_closure_state_without_leaking() -> None:
-    script = '''
+    script = """
 indicator("Preview Closure", mode="incremental", overlay=True)
 
 def callbacks():
@@ -2377,7 +2458,7 @@ def callbacks():
     return on_bar, on_preview
 
 on_bar, on_preview = callbacks()
-'''
+"""
     session = pn.PyneIncrementalSession(
         script=script,
         settings=pn.PyneSettings(executor_mode="inline"),
@@ -2396,7 +2477,7 @@ on_bar, on_preview = callbacks()
 
 
 def test_incremental_preview_rejects_script_class_state_without_leaking() -> None:
-    script = '''
+    script = """
 indicator("Preview Class", mode="incremental", overlay=True)
 
 class SharedState:
@@ -2407,7 +2488,7 @@ def on_bar(ctx, bar):
 
 def on_preview(ctx, bar):
     SharedState.values.append(999)
-'''
+"""
     session = pn.PyneIncrementalSession(
         script=script,
         settings=pn.PyneSettings(executor_mode="inline", security_mode="unsafe"),
@@ -2421,7 +2502,7 @@ def on_preview(ctx, bar):
 
 
 def test_incremental_preview_rejects_stateful_external_module_calls() -> None:
-    script = '''
+    script = """
 import random
 
 indicator("Preview Module", mode="incremental", overlay=True)
@@ -2431,7 +2512,7 @@ def on_bar(ctx, bar):
 
 def on_preview(ctx, bar):
     random.seed(1)
-'''
+"""
     session = pn.PyneIncrementalSession(
         script=script,
         settings=pn.PyneSettings(
@@ -2447,7 +2528,7 @@ def on_preview(ctx, bar):
 
 
 def test_incremental_params_custom_objects_are_copy_on_read() -> None:
-    script = '''
+    script = """
 indicator("Readonly Custom Params", mode="incremental", overlay=True)
 
 def on_bar(ctx, bar):
@@ -2461,7 +2542,7 @@ def on_preview(ctx, bar):
         params._values["box"] = box
     except Exception:
         ctx.plot("Private Storage", 1)
-'''
+"""
     caller_value = _MutableParam([1])
     session = pn.PyneIncrementalSession(
         script=script,
@@ -2481,7 +2562,7 @@ def on_preview(ctx, bar):
 
 
 def test_incremental_research_preview_allows_imported_module_globals() -> None:
-    script = '''
+    script = """
 import numpy as np
 
 indicator("Research Preview", mode="incremental", overlay=True)
@@ -2491,7 +2572,7 @@ def on_bar(ctx, bar):
 
 def on_preview(ctx, bar):
     ctx.plot("Mean", np.mean([bar.open, bar.close]))
-'''
+"""
     session = pn.PyneIncrementalSession(
         script=script,
         settings=pn.PyneSettings(executor_mode="inline", security_mode="research"),
@@ -2504,7 +2585,7 @@ def on_preview(ctx, bar):
 
 
 def test_incremental_preview_reports_uncopyable_mutable_global() -> None:
-    script = '''
+    script = """
 import threading
 
 indicator("Research Preview", mode="incremental", overlay=True)
@@ -2515,7 +2596,7 @@ def on_bar(ctx, bar):
 
 def on_preview(ctx, bar):
     ctx.plot("Close", bar.close)
-'''
+"""
     session = pn.PyneIncrementalSession(
         script=script,
         settings=pn.PyneSettings(
@@ -2633,4 +2714,3 @@ def test_incremental_ta_helpers_recover_after_nan() -> None:
         1.0,
         None,
     ]
-

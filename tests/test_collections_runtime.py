@@ -52,6 +52,32 @@ plot(array.includes(prices, 2.5), "Includes")
     assert result.values("Includes") == [1.0, 1.0, 1.0]
 
 
+def test_array_drawing_object_constructor_aliases_store_object_refs() -> None:
+    result = pn.run(
+        """
+lines = array.new_line()
+labels = array.new_label(1)
+boxes = array.new_box(1, na)
+array.push(lines, line.new(0, 1, 2, 3))
+array.set(labels, 0, label.new(2, 3, "L"))
+array.set(boxes, 0, box.new(0, 4, 2, 1))
+plot(array.size(lines), "Lines")
+plot(array.size(labels), "Labels")
+plot(array.size(boxes), "Boxes")
+""",
+        _bars(),
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Lines") == [1.0, 1.0, 1.0]
+    assert result.values("Labels") == [1.0, 1.0, 1.0]
+    assert result.values("Boxes") == [1.0, 1.0, 1.0]
+    assert len(result.output["objects"]["lines"]) == 1
+    assert len(result.output["objects"]["labels"]) == 1
+    assert len(result.output["objects"]["boxes"]) == 1
+
+
 def test_array_accepts_numpy_values_and_matches_nan_members() -> None:
     values = pn.PyneArray(np.array([1.0, math.nan, 3.0]))
 

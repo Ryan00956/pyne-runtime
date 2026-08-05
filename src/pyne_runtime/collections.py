@@ -502,6 +502,18 @@ class ArrayNamespace:
     def new_color(self, size: int = 0, initial_value: str | None = None) -> PyneArray:
         return self.new(size, initial_value)
 
+    def new_line(self, size: int = 0, initial_value: Any = None) -> PyneArray:
+        """Create an array intended for line object references."""
+        return self.new(size, initial_value)
+
+    def new_label(self, size: int = 0, initial_value: Any = None) -> PyneArray:
+        """Create an array intended for label object references."""
+        return self.new(size, initial_value)
+
+    def new_box(self, size: int = 0, initial_value: Any = None) -> PyneArray:
+        """Create an array intended for box object references."""
+        return self.new(size, initial_value)
+
     def from_values(self, *values: Any) -> PyneArray:
         return PyneArray(values, max_size=self._max_size, max_depth=self._max_depth)
 
