@@ -276,11 +276,20 @@ class IncrementalLimits:
     retention_enabled: bool = False
 
     @classmethod
-    def for_policy(cls, policy: PyneSecurityPolicy) -> "IncrementalLimits":
+    def for_policy(
+        cls,
+        policy: PyneSecurityPolicy,
+        *,
+        retention_bars: int | None = None,
+    ) -> "IncrementalLimits":
+        history_limit = min(
+            policy.max_bars,
+            max(int(retention_bars or policy.max_bars), 1),
+        )
         return cls(
             enabled=policy.mode == "safe",
             retention_enabled=True,
-            max_state_history=policy.max_bars,
+            max_state_history=history_limit,
             max_output_series=policy.max_output_series,
             max_output_points=policy.max_output_points,
             max_object_events=policy.max_output_points,

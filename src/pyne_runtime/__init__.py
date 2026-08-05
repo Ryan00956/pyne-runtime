@@ -4,7 +4,7 @@ from __future__ import annotations
 from ._version import __version__
 from .api import from_pandas, read_ohlcv, run, schema, validate
 from .barstate import PyneBarState, PyneIncrementalBarState
-from .cache import pyne_cache
+from .cache import PyneExecutionScope, pyne_cache
 from .color import Color, color
 from .collections import (
     ArrayNamespace,
@@ -22,13 +22,22 @@ from .collections import (
 from .data import PyneData
 from .executor import execute_pyne_script, execute_pyne_script_in_process
 from .incremental import (
+    PYNE_INCREMENTAL_SNAPSHOT_VERSION,
     PyneIncrementalSession,
+    PyneIncrementalSessionCapacityError,
     PyneIncrementalSessionManager,
+    PyneIncrementalSessionSnapshot,
     SharedPyneIncrementalSession,
     is_incremental_pyne_script,
 )
 from .math_ext import PyneMath
 from .metadata import SessionInfo, SessionNamespace, SymbolInfo, TimeframeInfo
+from .pine_libraries import (
+    SUPPORTED_PINE_LIBRARIES,
+    TRADINGVIEW_TA_10,
+    PineLibraryDescriptor,
+    PineLibraryRegistry,
+)
 from .plot import ObjectRef
 from .request import (
     BarMergeNamespace,
@@ -54,8 +63,17 @@ from .request import (
     RequestSymbolMetadata,
     RequestTimeframeMetadata,
     PyneInvalidSymbolError,
+    PyneProviderCapabilityError,
+    PyneProviderDataError,
+    PyneProviderError,
+    PyneProviderMetadataError,
     PyneRequestError,
+    ProviderConformanceCheck,
+    ProviderConformanceReport,
+    RequestProviderErrorCategory,
+    assert_data_provider_conformance,
     barmerge,
+    run_data_provider_conformance,
 )
 from .result import PyneResult
 from .runtime import PyneRuntime
@@ -98,15 +116,26 @@ __all__ = [
     "REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES",
     "PyneArray",
     "PyneData",
+    "PyneExecutionScope",
     "PyneMap",
     "PyneMatrix",
     "PyneBarState",
     "PyneIncrementalBarState",
     "PyneIncrementalSession",
+    "PyneIncrementalSessionCapacityError",
     "PyneIncrementalSessionManager",
+    "PyneIncrementalSessionSnapshot",
     "PyneMath",
+    "PineLibraryDescriptor",
+    "PineLibraryRegistry",
     "PyneInvalidSymbolError",
+    "PyneProviderCapabilityError",
+    "PyneProviderDataError",
+    "PyneProviderError",
+    "PyneProviderMetadataError",
     "PyneRequestError",
+    "ProviderConformanceCheck",
+    "ProviderConformanceReport",
     "PyneResult",
     "PyneRuntime",
     "PyneSettings",
@@ -119,6 +148,7 @@ __all__ = [
     "RequestCapabilityProvider",
     "RequestMetadata",
     "RequestMetadataProvider",
+    "RequestProviderErrorCategory",
     "RequestModule",
     "RequestSessionMetadata",
     "RequestSymbolMetadata",
@@ -128,21 +158,25 @@ __all__ = [
     "TickerNamespace",
     "TimeNamespace",
     "PYNE_INPUT_SCHEMA_VERSION",
+    "PYNE_INCREMENTAL_SNAPSHOT_VERSION",
     "PYNE_OUTPUT_SCHEMA_VERSION",
     "PYNE_PARAM_SCHEMA_VERSION",
     "PYNE_REQUEST_PROVIDER_SCHEMA_VERSION",
     "PYNE_STRATEGY_REPORT_SCHEMA_VERSION",
     "SharedPyneIncrementalSession",
+    "SUPPORTED_PINE_LIBRARIES",
     "SessionInfo",
     "SessionNamespace",
     "SymbolInfo",
     "TimeframeInfo",
+    "TRADINGVIEW_TA_10",
     "execute_pyne_script",
     "execute_pyne_script_in_process",
     "fixnan",
     "from_pandas",
     "is_incremental_pyne_script",
     "array_namespace",
+    "assert_data_provider_conformance",
     "barmerge",
     "color",
     "map_namespace",
@@ -153,6 +187,7 @@ __all__ = [
     "pyne_cache",
     "read_ohlcv",
     "run",
+    "run_data_provider_conformance",
     "schema",
     "string_namespace",
     "validate",

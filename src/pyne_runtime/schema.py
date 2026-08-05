@@ -14,9 +14,9 @@ from ._request_contract import (
 
 
 PYNE_INPUT_SCHEMA_VERSION = 1
-PYNE_OUTPUT_SCHEMA_VERSION = 1
+PYNE_OUTPUT_SCHEMA_VERSION = 2
 PYNE_PARAM_SCHEMA_VERSION = 1
-PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 9
+PYNE_REQUEST_PROVIDER_SCHEMA_VERSION = 10
 PYNE_STRATEGY_REPORT_SCHEMA_VERSION = 1
 
 OHLCV_FIELDS = ("time", "open", "high", "low", "close", "volume")
@@ -39,6 +39,7 @@ REQUEST_PROVIDER_SUPPORTED_APIS: tuple[dict[str, Any], ...] = (
 )
 OUTPUT_KEYS = (
     "lines",
+    "candles",
     "histograms",
     "markers",
     "hlines",
@@ -59,6 +60,13 @@ RENDERABLE_CONTRACT: dict[str, dict[str, list[str] | str]] = {
         "optional": ["display", "format", "precision", "per_bar_color"],
         "pointRequired": ["time", "value"],
         "pointOptional": ["color"],
+    },
+    "candles": {
+        "collection": "candles",
+        "required": ["title", "pane", "data"],
+        "optional": ["display", "format", "precision"],
+        "pointRequired": ["time", "open", "high", "low", "close"],
+        "pointOptional": ["color", "wickcolor", "bordercolor"],
     },
     "histograms": {
         "collection": "histograms",
@@ -130,7 +138,7 @@ RENDERABLE_CONTRACT: dict[str, dict[str, list[str] | str]] = {
 }
 
 DRAWING_OBJECT_CONTRACT: dict[str, Any] = {
-    "groups": ["lines", "labels", "boxes", "tables"],
+    "groups": ["lines", "labels", "boxes", "tables", "linefills", "polylines"],
     "commonRequired": ["id", "pane"],
     "lines": {
         "required": [
@@ -190,6 +198,7 @@ DRAWING_OBJECT_CONTRACT: dict[str, Any] = {
             "border_width",
             "pane",
             "cells",
+            "merges",
         ],
         "cellRequired": [
             "column",
@@ -202,6 +211,30 @@ DRAWING_OBJECT_CONTRACT: dict[str, Any] = {
             "text_halign",
             "text_valign",
         ],
+        "mergeRequired": [
+            "start_column",
+            "start_row",
+            "end_column",
+            "end_row",
+        ],
+    },
+    "linefills": {
+        "required": ["id", "line1_id", "line2_id", "color", "pane"],
+    },
+    "polylines": {
+        "required": [
+            "id",
+            "points",
+            "curved",
+            "closed",
+            "xloc",
+            "line_color",
+            "fill_color",
+            "line_style",
+            "line_width",
+            "pane",
+        ],
+        "pointRequired": ["x", "y"],
     },
 }
 
@@ -226,7 +259,7 @@ OUTPUT_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
     "versions": [
         {
             "version": 1,
-            "status": "current",
+            "status": "supported",
             "breakingChanges": [],
             "notes": [
                 "Initial versioned output contract.",
@@ -234,6 +267,18 @@ OUTPUT_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
                 "Top-level result.lines remains a backward-compatible flat plot view.",
                 "Top-level output.labels is a legacy simple text label collection; "
                 "prefer output.objects.labels for Pine-like drawing labels.",
+            ],
+        },
+        {
+            "version": 2,
+            "status": "current",
+            "breakingChanges": [
+                "Hosts validating exact collection names must accept output.candles.",
+                "Drawing hosts must accept linefills, polylines, and table merges.",
+            ],
+            "notes": [
+                "Adds plotcandle output and the remaining high-value drawing groups.",
+                "Version 1 remains a valid legacy host fallback for scripts using its surface.",
             ],
         },
     ],
@@ -267,6 +312,7 @@ SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
             "ta",
             "input",
             "request",
+            "pine_library",
             "runtime",
             "barmerge",
             "strategy",
@@ -288,6 +334,7 @@ SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
             "indicator",
             "study",
             "plot",
+            "plotcandle",
             "bar",
             "hline",
             "fill",
@@ -300,6 +347,8 @@ SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
             "emit_signal",
             "alertcondition",
             "line",
+            "linefill",
+            "polyline",
             "label",
             "box",
             "table",
@@ -403,7 +452,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "condition": "No host data provider is configured for a request.* call.",
         "beforeGetOhlcv": True,
         "ignoreInvalidSymbol": "not applicable",
-        "messageContains": "host data provider",
+        "classification": "RequestProviderErrorCategory.MISSING_PROVIDER",
     },
     "unsupportedCapability": {
         "code": "PYNE_UNSUPPORTED_FEATURE",
@@ -411,7 +460,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "condition": "Provider capabilities explicitly omit or disable the requested API.",
         "beforeGetOhlcv": True,
         "ignoreInvalidSymbol": "not applicable",
-        "messageContains": "provider capability",
+        "classification": "RequestProviderErrorCategory.UNSUPPORTED_CAPABILITY",
     },
     "capabilityFailure": {
         "code": "PYNE_RUNTIME_ERROR",
@@ -419,7 +468,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "condition": "capabilities() or capabilities attribute evaluation raises unexpectedly.",
         "beforeGetOhlcv": True,
         "ignoreInvalidSymbol": "not applicable",
-        "messageContains": "request capability provider failed",
+        "classification": "RequestProviderErrorCategory.CAPABILITY_FAILURE",
     },
     "invalidSymbol": {
         "code": "PYNE_INVALID_SYMBOL",
@@ -429,7 +478,8 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "ignoreInvalidSymbol": (
             "request.security returns na values; request.security_lower_tf returns empty groups"
         ),
-        "messageContains": "Invalid symbol",
+        "classification": "RequestProviderErrorCategory.INVALID_SYMBOL",
+        "providerSignal": "PyneInvalidSymbolError",
     },
     "providerFailure": {
         "code": "PYNE_RUNTIME_ERROR",
@@ -437,7 +487,8 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "condition": "get_ohlcv raises an unexpected exception.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "not ignored",
-        "messageContains": "request data provider failed",
+        "classification": "RequestProviderErrorCategory.PROVIDER_FAILURE",
+        "providerSignal": "PyneProviderDataError",
     },
     "invalidReturnType": {
         "code": "PYNE_RUNTIME_ERROR",
@@ -445,7 +496,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "condition": "get_ohlcv returns None or a non-list value.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "does not apply; invalid provider return types remain errors",
-        "messageContains": "must return a list of OHLCV bars",
+        "classification": "RequestProviderErrorCategory.INVALID_RETURN_TYPE",
     },
     "invalidBarShape": {
         "code": "PYNE_RUNTIME_ERROR",
@@ -453,7 +504,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "condition": "A returned OHLCV bar is not a mapping or lacks required fields.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "not ignored",
-        "messageContains": "request data provider returned",
+        "classification": "RequestProviderErrorCategory.INVALID_BAR_SHAPE",
     },
     "invalidMetadata": {
         "code": "PYNE_RUNTIME_ERROR",
@@ -461,7 +512,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "condition": "Requested-context metadata is not a mapping.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "metadata is skipped for ignored invalid symbols",
-        "messageContains": "request metadata must be a mapping",
+        "classification": "RequestProviderErrorCategory.INVALID_METADATA",
     },
     "metadataFailure": {
         "code": "PYNE_RUNTIME_ERROR",
@@ -469,7 +520,8 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "condition": "get_request_metadata() or request_metadata(...) raises unexpectedly.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "metadata is skipped for ignored invalid symbols",
-        "messageContains": "request metadata provider failed",
+        "classification": "RequestProviderErrorCategory.METADATA_FAILURE",
+        "providerSignal": "PyneProviderMetadataError",
     },
     "expressionFailure": {
         "code": "PYNE_RUNTIME_ERROR",
@@ -477,7 +529,7 @@ REQUEST_PROVIDER_ERROR_CATEGORIES: dict[str, dict[str, Any]] = {
         "condition": "A callable request expression raises unexpectedly.",
         "beforeGetOhlcv": False,
         "ignoreInvalidSymbol": "not applicable after expression evaluation starts",
-        "messageContains": "request.security() expression failed",
+        "classification": "RequestProviderErrorCategory.EXPRESSION_FAILURE",
     },
 }
 
@@ -492,8 +544,20 @@ REQUEST_PROVIDER_SCHEMA_MIGRATION_POLICY: dict[str, Any] = {
     ],
     "versions": [
         {
-            "version": 9,
+            "version": 10,
             "status": "current",
+            "breakingChanges": [
+                "Removes messageContains from error categories; consumers must use "
+                "the typed category value and serialized requestProviderCategory.",
+            ],
+            "notes": [
+                "Exports RequestProviderErrorCategory and typed provider-side errors.",
+                "Publishes a test-runner-independent provider conformance kit.",
+            ],
+        },
+        {
+            "version": 9,
+            "status": "previous",
             "breakingChanges": [
                 "Provider start/end coordinates now describe a warmup-expanded "
                 "fetch window ending at the last chart close boundary instead of "
@@ -763,6 +827,21 @@ def request_provider_schema() -> dict[str, Any]:
                 "Failed host-backed request.* calls include requestProviderCategory "
                 "and requestProviderRequest in result.errorDetail; provider failures "
                 "during adaptive widening report the final attempted range."
+            ),
+        },
+        "typedErrors": {
+            "categoryEnum": "RequestProviderErrorCategory",
+            "runtimeError": "PyneRequestError",
+            "providerBaseError": "PyneProviderError",
+            "providerSignals": {
+                "invalidSymbol": "PyneInvalidSymbolError",
+                "capabilityFailure": "PyneProviderCapabilityError",
+                "providerFailure": "PyneProviderDataError",
+                "metadataFailure": "PyneProviderMetadataError",
+            },
+            "classification": (
+                "Branch on exception category or errorDetail.requestProviderCategory; "
+                "human-readable messages are not a compatibility contract."
             ),
         },
         "errors": {

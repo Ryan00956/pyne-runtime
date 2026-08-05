@@ -14,6 +14,7 @@ settings = pn.PyneSettings(
     max_matrix_cells=100_000,
     max_collection_depth=8,
     max_strategy_pending_operations=1_000_000,
+    incremental_retention_bars=10_000,
     data_provider=None,
     syminfo={"tickerid": "NASDAQ:AAPL", "mintick": 0.01},
     timeframe="1h",
@@ -120,6 +121,13 @@ Object limits:
 - `max_drawing_objects`: maximum active `line`, `label`, `box`, and `table`
   handles in one execution.
 - Environment variable: `PYNE_MAX_DRAWING_OBJECTS`.
+
+Incremental retention:
+
+- `incremental_retention_bars`: default rolling history retained by new
+  `PyneIncrementalSession` objects. It does not cap the lifetime number of live
+  confirmed events; the initial seed remains bounded by `max_bars`.
+- Environment variable: `PYNE_INCREMENTAL_RETENTION_BARS`.
 
 Collection limits:
 

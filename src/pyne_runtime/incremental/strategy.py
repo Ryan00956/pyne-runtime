@@ -238,6 +238,25 @@ class IncrementalStrategyNamespace:
         self._context._limit_tracker.reserve_strategy_log()
         self._closed_trades.append(trade)
 
+    def prune_history(self, cutoff_time: int) -> None:
+        """Trim report logs while preserving live pending/open position state."""
+
+        cutoff = int(cutoff_time)
+        live_order_ids = {
+            id(order) for order in (*self._pending_orders, *self._pending_exit_orders)
+        }
+        self._orders = [
+            order
+            for order in self._orders
+            if id(order) in live_order_ids or _event_time(order) >= cutoff
+        ]
+        self._closed_trades = [
+            trade for trade in self._closed_trades if _event_time(trade) >= cutoff
+        ]
+        self._context._limit_tracker.strategy_log_entries = (
+            len(self._orders) + len(self._closed_trades)
+        )
+
     def configure(self, **kwargs: Any) -> None:
         if "pyramiding" in kwargs:
             self._pyramiding = max(int(kwargs["pyramiding"]), 0)
@@ -1445,3 +1464,15 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
         }
         events.append(returnable)
     return events
+
+
+def _event_time(item: dict[str, Any]) -> int:
+    for key in ("exit_time", "time", "entry_time", "_submit_time"):
+        value = item.get(key)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return -1

@@ -46,11 +46,18 @@ These counts come directly from the request, strategy, and TA status `build_repo
   replay across the captured contract surface.
 - **Incremental host sessions:** hosts can seed history, process temporary preview
   updates and confirmed bars, preserve explicit state, update supported incremental
-  TA/drawings/strategy state, and consume snapshots through an in-process session
-  manager.
+  TA/drawings/strategy state, use rolling retention and process-local checkpoints,
+  and share bounded TTL/LRU sessions through an in-process manager.
 - **Stable integration surfaces:** the package exposes versioned output, parameter,
   request-provider, and strategy-report schemas together with CLI validation and
   process execution controls.
+- **Output schema v2:** `plotcandle`, linefill and polyline objects, and merged
+  table cells have explicit contracts. Version 1 remains a declared fallback
+  for hosts and scripts that stay within its surface.
+- **Pinned external-library adapter:** the project-required
+  `TradingView/ta/10#requestUpAndDownVolume` member is available only through
+  the explicit registry and authoritative host lower-timeframe OHLCV. Unknown
+  libraries fail closed.
 - **Measured Pine migration inventory:** `scripts/pine_corpus_audit.py` inventories
   an external Pine corpus without executing or copying source, classifies live
   runtime/host/render boundaries, and keeps API-analogue counts distinct from
@@ -80,9 +87,9 @@ migration evidence is documented separately in the
 - **Strategy boundary:** replay is deterministic and bar-based. It is not a broker
   simulator and does not model an order book, queue position, tick path, real
   partial fills, broker margin calls, or other unavailable intrabar facts.
-- **Incremental lifecycle boundary:** shared sessions are process-local runtime
-  objects. Durable persistence, distributed recovery, and unbounded retention are
-  host responsibilities, and the incremental callback surface is not automatic
+- **Incremental lifecycle boundary:** shared sessions and their opaque checkpoints
+  are process-local runtime objects. Cross-process/distributed persistence remains
+  a host responsibility, and the incremental callback surface is not automatic
   parity with every batch API.
 - **Security boundary:** `safe` and `research` restrict the Python environment but
   are not a complete multi-tenant sandbox. Untrusted scripts require process or
@@ -91,27 +98,27 @@ migration evidence is documented separately in the
   for the checked-in fixtures and cases. They do not claim exhaustive Pine API or
   market-scenario compatibility.
 
-## Active Next Stage: 0.2 Contract & Host Hardening
+## Active Next Stage: 0.3 Development Candidate
 
 The `0.2.0rc1` closure slice is implemented in the repository: package version,
 current-status generation, historical-plan routing, local/CI contract checks,
 capture parity gates, and distribution smoke checks are now one release-candidate
 boundary. No tag, upload, or public release is implied by this repository state.
 
-The next implementation slices should stay in this order:
+The current development worktree now implements execution/session cache
+isolation, typed provider errors with a reusable conformance kit, incremental
+TTL/LRU retention plus process-local snapshot/restore, output schema v2, and the
+first pinned external-library adapter. The companion CandleScope worktree adds
+the additive session/data-broker protocol and an independent Plugin Platform v2
+workbench while retaining the installed runtime-v1 fallback.
 
-1. **Execution and session isolation:** move the generic `pyne_cache` into an
-   explicit execution/session scope, add cross-run isolation regressions, and
-   document the process-isolation reference pattern for untrusted scripts.
-2. **Provider conformance:** replace string-based provider error classification
-   with typed errors and publish a reusable conformance test kit for capability,
-   metadata, error, diagnostics, and result-shape contracts.
-3. **Incremental durability:** define bounded retention and stable memory policy,
-   then add snapshot/restore for process-local sessions before considering
-   distributed recovery.
-4. **Measured expansion:** establish batch/incremental performance budgets and
-   widen parity coverage only where a host integration or a new public API needs
-   additional evidence.
+This is not a release claim. The next delivery slice is:
+
+1. **Candidate packaging:** assign matching prerelease package versions, build
+   and pin the Pyne Runtime, bridge, and workbench artifacts, then run a fresh
+   process/install and real CandleScope browser acceptance pass.
+2. **Measured expansion:** widen performance/parity and external-library
+   coverage only where real converted indicators require it.
 
 Each slice must preserve the existing batch API and output schemas, remain
 fail-closed at host boundaries, and pass the full release gate before the next

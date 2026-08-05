@@ -18,7 +18,7 @@ def test_cli_schema_prints_public_schema(capsys: pytest.CaptureFixture[str]) -> 
     payload = json.loads(captured.out)
     assert exit_code == 0
     assert payload["input"]["schemaVersion"] == 1
-    assert payload["output"]["schemaVersion"] == 1
+    assert payload["output"]["schemaVersion"] == 2
     assert payload["params"]["schemaVersion"] == 1
     assert payload["requestProvider"]["schemaVersion"] == PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
     assert [item["api"] for item in payload["requestProvider"]["supportedApis"]] == [

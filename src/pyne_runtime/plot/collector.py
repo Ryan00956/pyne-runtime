@@ -18,6 +18,7 @@ class OutputCollector:
         self.times = times
         self.max_drawing_objects = max(int(max_drawing_objects), 1)
         self.lines: list[dict[str, Any]] = []
+        self.candles: list[dict[str, Any]] = []
         self.histograms: list[dict[str, Any]] = []
         self.hlines: list[dict[str, Any]] = []
         self.fills: list[dict[str, Any]] = []
@@ -33,6 +34,8 @@ class OutputCollector:
         self._object_labels: dict[str, dict[str, Any]] = {}
         self._object_boxes: dict[str, dict[str, Any]] = {}
         self._object_tables: dict[str, dict[str, Any]] = {}
+        self._object_linefills: dict[str, dict[str, Any]] = {}
+        self._object_polylines: dict[str, dict[str, Any]] = {}
         self._indicator_meta: dict[str, Any] = {}
         self._plot_counter: int = 0
         self._object_counter: int = 0
@@ -52,6 +55,8 @@ class OutputCollector:
             + len(self._object_labels)
             + len(self._object_boxes)
             + len(self._object_tables)
+            + len(self._object_linefills)
+            + len(self._object_polylines)
         )
         if total >= self.max_drawing_objects:
             raise PyneSecurityError(
@@ -79,6 +84,8 @@ class OutputCollector:
 
         if self.lines:
             result["lines"] = self.lines
+        if self.candles:
+            result["candles"] = self.candles
         if self.histograms:
             result["histograms"] = self.histograms
         if self.hlines:
@@ -120,6 +127,10 @@ class OutputCollector:
             objects["boxes"] = list(self._object_boxes.values())
         if self._object_tables:
             objects["tables"] = list(self._object_tables.values())
+        if self._object_linefills:
+            objects["linefills"] = list(self._object_linefills.values())
+        if self._object_polylines:
+            objects["polylines"] = list(self._object_polylines.values())
         if objects:
             result["objects"] = objects
 

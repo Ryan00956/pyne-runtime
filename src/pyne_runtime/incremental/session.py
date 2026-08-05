@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import builtins as python_builtins
 import copy
+import hashlib
 import inspect
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from dataclasses import dataclass
 from types import (
     BuiltinFunctionType,
     BuiltinMethodType,
@@ -20,7 +22,7 @@ from types import (
 from typing import Any, Callable
 
 from ..barstate import PyneIncrementalBarState
-from ..cache import pyne as pyne_cache_namespace
+from ..cache import PyneCacheNamespace, PyneCacheSnapshot, PyneExecutionScope
 from ..chart import ChartNamespace
 from ..collections import ArrayNamespace, MapNamespace, MatrixNamespace, order_namespace
 from ..color import color as color_singleton
@@ -45,6 +47,35 @@ from .limits import (
 from .result import IncrementalPyneResult
 
 
+PYNE_INCREMENTAL_SNAPSHOT_VERSION = 1
+
+
+@dataclass(frozen=True)
+class _FunctionStateSnapshot:
+    defaults: Any
+    kwdefaults: Any
+    attributes: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class PyneIncrementalSessionSnapshot:
+    """Opaque process-local snapshot of committed incremental state."""
+
+    schema_version: int
+    script_sha256: str
+    params: dict[str, Any]
+    security_mode: str
+    retention_bars: int
+    context: IncrementalContext | None
+    meta: dict[str, Any]
+    global_values: dict[str, Any]
+    function_states: dict[str, _FunctionStateSnapshot]
+    cache: PyneCacheSnapshot
+    last_closed_time: int | None
+    closed_count: int
+    retained_closed_times: tuple[int, ...]
+
+
 class PyneIncrementalSession:
     """Long-lived incremental Pyne execution session."""
 
@@ -56,13 +87,25 @@ class PyneIncrementalSession:
         security_mode: str | None = None,
         policy: PyneSecurityPolicy | None = None,
         settings: PyneSettings | None = None,
+        execution_scope: PyneExecutionScope | None = None,
+        retention_bars: int | None = None,
     ) -> None:
         self.script = script
         self.params = _readonly_params(params or {})
         self.settings = settings or PyneSettings.from_env()
         self.policy = policy or PyneSecurityPolicy.from_settings(self.settings, security_mode)
+        self.retention_bars = min(
+            self.policy.max_bars,
+            max(int(retention_bars or self.settings.incremental_retention_bars), 1),
+        )
+        self.execution_scope = execution_scope or PyneExecutionScope.fresh(
+            max_items=self.settings.cache_max_items,
+        )
         self.security_mode = self.policy.mode
-        self._limits = IncrementalLimits.for_policy(self.policy)
+        self._limits = IncrementalLimits.for_policy(
+            self.policy,
+            retention_bars=self.retention_bars,
+        )
         self._globals: dict[str, Any] = {}
         self._meta: dict[str, Any] = {}
         self._init_func: Callable[..., Any] | None = None
@@ -78,6 +121,7 @@ class PyneIncrementalSession:
         self._base_namespace_names: set[str] = set()
         self._base_namespace_values: dict[str, Any] = {}
         self._poisoned_reason: str | None = None
+        self._retained_closed_times: list[int] = []
 
     def prepare(self) -> None:
         self._ensure_healthy()
@@ -128,6 +172,7 @@ class PyneIncrementalSession:
         self.last_closed_time = None
         self._active_preview_time = None
         self._preview_varip_states = {}
+        self._retained_closed_times = []
         last_bar_index = len(ohlcv) - 1
         for index, item in enumerate(ohlcv):
             bar = IncrementalBar.from_dict(item, is_confirmed=True)
@@ -149,11 +194,11 @@ class PyneIncrementalSession:
             )
             self.last_closed_time = bar.time
             self._closed_count = index + 1
-        return self._ctx.to_result(start_s=start_s, end_s=end_s)
+            self._commit_retention(bar.time)
+        return self._to_result(self._ctx, start_s=start_s, end_s=end_s)
 
     def on_bar_closed(self, item: dict[str, Any]) -> IncrementalPyneResult:
         self._ensure_healthy()
-        self._ensure_bar_capacity(1)
         bar = IncrementalBar.from_dict(item, is_confirmed=True)
         self._validate_event_time(bar, preview=False)
         self.prepare()
@@ -188,14 +233,14 @@ class PyneIncrementalSession:
         )
         self.last_closed_time = bar.time
         self._closed_count = bar_index + 1
+        self._commit_retention(bar.time)
         if self._active_preview_time is not None and bar.time >= self._active_preview_time:
             self._active_preview_time = None
             self._preview_varip_states = {}
-        return self._ctx.to_result(start_s=bar.time, end_s=bar.time)
+        return self._to_result(self._ctx, start_s=bar.time, end_s=bar.time)
 
     def on_bar_updated(self, item: dict[str, Any]) -> IncrementalPyneResult:
         self._ensure_healthy()
-        self._ensure_bar_capacity(1)
         bar = IncrementalBar.from_dict(item, is_confirmed=False)
         self._validate_event_time(bar, preview=True)
         self.prepare()
@@ -237,7 +282,7 @@ class PyneIncrementalSession:
             ),
         )
         self._active_preview_time = bar.time
-        return preview_ctx.to_result(start_s=bar.time, end_s=bar.time)
+        return self._to_result(preview_ctx, start_s=bar.time, end_s=bar.time)
 
     def _run_bar(
         self,
@@ -273,12 +318,13 @@ class PyneIncrementalSession:
             self._poison(exc)
             raise
 
-    def _ensure_bar_capacity(self, additional: int) -> None:
-        requested = self._closed_count + max(int(additional), 0)
-        if requested > self.policy.max_bars:
-            error = PyneSecurityError(f"Too many data points (max {self.policy.max_bars})")
-            self._poison(error)
-            raise error
+    def _commit_retention(self, bar_time: int) -> None:
+        self._retained_closed_times.append(int(bar_time))
+        if len(self._retained_closed_times) <= self.retention_bars:
+            return
+        del self._retained_closed_times[: -self.retention_bars]
+        if self._ctx is not None:
+            self._ctx.prune_before_time(self._retained_closed_times[0])
 
     def _ensure_healthy(self) -> None:
         if self._poisoned_reason is not None:
@@ -365,10 +411,11 @@ class PyneIncrementalSession:
             return active_ctx("varip()").varip(name, default)
 
         drawing_namespaces = self._drawing_namespaces()
+        cache_namespace = PyneCacheNamespace(self.execution_scope.cache)
         pyne_namespace = SimpleNamespace(
-            cache=pyne_cache_namespace.cache,
-            cache_clear=pyne_cache_namespace.cache_clear,
-            cache_stats=pyne_cache_namespace.cache_stats,
+            cache=cache_namespace.cache,
+            cache_clear=cache_namespace.cache_clear,
+            cache_stats=cache_namespace.cache_stats,
             state=state,
             var=state,
             varip=varip,
@@ -399,9 +446,9 @@ class PyneIncrementalSession:
             ),
             "order": order_namespace,
             "pyne": pyne_namespace,
-            "cache": pyne_cache_namespace.cache,
-            "cache_clear": pyne_cache_namespace.cache_clear,
-            "cache_stats": pyne_cache_namespace.cache_stats,
+            "cache": cache_namespace.cache,
+            "cache_clear": cache_namespace.cache_clear,
+            "cache_stats": cache_namespace.cache_stats,
             "state": state,
             "var": state,
             "varip": varip,
@@ -632,7 +679,160 @@ class PyneIncrementalSession:
                 max_drawing_objects=self.settings.max_drawing_objects,
             )
             self._call_optional(self._init_func, self._ctx)
-        return self._ctx.to_result(start_s=start_s, end_s=end_s)
+        return self._to_result(self._ctx, start_s=start_s, end_s=end_s)
+
+    def _to_result(
+        self,
+        ctx: IncrementalContext,
+        *,
+        start_s: int | None = None,
+        end_s: int | None = None,
+    ) -> IncrementalPyneResult:
+        result = ctx.to_result(start_s=start_s, end_s=end_s)
+        result.meta = {
+            **result.meta,
+            "retentionBars": self.retention_bars,
+            "retainedBars": len(self._retained_closed_times),
+            "totalCommittedBars": self._closed_count,
+            "snapshotVersion": PYNE_INCREMENTAL_SNAPSHOT_VERSION,
+        }
+        return result
+
+    def snapshot_state(self) -> PyneIncrementalSessionSnapshot:
+        """Capture committed process-local state for restart in this process.
+
+        The snapshot deliberately excludes active preview state. Scripts with
+        closures or script-defined classes fail closed because their object
+        graphs cannot be safely rebound to a fresh execution namespace.
+        """
+
+        self._ensure_healthy()
+        self.prepare()
+        memo: dict[int, Any] = {}
+        global_values, function_states = self._snapshot_user_globals(memo)
+        return PyneIncrementalSessionSnapshot(
+            schema_version=PYNE_INCREMENTAL_SNAPSHOT_VERSION,
+            script_sha256=_script_sha256(self.script),
+            params=copy.deepcopy(dict(self.params.items()), memo),
+            security_mode=self.security_mode,
+            retention_bars=self.retention_bars,
+            context=copy.deepcopy(self._ctx, memo),
+            meta=copy.deepcopy(self._meta, memo),
+            global_values=global_values,
+            function_states=function_states,
+            cache=self.execution_scope.cache.snapshot_state(memo=memo),
+            last_closed_time=self.last_closed_time,
+            closed_count=self._closed_count,
+            retained_closed_times=tuple(self._retained_closed_times),
+        )
+
+    def restore_state(self, snapshot: PyneIncrementalSessionSnapshot) -> None:
+        """Replace this session's committed state from a matching snapshot."""
+
+        self._ensure_healthy()
+        if not isinstance(snapshot, PyneIncrementalSessionSnapshot):
+            raise TypeError("snapshot must be a PyneIncrementalSessionSnapshot")
+        if snapshot.schema_version != PYNE_INCREMENTAL_SNAPSHOT_VERSION:
+            raise ValueError(f"Unsupported incremental snapshot version {snapshot.schema_version}")
+        if snapshot.script_sha256 != _script_sha256(self.script):
+            raise ValueError("Incremental snapshot script does not match this session")
+        if snapshot.security_mode != self.security_mode:
+            raise ValueError("Incremental snapshot security mode does not match this session")
+        if snapshot.retention_bars != self.retention_bars:
+            raise ValueError("Incremental snapshot retention policy does not match this session")
+        if dict(self.params.items()) != snapshot.params:
+            raise ValueError("Incremental snapshot params do not match this session")
+
+        self.prepare()
+        memo: dict[int, Any] = {}
+        self._ctx = copy.deepcopy(snapshot.context, memo)
+        self._meta = copy.deepcopy(snapshot.meta, memo)
+        for name, value in snapshot.global_values.items():
+            self._globals[name] = copy.deepcopy(value, memo)
+        self._restore_function_states(snapshot.function_states, memo)
+        self.execution_scope.cache.restore_state(snapshot.cache, memo=memo)
+        self._init_func = self._callback("init")
+        self._on_bar = self._callback("on_bar")
+        self._on_preview = self._callback("on_preview")
+        self.last_closed_time = snapshot.last_closed_time
+        self._closed_count = snapshot.closed_count
+        self._retained_closed_times = list(snapshot.retained_closed_times)
+        self._active_ctx = None
+        self._active_preview_time = None
+        self._preview_varip_states = {}
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        snapshot: PyneIncrementalSessionSnapshot,
+        *,
+        script: str,
+        settings: PyneSettings | None = None,
+        execution_scope: PyneExecutionScope | None = None,
+    ) -> "PyneIncrementalSession":
+        """Create a fresh session and restore a matching process-local snapshot."""
+
+        session = cls(
+            script=script,
+            params=copy.deepcopy(snapshot.params),
+            security_mode=snapshot.security_mode,
+            settings=settings,
+            execution_scope=execution_scope,
+            retention_bars=snapshot.retention_bars,
+        )
+        session.restore_state(snapshot)
+        return session
+
+    def _snapshot_user_globals(
+        self,
+        memo: dict[int, Any],
+    ) -> tuple[dict[str, Any], dict[str, _FunctionStateSnapshot]]:
+        values: dict[str, Any] = {}
+        functions: dict[str, _FunctionStateSnapshot] = {}
+        for name, value in self._globals.items():
+            if name in self._base_namespace_names and value is self._base_namespace_values[name]:
+                continue
+            if isinstance(value, FunctionType):
+                if value.__closure__:
+                    raise PyneSecurityError(
+                        f"Incremental snapshot cannot safely restore closure: {name}"
+                    )
+                functions[name] = _FunctionStateSnapshot(
+                    defaults=copy.deepcopy(value.__defaults__, memo),
+                    kwdefaults=copy.deepcopy(value.__kwdefaults__, memo),
+                    attributes=copy.deepcopy(value.__dict__, memo),
+                )
+                continue
+            if isinstance(value, type):
+                raise PyneSecurityError(
+                    f"Incremental snapshot cannot safely restore script class: {name}"
+                )
+            if isinstance(value, ModuleType):
+                continue
+            values[name] = copy.deepcopy(value, memo)
+        return values, functions
+
+    def _restore_function_states(
+        self,
+        states: dict[str, _FunctionStateSnapshot],
+        memo: dict[int, Any],
+    ) -> None:
+        for name, state in states.items():
+            function = self._globals.get(name)
+            if not isinstance(function, FunctionType):
+                raise ValueError(f"Incremental snapshot function is missing: {name}")
+            function.__defaults__ = copy.deepcopy(state.defaults, memo)
+            function.__kwdefaults__ = copy.deepcopy(state.kwdefaults, memo)
+            function.__dict__.clear()
+            function.__dict__.update(copy.deepcopy(state.attributes, memo))
+
+    def _callback(self, name: str) -> Callable[..., Any] | None:
+        value = self._globals.get(name)
+        return value if callable(value) else None
+
+
+def _script_sha256(script: str) -> str:
+    return hashlib.sha256(script.encode("utf-8")).hexdigest()
 
 
 class _ReadOnlyMapping(Mapping[Any, Any]):

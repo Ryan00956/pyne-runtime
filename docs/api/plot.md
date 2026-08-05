@@ -221,15 +221,23 @@ Supported `table` methods:
 - `table.new(position=position.top_right, columns=1, rows=1)`
 - `table.cell(ref, column, row, text="", text_color="#000000")`
 - `table.clear(ref)`
+- `table.merge_cells(ref, start_column, start_row, end_column, end_row)`
 - `table.set_position(ref, position)`
 - `table.set_bgcolor(ref, bgcolor)`
 - `table.set_frame_color(ref, frame_color)`
 - `table.set_border_color(ref, border_color)`
 - `table.delete(ref)`
 
-`table.merge_cells` is not currently exposed. It requires a versioned merged-cell
-shape in Pyne's object output and a matching CandleScope renderer contract;
-transporting an unrendered field would not count as compatibility.
+Merged regions are bounds-checked and cannot overlap. They are serialized in
+`output.objects.tables[*].merges` under output schema v2.
+
+Output schema v2 also exposes:
+
+- `plotcandle(open, high, low, close, ...)` under `output.candles`.
+- `linefill.new(line1, line2, color=...)`, `linefill.set_color`, and
+  `linefill.delete` under `output.objects.linefills`.
+- `polyline.new(points, ...)` and `polyline.delete` under
+  `output.objects.polylines`. Points must be `chart.point` values.
 
 Table placement constants are available under `position.*`, including
 `position.top_right`, `position.middle_center`, and `position.bottom_left`.

@@ -209,8 +209,9 @@ invalid request contexts can be ignored.
 
 Hosts can branch on `pn.schema()["requestProvider"]["schemaVersion"]` and
 `pn.schema()["requestProvider"]["errorCategories"]` when displaying request
-integration failures. Version 4 adds structured categories while preserving the
-legacy `errors` mapping. Request provider failures also include the matching
+integration failures. Version 10 replaces message-fragment classification with
+`pn.RequestProviderErrorCategory` and typed provider exceptions while preserving
+the legacy `errors` mapping. Request provider failures also include the matching
 category in `result.errorDetail["requestProviderCategory"]` and the failed
 request coordinates in `result.errorDetail["requestProviderRequest"]`.
 
@@ -236,11 +237,35 @@ schema for either request API.
 
 Provider code should raise `pn.PyneInvalidSymbolError(symbol)` for invalid
 symbols. The exception exposes a stable `.symbol` attribute while preserving the
-message passed to `Exception`. Runtime and adapter errors use
+message passed to `Exception`. Provider adapters can raise
+`PyneProviderCapabilityError`, `PyneProviderDataError`, or
+`PyneProviderMetadataError` for typed failures at those boundaries. Runtime and
+adapter errors use
 `pn.PyneRequestError`, which exposes stable `.code`, `.category`, and
 `.request_context` attributes. Hosts normally consume those fields through the
 serialized `result.errorDetail` contract, but the exception attributes are
-public for inline adapters and tests.
+public for inline adapters and tests. Human-readable exception text is not a
+classification contract.
+
+## Provider Conformance Kit
+
+`pn.run_data_provider_conformance(...)` checks capability declarations, OHLCV
+shape, metadata normalization, runtime result shape, diagnostics, and optionally
+typed invalid-symbol behavior. It returns a `ProviderConformanceReport` without
+requiring pytest. `pn.assert_data_provider_conformance(...)` runs the same checks
+and raises one compact `AssertionError`, which makes it convenient in any CI
+test runner.
+
+```python
+pn.assert_data_provider_conformance(
+    provider,
+    chart_ohlcv=chart_bars,
+    symbol="BTCUSDT",
+    timeframe="5",
+    lower_timeframe="1",
+    invalid_symbol="NOT_A_REAL_SYMBOL",
+)
+```
 
 For IDE and static typing support, Pyne exports provider typing helpers at both
 `pyne_runtime.request` and the package top level:
@@ -266,6 +291,11 @@ For IDE and static typing support, Pyne exports provider typing helpers at both
   declarations.
 - `RequestMetadataProvider`: optional protocol for method-based metadata
   declarations.
+- `RequestProviderErrorCategory`: stable typed category enum.
+- `PyneProviderError` and its capability/data/metadata subclasses: typed
+  provider-side failure signals.
+- `ProviderConformanceReport`, `run_data_provider_conformance()`, and
+  `assert_data_provider_conformance()`: reusable provider contract checks.
 
 ## `request.security`
 

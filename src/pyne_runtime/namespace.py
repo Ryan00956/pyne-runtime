@@ -9,13 +9,14 @@ from typing import Any
 import numpy as np
 
 from . import utils
-from .cache import pyne_cache
+from .cache import PyneExecutionScope
 from .chart import ChartNamespace
 from .collections import ArrayNamespace, MapNamespace, MatrixNamespace, order_namespace
 from .color import color as color_singleton
 from .context import PyneContext
 from .input import InputModule
 from .math_ext import PyneMath
+from .pine_libraries import PineLibraryRegistry
 from .plot import OutputCollector, create_plot_functions
 from .request import RequestModule, barmerge
 from .runtime_ext import runtime_namespace
@@ -40,6 +41,7 @@ class RuntimeServices:
     settings: PyneSettings
     params: dict[str, Any]
     policy: PyneSecurityPolicy
+    execution_scope: PyneExecutionScope | None = None
     ta: TaModule = field(init=False)
     input: InputModule = field(init=False)
     state: PyneStateNamespace = field(init=False)
@@ -49,6 +51,10 @@ class RuntimeServices:
     strategy: StrategyModule = field(init=False)
 
     def __post_init__(self) -> None:
+        if self.execution_scope is None:
+            self.execution_scope = PyneExecutionScope.fresh(
+                max_items=self.settings.cache_max_items,
+            )
         self.ta = TaModule(self.ctx)
         self.input = InputModule(params=self.params, context=self.ctx)
         self.state = PyneStateNamespace()
@@ -127,6 +133,7 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
     namespace["ta"] = services.ta
     namespace["input"] = services.input
     namespace["request"] = services.request
+    namespace["pine_library"] = PineLibraryRegistry(services.ctx, services.request)
     namespace["runtime"] = runtime_namespace
     namespace["barmerge"] = barmerge
     namespace["strategy"] = services.strategy
@@ -260,10 +267,13 @@ def install_builtins_namespace(namespace: dict[str, Any], services: RuntimeServi
 
 
 def _pyne_namespace(services: RuntimeServices) -> SimpleNamespace:
+    if services.execution_scope is None:  # pragma: no cover - guarded by __post_init__
+        raise RuntimeError("Runtime services have no execution scope")
+    cache = services.execution_scope.cache
     return SimpleNamespace(
-        cache=pyne_cache.get_or_load,
-        cache_clear=pyne_cache.clear,
-        cache_stats=pyne_cache.stats,
+        cache=cache.get_or_load,
+        cache_clear=cache.clear,
+        cache_stats=cache.stats,
         var=services.state.var,
         state=services.state.state,
         state_snapshot=services.state.snapshot,

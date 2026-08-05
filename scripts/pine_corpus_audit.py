@@ -83,15 +83,13 @@ HOST_OWNED_FEATURES = frozenset(
         "syminfo.volumetype",
     }
 )
-RENDER_CONTRACT_GAPS = frozenset(
-    {
-        "linefill.new",
-        "linefill.delete",
-        "polyline.new",
-        "plotcandle",
-        "table.merge_cells",
-    }
-)
+RENDER_CONTRACT_GAPS = frozenset()
+PINNED_LIBRARY_ADAPTERS = {
+    "TradingView/ta/10#requestUpAndDownVolume": (
+        'pine_library("TradingView/ta/10").requestUpAndDownVolume',
+        "Pinned adapter backed by authoritative host lower-timeframe OHLCV.",
+    ),
+}
 PYTHON_SPELLING_REWRITES = {
     "array.from": "Use array.from_values(...) because `from` is a Python keyword.",
 }
@@ -503,6 +501,9 @@ def classify_feature(
 ) -> tuple[str, str | None, str]:
     if feature.startswith(PINE_LIBRARY_FEATURE_PREFIX):
         library_and_member = feature.removeprefix(PINE_LIBRARY_FEATURE_PREFIX)
+        adapter = PINNED_LIBRARY_ADAPTERS.get(library_and_member)
+        if adapter is not None:
+            return "api-covered", adapter[0], adapter[1]
         library, _, member = library_and_member.partition(PINE_LIBRARY_MEMBER_SEPARATOR)
         return (
             "library-rewrite",
@@ -535,6 +536,8 @@ def classify_feature(
         return "runtime-gap", None, "The current input namespace is not callable."
 
     if feature == "plotcandle":
+        if feature in surface.callable_top_level_names:
+            return "api-covered", feature, "Available in Pyne output schema v2."
         return "render-gap", None, "Requires an explicit candle-series Render IR contract."
 
     target = LEGACY_TO_PYNE.get(feature)

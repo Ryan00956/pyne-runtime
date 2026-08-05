@@ -34,6 +34,7 @@ class PyneSettings:
     max_matrix_cells: int = 100_000
     max_collection_depth: int = 8
     max_strategy_pending_operations: int = 1_000_000
+    incremental_retention_bars: int = 10_000
     cache_max_items: int = 32
     allowed_imports: tuple[str, ...] = DEFAULT_ALLOWED_IMPORTS
     data_provider: DataProvider | None = None
@@ -64,6 +65,11 @@ class PyneSettings:
             self,
             "max_strategy_pending_operations",
             max(int(self.max_strategy_pending_operations), 1),
+        )
+        object.__setattr__(
+            self,
+            "incremental_retention_bars",
+            max(int(self.incremental_retention_bars), 1),
         )
         object.__setattr__(self, "cache_max_items", max(int(self.cache_max_items), 1))
         object.__setattr__(
@@ -102,6 +108,7 @@ class PyneSettings:
                 "PYNE_MAX_STRATEGY_PENDING_OPERATIONS",
                 1_000_000,
             ),
+            incremental_retention_bars=_int_env("PYNE_INCREMENTAL_RETENTION_BARS", 10_000),
             cache_max_items=_int_env("PYNE_CACHE_MAX_ITEMS", 32),
             allowed_imports=allowed_imports,
             syminfo={

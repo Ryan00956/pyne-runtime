@@ -55,3 +55,15 @@ def test_invalid_symbol_error_allows_custom_message() -> None:
 
     assert str(err) == "symbol is not routed"
     assert err.symbol == "MISSING"
+
+
+def test_provider_error_categories_are_typed_but_serialize_as_strings() -> None:
+    err = pn.PyneRequestError(
+        "offline",
+        category=pn.RequestProviderErrorCategory.PROVIDER_FAILURE,
+    )
+
+    assert err.category == "providerFailure"
+    assert issubclass(pn.PyneProviderDataError, pn.PyneProviderError)
+    assert pn.PyneProviderMetadataError.category.value == "metadataFailure"
+    assert pn.PyneProviderCapabilityError.category.value == "capabilityFailure"

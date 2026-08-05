@@ -24,6 +24,8 @@ pn.PyneStateNamespace
 pn.PyneVar
 pn.PyneRuntime
 pn.PyneIncrementalSession
+pn.PyneIncrementalSessionSnapshot
+pn.PyneIncrementalSessionCapacityError
 pn.PyneIncrementalSessionManager
 pn.SharedPyneIncrementalSession
 pn.SymbolInfo
@@ -44,6 +46,10 @@ pn.order_namespace
 pn.Color
 pn.color
 pn.PyneMath
+pn.PineLibraryDescriptor
+pn.PineLibraryRegistry
+pn.SUPPORTED_PINE_LIBRARIES
+pn.TRADINGVIEW_TA_10
 pn.StringNamespace
 pn.string_namespace
 pn.TickerNamespace
@@ -69,12 +75,22 @@ pn.RequestSessionMetadata
 pn.RequestSymbolMetadata
 pn.RequestTimeframeMetadata
 pn.PyneInvalidSymbolError
+pn.PyneProviderError
+pn.PyneProviderCapabilityError
+pn.PyneProviderDataError
+pn.PyneProviderMetadataError
 pn.PyneRequestError
+pn.RequestProviderErrorCategory
+pn.ProviderConformanceCheck
+pn.ProviderConformanceReport
+pn.run_data_provider_conformance
+pn.assert_data_provider_conformance
 pn.RequestEvalContext
 pn.RequestModule
 pn.barmerge
 pn.BarMergeNamespace
 pn.StrategyModule
+pn.PyneExecutionScope
 pn.pyne_cache
 
 pn.execute_pyne_script
@@ -87,6 +103,7 @@ Version constants:
 ```python
 pn.__version__
 pn.PYNE_INPUT_SCHEMA_VERSION
+pn.PYNE_INCREMENTAL_SNAPSHOT_VERSION
 pn.PYNE_OUTPUT_SCHEMA_VERSION
 pn.PYNE_PARAM_SCHEMA_VERSION
 pn.PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
@@ -102,10 +119,12 @@ pn.fixnan
 scripts as `nz()` and `fixnan()`.
 `PyneBarState` is the batch-runtime namespace type behind script-level `barstate.*` flags.
 `PyneVar` and `PyneStateNamespace` power script-level `var()` / `pyne.var()` state cells.
-`PyneIncrementalSession`, `PyneIncrementalSessionManager`,
+`PyneIncrementalSession`, `PyneIncrementalSessionSnapshot`,
+`PyneIncrementalSessionManager`, `PyneIncrementalSessionCapacityError`,
 `SharedPyneIncrementalSession`, `PyneIncrementalBarState`, and
 `is_incremental_pyne_script()` are host-facing helpers for confirmed/preview
-bar workflows.
+bar workflows. `PYNE_INCREMENTAL_SNAPSHOT_VERSION` versions opaque
+process-local checkpoints.
 `SymbolInfo`, `TimeframeInfo`, `SessionInfo`, and `SessionNamespace` back the
 script-level `syminfo`, `timeframe`, and `session` namespaces.
 `ArrayNamespace`, `MapNamespace`, `MatrixNamespace`, `OrderNamespace`,
@@ -114,6 +133,9 @@ back the script-level `array`, `map`, `matrix`, and `order` APIs.
 `Color`, `color`, `PyneMath`, `StringNamespace`, `string_namespace`,
 `TickerNamespace`, `TimeNamespace`, and `ObjectRef` support script-facing
 color, math, string, ticker, time, and drawing-object helpers.
+`PineLibraryDescriptor`, `PineLibraryRegistry`, `SUPPORTED_PINE_LIBRARIES`,
+and `TRADINGVIEW_TA_10` describe the fail-closed pinned external-library
+adapter surface.
 `DataProvider` is the host protocol for `request.security()` market data access.
 `LowerTimeframeSeries` is the grouped result object returned by
 `request.security_lower_tf()`.
@@ -127,6 +149,11 @@ color, math, string, ticker, time, and drawing-object helpers.
 data adapters.
 `PyneInvalidSymbolError` is the provider-side signal used by
 `ignore_invalid_symbol=True`.
+`PyneProviderError` and its capability, data, and metadata subclasses provide
+typed provider-side failure signals. `RequestProviderErrorCategory` is the
+stable machine-readable category enum. The conformance report and helper
+functions let host adapters test the complete provider boundary without taking
+a dependency on a specific Python test runner.
 `PyneRequestError` is the stable runtime request error type used by host-backed
 request adapters.
 `RequestEvalContext` is the calculation-only context passed to `request.security()` expression thunks.
@@ -134,8 +161,11 @@ request adapters.
 `pn.barmerge.gaps_on` and `pn.barmerge.lookahead_off`.
 `BarMergeNamespace` is the concrete namespace type behind `pn.barmerge`.
 `StrategyModule` is the script-level `strategy.*` event namespace.
-`pyne_cache` is the package-level cache service surfaced for explicit host
-cache management.
+`PyneExecutionScope` lets a host intentionally share script cache state across
+multiple inline executions. By default each batch execution and each
+incremental session owns an isolated scope. `pyne_cache` remains the
+package-level service for explicit host cache management; it is not the cache
+injected into ordinary script executions.
 
 Internal helpers and non-exported functions are not part of the compatibility contract.
 

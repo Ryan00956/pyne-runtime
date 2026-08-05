@@ -125,6 +125,35 @@ class IncrementalContext(IncrementalDrawingMixin):
         self._current_markers = {}
         self._limit_tracker.clear_output()
 
+    def prune_before_time(self, cutoff_time: int) -> None:
+        """Drop runtime-managed historical output older than ``cutoff_time``."""
+
+        cutoff = int(cutoff_time)
+        for collection in (self._series, self._markers):
+            for key in list(collection):
+                entry = collection[key]
+                entry["data"] = [
+                    point
+                    for point in entry.get("data") or []
+                    if _point_time(point) >= cutoff
+                ]
+                if not entry["data"]:
+                    collection.pop(key, None)
+        self._object_events = [
+            event for event in self._object_events if _point_time(event) >= cutoff
+        ]
+        self.strategy.prune_history(cutoff)
+        series_keys = {f"series:{key}" for key in self._series}
+        series_keys.update(f"marker:{key}" for key in self._markers)
+        self._limit_tracker.output_series_keys = series_keys
+        self._limit_tracker.output_series = len(series_keys)
+        self._limit_tracker.output_points = sum(
+            len(entry.get("data") or [])
+            for collection in (self._series, self._markers)
+            for entry in collection.values()
+        )
+        self._limit_tracker.object_events = len(self._object_events)
+
     def begin_bar(
         self,
         bar: IncrementalBar,
@@ -457,6 +486,13 @@ def _filter_points(
             continue
         filtered.append(point)
     return filtered
+
+
+def _point_time(item: Mapping[str, Any]) -> int:
+    try:
+        return int(item.get("time", -1))
+    except (TypeError, ValueError):
+        return -1
 
 def _style_to_int(style: Any) -> int:
     if isinstance(style, int):

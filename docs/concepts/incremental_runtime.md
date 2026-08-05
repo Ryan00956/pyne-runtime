@@ -40,6 +40,7 @@ session = pn.PyneIncrementalSession(
     script=script,
     params=params,
     settings=pn.PyneSettings(executor_mode="inline"),
+    retention_bars=10_000,
 )
 ```
 
@@ -130,11 +131,43 @@ current = session.snapshot_result()
 Use it when a UI reconnects, when a viewport range changes, or after a host
 needs to discard a preview overlay and redraw the last committed state.
 
+Committed runtime-managed history is rolling rather than lifetime-bounded.
+`retention_bars` defaults to `PyneSettings.incremental_retention_bars` (10,000)
+and caps retained plot points, markers, object events, strategy logs, and state
+history. `meta.totalCommittedBars` remains an absolute lifetime counter, while
+`meta.retainedBars` and `meta.retentionBars` disclose the current window. The
+initial seed is still bounded by `max_bars`. TA windows, open trades, pending
+orders, and live drawing objects remain as active state even when old report
+history is trimmed.
+
+For process-local recovery, capture committed state separately from the render
+snapshot:
+
+```python
+checkpoint = session.snapshot_state()
+restored = pn.PyneIncrementalSession.from_snapshot(
+    checkpoint,
+    script=script,
+    settings=settings,
+)
+```
+
+`snapshot_state()` includes committed context, TA/state/strategy/drawing state,
+module globals, the session-scoped cache, counters, and retention position. It
+excludes temporary preview state. The snapshot is an opaque in-process Python
+object, not a JSON or distributed persistence format. Script hash, params,
+security mode, snapshot version, and retention policy must match at restore.
+Closures and script-defined classes fail closed because they cannot be safely
+rebound to a fresh execution namespace.
+
 For multi-chart services, `PyneIncrementalSessionManager` provides a small
 in-process shared-session cache:
 
 ```python
-manager = pn.PyneIncrementalSessionManager()
+manager = pn.PyneIncrementalSessionManager(
+    max_sessions=64,
+    idle_ttl_seconds=300,
+)
 shared = manager.acquire(chart_key, lambda: pn.PyneIncrementalSession(script=script))
 
 try:
@@ -147,7 +180,12 @@ finally:
 
 `seed_or_snapshot()` seeds once and returns snapshots afterward. `process_bar()`
 deduplicates identical repeated bar events, which helps UI transports that can
-retry the same message.
+retry the same message. Released sessions with a positive TTL remain idle for
+quick reconnects. `collect_expired()` removes expired idle sessions. When the
+capacity is full, the least-recently-used idle session is evicted; if every slot
+is active, acquisition fails with `PyneIncrementalSessionCapacityError`.
+`close(key)` explicitly removes an idle session, while an active session
+requires the deliberate `force=True` override.
 
 ## Consuming Object Events
 

@@ -2659,7 +2659,7 @@ def test_incremental_live_events_reject_backwards_time() -> None:
         session.on_bar_closed({**_bars()[1], "time": 2})
 
 
-def test_incremental_session_enforces_max_bars_for_seed_and_live_events() -> None:
+def test_incremental_session_limits_seed_but_allows_rolling_live_events() -> None:
     settings = pn.PyneSettings(executor_mode="inline", max_bars=1)
     script = 'indicator("Limit", mode="incremental")\ndef on_bar(ctx, bar):\n    pass'
 
@@ -2668,10 +2668,12 @@ def test_incremental_session_enforces_max_bars_for_seed_and_live_events() -> Non
 
     session = pn.PyneIncrementalSession(script=script, settings=settings)
     session.seed(_bars()[:1])
-    with pytest.raises(PyneSecurityError, match="max 1"):
-        session.on_bar_updated(_bars()[1])
-    with pytest.raises(PyneSecurityError, match="max 1"):
-        session.on_bar_closed(_bars()[1])
+    preview = session.on_bar_updated(_bars()[1])
+    closed = session.on_bar_closed(_bars()[1])
+
+    assert preview.ok and preview.meta["bar_index"] == 1
+    assert closed.ok and closed.meta["bar_index"] == 1
+    assert session.snapshot_result().meta["bar_index"] == 1
 
 
 def test_incremental_ta_helpers_recover_after_nan() -> None:

@@ -17,7 +17,7 @@ Current schema versions:
 `pn.schema()["output"]["migration"]` is the machine-readable migration policy
 for host renderers.
 
-Version 1 is the current output schema. It defines:
+Version 1 remains supported for legacy hosts. It defines:
 
 - top-level result metadata and error fields;
 - structured renderer collections under `result.output`;
@@ -26,7 +26,12 @@ Version 1 is the current output schema. It defines:
 - strategy reports under `output["strategy"]`, with details in
   `pn.schema()["strategyReport"]`.
 
-There are no breaking changes recorded for output schema version 1.
+There are no breaking changes recorded inside output schema version 1.
+
+Version 2 is current. It adds `output.candles`, `objects.linefills`,
+`objects.polylines`, and `objects.tables[*].merges`. Hosts that validate exact
+collection names must branch on `schemaVersion`; the v1 fallback is valid only
+for scripts whose output stays within the v1 surface.
 
 Compatibility notes:
 
@@ -40,15 +45,21 @@ Compatibility notes:
 `pn.schema()["requestProvider"]["migration"]` is the machine-readable migration
 policy for host-backed `request.*` integrations.
 
-Version 9 is the current request provider schema. Provider `start` / `end`
-coordinates now describe the bounded warmup-expanded fetch window and the last
+Version 10 is the current request provider schema. Error categories no longer
+publish `messageContains`; consumers must branch on
+`RequestProviderErrorCategory`, `PyneRequestError.category`, or serialized
+`errorDetail.requestProviderCategory`. Provider adapters may use the exported
+typed provider exceptions, and the package includes a reusable conformance kit.
+
+Version 9 changed provider `start` / `end` coordinates to describe the bounded
+warmup-expanded fetch window and the last
 chart bar's close boundary, rather than the raw first/last chart opening-time
 range. A non-empty result with too few actual pre-chart bars can trigger a
 four-times wider lookback, capped at six widenings. A valid empty result stops
 the sequence immediately. This is bounded best effort and does not guarantee
 unlimited requested history. The
 `get_ohlcv(symbol, timeframe, start, end)` signature remains inclusive and
-unchanged. Version 9 preserves version 8
+unchanged. Version 10 preserves version 9 range behavior, version 8
 `request.security_lower_tf()` invalid-timeframe discovery metadata, version 7
 `supportedApis`, version 6 `errorDetail.requestProviderRequest` for failed
 request calls, version 5 `meta.requestDiagnostics` entries, and version 4
@@ -60,8 +71,8 @@ Compatibility notes:
 - Hosts can read `supportedApis` to decide which request APIs to expose in UI,
   editor help, and provider capability checks.
 - Hosts that display request integration failures should prefer
-  `errorCategories`, which records stable error codes, whether `get_ohlcv` is
-  called, `ignore_invalid_symbol` behavior, and identifying message fragments.
+  `errorCategories`, which records stable error codes, typed classifications,
+  whether `get_ohlcv` is called, and `ignore_invalid_symbol` behavior.
 - Runtime request failures include the matching category as
   `errorDetail.requestProviderCategory`.
 - Runtime request failures include failed `api/symbol/timeframe/start/end`

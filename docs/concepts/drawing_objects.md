@@ -143,12 +143,15 @@ Supported now:
 - `chart.point` constructors/copy and line/label/box point overloads
 - live oldest-first `line.all` and `box.all` handle snapshots
 - `table.new`, `table.cell`, `table.set_*`, `table.clear`, `table.delete`
+- `table.merge_cells` with validated, non-overlapping regions
+- `linefill.new`, `linefill.set_color`, `linefill.delete`
+- `polyline.new` from `chart.point` arrays and `polyline.delete`
 - `position.*` constants for table placement
 - legacy `label("text")` fixed-position labels
 - final snapshot output under `output["objects"]`
 - incremental create/update/delete events under `output["object_events"]`
 - object count limits through `PyneSettings.max_drawing_objects`
 
-Merged table cells are outside the current Render IR. `table.merge_cells` will
-remain unsupported until both the object schema and the embedding host renderer
-define the same behavior.
+These additional drawing groups are part of output schema v2. A v1 host may
+continue to run scripts that use only the v1 surface; it must reject v2-only
+collections instead of silently dropping them.

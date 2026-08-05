@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Collection, Mapping
 from typing import Any, Protocol, TypeAlias, TypedDict
 
-from .errors import PyneRequestError
+from .errors import PyneProviderError, PyneRequestError, RequestProviderErrorCategory
 from .. import _request_contract
 from ..metadata import SessionInfo, SymbolInfo, TimeframeInfo
 
@@ -106,11 +106,13 @@ def _provider_supports(provider: DataProvider, capability_names: tuple[str, ...]
             declared_capabilities = declared_capabilities()
     except PyneRequestError:
         raise
+    except PyneProviderError as exc:
+        raise PyneRequestError(str(exc), code=exc.code, category=exc.category) from exc
     except Exception as exc:
         raise PyneRequestError(
             f"request capability provider failed: {exc}",
             code="PYNE_RUNTIME_ERROR",
-            category="capabilityFailure",
+            category=RequestProviderErrorCategory.CAPABILITY_FAILURE,
         ) from exc
     if declared_capabilities is _MISSING:
         return True
@@ -135,11 +137,13 @@ def _request_metadata(provider: DataProvider, symbol: str, timeframe: str) -> di
             declared_metadata = declared_metadata(symbol, timeframe)
         except PyneRequestError:
             raise
+        except PyneProviderError as exc:
+            raise PyneRequestError(str(exc), code=exc.code, category=exc.category) from exc
         except Exception as exc:
             raise PyneRequestError(
                 f"request metadata provider failed: {exc}",
                 code="PYNE_RUNTIME_ERROR",
-                category="metadataFailure",
+                category=RequestProviderErrorCategory.METADATA_FAILURE,
             ) from exc
     else:
         declared_metadata = getattr(provider, "request_metadata", None)
@@ -148,11 +152,13 @@ def _request_metadata(provider: DataProvider, symbol: str, timeframe: str) -> di
                 declared_metadata = declared_metadata(symbol, timeframe)
             except PyneRequestError:
                 raise
+            except PyneProviderError as exc:
+                raise PyneRequestError(str(exc), code=exc.code, category=exc.category) from exc
             except Exception as exc:
                 raise PyneRequestError(
                     f"request metadata provider failed: {exc}",
                     code="PYNE_RUNTIME_ERROR",
-                    category="metadataFailure",
+                    category=RequestProviderErrorCategory.METADATA_FAILURE,
                 ) from exc
 
     if declared_metadata is None:
@@ -161,7 +167,7 @@ def _request_metadata(provider: DataProvider, symbol: str, timeframe: str) -> di
         raise PyneRequestError(
             "request metadata must be a mapping with optional syminfo, timeframe, and session keys",
             code="PYNE_RUNTIME_ERROR",
-            category="invalidMetadata",
+            category=RequestProviderErrorCategory.INVALID_METADATA,
         )
 
     syminfo = _metadata_value(declared_metadata, REQUEST_METADATA_SYMBOL_KEYS)

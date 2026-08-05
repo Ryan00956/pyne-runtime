@@ -89,8 +89,8 @@ def test_report_classifies_runtime_syntax_host_and_render_boundaries(tmp_path: P
     assert features["ta.pivot_point_levels"]["status"] == "api-covered"
     assert features["line.all"]["status"] == "api-covered"
     assert features["box.all"]["status"] == "api-covered"
-    assert features["table.merge_cells"]["status"] == "render-gap"
-    assert features["linefill.new"]["status"] == "render-gap"
+    assert features["table.merge_cells"]["status"] == "api-covered"
+    assert features["linefill.new"]["status"] == "api-covered"
     assert features["sma"]["status"] == "api-covered"
     assert features["study"]["status"] == "api-covered"
     assert features["floor"]["status"] == "api-covered"
@@ -102,7 +102,10 @@ def test_report_classifies_runtime_syntax_host_and_render_boundaries(tmp_path: P
     imported_volume = features[
         "pine-library:TradingView/ta/10#requestUpAndDownVolume"
     ]
-    assert imported_volume["status"] == "library-rewrite"
+    assert imported_volume["status"] == "api-covered"
+    assert imported_volume["pyneTarget"] == (
+        'pine_library("TradingView/ta/10").requestUpAndDownVolume'
+    )
     assert features["pine-library:Example/helpers/3#calculate"]["status"] == (
         "library-rewrite"
     )

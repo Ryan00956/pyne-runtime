@@ -6,6 +6,7 @@ slow = ta.sma(close, 5)
 fast_plot = plot(fast, "Fast SMA", color=color.orange)
 slow_plot = plot(slow, "Slow SMA", color=color.blue)
 fill(fast_plot, slow_plot, color=color.new(color.blue, 85), title="MA Spread")
+plotcandle(open, high, low, close, "Chart candles", color=color.green)
 
 bar(close - open, "Body", color_up=color.green, color_down=color.red, pane="separate")
 hline(0, "Zero", color=color.gray, pane="separate")
@@ -34,6 +35,14 @@ label("Host-ready output", position="topright", color=color.white, textcolor=col
 
 trend = line.new(bar_index[3], close[3], bar_index, close, color=color.orange)
 line.set_width(trend, 2)
+parallel = line.new(bar_index[3], high[3], bar_index, high, color=color.blue)
+linefill.new(trend, parallel, color=color.new(color.blue, 85))
+
+path = array.new()
+array.push(path, chart.point.from_index(bar_index[2], low[2]))
+array.push(path, chart.point.from_index(bar_index[1], high[1]))
+array.push(path, chart.point.from_index(bar_index, close))
+polyline.new(path, line_color=color.green, line_width=2)
 
 note = label.new(
     bar_index,
@@ -58,4 +67,5 @@ box.set_border_width(zone, 2)
 
 summary = table.new(position.top_right, 2, 1, bgcolor=color.white)
 table.cell(summary, 0, 0, "schema", text_color=color.black)
-table.cell(summary, 1, 0, "v1", text_color=color.blue)
+table.cell(summary, 1, 0, "v2", text_color=color.blue)
+table.merge_cells(summary, 0, 0, 1, 0)

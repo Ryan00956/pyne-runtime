@@ -81,10 +81,9 @@ in 11.
   `copy`, plus point overloads and setters for lines, labels, and boxes in both
   batch and incremental execution.
 - Live, oldest-first `line.all` and `box.all` handle snapshots.
-- `table.merge_cells` is now classified as a render-contract gap instead of a
-  runtime-only gap. CandleScope's current public transport can carry generic
-  object JSON, but the indicator envelope and frontend do not define or render
-  merged table cells yet.
+- Output schema v2 closes `table.merge_cells`, `plotcandle`, `linefill`, and
+  `polyline` as explicit renderer collections. A v1 host remains a declared
+  fallback and must reject v2-only output rather than discard it.
 
 ## Closed In The Fourth Slice
 
@@ -93,10 +92,10 @@ in 11.
   for a default alias that overlaps a built-in namespace, implemented core
   members remain core features while unknown members are attributed to the
   imported library.
-- `ta.requestUpAndDownVolume` is now correctly attributed to the pinned
-  `TradingView/ta/10` library. It is not a Pine core `ta.*` runtime gap. A Pyne
-  rewrite must port that helper explicitly and obtain authoritative lower-timeframe
-  data through the host-backed request API.
+- `ta.requestUpAndDownVolume` is attributed to the pinned
+  `TradingView/ta/10` library and has an explicit Pyne adapter at
+  `pine_library("TradingView/ta/10").requestUpAndDownVolume`. It requires
+  authoritative host lower-timeframe OHLCV and never fabricates intrabars.
 - `alert.freq_all`, `alert.freq_once_per_bar`, and
   `alert.freq_once_per_bar_close` are classified with `alert(...)` as migration
   boundaries. Pyne emits signal evidence with `emit_signal(...)`; realtime
@@ -108,14 +107,14 @@ in 11.
 
 ## Remaining Boundaries
 
-- Imported libraries: 69 pinned members across 10 files need an explicit Python
-  port, a verified Pyne equivalent, or removal while converting each indicator.
+- Imported libraries: the one project-used `TradingView/ta/10` member above is
+  implemented. Other pinned members still need an explicit Python port, a
+  verified Pyne equivalent, or removal while converting each indicator.
 - Host state/data: chart theme and visible-range values, corporate actions,
   currency conversion, and automatic authoritative symbol timezone/volume
   type, plus realtime alert scheduling. Pyne accepts timezone and volume-type
   metadata when the host supplies them; it does not infer them from a ticker
   string.
-- Render IR: `plotcandle`, `linefill`, `polyline`, and merged table cells.
 - Python spelling: Pine's `array.from(...)` must be written as
   `array.from_values(...)` because `from` is a Python keyword. Pine ternaries,
   reassignment, object/color type casts, and `alert(...)` calls also require

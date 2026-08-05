@@ -81,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
             cwd=tmp_path,
             env=clean_env,
         )
-        if schema["output"]["schemaVersion"] != 1:
+        if schema["output"]["schemaVersion"] != 2:
             raise RuntimeError("unexpected output schema version")
 
         script = repo_root / "examples" / "host_output_contract.py"

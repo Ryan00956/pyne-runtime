@@ -24,7 +24,7 @@ from .input import InputModule, PyneInputError
 from .plot import OutputCollector
 from .request import PyneRequestError
 from .incremental import IncrementalPyneResult, PyneIncrementalSession, is_incremental_pyne_script
-from .cache import pyne_cache
+from .cache import PyneExecutionScope
 from .errors import classify_security_error, error_hint
 from .namespace import RuntimeServices, build_script_namespace
 from .result import PyneResult
@@ -46,9 +46,14 @@ class PyneRuntime:
     Can be reused across multiple executions safely.
     """
 
-    def __init__(self, settings: PyneSettings | None = None) -> None:
+    def __init__(
+        self,
+        settings: PyneSettings | None = None,
+        *,
+        execution_scope: PyneExecutionScope | None = None,
+    ) -> None:
         self.settings = settings or PyneSettings.from_env()
-        pyne_cache.configure(max_items=self.settings.cache_max_items)
+        self.execution_scope = execution_scope
 
     def execute(
         self,
@@ -76,6 +81,9 @@ class PyneRuntime:
             )
 
         params = params or {}
+        execution_scope = self.execution_scope or PyneExecutionScope.fresh(
+            max_items=self.settings.cache_max_items,
+        )
 
         try:
             policy = PyneSecurityPolicy.from_settings(self.settings, security_mode)
@@ -96,6 +104,7 @@ class PyneRuntime:
                     params=params,
                     policy=policy,
                     settings=self.settings,
+                    execution_scope=execution_scope,
                 )
                 result = self._collect_incremental_result(incremental.seed(ohlcv))
                 result.meta = {**result.meta, "securityMode": policy.mode}
@@ -116,6 +125,7 @@ class PyneRuntime:
                 settings=self.settings,
                 params=params,
                 policy=policy,
+                execution_scope=execution_scope,
             )
 
             # 3. Build script execution namespace

@@ -5,9 +5,17 @@ from .bar import IncrementalBar
 from .context import IncrementalContext
 from .detection import is_incremental_pyne_script
 from .limits import IncrementalLimits, StateCell, Window
-from .manager import PyneIncrementalSessionManager, SharedPyneIncrementalSession
+from .manager import (
+    PyneIncrementalSessionCapacityError,
+    PyneIncrementalSessionManager,
+    SharedPyneIncrementalSession,
+)
 from .result import IncrementalPyneResult
-from .session import PyneIncrementalSession
+from .session import (
+    PYNE_INCREMENTAL_SNAPSHOT_VERSION,
+    PyneIncrementalSession,
+    PyneIncrementalSessionSnapshot,
+)
 from .strategy import (
     IncrementalStrategyCommission,
     IncrementalStrategyDirection,
@@ -30,8 +38,11 @@ __all__ = [
     "IncrementalStrategyRiskNamespace",
     "IncrementalStrategyTradesNamespace",
     "IncrementalTaNamespace",
+    "PYNE_INCREMENTAL_SNAPSHOT_VERSION",
     "PyneIncrementalSession",
+    "PyneIncrementalSessionCapacityError",
     "PyneIncrementalSessionManager",
+    "PyneIncrementalSessionSnapshot",
     "SharedPyneIncrementalSession",
     "StateCell",
     "Window",

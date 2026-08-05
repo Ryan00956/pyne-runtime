@@ -29,6 +29,8 @@ strategy, request, and host-renderer output workflows.
   provider behavior.
 - [Request API](api/request.md): implement typed host data providers for
   `request.security()` and `request.security_lower_tf()`.
+- [External Pine Libraries](api/pine_libraries.md): use the explicit pinned
+  adapter registry and its host-data requirements.
 - [Host-Backed Request Security](tutorials/host_request_security.md): provide
   OHLCV data for `request.security()` and `request.security_lower_tf()`
   examples.

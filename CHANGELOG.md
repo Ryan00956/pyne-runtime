@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Isolated ordinary execution and incremental-session caches by default while
+  retaining an explicit host-owned shared execution scope.
+- Added typed provider error categories and a test-runner-independent provider
+  conformance kit; bumped the request-provider schema to version 10.
+- Added bounded TTL/LRU incremental session management, rolling history
+  retention, and process-local snapshot/restore with fail-closed state checks.
+- Added output schema version 2 with `plotcandle`, linefill and polyline drawing
+  objects, and validated merged table cells; output schema version 1 remains a
+  documented legacy fallback.
+- Added a fail-closed pinned external-library registry and the project-required
+  `TradingView/ta/10#requestUpAndDownVolume` adapter backed by authoritative
+  host lower-timeframe OHLCV.
+
 ## 0.2.0rc1 - 2026-07-20
 
 - Added a tag-gated GitHub Release workflow that publishes the universal wheel,

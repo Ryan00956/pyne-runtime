@@ -123,6 +123,16 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             return None
         return collector._object_tables.get(ref.id)
 
+    def _linefill_entry(ref: ObjectRef) -> dict[str, Any] | None:
+        if not isinstance(ref, ObjectRef) or ref.kind != "linefill":
+            return None
+        return collector._object_linefills.get(ref.id)
+
+    def _polyline_entry(ref: ObjectRef) -> dict[str, Any] | None:
+        if not isinstance(ref, ObjectRef) or ref.kind != "polyline":
+            return None
+        return collector._object_polylines.get(ref.id)
+
     def _point_coordinates(point: ChartPoint, xloc: str) -> tuple[Any, Any]:
         x, y = chart_point_coordinates(point, xloc)
         return _scalar_from_value(x), _scalar_from_value(y)
@@ -245,6 +255,71 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
 
         collector.lines.append(line_entry)
         return PlotRef(id=plot_id, title=title, pane=pane)
+
+    def plotcandle(
+        open: Any,
+        high: Any,
+        low: Any,
+        close: Any,
+        title: str = "",
+        color: Any = None,
+        wickcolor: Any = None,
+        bordercolor: Any = None,
+        editable: bool = True,
+        show_last: int | None = None,
+        display: str | None = None,
+        format: str | None = None,
+        precision: int | None = None,
+        force_overlay: bool = False,
+        pane: str | None = None,
+        **_: Any,
+    ) -> None:
+        """Emit a versioned OHLC candle collection."""
+        _ = editable
+        opens = _values_from_data(open)
+        highs = _values_from_data(high)
+        lows = _values_from_data(low)
+        closes = _values_from_data(close)
+        if pane is None:
+            pane = "main" if force_overlay or collector._indicator_meta.get("overlay", True) else "separate"
+        first_visible_index = 0
+        if show_last is not None:
+            first_visible_index = max(len(collector.times) - max(int(show_last), 0), 0)
+
+        points: list[dict[str, Any]] = []
+        for index, (timestamp, open_value, high_value, low_value, close_value) in enumerate(
+            zip(collector.times, opens, highs, lows, closes)
+        ):
+            if index < first_visible_index or not all(
+                _is_valid_value(value)
+                for value in (open_value, high_value, low_value, close_value)
+            ):
+                continue
+            point = {
+                "time": timestamp,
+                "open": round(float(open_value), 8),
+                "high": round(float(high_value), 8),
+                "low": round(float(low_value), 8),
+                "close": round(float(close_value), 8),
+            }
+            body_color = _color_for_index(color, index, timestamp)
+            wick_color = _color_for_index(wickcolor, index, timestamp)
+            border_color = _color_for_index(bordercolor, index, timestamp)
+            if body_color:
+                point["color"] = body_color
+            if wick_color:
+                point["wickcolor"] = wick_color
+            if border_color:
+                point["bordercolor"] = border_color
+            points.append(point)
+        collector.candles.append(
+            {
+                "title": title or collector._next_id(),
+                "pane": pane,
+                "data": points,
+                **_display_options(display=display, format=format, precision=precision),
+            }
+        )
 
     def bar(
         data: PyneSeries | np.ndarray | list,
@@ -940,6 +1015,88 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
     def line_delete(ref: ObjectRef) -> None:
         if isinstance(ref, ObjectRef) and ref.kind == "line":
             collector._object_lines.pop(ref.id, None)
+            for linefill_id, entry in list(collector._object_linefills.items()):
+                if ref.id in {entry.get("line1_id"), entry.get("line2_id")}:
+                    collector._object_linefills.pop(linefill_id, None)
+
+    def linefill_new(
+        line1: ObjectRef,
+        line2: ObjectRef,
+        color: str = "rgba(33,150,243,0.25)",
+        pane: str | None = None,
+    ) -> ObjectRef:
+        first = _line_entry(line1)
+        second = _line_entry(line2)
+        if first is None or second is None:
+            raise TypeError("linefill.new() requires two live line objects")
+        resolved_pane = pane or (
+            str(first.get("pane"))
+            if first.get("pane") == second.get("pane")
+            else "main"
+        )
+        object_id = collector._next_object_id("linefill")
+        collector._object_linefills[object_id] = {
+            "id": object_id,
+            "line1_id": line1.id,
+            "line2_id": line2.id,
+            "color": color,
+            "pane": resolved_pane,
+        }
+        return ObjectRef(id=object_id, kind="linefill")
+
+    def linefill_set_color(ref: ObjectRef, color: str) -> None:
+        entry = _linefill_entry(ref)
+        if entry is not None:
+            entry["color"] = color
+
+    def linefill_delete(ref: ObjectRef) -> None:
+        if isinstance(ref, ObjectRef) and ref.kind == "linefill":
+            collector._object_linefills.pop(ref.id, None)
+
+    def polyline_new(
+        points: PyneArray | list[ChartPoint] | tuple[ChartPoint, ...],
+        curved: bool = False,
+        closed: bool = False,
+        xloc: str = "bar_index",
+        line_color: str = "#2196f3",
+        fill_color: str | None = None,
+        line_style: str = "solid",
+        line_width: int = 1,
+        force_overlay: bool = False,
+        pane: str | None = None,
+    ) -> ObjectRef:
+        if isinstance(points, PyneArray):
+            raw_points = list(points)
+        elif isinstance(points, (list, tuple)):
+            raw_points = list(points)
+        else:
+            raise TypeError("polyline.new() points must be an array of chart.point values")
+        if not raw_points:
+            raise ValueError("polyline.new() requires at least one chart.point")
+        serialized_points: list[dict[str, Any]] = []
+        for point in raw_points:
+            if not isinstance(point, ChartPoint):
+                raise TypeError("polyline.new() points must contain only chart.point values")
+            x, y = _point_coordinates(point, xloc)
+            serialized_points.append({"x": x, "y": y})
+        object_id = collector._next_object_id("polyline")
+        collector._object_polylines[object_id] = {
+            "id": object_id,
+            "points": serialized_points,
+            "curved": bool(curved),
+            "closed": bool(closed),
+            "xloc": xloc,
+            "line_color": line_color,
+            "fill_color": fill_color,
+            "line_style": line_style,
+            "line_width": int(line_width),
+            "pane": pane or ("main" if force_overlay else "main"),
+        }
+        return ObjectRef(id=object_id, kind="polyline")
+
+    def polyline_delete(ref: ObjectRef) -> None:
+        if isinstance(ref, ObjectRef) and ref.kind == "polyline":
+            collector._object_polylines.pop(ref.id, None)
 
     def label_new(
         x: Any,
@@ -1273,6 +1430,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             "border_width": int(border_width),
             "pane": pane,
             "cells": [],
+            "merges": [],
         }
         return ObjectRef(id=object_id, kind="table")
 
@@ -1291,6 +1449,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         entry = _table_entry(ref)
         if entry is None:
             return
+        _require_table_coordinate(entry, int(column), int(row))
         cell = {
             "column": int(column),
             "row": int(row),
@@ -1308,6 +1467,41 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         entry = _table_entry(ref)
         if entry is not None:
             entry["cells"] = []
+            entry["merges"] = []
+
+    def table_merge_cells(
+        ref: ObjectRef,
+        start_column: int,
+        start_row: int,
+        end_column: int,
+        end_row: int,
+    ) -> None:
+        entry = _table_entry(ref)
+        if entry is None:
+            return
+        left, right = sorted((int(start_column), int(end_column)))
+        top, bottom = sorted((int(start_row), int(end_row)))
+        _require_table_coordinate(entry, left, top)
+        _require_table_coordinate(entry, right, bottom)
+        merge = {
+            "start_column": left,
+            "start_row": top,
+            "end_column": right,
+            "end_row": bottom,
+        }
+        for existing in entry.setdefault("merges", []):
+            overlaps = not (
+                right < existing["start_column"]
+                or left > existing["end_column"]
+                or bottom < existing["start_row"]
+                or top > existing["end_row"]
+            )
+            if overlaps:
+                raise ValueError("table.merge_cells() regions must not overlap")
+        entry["merges"].append(merge)
+        entry["merges"].sort(
+            key=lambda item: (item["start_row"], item["start_column"])
+        )
 
     def table_set_position(ref: ObjectRef, position: str) -> None:
         entry = _table_entry(ref)
@@ -1341,6 +1535,12 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                 return
         cells.append(cell)
         cells.sort(key=lambda item: (item.get("row", 0), item.get("column", 0)))
+
+    def _require_table_coordinate(entry: dict[str, Any], column: int, row: int) -> None:
+        if column < 0 or column >= int(entry["columns"]):
+            raise IndexError(f"table column {column} is outside the table")
+        if row < 0 or row >= int(entry["rows"]):
+            raise IndexError(f"table row {row} is outside the table")
 
     # ── Legacy compatibility ─────────────────────────────────
 
@@ -1447,6 +1647,17 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         extend_right="right",
         extend_both="both",
     )
+    linefill_namespace = _DrawingNamespace(
+        all_getter=lambda: _object_refs("linefill", collector._object_linefills),
+        new=linefill_new,
+        set_color=linefill_set_color,
+        delete=linefill_delete,
+    )
+    polyline_namespace = _DrawingNamespace(
+        all_getter=lambda: _object_refs("polyline", collector._object_polylines),
+        new=polyline_new,
+        delete=polyline_delete,
+    )
     label_namespace = _CallableNamespace(
         label_func,
         new=label_new,
@@ -1514,6 +1725,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         new=table_new,
         cell=table_cell,
         clear=table_clear,
+        merge_cells=table_merge_cells,
         set_position=table_set_position,
         set_bgcolor=table_set_bgcolor,
         set_frame_color=table_set_frame_color,
@@ -1607,6 +1819,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         "indicator": indicator,
         "study": indicator,
         "plot": plot,
+        "plotcandle": plotcandle,
         "bar": bar,
         "hline": hline,
         "fill": fill,
@@ -1619,6 +1832,8 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         "emit_signal": emit_signal,
         "alertcondition": alertcondition,
         "line": line_namespace,
+        "linefill": linefill_namespace,
+        "polyline": polyline_namespace,
         "label": label_namespace,
         "box": box_namespace,
         "table": table_namespace,
