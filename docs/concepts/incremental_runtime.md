@@ -57,11 +57,12 @@ when present. The seed result is committed history: its plotted lines, markers,
 drawing object snapshot, object events, and strategy report can be rendered as
 the durable chart state.
 
-Committed incremental `ctx.plot()` and `ctx.marker()` output follows the same
-host-facing renderer contract as batch `plot()` and `marker()` for the covered
-surface: line color, width, style, histogram/columns output, marker
-shape/location/size, and default pane assignment from `indicator(...,
-overlay=...)`. Explicit `pane=` values still override the indicator default.
+Committed incremental output follows Render IR v2 for `ctx.plot()`,
+`ctx.plotcandle()`, markers, line/label/box/table objects, line fills,
+polylines, and merged table cells. Line color, width, style,
+histogram/columns output, marker shape/location/size, and default pane
+assignment match the covered batch surface. Explicit `pane=` values still
+override the indicator default.
 
 Send unconfirmed realtime ticks or partial OHLCV updates through
 `on_bar_updated()`:
@@ -160,6 +161,53 @@ security mode, snapshot version, and retention policy must match at restore.
 Closures and script-defined classes fail closed because they cannot be safely
 rebound to a fresh execution namespace.
 
+For a bounded checkpoint that can cross process boundaries, use the portable
+format instead:
+
+```python
+payload = session.snapshot_portable()
+
+restored = pn.PyneIncrementalSession.from_portable_snapshot(
+    payload,
+    script=script,
+    settings=settings,
+)
+```
+
+The portable payload is canonical JSON with a format identifier, version, and
+SHA-256 checksum. Decode and restore enforce byte, nesting-depth, and node-count
+limits before replaying the retained committed bars. The data provider is never
+serialized; a provider-backed session must receive matching settings or an
+explicit provider during restore. Portable export also fails closed if the
+session has committed more bars than its `max_bars` replay bound, because a
+partial history could restore different state. This is a durable replay
+checkpoint, not arbitrary Python-object serialization.
+
+Use `run_incremental_parity()` when one feature must produce equivalent batch
+and incremental host output:
+
+```python
+report = pn.run_incremental_parity(
+    batch_script=batch_script,
+    incremental_script=incremental_script,
+    data=data,
+)
+report.assert_ok()
+```
+
+The runner normalizes transport-only identifiers before comparing output and
+returns structured differences. Projects can supply a custom semantic-view
+function when only a documented subset should be equivalent.
+
+Incremental callbacks also expose `ctx.request.security()` and
+`ctx.request.security_lower_tf()`. The first returns the requested value aligned
+to the current chart bar; the second returns a `PyneArray` containing the current
+bar's lower-timeframe group. Provider diagnostics are published under
+`result.meta["requestDiagnostics"]`, and authoritative provider ranges are
+cached across callbacks within the runtime output/cache limits. Preview
+diagnostics stay temporary, while fetched provider evidence may warm that
+bounded cache for the matching confirmed callback.
+
 For multi-chart services, `PyneIncrementalSessionManager` provides a small
 in-process shared-session cache:
 
@@ -215,6 +263,10 @@ Incremental runtime code is split by lifecycle role:
 - `incremental.limits` tracks drawing, state, and resource limits.
 - `incremental.ta` owns step-by-step technical-analysis helpers.
 - `incremental.drawing` owns line, label, box, and table mutation helpers.
+- `incremental.request` adapts the typed batch request provider contract to
+  current-bar scalar and lower-timeframe array results.
+- `incremental.checkpoint` owns the bounded portable snapshot envelope.
+- `incremental.parity` compares normalized batch and incremental semantics.
 - `incremental.strategy` owns scalar current-bar strategy state and callback
     reporting, while reusing shared batch strategy constants and pure helpers.
 - `incremental.context` exposes the callback-facing `ctx` object.

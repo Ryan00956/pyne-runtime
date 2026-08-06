@@ -14,6 +14,21 @@
 - Added a fail-closed pinned external-library registry and the project-required
   `TradingView/ta/10#requestUpAndDownVolume` adapter backed by authoritative
   host lower-timeframe OHLCV.
+- Added a reusable batch/incremental parity runner with normalized semantic
+  output comparisons and assertion-ready difference reports.
+- Completed incremental Render IR v2 coverage for candles, line fills,
+  polylines, merged table cells, lifecycle events, retention, and preview
+  isolation.
+- Added incremental `request.security()` and `request.security_lower_tf()`
+  support with typed diagnostics, bounded provider-range caching, and batch
+  parity coverage.
+- Added deterministic, checksummed, size/depth/node-bounded portable session
+  snapshots with fresh-process restore, script/settings validation, and
+  fail-closed provider and retained-history requirements.
+- Added multi-session scaling, bounded-memory, snapshot/restore performance,
+  and stability smoke gates.
+- Split plot namespace/value assembly and TA numerical kernels into focused
+  internal modules without changing the public package API.
 
 ## 0.2.0rc1 - 2026-07-20
 

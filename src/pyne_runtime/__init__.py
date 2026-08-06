@@ -22,13 +22,19 @@ from .collections import (
 from .data import PyneData
 from .executor import execute_pyne_script, execute_pyne_script_in_process
 from .incremental import (
+    PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_FORMAT,
+    PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION,
     PYNE_INCREMENTAL_SNAPSHOT_VERSION,
+    IncrementalParityDifference,
+    IncrementalParityReport,
     PyneIncrementalSession,
     PyneIncrementalSessionCapacityError,
     PyneIncrementalSessionManager,
     PyneIncrementalSessionSnapshot,
+    PynePortableSnapshotError,
     SharedPyneIncrementalSession,
     is_incremental_pyne_script,
+    run_incremental_parity,
 )
 from .math_ext import PyneMath
 from .metadata import SessionInfo, SessionNamespace, SymbolInfo, TimeframeInfo
@@ -125,6 +131,7 @@ __all__ = [
     "PyneIncrementalSessionCapacityError",
     "PyneIncrementalSessionManager",
     "PyneIncrementalSessionSnapshot",
+    "PynePortableSnapshotError",
     "PyneMath",
     "PineLibraryDescriptor",
     "PineLibraryRegistry",
@@ -141,6 +148,8 @@ __all__ = [
     "PyneSettings",
     "PyneSeries",
     "LowerTimeframeSeries",
+    "IncrementalParityDifference",
+    "IncrementalParityReport",
     "PyneStateNamespace",
     "PyneVar",
     "RequestEvalContext",
@@ -158,6 +167,8 @@ __all__ = [
     "TickerNamespace",
     "TimeNamespace",
     "PYNE_INPUT_SCHEMA_VERSION",
+    "PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_FORMAT",
+    "PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION",
     "PYNE_INCREMENTAL_SNAPSHOT_VERSION",
     "PYNE_OUTPUT_SCHEMA_VERSION",
     "PYNE_PARAM_SCHEMA_VERSION",
@@ -188,6 +199,7 @@ __all__ = [
     "read_ohlcv",
     "run",
     "run_data_provider_conformance",
+    "run_incremental_parity",
     "schema",
     "string_namespace",
     "validate",

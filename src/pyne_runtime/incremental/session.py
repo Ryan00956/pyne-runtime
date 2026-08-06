@@ -8,7 +8,7 @@ import hashlib
 import inspect
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import (
     BuiltinFunctionType,
     BuiltinMethodType,
@@ -29,6 +29,7 @@ from ..color import color as color_singleton
 from ..data import PyneData
 from ..math_ext import PyneMath
 from ..plot.objects import _DrawingNamespace
+from ..request import DataProvider, barmerge
 from ..security import (
     PyneSecurityError,
     PyneSecurityPolicy,
@@ -38,6 +39,15 @@ from ..security import (
 )
 from ..settings import PyneSettings
 from .bar import IncrementalBar
+from .checkpoint import (
+    DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
+    PortableCheckpoint,
+    PynePortableSnapshotError,
+    decode_portable_checkpoint,
+    encode_portable_checkpoint,
+    portable_settings_contract,
+    settings_from_portable_contract,
+)
 from .context import IncrementalContext
 from .limits import (
     IncrementalLimits,
@@ -45,9 +55,10 @@ from .limits import (
     _state_payload_items,
 )
 from .result import IncrementalPyneResult
+from .request import IncrementalRequestModule
 
 
-PYNE_INCREMENTAL_SNAPSHOT_VERSION = 1
+PYNE_INCREMENTAL_SNAPSHOT_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -74,6 +85,9 @@ class PyneIncrementalSessionSnapshot:
     last_closed_time: int | None
     closed_count: int
     retained_closed_times: tuple[int, ...]
+    portable_bars: tuple[dict[str, Any], ...]
+    portable_seed_count: int
+    portable_complete: bool
 
 
 class PyneIncrementalSession:
@@ -122,6 +136,9 @@ class PyneIncrementalSession:
         self._base_namespace_values: dict[str, Any] = {}
         self._poisoned_reason: str | None = None
         self._retained_closed_times: list[int] = []
+        self._portable_bars: list[dict[str, Any]] = []
+        self._portable_seed_count = 0
+        self._portable_complete = True
 
     def prepare(self) -> None:
         self._ensure_healthy()
@@ -173,6 +190,7 @@ class PyneIncrementalSession:
         self._active_preview_time = None
         self._preview_varip_states = {}
         self._retained_closed_times = []
+        portable_bars: list[dict[str, Any]] = []
         last_bar_index = len(ohlcv) - 1
         for index, item in enumerate(ohlcv):
             bar = IncrementalBar.from_dict(item, is_confirmed=True)
@@ -195,6 +213,10 @@ class PyneIncrementalSession:
             self.last_closed_time = bar.time
             self._closed_count = index + 1
             self._commit_retention(bar.time)
+            portable_bars.append(copy.deepcopy(bar.raw))
+        self._portable_bars = portable_bars
+        self._portable_seed_count = len(portable_bars)
+        self._portable_complete = True
         return self._to_result(self._ctx, start_s=start_s, end_s=end_s)
 
     def on_bar_closed(self, item: dict[str, Any]) -> IncrementalPyneResult:
@@ -234,6 +256,7 @@ class PyneIncrementalSession:
         self.last_closed_time = bar.time
         self._closed_count = bar_index + 1
         self._commit_retention(bar.time)
+        self._record_portable_bar(bar)
         if self._active_preview_time is not None and bar.time >= self._active_preview_time:
             self._active_preview_time = None
             self._preview_varip_states = {}
@@ -313,6 +336,7 @@ class PyneIncrementalSession:
             ctx.sync_varip_payload()
             ctx.strategy.end_bar()
             if barstate.isconfirmed and not preview:
+                ctx.commit_request_bar()
                 ctx.commit_state_history()
         except (PyneSecurityError, IncrementalResourceLimitError) as exc:
             self._poison(exc)
@@ -325,6 +349,16 @@ class PyneIncrementalSession:
         del self._retained_closed_times[: -self.retention_bars]
         if self._ctx is not None:
             self._ctx.prune_before_time(self._retained_closed_times[0])
+
+    def _record_portable_bar(self, bar: IncrementalBar) -> None:
+        if not self._portable_complete:
+            return
+        if len(self._portable_bars) >= self.policy.max_bars:
+            self._portable_bars = []
+            self._portable_seed_count = 0
+            self._portable_complete = False
+            return
+        self._portable_bars.append(copy.deepcopy(bar.raw))
 
     def _ensure_healthy(self) -> None:
         if self._poisoned_reason is not None:
@@ -411,6 +445,11 @@ class PyneIncrementalSession:
             return active_ctx("varip()").varip(name, default)
 
         drawing_namespaces = self._drawing_namespaces()
+        request_namespace = IncrementalRequestModule(
+            lambda: active_ctx("request.*"),
+            settings=self.settings,
+            provider=self.settings.data_provider,
+        )
         cache_namespace = PyneCacheNamespace(self.execution_scope.cache)
         pyne_namespace = SimpleNamespace(
             cache=cache_namespace.cache,
@@ -452,6 +491,9 @@ class PyneIncrementalSession:
             "state": state,
             "var": state,
             "varip": varip,
+            "request": request_namespace,
+            "barmerge": barmerge,
+            "security": request_namespace.security,
             **drawing_namespaces,
             "__builtins__": build_builtins(self.policy),
         }
@@ -548,11 +590,21 @@ class PyneIncrementalSession:
             new=lambda *args, **kwargs: ctx().table_new(*args, **kwargs),
             cell=lambda *args, **kwargs: ctx().table_cell(*args, **kwargs),
             clear=lambda *args, **kwargs: ctx().table_clear(*args, **kwargs),
+            merge_cells=lambda *args, **kwargs: ctx().table_merge_cells(*args, **kwargs),
             set_position=lambda *args, **kwargs: ctx().table_set_position(*args, **kwargs),
             set_bgcolor=lambda *args, **kwargs: ctx().table_set_bgcolor(*args, **kwargs),
             set_frame_color=lambda *args, **kwargs: ctx().table_set_frame_color(*args, **kwargs),
             set_border_color=lambda *args, **kwargs: ctx().table_set_border_color(*args, **kwargs),
             delete=lambda *args, **kwargs: ctx().table_delete(*args, **kwargs),
+        )
+        linefill_namespace = SimpleNamespace(
+            new=lambda *args, **kwargs: ctx().linefill_new(*args, **kwargs),
+            set_color=lambda *args, **kwargs: ctx().linefill_set_color(*args, **kwargs),
+            delete=lambda *args, **kwargs: ctx().linefill_delete(*args, **kwargs),
+        )
+        polyline_namespace = SimpleNamespace(
+            new=lambda *args, **kwargs: ctx().polyline_new(*args, **kwargs),
+            delete=lambda *args, **kwargs: ctx().polyline_delete(*args, **kwargs),
         )
         return {
             "chart": ChartNamespace(
@@ -563,6 +615,8 @@ class PyneIncrementalSession:
             "label": label_namespace,
             "box": box_namespace,
             "table": table_namespace,
+            "linefill": linefill_namespace,
+            "polyline": polyline_namespace,
             "plot": SimpleNamespace(
                 style_line="line",
                 style_histogram="histogram",
@@ -724,6 +778,42 @@ class PyneIncrementalSession:
             last_closed_time=self.last_closed_time,
             closed_count=self._closed_count,
             retained_closed_times=tuple(self._retained_closed_times),
+            portable_bars=tuple(copy.deepcopy(self._portable_bars, memo)),
+            portable_seed_count=self._portable_seed_count,
+            portable_complete=self._portable_complete,
+        )
+
+    def snapshot_portable(
+        self,
+        *,
+        max_bytes: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
+    ) -> bytes:
+        """Return a deterministic cross-process replay checkpoint.
+
+        The format contains validated chart events and configuration, never
+        pickled Python objects. It deliberately excludes active preview state
+        and Provider internals. Sessions that have exceeded ``max_bars`` fail
+        closed instead of emitting an incomplete replay history.
+        """
+        self._ensure_healthy()
+        self.prepare()
+        if not self._portable_complete:
+            raise PynePortableSnapshotError(
+                "Portable snapshot history exceeded max_bars; use the process-local snapshot "
+                "or start a new portable checkpoint boundary"
+            )
+        provider_required = self.settings.data_provider is not None
+        return encode_portable_checkpoint(
+            PortableCheckpoint(
+                script_sha256=_script_sha256(self.script),
+                params=copy.deepcopy(dict(self.params.items())),
+                settings=portable_settings_contract(self.settings),
+                retention_bars=self.retention_bars,
+                bars=tuple(copy.deepcopy(self._portable_bars)),
+                seed_count=self._portable_seed_count,
+                provider_required=provider_required,
+            ),
+            max_bytes=max_bytes,
         )
 
     def restore_state(self, snapshot: PyneIncrementalSessionSnapshot) -> None:
@@ -757,6 +847,9 @@ class PyneIncrementalSession:
         self.last_closed_time = snapshot.last_closed_time
         self._closed_count = snapshot.closed_count
         self._retained_closed_times = list(snapshot.retained_closed_times)
+        self._portable_bars = list(copy.deepcopy(snapshot.portable_bars, memo))
+        self._portable_seed_count = snapshot.portable_seed_count
+        self._portable_complete = snapshot.portable_complete
         self._active_ctx = None
         self._active_preview_time = None
         self._preview_varip_states = {}
@@ -782,6 +875,69 @@ class PyneIncrementalSession:
         )
         session.restore_state(snapshot)
         return session
+
+    @classmethod
+    def from_portable_snapshot(
+        cls,
+        payload: bytes | bytearray | memoryview | str,
+        *,
+        script: str,
+        settings: PyneSettings | None = None,
+        data_provider: DataProvider | None = None,
+        execution_scope: PyneExecutionScope | None = None,
+        max_bytes: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
+    ) -> "PyneIncrementalSession":
+        """Restore a portable checkpoint by deterministic event replay."""
+        checkpoint = decode_portable_checkpoint(payload, max_bytes=max_bytes)
+        if checkpoint.script_sha256 != _script_sha256(script):
+            raise PynePortableSnapshotError(
+                "Portable incremental snapshot script does not match this session"
+            )
+        if settings is None:
+            resolved_settings = settings_from_portable_contract(checkpoint.settings)
+            if data_provider is not None:
+                resolved_settings = replace(
+                    resolved_settings,
+                    data_provider=data_provider,
+                )
+            elif checkpoint.provider_required:
+                raise PynePortableSnapshotError(
+                    "Portable snapshot restore requires matching settings or a data_provider"
+                )
+        else:
+            resolved_settings = (
+                replace(settings, data_provider=data_provider)
+                if data_provider is not None
+                else settings
+            )
+            if portable_settings_contract(resolved_settings) != checkpoint.settings:
+                raise PynePortableSnapshotError(
+                    "Portable incremental snapshot settings do not match this session"
+                )
+            if checkpoint.provider_required and resolved_settings.data_provider is None:
+                raise PynePortableSnapshotError(
+                    "Portable snapshot restore requires a data_provider"
+                )
+        restored = cls(
+            script=script,
+            params=copy.deepcopy(checkpoint.params),
+            security_mode=resolved_settings.security_mode,
+            settings=resolved_settings,
+            execution_scope=execution_scope,
+            retention_bars=checkpoint.retention_bars,
+        )
+        bars = [copy.deepcopy(item) for item in checkpoint.bars]
+        if checkpoint.seed_count:
+            restored.seed(bars[: checkpoint.seed_count])
+        else:
+            restored.prepare()
+        for item in bars[checkpoint.seed_count :]:
+            restored.on_bar_closed(item)
+        if restored._closed_count != len(bars):
+            raise PynePortableSnapshotError(
+                "Portable incremental snapshot replay did not restore the expected bar count"
+            )
+        return restored
 
     def _snapshot_user_globals(
         self,

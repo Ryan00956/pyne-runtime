@@ -25,9 +25,13 @@ pn.PyneVar
 pn.PyneRuntime
 pn.PyneIncrementalSession
 pn.PyneIncrementalSessionSnapshot
+pn.PynePortableSnapshotError
 pn.PyneIncrementalSessionCapacityError
 pn.PyneIncrementalSessionManager
 pn.SharedPyneIncrementalSession
+pn.IncrementalParityDifference
+pn.IncrementalParityReport
+pn.run_incremental_parity
 pn.SymbolInfo
 pn.TimeframeInfo
 pn.SessionInfo
@@ -104,6 +108,8 @@ Version constants:
 pn.__version__
 pn.PYNE_INPUT_SCHEMA_VERSION
 pn.PYNE_INCREMENTAL_SNAPSHOT_VERSION
+pn.PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_FORMAT
+pn.PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION
 pn.PYNE_OUTPUT_SCHEMA_VERSION
 pn.PYNE_PARAM_SCHEMA_VERSION
 pn.PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
@@ -124,7 +130,12 @@ scripts as `nz()` and `fixnan()`.
 `SharedPyneIncrementalSession`, `PyneIncrementalBarState`, and
 `is_incremental_pyne_script()` are host-facing helpers for confirmed/preview
 bar workflows. `PYNE_INCREMENTAL_SNAPSHOT_VERSION` versions opaque
-process-local checkpoints.
+process-local checkpoints. `snapshot_portable()` and
+`from_portable_snapshot()` provide the versioned, checksummed, bounded replay
+format; `PynePortableSnapshotError` reports fail-closed portability or restore
+contract violations. `run_incremental_parity()` returns an
+`IncrementalParityReport` containing structured
+`IncrementalParityDifference` records for batch/incremental semantic drift.
 `SymbolInfo`, `TimeframeInfo`, `SessionInfo`, and `SessionNamespace` back the
 script-level `syminfo`, `timeframe`, and `session` namespaces.
 `ArrayNamespace`, `MapNamespace`, `MatrixNamespace`, `OrderNamespace`,

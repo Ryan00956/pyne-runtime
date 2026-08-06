@@ -460,6 +460,35 @@ provider explicitly disables lower-timeframe requests or omits the capability
 from a list/set declaration, Pyne returns `PYNE_UNSUPPORTED_FEATURE` without
 calling `get_ohlcv(...)`.
 
+## Incremental Callbacks
+
+Incremental scripts use the same provider, capability, metadata, and error
+contract through `ctx.request`:
+
+```python
+def on_bar(ctx, bar):
+    higher_close = ctx.request.security(
+        "BTCUSDT", "60", lambda requested: requested.close
+    )
+    lower_closes = ctx.request.security_lower_tf(
+        "BTCUSDT", "1", lambda requested: requested.close
+    )
+```
+
+`ctx.request.security()` returns the value aligned to the current chart bar.
+`ctx.request.security_lower_tf()` returns a `PyneArray` for the current chart
+bar's lower-timeframe group. The session reuses authoritative provider ranges
+across callbacks and fetches only uncovered ranges. Cached rows and covered
+ranges are bounded by the runtime output/cache limits; dropping cache coverage
+only causes a later authoritative refetch.
+
+Successful calls publish the same typed entries under
+`result.meta["requestDiagnostics"]`. Preview diagnostics remain isolated from
+the committed result, while immutable provider evidence fetched by a preview
+may warm the bounded session cache for the later confirmed callback.
+Portable session snapshots never serialize a provider; provider-backed restore
+must receive compatible `PyneSettings` or an explicit provider again.
+
 ## Golden Coverage
 
 The request test suite includes deterministic fixtures and TradingView-backed

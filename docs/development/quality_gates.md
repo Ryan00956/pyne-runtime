@@ -20,6 +20,7 @@ python -m ruff check .
 python -m pytest tests/test_architecture.py -q
 python -m pytest -q
 python scripts/performance_smoke.py --check
+python scripts/incremental_stability_smoke.py --check
 python scripts/request_capture_diff.py --assertion parity
 python scripts/strategy_capture_scaffold.py --check
 python scripts/strategy_capture_diff.py --assertion parity
@@ -60,10 +61,17 @@ claim depends on exact alignment or replay output, especially for
 fills, and barstate flags.
 
 `performance_smoke.py` protects the algorithmic growth contracts that are easy
-to miss in semantic fixtures: dense strategy replay time and memory, incremental
-window indexing, long-period monotonic and pivot checks, TA NaN fast paths,
-weighted averages, and rolling order statistics. It uses relative growth ratios
-rather than machine-specific absolute latency budgets.
+to miss in semantic fixtures: dense strategy replay time and memory,
+incremental window indexing, multi-session scaling, bounded retained-memory
+growth, portable snapshot/restore scaling, long-period monotonic and pivot
+checks, TA NaN fast paths, weighted averages, and rolling order statistics. It
+uses relative growth ratios rather than machine-specific absolute latency
+budgets.
+
+`incremental_stability_smoke.py` exercises multiple isolated sessions through
+longer streams and checks retention bounds, deterministic portable snapshot
+bytes, restore equivalence, and preview isolation. The full PowerShell quality
+gate runs it after the relative performance checks.
 
 The request capture gate protects TradingView-backed `request.security()`
 evidence. Captured `parity` fixtures must stay at 0 diff with

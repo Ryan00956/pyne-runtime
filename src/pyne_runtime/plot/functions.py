@@ -9,11 +9,11 @@ import numpy as np
 from ..chart import ChartPoint, chart_point_coordinates
 from ..collections import PyneArray
 from ..series import PyneSeries
-from ..state import PyneVar
 from ..values import is_na_value
 from .collector import OutputCollector
-from .objects import _CallableNamespace, _DrawingNamespace, _Namespace
+from .namespace_builder import assemble_plot_namespace
 from .refs import ObjectRef, PlotRef
+from .value_helpers import PlotValueAdapter, display_options
 
 
 _MISSING = object()
@@ -32,76 +32,12 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         """
         collector.set_indicator_meta(title=title, overlay=overlay, **kwargs)
 
-    def _values_from_data(data: PyneSeries | np.ndarray | list | Any) -> list:
-        if isinstance(data, PyneVar):
-            data = data.get()
-        if isinstance(data, PyneSeries):
-            return data.to_numpy().tolist()
-        if isinstance(data, np.ndarray):
-            return data.tolist()
-        if isinstance(data, list):
-            return data
-        if hasattr(data, "to_numpy"):
-            return np.asarray(data.to_numpy()).tolist()
-        return [data] * len(collector.times)
-
-    def _color_for_index(color_data: Any, idx: int, timestamp: int) -> str | None:
-        if color_data is None:
-            return None
-        if isinstance(color_data, PyneSeries):
-            color_data = color_data.to_numpy()
-        if isinstance(color_data, np.ndarray):
-            if idx < len(color_data):
-                return str(color_data[idx])
-            return None
-        if isinstance(color_data, list):
-            if idx >= len(color_data):
-                return None
-            item = color_data[idx]
-            if isinstance(item, dict):
-                if item.get("time") == timestamp or "time" not in item:
-                    return str(item.get("color")) if item.get("color") else None
-                return None
-            if is_na_value(item):
-                return None
-            return str(item) if item else None
-        if is_na_value(color_data):
-            return None
-        return str(color_data) if color_data else None
-
-    def _is_valid_value(value: Any) -> bool:
-        return not is_na_value(value)
-
-    def _condition_is_true(value: Any) -> bool:
-        return False if is_na_value(value) else bool(value)
-
-    def _scalar_from_value(value: Any) -> Any:
-        if isinstance(value, PyneVar):
-            value = value.get()
-        if isinstance(value, PyneSeries):
-            values = value.to_numpy().tolist()
-        elif isinstance(value, np.ndarray):
-            values = value.tolist()
-        elif isinstance(value, list):
-            values = value
-        else:
-            return _serialize_scalar(value)
-
-        for item in reversed(values):
-            if not is_na_value(item):
-                return _serialize_scalar(item)
-        return None
-
-    def _serialize_scalar(value: Any) -> Any:
-        if is_na_value(value):
-            return None
-        if isinstance(value, np.generic):
-            value = value.item()
-        if isinstance(value, bool | str | int):
-            return value
-        if isinstance(value, float):
-            return round(value, 8)
-        return value
+    values = PlotValueAdapter(collector)
+    _values_from_data = values.from_data
+    _color_for_index = values.color_for_index
+    _is_valid_value = values.is_valid
+    _condition_is_true = values.condition_is_true
+    _scalar_from_value = values.scalar
 
     def _line_entry(ref: ObjectRef) -> dict[str, Any] | None:
         if not isinstance(ref, ObjectRef) or ref.kind != "line":
@@ -227,7 +163,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                     ),
                     "pane": pane,
                     "data": hist_points,
-                    **_display_options(display=display, format=format, precision=precision),
+                    **display_options(display=display, format=format, precision=precision),
                 }
             )
             return PlotRef(id=plot_id, title=title, pane=pane)
@@ -247,7 +183,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
             "style": style,
             "pane": pane,
             "data": points,
-            **_display_options(display=display, format=format, precision=precision),
+            **display_options(display=display, format=format, precision=precision),
         }
 
         if has_per_bar_color:
@@ -317,7 +253,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                 "title": title or collector._next_id(),
                 "pane": pane,
                 "data": points,
-                **_display_options(display=display, format=format, precision=precision),
+                **display_options(display=display, format=format, precision=precision),
             }
         )
 
@@ -548,7 +484,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                 "size": size,
                 "pane": pane,
                 "data": marks,
-                **_display_options(display=display, format=None, precision=None),
+                **display_options(display=display, format=None, precision=None),
             }
             if title:
                 marker_entry["title"] = title
@@ -740,7 +676,7 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
                 "minheight": min_height,
                 "maxheight": max_height,
                 "data": marks,
-                **_display_options(display=display, format=None, precision=None),
+                **display_options(display=display, format=None, precision=None),
             }
             if title:
                 arrow_entry["title"] = title
@@ -1542,327 +1478,4 @@ def create_plot_functions(collector: OutputCollector) -> dict[str, Any]:
         if row < 0 or row >= int(entry["rows"]):
             raise IndexError(f"table row {row} is outside the table")
 
-    # ── Legacy compatibility ─────────────────────────────────
-
-    def add_line(
-        data: PyneSeries | np.ndarray | list,
-        title: str = "",
-        color: str = "#f59e0b",
-        pane: str | None = None,
-        line_width: int | None = None,
-        line_style: str | int | None = None,
-        overlay: bool | None = None,
-        type: str = "line",
-        color_data: list | PyneSeries | np.ndarray | None = None,
-        colorData: list | PyneSeries | np.ndarray | None = None,
-        linewidth: int | None = None,
-        style: str | int | None = None,
-        **_: Any,
-    ) -> None:
-        """Legacy ``add_line()`` — maps to ``plot()`` for backward compatibility."""
-        resolved_pane = pane
-        if resolved_pane is None:
-            if overlay is None:
-                resolved_pane = "main"
-            else:
-                resolved_pane = "main" if overlay else "separate"
-
-        resolved_width = linewidth if linewidth is not None else line_width
-        if resolved_width is None:
-            resolved_width = 2
-
-        resolved_style = style if style is not None else line_style
-        if resolved_style is None:
-            resolved_style = "solid"
-
-        resolved_color_data = colorData if colorData is not None else color_data
-        series_type = (type or "line").lower()
-
-        if series_type in {"histogram", "bar", "columns", "column"}:
-            values = _values_from_data(data)
-            points = []
-            for idx, (t, v) in enumerate(zip(collector.times, values)):
-                if not _is_valid_value(v):
-                    continue
-                point = {"time": t, "value": round(float(v), 8)}
-                point_color = _color_for_index(resolved_color_data, idx, t)
-                if point_color:
-                    point["color"] = point_color
-                points.append(point)
-
-            collector.histograms.append(
-                {
-                    "title": title,
-                    "color_up": color,
-                    "color_down": color,
-                    "pane": resolved_pane,
-                    "data": points,
-                }
-            )
-            return
-
-        plot(
-            data,
-            title=title,
-            color=color,
-            linewidth=resolved_width,
-            style=resolved_style,
-            overlay=overlay,
-            pane=resolved_pane,
-            color_array=resolved_color_data,
-        )
-
-    plot.style_line = "line"
-    plot.style_histogram = "histogram"
-    plot.style_columns = "histogram"
-    hline.style_solid = "solid"
-    hline.style_dashed = "dashed"
-    hline.style_dotted = "dotted"
-
-    line_namespace = _DrawingNamespace(
-        all_getter=lambda: _object_refs("line", collector._object_lines),
-        new=line_new,
-        set_xy1=line_set_xy1,
-        set_xy2=line_set_xy2,
-        set_first_point=line_set_first_point,
-        set_second_point=line_set_second_point,
-        set_x1=line_set_x1,
-        set_y1=line_set_y1,
-        set_x2=line_set_x2,
-        set_y2=line_set_y2,
-        set_color=line_set_color,
-        set_width=line_set_width,
-        set_style=line_set_style,
-        set_extend=line_set_extend,
-        get_x1=line_get_x1,
-        get_y1=line_get_y1,
-        get_x2=line_get_x2,
-        get_y2=line_get_y2,
-        delete=line_delete,
-        style_solid="solid",
-        style_dashed="dashed",
-        style_dotted="dotted",
-        extend_none="none",
-        extend_left="left",
-        extend_right="right",
-        extend_both="both",
-    )
-    linefill_namespace = _DrawingNamespace(
-        all_getter=lambda: _object_refs("linefill", collector._object_linefills),
-        new=linefill_new,
-        set_color=linefill_set_color,
-        delete=linefill_delete,
-    )
-    polyline_namespace = _DrawingNamespace(
-        all_getter=lambda: _object_refs("polyline", collector._object_polylines),
-        new=polyline_new,
-        delete=polyline_delete,
-    )
-    label_namespace = _CallableNamespace(
-        label_func,
-        new=label_new,
-        set_xy=label_set_xy,
-        set_point=label_set_point,
-        set_x=label_set_x,
-        set_y=label_set_y,
-        set_text=label_set_text,
-        set_color=label_set_color,
-        set_textcolor=label_set_textcolor,
-        set_style=label_set_style,
-        set_size=label_set_size,
-        set_xloc=label_set_xloc,
-        set_yloc=label_set_yloc,
-        set_tooltip=label_set_tooltip,
-        get_x=label_get_x,
-        get_y=label_get_y,
-        get_text=label_get_text,
-        delete=label_delete,
-        style_label_up="label_up",
-        style_label_down="label_down",
-        style_label_left="label_left",
-        style_label_right="label_right",
-        style_label_center="label_center",
-        style_circle="circle",
-        style_none="none",
-        style_xcross="xcross",
-        style_labelup="label_up",
-        style_labeldown="label_down",
-        style_label_upper_right="label_upper_right",
-        style_label_lower_right="label_lower_right",
-    )
-    box_namespace = _DrawingNamespace(
-        all_getter=lambda: _object_refs("box", collector._object_boxes),
-        new=box_new,
-        set_left=box_set_left,
-        set_top=box_set_top,
-        set_right=box_set_right,
-        set_bottom=box_set_bottom,
-        set_lefttop=box_set_lefttop,
-        set_rightbottom=box_set_rightbottom,
-        set_top_left_point=box_set_top_left_point,
-        set_bottom_right_point=box_set_bottom_right_point,
-        set_bgcolor=box_set_bgcolor,
-        set_border_color=box_set_border_color,
-        set_border_width=box_set_border_width,
-        set_border_style=box_set_border_style,
-        set_extend=box_set_extend,
-        set_text=box_set_text,
-        set_text_color=box_set_text_color,
-        set_text_size=box_set_text_size,
-        set_text_halign=box_set_text_halign,
-        set_text_valign=box_set_text_valign,
-        get_left=box_get_left,
-        get_top=box_get_top,
-        get_right=box_get_right,
-        get_bottom=box_get_bottom,
-        copy=box_copy,
-        delete=box_delete,
-        border_style_solid="solid",
-        border_style_dashed="dashed",
-        border_style_dotted="dotted",
-    )
-    table_namespace = _Namespace(
-        new=table_new,
-        cell=table_cell,
-        clear=table_clear,
-        merge_cells=table_merge_cells,
-        set_position=table_set_position,
-        set_bgcolor=table_set_bgcolor,
-        set_frame_color=table_set_frame_color,
-        set_border_color=table_set_border_color,
-        delete=table_delete,
-    )
-    position_namespace = _Namespace(
-        top_left="top_left",
-        top_center="top_center",
-        top_right="top_right",
-        middle_left="middle_left",
-        middle_center="middle_center",
-        middle_right="middle_right",
-        bottom_left="bottom_left",
-        bottom_center="bottom_center",
-        bottom_right="bottom_right",
-    )
-    shape_namespace = _Namespace(
-        xcross="xcross",
-        cross="cross",
-        circle="circle",
-        triangleup="triangle_up",
-        triangledown="triangle_down",
-        flag="flag",
-        arrowup="arrow_up",
-        arrowdown="arrow_down",
-        labelup="label_up",
-        labeldown="label_down",
-        square="square",
-        diamond="diamond",
-    )
-    location_namespace = _Namespace(
-        abovebar="above",
-        belowbar="below",
-        top="above",
-        bottom="below",
-        absolute="absolute",
-    )
-    size_namespace = _Namespace(
-        auto="auto",
-        tiny="tiny",
-        small="small",
-        normal="normal",
-        large="large",
-        huge="huge",
-    )
-    display_namespace = _Namespace(
-        none="none",
-        all="all",
-        pane="pane",
-        data_window="data_window",
-        status_line="status_line",
-    )
-    format_namespace = _Namespace(
-        inherit="inherit",
-        mintick="mintick",
-        price="price",
-        volume="volume",
-        percent="percent",
-    )
-    scale_namespace = _Namespace(
-        left="left",
-        right="right",
-        none="none",
-    )
-    xloc_namespace = _Namespace(
-        bar_index="bar_index",
-        bar_time="bar_time",
-    )
-    yloc_namespace = _Namespace(
-        price="price",
-        abovebar="abovebar",
-        belowbar="belowbar",
-    )
-    extend_namespace = _Namespace(
-        none="none",
-        left="left",
-        right="right",
-        both="both",
-    )
-    text_namespace = _Namespace(
-        align_left="left",
-        align_center="center",
-        align_right="right",
-        align_top="top",
-        align_middle="middle",
-        align_bottom="bottom",
-    )
-
-    return {
-        "indicator": indicator,
-        "study": indicator,
-        "plot": plot,
-        "plotcandle": plotcandle,
-        "bar": bar,
-        "hline": hline,
-        "fill": fill,
-        "bgcolor": bgcolor,
-        "marker": marker,
-        "plotshape": plotshape,
-        "plotchar": plotchar,
-        "plotarrow": plotarrow,
-        "barcolor": barcolor,
-        "emit_signal": emit_signal,
-        "alertcondition": alertcondition,
-        "line": line_namespace,
-        "linefill": linefill_namespace,
-        "polyline": polyline_namespace,
-        "label": label_namespace,
-        "box": box_namespace,
-        "table": table_namespace,
-        "add_line": add_line,
-        "shape": shape_namespace,
-        "location": location_namespace,
-        "position": position_namespace,
-        "size": size_namespace,
-        "display": display_namespace,
-        "format": format_namespace,
-        "scale": scale_namespace,
-        "xloc": xloc_namespace,
-        "yloc": yloc_namespace,
-        "extend": extend_namespace,
-        "text": text_namespace,
-    }
-
-
-def _display_options(
-    *,
-    display: str | None,
-    format: str | None,
-    precision: int | None,
-) -> dict[str, Any]:
-    options: dict[str, Any] = {}
-    if display is not None:
-        options["display"] = str(display)
-    if format is not None:
-        options["format"] = str(format)
-    if precision is not None:
-        options["precision"] = int(precision)
-    return options
+    return assemble_plot_namespace(collector, locals())

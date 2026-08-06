@@ -43,6 +43,17 @@ strategy.entry_when(bar_index % 2 == 0, "L", strategy.long, qty=1, price=close)
 strategy.close_when(bar_index % 2 == 1, "L", price=close)
 """
 
+_INCREMENTAL_SCRIPT = """
+indicator("Incremental Smoke", mode="incremental")
+def init(ctx):
+    ctx.ta.sma("ma", period=8)
+def on_bar(ctx, bar):
+    total = ctx.state("total", 0.0)
+    total.value += bar.close
+    ctx.plot("MA", ctx.ta.sma("ma").update(bar.close))
+    ctx.plot("Total", total.value)
+"""
+
 
 def _bars(count: int) -> list[dict[str, float]]:
     return [
@@ -240,6 +251,112 @@ def _pivot_growth(repeats: int) -> dict[str, Any]:
     )
 
 
+def _incremental_multi_session_growth(repeats: int) -> dict[str, Any]:
+    data = _bars(120)
+
+    def evaluate(count: int) -> float:
+        def run_sessions() -> None:
+            sessions = [
+                pn.PyneIncrementalSession(
+                    script=_INCREMENTAL_SCRIPT,
+                    params={"session": index},
+                    settings=pn.PyneSettings(executor_mode="inline", max_bars=1_000),
+                    retention_bars=64,
+                )
+                for index in range(count)
+            ]
+            for session in sessions:
+                session.seed(data)
+
+        return _median_seconds(run_sessions, repeats)
+
+    return _growth_check(
+        "incremental_multi_session_time_growth",
+        small=evaluate(4),
+        large=evaluate(8),
+        limit=3.25,
+        unit="seconds",
+    )
+
+
+def _incremental_memory_growth() -> dict[str, Any]:
+    pn.PyneIncrementalSession(
+        script=_INCREMENTAL_SCRIPT,
+        settings=pn.PyneSettings(executor_mode="inline", max_bars=1_000),
+        retention_bars=64,
+    ).seed(_bars(16))
+
+    def peak_bytes(count: int) -> float:
+        gc.collect()
+        tracemalloc.start()
+        try:
+            session = pn.PyneIncrementalSession(
+                script=_INCREMENTAL_SCRIPT,
+                settings=pn.PyneSettings(executor_mode="inline", max_bars=1_000),
+                retention_bars=64,
+            )
+            session.seed(_bars(count))
+            _, peak = tracemalloc.get_traced_memory()
+            return float(peak)
+        finally:
+            tracemalloc.stop()
+
+    return _growth_check(
+        "incremental_bounded_memory_growth",
+        small=peak_bytes(300),
+        large=peak_bytes(600),
+        limit=3.0,
+        unit="bytes",
+    )
+
+
+def _portable_snapshot_growth(repeats: int) -> dict[str, Any]:
+    def evaluate(count: int) -> float:
+        session = pn.PyneIncrementalSession(
+            script=_INCREMENTAL_SCRIPT,
+            settings=pn.PyneSettings(executor_mode="inline", max_bars=1_000),
+            retention_bars=64,
+        )
+        session.seed(_bars(count))
+        return _median_seconds(session.snapshot_portable, repeats)
+
+    return _growth_check(
+        "incremental_portable_snapshot_time_growth",
+        small=evaluate(200),
+        large=evaluate(400),
+        limit=3.25,
+        unit="seconds",
+    )
+
+
+def _portable_restore_growth(repeats: int) -> dict[str, Any]:
+    def evaluate(count: int) -> float:
+        settings = pn.PyneSettings(executor_mode="inline", max_bars=1_000)
+        session = pn.PyneIncrementalSession(
+            script=_INCREMENTAL_SCRIPT,
+            settings=settings,
+            retention_bars=64,
+        )
+        session.seed(_bars(count))
+        payload = session.snapshot_portable()
+        return _median_seconds(
+            lambda: pn.PyneIncrementalSession.from_portable_snapshot(
+                payload,
+                script=_INCREMENTAL_SCRIPT,
+                settings=settings,
+            ),
+            repeats,
+        )
+
+    return _growth_check(
+        "incremental_portable_restore_time_growth",
+        small=evaluate(80),
+        large=evaluate(160),
+        limit=3.5,
+        unit="seconds",
+    )
+
+
 def build_report(*, repeats: int) -> dict[str, Any]:
     checks = [
         _strategy_close_growth(repeats),
@@ -250,6 +367,10 @@ def build_report(*, repeats: int) -> dict[str, Any]:
         _wma_growth(repeats),
         _order_statistic_growth(repeats),
         _pivot_growth(repeats),
+        _incremental_multi_session_growth(repeats),
+        _incremental_memory_growth(),
+        _portable_snapshot_growth(repeats),
+        _portable_restore_growth(repeats),
     ]
     return {
         "schema": "pyne.performance-smoke.v1",

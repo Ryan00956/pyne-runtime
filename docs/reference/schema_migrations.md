@@ -11,6 +11,22 @@ Current schema versions:
 - `params`: `PYNE_PARAM_SCHEMA_VERSION`
 - `requestProvider`: `PYNE_REQUEST_PROVIDER_SCHEMA_VERSION`
 - `strategyReport`: `PYNE_STRATEGY_REPORT_SCHEMA_VERSION`
+- process-local incremental snapshot: `PYNE_INCREMENTAL_SNAPSHOT_VERSION`
+- portable incremental snapshot: `PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION`
+
+## Incremental Snapshot Schemas
+
+Process-local incremental snapshots are currently version 2. They are opaque
+Python runtime objects and are valid only for matching script, settings,
+parameters, retention policy, and runtime semantics.
+
+Portable incremental snapshots use format
+`PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_FORMAT` and schema version 1. Their
+canonical JSON envelope includes a checksum and is decoded with byte, depth,
+and node limits. Restore replays the bounded committed bar history and does not
+deserialize arbitrary Python objects. Providers are deliberately not embedded
+and must be supplied again for provider-backed scripts. Older or unknown
+versions fail closed rather than being guessed or migrated implicitly.
 
 ## Output Schema
 
