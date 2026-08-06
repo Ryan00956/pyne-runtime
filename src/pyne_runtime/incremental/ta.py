@@ -367,6 +367,288 @@ class _StepCCI:
         return (float(current) - average) / (0.015 * deviation)
 
 
+class _StepHMA:
+    def __init__(self, period: int) -> None:
+        self.period = max(int(period), 1)
+        self.fast = _StepWMA(max(int(self.period / 2), 1))
+        self.slow = _StepWMA(self.period)
+        self.result = _StepWMA(max(int(math.sqrt(self.period)), 1))
+
+    def update(self, value: Any) -> float | None:
+        fast = self.fast.update(value)
+        slow = self.slow.update(value)
+        combined = None if fast is None or slow is None else 2.0 * fast - slow
+        return self.result.update(combined)
+
+
+class _StepBarsSince:
+    def __init__(self) -> None:
+        self.index = -1
+        self.last_true: int | None = None
+
+    def update(self, condition: Any) -> float | None:
+        self.index += 1
+        if bool(condition):
+            self.last_true = self.index
+        return None if self.last_true is None else float(self.index - self.last_true)
+
+
+class _StepValueWhen:
+    def __init__(self, occurrence: int = 0) -> None:
+        self.occurrence = max(int(occurrence), 0)
+        self.values: deque[Any] = deque(maxlen=self.occurrence + 1)
+
+    def update(self, condition: Any, value: Any) -> Any:
+        if bool(condition):
+            self.values.append(value)
+        if len(self.values) <= self.occurrence:
+            return None
+        return self.values[-(self.occurrence + 1)]
+
+
+class _StepCross:
+    def __init__(self, direction: str) -> None:
+        self.direction = direction
+        self.previous_a: float | None = None
+        self.previous_b: float | None = None
+
+    def update(self, a: Any, b: Any) -> bool:
+        current_a = _number_or_none(a)
+        current_b = _number_or_none(b)
+        crossed = False
+        if (
+            current_a is not None
+            and current_b is not None
+            and self.previous_a is not None
+            and self.previous_b is not None
+        ):
+            over = current_a > current_b and self.previous_a <= self.previous_b
+            under = current_a < current_b and self.previous_a >= self.previous_b
+            crossed = over if self.direction == "over" else under if self.direction == "under" else over or under
+        self.previous_a = current_a
+        self.previous_b = current_b
+        return crossed
+
+
+class _StepVWAP:
+    def __init__(self) -> None:
+        self.running = False
+        self.volume_sum = 0.0
+        self.weighted_sum = 0.0
+        self.weighted_square_sum = 0.0
+
+    def update(
+        self,
+        source: Any,
+        volume: Any,
+        *,
+        anchor: Any = False,
+        stdev_mult: Any = None,
+    ) -> float | None | tuple[float | None, float | None, float | None]:
+        if bool(anchor):
+            self.running = True
+            self.volume_sum = 0.0
+            self.weighted_sum = 0.0
+            self.weighted_square_sum = 0.0
+        if not self.running:
+            empty = None
+            return (empty, empty, empty) if stdev_mult is not None else empty
+        price = _number_or_none(source)
+        weight = _number_or_none(volume)
+        if price is not None and weight is not None:
+            self.volume_sum += weight
+            self.weighted_sum += price * weight
+            self.weighted_square_sum += price * price * weight
+        if self.volume_sum == 0.0:
+            empty = None
+            return (empty, empty, empty) if stdev_mult is not None else empty
+        value = self.weighted_sum / self.volume_sum
+        if stdev_mult is None:
+            return value
+        multiplier = _number_or_none(stdev_mult)
+        if multiplier is None:
+            return value, None, None
+        variance = max(self.weighted_square_sum / self.volume_sum - value * value, 0.0)
+        deviation = math.sqrt(variance) * multiplier
+        return value, value + deviation, value - deviation
+
+
+class _StepDMI:
+    def __init__(self, period: int = 14, adx_period: int = 14) -> None:
+        self.atr = _StepATR(period)
+        self.plus = _StepRMA(period)
+        self.minus = _StepRMA(period)
+        self.adx = _StepRMA(adx_period)
+        self.previous_high: float | None = None
+        self.previous_low: float | None = None
+        self.last_plus_di: float | None = None
+        self.last_minus_di: float | None = None
+
+    def update(
+        self,
+        bar_or_high: Any,
+        low: Any = None,
+        close: Any = None,
+    ) -> tuple[float | None, float | None, float | None]:
+        if low is None and close is None:
+            high = _number_or_none(getattr(bar_or_high, "high"))
+            low_value = _number_or_none(getattr(bar_or_high, "low"))
+            close_value = _number_or_none(getattr(bar_or_high, "close"))
+        else:
+            high = _number_or_none(bar_or_high)
+            low_value = _number_or_none(low)
+            close_value = _number_or_none(close)
+        if high is None or low_value is None:
+            atr = self.atr.update(high, low_value, close_value)
+            return self.last_plus_di, self.last_minus_di, self.adx.update(None)
+        up_move = None if self.previous_high is None else high - self.previous_high
+        down_move = None if self.previous_low is None else self.previous_low - low_value
+        plus_dm = (
+            None
+            if up_move is None or down_move is None
+            else up_move
+            if up_move > down_move and up_move > 0.0
+            else 0.0
+        )
+        minus_dm = (
+            None
+            if up_move is None or down_move is None
+            else down_move
+            if down_move > up_move and down_move > 0.0
+            else 0.0
+        )
+        self.previous_high = high
+        self.previous_low = low_value
+        atr = self.atr.update(high, low_value, close_value)
+        plus_smoothed = self.plus.update(plus_dm)
+        minus_smoothed = self.minus.update(minus_dm)
+        if atr not in {None, 0.0} and plus_smoothed is not None:
+            self.last_plus_di = 100.0 * plus_smoothed / atr
+        if atr not in {None, 0.0} and minus_smoothed is not None:
+            self.last_minus_di = 100.0 * minus_smoothed / atr
+        dx = None
+        if self.last_plus_di is not None and self.last_minus_di is not None:
+            total = self.last_plus_di + self.last_minus_di
+            dx = abs(self.last_plus_di - self.last_minus_di) / (1.0 if total == 0.0 else total)
+        adx = self.adx.update(dx)
+        return self.last_plus_di, self.last_minus_di, None if adx is None else 100.0 * adx
+
+
+class _StepADX(_StepDMI):
+    def update(self, bar_or_high: Any, low: Any = None, close: Any = None) -> float | None:
+        return super().update(bar_or_high, low, close)[2]
+
+
+class _StepSAR:
+    def __init__(self, start: float, increment: float, maximum: float) -> None:
+        self.start = float(start)
+        self.increment = float(increment)
+        self.maximum = float(maximum)
+        self.index = -1
+        self.sar: float | None = None
+        self.extreme: float | None = None
+        self.acceleration: float | None = None
+        self.is_below = False
+        self.previous_close: float | None = None
+        self.previous_highs: deque[float | None] = deque(maxlen=2)
+        self.previous_lows: deque[float | None] = deque(maxlen=2)
+
+    def update(self, bar_or_high: Any, low: Any = None, close: Any = None) -> float | None:
+        if low is None and close is None:
+            high = _number_or_none(getattr(bar_or_high, "high"))
+            low_value = _number_or_none(getattr(bar_or_high, "low"))
+            close_value = _number_or_none(getattr(bar_or_high, "close"))
+        else:
+            high = _number_or_none(bar_or_high)
+            low_value = _number_or_none(low)
+            close_value = _number_or_none(close)
+        self.index += 1
+        if high is None or low_value is None or close_value is None:
+            self.sar = None
+            self.extreme = None
+            self.acceleration = None
+            self.previous_close = close_value
+            self.previous_highs.append(high)
+            self.previous_lows.append(low_value)
+            return None
+        first_trend_bar = False
+        if self.sar is None and self.previous_close is not None and self.previous_highs and self.previous_lows:
+            if close_value > self.previous_close:
+                self.is_below = True
+                self.extreme = high
+                self.sar = self.previous_lows[-1]
+            else:
+                self.is_below = False
+                self.extreme = low_value
+                self.sar = self.previous_highs[-1]
+            first_trend_bar = True
+            self.acceleration = self.start
+        elif self.sar is not None and self.extreme is not None and self.acceleration is not None:
+            self.sar = self.sar + self.acceleration * (self.extreme - self.sar)
+            if self.is_below and self.sar > low_value:
+                first_trend_bar = True
+                self.is_below = False
+                self.sar = max(high, self.extreme)
+                self.extreme = low_value
+                self.acceleration = self.start
+            elif not self.is_below and self.sar < high:
+                first_trend_bar = True
+                self.is_below = True
+                self.sar = min(low_value, self.extreme)
+                self.extreme = high
+                self.acceleration = self.start
+            if not first_trend_bar:
+                if self.is_below and high > self.extreme:
+                    self.extreme = high
+                    self.acceleration = min(self.acceleration + self.increment, self.maximum)
+                elif not self.is_below and low_value < self.extreme:
+                    self.extreme = low_value
+                    self.acceleration = min(self.acceleration + self.increment, self.maximum)
+            if self.is_below:
+                for previous in self.previous_lows:
+                    if previous is not None:
+                        self.sar = min(self.sar, previous)
+            else:
+                for previous in self.previous_highs:
+                    if previous is not None:
+                        self.sar = max(self.sar, previous)
+        result = self.sar
+        self.previous_close = close_value
+        self.previous_highs.append(high)
+        self.previous_lows.append(low_value)
+        return result
+
+
+class _StepMFI:
+    def __init__(self, period: int) -> None:
+        self.period = max(int(period), 1)
+        self.previous_source: float | None = None
+        self.positive: deque[float] = deque()
+        self.negative: deque[float] = deque()
+        self.positive_sum = 0.0
+        self.negative_sum = 0.0
+
+    def update(self, source: Any, volume: Any) -> float | None:
+        price = _number_or_none(source)
+        weight = _number_or_none(volume)
+        raw = 0.0 if price is None or weight is None else price * weight
+        positive = raw if self.previous_source is not None and price is not None and price > self.previous_source else 0.0
+        negative = raw if self.previous_source is not None and price is not None and price < self.previous_source else 0.0
+        self.previous_source = price
+        self.positive.append(positive)
+        self.negative.append(negative)
+        self.positive_sum += positive
+        self.negative_sum += negative
+        if len(self.positive) > self.period:
+            self.positive_sum -= self.positive.popleft()
+            self.negative_sum -= self.negative.popleft()
+        if len(self.positive) < self.period:
+            return 100.0
+        if self.negative_sum == 0.0:
+            return 100.0
+        return 100.0 - 100.0 / (1.0 + self.positive_sum / self.negative_sum)
+
+
 class _StepSupertrend:
     def __init__(self, factor: float, atr_period: int) -> None:
         self.factor = float(factor)
@@ -579,6 +861,103 @@ class IncrementalTaNamespace:
                 raise ValueError(f"ctx.ta.cci('{name}') has not been initialized")
             self._limits.reserve_window(period, label=key)
             self._helpers[key] = _StepCCI(period)
+        return self._helpers[key]
+
+    def hma(self, name: str, period: int | None = None) -> _StepHMA:
+        key = f"hma:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.hma('{name}') has not been initialized")
+            half = max(int(period / 2), 1)
+            root = max(int(math.sqrt(period)), 1)
+            self._limits.reserve_window(half + int(period) + root, label=key)
+            self._helpers[key] = _StepHMA(period)
+        return self._helpers[key]
+
+    def barssince(self, name: str) -> _StepBarsSince:
+        key = f"barssince:{name}"
+        if key not in self._helpers:
+            self._helpers[key] = _StepBarsSince()
+        return self._helpers[key]
+
+    def valuewhen(self, name: str, occurrence: int | None = None) -> _StepValueWhen:
+        key = f"valuewhen:{name}"
+        if key not in self._helpers:
+            if occurrence is None:
+                raise ValueError(f"ctx.ta.valuewhen('{name}') has not been initialized")
+            self._limits.reserve_window(max(int(occurrence), 0) + 1, label=key)
+            self._helpers[key] = _StepValueWhen(occurrence)
+        return self._helpers[key]
+
+    def crossover(self, name: str) -> _StepCross:
+        return self._cross(name, "over")
+
+    def crossunder(self, name: str) -> _StepCross:
+        return self._cross(name, "under")
+
+    def cross(self, name: str) -> _StepCross:
+        return self._cross(name, "either")
+
+    def _cross(self, name: str, direction: str) -> _StepCross:
+        key = f"cross:{direction}:{name}"
+        if key not in self._helpers:
+            self._helpers[key] = _StepCross(direction)
+        return self._helpers[key]
+
+    def vwap(self, name: str) -> _StepVWAP:
+        key = f"vwap:{name}"
+        if key not in self._helpers:
+            self._helpers[key] = _StepVWAP()
+        return self._helpers[key]
+
+    def dmi(
+        self,
+        name: str,
+        period: int | None = None,
+        adx_period: int = 14,
+    ) -> _StepDMI:
+        key = f"dmi:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.dmi('{name}') has not been initialized")
+            self._helpers[key] = _StepDMI(period, adx_period)
+        return self._helpers[key]
+
+    def adx(
+        self,
+        name: str,
+        period: int | None = None,
+        adx_period: int | None = None,
+    ) -> _StepADX:
+        key = f"adx:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.adx('{name}') has not been initialized")
+            self._helpers[key] = _StepADX(period, period if adx_period is None else adx_period)
+        return self._helpers[key]
+
+    def sar(
+        self,
+        name: str,
+        start: float | None = None,
+        increment: float = 0.02,
+        maximum: float = 0.2,
+    ) -> _StepSAR:
+        key = f"sar:{name}"
+        if key not in self._helpers:
+            if start is None:
+                raise ValueError(f"ctx.ta.sar('{name}') has not been initialized")
+            self._limits.reserve_window(4, label=key)
+            self._helpers[key] = _StepSAR(start, increment, maximum)
+        return self._helpers[key]
+
+    def mfi(self, name: str, period: int | None = None) -> _StepMFI:
+        key = f"mfi:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.mfi('{name}') has not been initialized")
+            self._limits.reserve_window(int(period) * 2, label=key)
+            self._helpers[key] = _StepMFI(period)
         return self._helpers[key]
 
     def supertrend(

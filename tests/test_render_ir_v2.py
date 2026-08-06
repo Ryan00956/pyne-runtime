@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pyne_runtime as pn
+import pytest
 
 
 def _bars() -> list[dict[str, float]]:
@@ -211,6 +212,40 @@ plot(tv_ta.cagr(0, 100, 31536000, 121), "CAGR")
     assert result.values("Highest Since") == [100.0, 110.0, 121.0]
     assert result.values("Lowest Since") == [100.0, 110.0, 110.0]
     assert result.values("CAGR") == [21.0]
+
+
+def test_pinned_tradingview_ta_10_dynamic_smoothing_members() -> None:
+    bars = [
+        {"time": 0, "open": 10, "high": 11, "low": 9, "close": 10, "volume": 1},
+        {"time": 1, "open": 11, "high": 13, "low": 11, "close": 12, "volume": 1},
+        {"time": 2, "open": 13, "high": 15, "low": 13, "close": 14, "volume": 1},
+        {"time": 3, "open": 14, "high": 15, "low": 12, "close": 13, "volume": 1},
+        {"time": 4, "open": 15, "high": 17, "low": 15, "close": 16, "volume": 1},
+    ]
+    result = pn.run(
+        """
+tv_ta = pine_library("TradingView/ta/10")
+plot(tv_ta.ema2(close, 2 + (bar_index >= 2) * 2), "EMA2")
+plot(tv_ta.rma2(close, 3 - (bar_index >= 3)), "RMA2")
+plot(tv_ta.atr2(3 - (bar_index >= 3)), "ATR2")
+""",
+        bars,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("EMA2") == pytest.approx([10.0, 11.333333, 12.4, 12.64, 13.984])
+    assert result.values("RMA2") == pytest.approx([12.0, 12.5, 14.25])
+    assert result.values("ATR2") == pytest.approx([2.666667, 2.833333, 3.416667])
+
+
+def test_pinned_library_reports_member_level_host_requirements() -> None:
+    descriptor = pn.SUPPORTED_PINE_LIBRARIES[0]
+
+    assert descriptor.requirements_for({"ema2", "changePercent"}) == ()
+    assert descriptor.requirements_for({"requestVolumeDelta"}) == (
+        "request.security_lower_tf",
+    )
 
 
 def test_external_library_registry_fails_closed_for_unknown_library() -> None:

@@ -111,9 +111,10 @@ strategy ledger. If a preview for the same `time` was already seen,
 `ctx.barstate.isnew` is false during the confirmed callback; if the host sends
 only a closed bar, it is true.
 
-The currently promoted incremental TA helpers are `sma`, `ema`, `rma`, `wma`,
-`vwma`, `variance`, `stdev`, `boll`, `macd`, `rsi`, `atr`, `highest`, `lowest`,
-`stoch`, `cci`, and `supertrend`. Query
+The currently promoted incremental TA helpers are `adx`, `atr`, `barssince`,
+`boll`, `cci`, `cross`, `crossover`, `crossunder`, `dmi`, `ema`, `highest`,
+`hma`, `lowest`, `macd`, `mfi`, `rma`, `rsi`, `sar`, `sma`, `stdev`, `stoch`,
+`supertrend`, `valuewhen`, `variance`, `vwap`, `vwma`, and `wma`. Query
 `pn.runtime_capabilities()["modes"]["incremental"]` instead of assuming every
 batch `ta.*` helper has a scalar incremental implementation. `pn.validate()`
 and session preparation report statically visible unsupported `ctx.ta.*` calls
@@ -169,8 +170,8 @@ security mode, snapshot version, and retention policy must match at restore.
 Closures and script-defined classes fail closed because they cannot be safely
 rebound to a fresh execution namespace.
 
-For a bounded checkpoint that can cross process boundaries, use the portable
-format instead:
+For a bounded checkpoint that can cross process boundaries, the default
+portable format remains replay v1:
 
 ```python
 payload = session.snapshot_portable()
@@ -186,10 +187,33 @@ The portable payload is canonical JSON with a format identifier, version, and
 SHA-256 checksum. Decode and restore enforce byte, nesting-depth, and node-count
 limits before replaying the retained committed bars. The data provider is never
 serialized; a provider-backed session must receive matching settings or an
-explicit provider during restore. Portable export also fails closed if the
-session has committed more bars than its `max_bars` replay bound, because a
-partial history could restore different state. This is a durable replay
-checkpoint, not arbitrary Python-object serialization.
+explicit provider during restore. Replay export fails closed if the session has
+committed more bars than its `max_bars` replay bound, because a partial history
+could restore different state.
+
+For restart latency independent of replay length, opt into typed-state v2:
+
+```python
+payload = session.snapshot_portable(mode="state")
+# Equivalent convenience spelling:
+payload = session.snapshot_portable_state()
+
+restored = pn.PyneIncrementalSession.from_portable_snapshot(
+    payload,
+    script=script,
+    settings=settings,
+)
+```
+
+Typed-state v2 omits committed replay bars and restores the runtime-managed
+state graph directly. It accepts JSON-like containers, bounded numeric/string
+arrays, and an exact allowlist of Pyne runtime types; it never imports a class
+named by the payload. Unknown user classes, closures, functions, unsupported
+array dtypes, invalid references, and limit violations fail closed. It is not a
+general Python serializer. The script hash, parameters, security and retention
+contracts still have to match, and providers must still be supplied by the
+host. `from_portable_snapshot()` detects replay v1 and typed-state v2 from the
+format identifier.
 
 Use `run_incremental_parity()` when one feature must produce equivalent batch
 and incremental host output:
@@ -273,7 +297,9 @@ Incremental runtime code is split by lifecycle role:
 - `incremental.drawing` owns line, label, box, and table mutation helpers.
 - `incremental.request` adapts the typed batch request provider contract to
   current-bar scalar and lower-timeframe array results.
-- `incremental.checkpoint` owns the bounded portable snapshot envelope.
+- `incremental.checkpoint` owns the bounded replay-v1 and typed-state-v2
+  portable snapshot envelopes; `incremental.state_codec` owns the fixed typed
+  object-graph allowlist.
 - `incremental.parity` compares normalized batch and incremental semantics.
 - `capabilities` publishes the mode-aware supported surface and early
   diagnostics.

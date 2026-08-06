@@ -25,6 +25,7 @@ def test_incremental_strategy_reuses_shared_order_helpers() -> None:
     assert incremental_strategy._pending_trigger is orders._pending_trigger
     assert incremental_strategy._exit_trigger is orders._exit_trigger
     assert incremental_strategy._normalize_intrabar_path is orders._normalize_intrabar_path
+    assert incremental_strategy._order_lifecycle_state is orders._order_lifecycle_state
 
     assert orders._normalize_intrabar_path("same-bar-priority") == "same_bar_priority"
     assert orders._pending_trigger(
@@ -63,6 +64,22 @@ def test_incremental_strategy_reuses_shared_order_helpers() -> None:
         stop=9.0,
         same_bar_fill_priority=StrategySameBarPriority.stop_first,
     ) == ("stop", 8.5)
+
+    assert orders._order_lifecycle_state(
+        {
+            "type": "entry",
+            "_active": False,
+            "_pending_submission": True,
+        }
+    ) == {
+        "order_type": "entry",
+        "active": False,
+        "canceled": False,
+        "rejected": False,
+        "pending": True,
+        "status": "pending",
+        "phase": "pending",
+    }
 
 
 def test_incremental_strategy_reuses_shared_cost_and_risk_helpers() -> None:

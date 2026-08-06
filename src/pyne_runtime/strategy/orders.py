@@ -344,27 +344,18 @@ def _orders_in_key_order(
 
 
 def _strategy_lifecycle_event(order: dict[str, Any]) -> dict[str, Any] | None:
-    order_type = str(order.get("type") or "")
-    active = bool(order.get("_active", True))
-    canceled = bool(order.get("_canceled"))
-    rejected = bool(order.get("_rejected_reason"))
-    pending_submission = order_type in {"entry", "order"} and _is_pending_submission(order)
+    state = _order_lifecycle_state(order)
+    order_type = state["order_type"]
+    active = state["active"]
+    canceled = state["canceled"]
+    rejected = state["rejected"]
+    pending_submission = state["pending"]
 
     if not active and not canceled and not rejected and not pending_submission:
         return None
 
-    status = _strategy_lifecycle_status(
-        order_type=order_type,
-        active=active,
-        canceled=canceled,
-        rejected=rejected,
-        pending_submission=pending_submission,
-    )
-    phase = _strategy_lifecycle_phase(
-        order_type=order_type,
-        status=status,
-        pending_submission=pending_submission,
-    )
+    status = state["status"]
+    phase = state["phase"]
     event: dict[str, Any] = {
         "id": order.get("id"),
         "type": order_type,
@@ -413,6 +404,40 @@ def _strategy_lifecycle_event(order: dict[str, Any]) -> dict[str, Any] | None:
     if order.get("_rejected_reason"):
         event["rejected_reason"] = order.get("_rejected_reason")
     return event
+
+
+def _order_lifecycle_state(order: dict[str, Any]) -> dict[str, Any]:
+    """Return the shared batch/incremental order lifecycle state machine view."""
+    order_type = str(order.get("type") or "")
+    active = bool(order.get("_active", True))
+    canceled = bool(order.get("_canceled")) or (
+        order_type in {"cancel", "cancel_all"} and active
+    )
+    rejected = bool(order.get("_rejected_reason"))
+    pending_submission = bool(order.get("_pending_submission")) or (
+        order_type in {"entry", "order"} and _is_pending_submission(order)
+    )
+    status = _strategy_lifecycle_status(
+        order_type=order_type,
+        active=active,
+        canceled=canceled,
+        rejected=rejected,
+        pending_submission=pending_submission,
+    )
+    phase = _strategy_lifecycle_phase(
+        order_type=order_type,
+        status=status,
+        pending_submission=pending_submission,
+    )
+    return {
+        "order_type": order_type,
+        "active": active,
+        "canceled": canceled,
+        "rejected": rejected,
+        "pending": pending_submission,
+        "status": status,
+        "phase": phase,
+    }
 
 
 def _strategy_lifecycle_status(

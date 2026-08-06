@@ -13,6 +13,8 @@ from ..settings import PyneSettings
 
 PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION = 1
 PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_FORMAT = "pyne.incremental-session/1"
+PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_VERSION = 2
+PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_FORMAT = "pyne.incremental-state/2"
 DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES = 8 * 1024 * 1024
 DEFAULT_PORTABLE_SNAPSHOT_MAX_DEPTH = 16
 DEFAULT_PORTABLE_SNAPSHOT_MAX_NODES = 1_000_000
@@ -31,6 +33,14 @@ class PortableCheckpoint:
     bars: tuple[dict[str, Any], ...]
     seed_count: int
     provider_required: bool
+
+
+@dataclass(frozen=True)
+class PortableStateCheckpoint:
+    script_sha256: str
+    settings: dict[str, Any]
+    provider_required: bool
+    snapshot: Any
 
 
 def encode_portable_checkpoint(
@@ -147,6 +157,142 @@ def decode_portable_checkpoint(
         seed_count=seed_count,
         provider_required=payload["providerRequired"],
     )
+
+
+def encode_portable_state_checkpoint(
+    checkpoint: PortableStateCheckpoint,
+    *,
+    max_bytes: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
+    max_depth: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_DEPTH,
+    max_nodes: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_NODES,
+) -> bytes:
+    """Encode a native typed-state checkpoint without replay history."""
+    from .state_codec import encode_typed_state_graph
+
+    budget = _NodeBudget(max_nodes)
+    payload = {
+        "schemaVersion": PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_VERSION,
+        "scriptSha256": checkpoint.script_sha256,
+        "settings": _encode_value(
+            checkpoint.settings,
+            depth=0,
+            max_depth=max_depth,
+            budget=budget,
+        ),
+        "providerRequired": bool(checkpoint.provider_required),
+        "stateGraph": encode_typed_state_graph(
+            checkpoint.snapshot,
+            max_nodes=max_nodes,
+            max_depth=max_depth,
+        ),
+    }
+    payload_bytes = _canonical_json(payload)
+    envelope = {
+        "format": PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_FORMAT,
+        "checksum": f"sha256:{hashlib.sha256(payload_bytes).hexdigest()}",
+        "payload": payload,
+    }
+    encoded = _canonical_json(envelope)
+    if len(encoded) > max(int(max_bytes), 1):
+        raise PynePortableSnapshotError(
+            f"Portable incremental snapshot exceeds {max(int(max_bytes), 1)} bytes"
+        )
+    return encoded
+
+
+def decode_portable_state_checkpoint(
+    value: bytes | bytearray | memoryview | str,
+    *,
+    max_bytes: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
+    max_depth: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_DEPTH,
+    max_nodes: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_NODES,
+) -> PortableStateCheckpoint:
+    """Decode a native typed-state checkpoint using an exact runtime type allowlist."""
+    from .state_codec import decode_typed_state_graph
+
+    envelope = _decode_envelope(value, max_bytes=max_bytes)
+    if envelope["format"] != PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_FORMAT:
+        raise PynePortableSnapshotError(
+            f"Unsupported portable incremental snapshot format {envelope['format']!r}"
+        )
+    payload = envelope["payload"]
+    if not isinstance(payload, dict):
+        raise PynePortableSnapshotError("Portable incremental snapshot payload is invalid")
+    expected = f"sha256:{hashlib.sha256(_canonical_json(payload)).hexdigest()}"
+    if envelope["checksum"] != expected:
+        raise PynePortableSnapshotError("Portable incremental snapshot checksum does not match")
+    expected_keys = {
+        "schemaVersion",
+        "scriptSha256",
+        "settings",
+        "providerRequired",
+        "stateGraph",
+    }
+    if set(payload) != expected_keys:
+        raise PynePortableSnapshotError("Portable incremental snapshot payload fields are invalid")
+    if payload["schemaVersion"] != PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_VERSION:
+        raise PynePortableSnapshotError(
+            "Unsupported portable incremental state snapshot version "
+            f"{payload['schemaVersion']!r}"
+        )
+    budget = _NodeBudget(max_nodes)
+    settings = _decode_value(
+        payload["settings"],
+        depth=0,
+        max_depth=max_depth,
+        budget=budget,
+    )
+    if not isinstance(settings, dict):
+        raise PynePortableSnapshotError("Portable state snapshot settings must be a mapping")
+    script_sha256 = _validate_script_sha256(payload["scriptSha256"])
+    if not isinstance(payload["providerRequired"], bool):
+        raise PynePortableSnapshotError("Portable snapshot providerRequired must be boolean")
+    snapshot = decode_typed_state_graph(
+        payload["stateGraph"],
+        max_nodes=max_nodes,
+        max_depth=max_depth,
+    )
+    return PortableStateCheckpoint(
+        script_sha256=script_sha256,
+        settings=settings,
+        provider_required=payload["providerRequired"],
+        snapshot=snapshot,
+    )
+
+
+def portable_snapshot_format(
+    value: bytes | bytearray | memoryview | str,
+    *,
+    max_bytes: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
+) -> str:
+    return str(_decode_envelope(value, max_bytes=max_bytes)["format"])
+
+
+def _decode_envelope(
+    value: bytes | bytearray | memoryview | str,
+    *,
+    max_bytes: int,
+) -> dict[str, Any]:
+    raw = value.encode("utf-8") if isinstance(value, str) else bytes(value)
+    limit = max(int(max_bytes), 1)
+    if len(raw) > limit:
+        raise PynePortableSnapshotError(f"Portable incremental snapshot exceeds {limit} bytes")
+    try:
+        envelope = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PynePortableSnapshotError("Portable incremental snapshot is not valid JSON") from exc
+    if not isinstance(envelope, dict) or set(envelope) != {"format", "checksum", "payload"}:
+        raise PynePortableSnapshotError("Portable incremental snapshot envelope is invalid")
+    return envelope
+
+
+def _validate_script_sha256(value: Any) -> str:
+    script_sha256 = str(value)
+    if len(script_sha256) != 64 or any(
+        char not in "0123456789abcdef" for char in script_sha256
+    ):
+        raise PynePortableSnapshotError("Portable snapshot scriptSha256 is invalid")
+    return script_sha256
 
 
 def portable_settings_contract(settings: PyneSettings) -> dict[str, Any]:

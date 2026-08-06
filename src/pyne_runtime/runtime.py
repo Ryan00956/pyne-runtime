@@ -76,6 +76,9 @@ class PyneRuntime:
         trace = PyneTraceRecorder(
             enabled=self.settings.trace_enabled,
             max_events=self.settings.trace_max_events,
+            timings_enabled=self.settings.trace_timings_enabled,
+            slow_span_ms=self.settings.trace_slow_span_ms,
+            redacted_fields=self.settings.trace_redacted_fields,
         )
         runtime_mode = "incremental" if is_incremental_pyne_script(script) else "batch"
         trace.emit("execution.start", mode=runtime_mode, bars=len(ohlcv))
@@ -107,7 +110,8 @@ class PyneRuntime:
                     hint="Reduce the history window or increase max_bars for trusted workloads.",
                 ), status="error")
 
-            validate_script_security(script, policy)
+            with trace.span("security.validate", category="security"):
+                validate_script_security(script, policy)
 
             if is_incremental_pyne_script(script):
                 incremental = PyneIncrementalSession(
@@ -118,7 +122,8 @@ class PyneRuntime:
                     execution_scope=execution_scope,
                     trace=trace,
                 )
-                result = self._collect_incremental_result(incremental.seed(ohlcv))
+                with trace.span("incremental.seed", category="incremental", bars=len(ohlcv)):
+                    result = self._collect_incremental_result(incremental.seed(ohlcv))
                 result.meta = {**result.meta, "securityMode": policy.mode}
                 enforce_output_limits(result.output, policy)
                 return finish(result, status="ok")
@@ -145,12 +150,14 @@ class PyneRuntime:
             script_globals = self._build_namespace(services)
 
             # 4. Execute
-            with execution_timeout(policy.timeout_seconds):
-                exec(script, script_globals)  # noqa: S102
+            with trace.span("script.execute", category="script"):
+                with execution_timeout(policy.timeout_seconds):
+                    exec(script, script_globals)  # noqa: S102
 
             # 5. Collect outputs
-            result = self._collect_result(services.collector, services.input)
-            enforce_output_limits(result.output, policy)
+            with trace.span("output.collect", category="output"):
+                result = self._collect_result(services.collector, services.input)
+                enforce_output_limits(result.output, policy)
             result.meta = {**result.meta, "securityMode": policy.mode}
             if services.request.diagnostics:
                 result.meta["requestDiagnostics"] = services.request.diagnostics

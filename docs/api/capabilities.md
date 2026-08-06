@@ -19,6 +19,22 @@ modify it without changing the runtime.
 The same document is embedded in `pn.schema()["runtimeCapabilities"]`. Hosts
 can therefore obtain one complete integration bundle through `pyne schema`.
 
+For one script, use the non-executing inspection API before allocating a
+session or requesting host data:
+
+```python
+report = pn.inspect_script(script, runtime_mode="incremental")
+if not report["compatibility"]["supported"]:
+    show_diagnostics(report["compatibility"]["diagnostics"])
+```
+
+The report contains a SHA-256 source identity rather than source text, the
+detected declaration and callbacks, TA/request/strategy/drawing requirements,
+pinned-library members, member-specific host-data requirements, resource hints,
+and dynamic-access uncertainties. It is a static Python-AST preflight, so it
+does not execute the script and does not claim to resolve computed `getattr()`
+or runtime-generated calls.
+
 ## Mode-Aware Validation
 
 `pn.validate()` detects incremental mode from `indicator(...,
@@ -29,7 +45,7 @@ explicitly:
 diagnostics = pn.validate(script, runtime_mode="incremental")
 ```
 
-Statically discoverable unsupported calls such as `ctx.ta.hma()` return a
+Statically discoverable unsupported calls such as `ctx.ta.alma()` return a
 `PYNE_UNSUPPORTED_FEATURE` diagnostic at the call site. Incremental session
 preparation applies the same check before processing any bar. Dynamic Python
 attribute construction cannot always be proven statically and can still fail

@@ -15,6 +15,7 @@ Current schema versions:
 - execution trace: `PYNE_TRACE_SCHEMA_VERSION`
 - process-local incremental snapshot: `PYNE_INCREMENTAL_SNAPSHOT_VERSION`
 - portable incremental snapshot: `PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION`
+- portable typed-state snapshot: `PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_VERSION`
 
 ## Incremental Snapshot Schemas
 
@@ -22,13 +23,19 @@ Process-local incremental snapshots are currently version 2. They are opaque
 Python runtime objects and are valid only for matching script, settings,
 parameters, retention policy, and runtime semantics.
 
-Portable incremental snapshots use format
+Portable replay snapshots use format
 `PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_FORMAT` and schema version 1. Their
 canonical JSON envelope includes a checksum and is decoded with byte, depth,
-and node limits. Restore replays the bounded committed bar history and does not
-deserialize arbitrary Python objects. Providers are deliberately not embedded
-and must be supplied again for provider-backed scripts. Older or unknown
-versions fail closed rather than being guessed or migrated implicitly.
+and node limits. Restore replays the bounded committed bar history.
+
+Portable typed-state snapshots use
+`PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_FORMAT` and schema version 2. They
+omit replay history and encode a bounded object graph from an exact runtime type
+allowlist. Payloads cannot select import paths or arbitrary user classes.
+Providers are deliberately not embedded in either format and must be supplied
+again for provider-backed scripts. The restore entry point detects the exact
+format identifier; older or unknown versions fail closed rather than being
+guessed or migrated implicitly.
 
 ## Runtime Capability And Trace Schemas
 
@@ -42,6 +49,9 @@ An enabled execution trace appears under `result.meta["trace"]` and has an
 independent `schemaVersion`. Trace metadata is additive: hosts that do not use
 diagnostic traces can ignore the field. Consumers must allow bounded event
 lists and inspect `droppedEvents` before treating the trace as complete.
+Trace schema version 2 adds hierarchical timing spans, aggregate/slow-span
+summaries, and field-redaction metadata. Duration values are nondeterministic
+diagnostics and should not be used as replay equality keys.
 
 ## Output Schema
 

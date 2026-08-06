@@ -75,6 +75,9 @@ class RuntimeServices:
             self.trace = PyneTraceRecorder(
                 enabled=self.settings.trace_enabled,
                 max_events=self.settings.trace_max_events,
+                timings_enabled=self.settings.trace_timings_enabled,
+                slow_span_ms=self.settings.trace_slow_span_ms,
+                redacted_fields=self.settings.trace_redacted_fields,
             )
 
 

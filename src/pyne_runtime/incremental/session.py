@@ -44,9 +44,13 @@ from .bar import IncrementalBar
 from .checkpoint import (
     DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
     PortableCheckpoint,
+    PortableStateCheckpoint,
     PynePortableSnapshotError,
     decode_portable_checkpoint,
+    decode_portable_state_checkpoint,
     encode_portable_checkpoint,
+    encode_portable_state_checkpoint,
+    portable_snapshot_format,
     portable_settings_contract,
     settings_from_portable_contract,
 )
@@ -122,6 +126,9 @@ class PyneIncrementalSession:
         self.trace = trace or PyneTraceRecorder(
             enabled=self.settings.trace_enabled,
             max_events=self.settings.trace_max_events,
+            timings_enabled=self.settings.trace_timings_enabled,
+            slow_span_ms=self.settings.trace_slow_span_ms,
+            redacted_fields=self.settings.trace_redacted_fields,
         )
         self._limits = IncrementalLimits.for_policy(
             self.policy,
@@ -351,9 +358,16 @@ class PyneIncrementalSession:
             self._active_ctx = ctx
             ctx._request_namespace = self._globals["request"]
             try:
-                with self._preview_global_scope(enabled=preview, func=func) as active_func:
-                    with execution_timeout(self.policy.timeout_seconds):
-                        self._call_required(active_func, ctx, bar)
+                callback_name = "on_preview" if preview and self._on_preview is not None else "on_bar"
+                with ctx.trace.span(
+                    f"callback.{callback_name}",
+                    category="callback",
+                    time=bar.time,
+                    preview=preview,
+                ):
+                    with self._preview_global_scope(enabled=preview, func=func) as active_func:
+                        with execution_timeout(self.policy.timeout_seconds):
+                            self._call_required(active_func, ctx, bar)
             finally:
                 ctx._request_namespace = previous_request_namespace
                 self._active_ctx = previous_ctx
@@ -841,16 +855,35 @@ class PyneIncrementalSession:
         self,
         *,
         max_bytes: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
+        mode: str = "replay",
     ) -> bytes:
-        """Return a deterministic cross-process replay checkpoint.
+        """Return a deterministic cross-process replay or typed-state checkpoint.
 
-        The format contains validated chart events and configuration, never
-        pickled Python objects. It deliberately excludes active preview state
-        and Provider internals. Sessions that have exceeded ``max_bars`` fail
-        closed instead of emitting an incomplete replay history.
+        ``mode="replay"`` preserves the version-1 event checkpoint. ``mode="state"``
+        emits the version-2 native typed-state format without replay history.
+        Both formats exclude active preview state and Provider internals.
         """
         self._ensure_healthy()
         self.prepare()
+        normalized_mode = str(mode).strip().lower()
+        if normalized_mode not in {"replay", "state"}:
+            raise ValueError("portable snapshot mode must be 'replay' or 'state'")
+        if normalized_mode == "state":
+            snapshot = replace(
+                self.snapshot_state(),
+                portable_bars=(),
+                portable_seed_count=0,
+                portable_complete=False,
+            )
+            return encode_portable_state_checkpoint(
+                PortableStateCheckpoint(
+                    script_sha256=_script_sha256(self.script),
+                    settings=portable_settings_contract(self.settings),
+                    provider_required=self.settings.data_provider is not None,
+                    snapshot=snapshot,
+                ),
+                max_bytes=max_bytes,
+            )
         if not self._portable_complete:
             raise PynePortableSnapshotError(
                 "Portable snapshot history exceeded max_bars; use the process-local snapshot "
@@ -869,6 +902,14 @@ class PyneIncrementalSession:
             ),
             max_bytes=max_bytes,
         )
+
+    def snapshot_portable_state(
+        self,
+        *,
+        max_bytes: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
+    ) -> bytes:
+        """Return the version-2 allowlisted typed-state checkpoint."""
+        return self.snapshot_portable(max_bytes=max_bytes, mode="state")
 
     def restore_state(self, snapshot: PyneIncrementalSessionSnapshot) -> None:
         """Replace this session's committed state from a matching snapshot."""
@@ -942,37 +983,46 @@ class PyneIncrementalSession:
         execution_scope: PyneExecutionScope | None = None,
         max_bytes: int = DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
     ) -> "PyneIncrementalSession":
-        """Restore a portable checkpoint by deterministic event replay."""
+        """Restore either a replay-v1 or typed-state-v2 portable checkpoint."""
+        format_name = portable_snapshot_format(payload, max_bytes=max_bytes)
+        if format_name == "pyne.incremental-state/2":
+            state_checkpoint = decode_portable_state_checkpoint(payload, max_bytes=max_bytes)
+            if state_checkpoint.script_sha256 != _script_sha256(script):
+                raise PynePortableSnapshotError(
+                    "Portable incremental snapshot script does not match this session"
+                )
+            resolved_settings = _portable_restore_settings(
+                state_checkpoint.settings,
+                provider_required=state_checkpoint.provider_required,
+                settings=settings,
+                data_provider=data_provider,
+            )
+            snapshot = state_checkpoint.snapshot
+            if not isinstance(snapshot, PyneIncrementalSessionSnapshot):
+                raise PynePortableSnapshotError(
+                    "Portable typed state root is not an incremental session snapshot"
+                )
+            restored = cls(
+                script=script,
+                params=copy.deepcopy(snapshot.params),
+                security_mode=resolved_settings.security_mode,
+                settings=resolved_settings,
+                execution_scope=execution_scope,
+                retention_bars=snapshot.retention_bars,
+            )
+            restored.restore_state(snapshot)
+            return restored
         checkpoint = decode_portable_checkpoint(payload, max_bytes=max_bytes)
         if checkpoint.script_sha256 != _script_sha256(script):
             raise PynePortableSnapshotError(
                 "Portable incremental snapshot script does not match this session"
             )
-        if settings is None:
-            resolved_settings = settings_from_portable_contract(checkpoint.settings)
-            if data_provider is not None:
-                resolved_settings = replace(
-                    resolved_settings,
-                    data_provider=data_provider,
-                )
-            elif checkpoint.provider_required:
-                raise PynePortableSnapshotError(
-                    "Portable snapshot restore requires matching settings or a data_provider"
-                )
-        else:
-            resolved_settings = (
-                replace(settings, data_provider=data_provider)
-                if data_provider is not None
-                else settings
-            )
-            if portable_settings_contract(resolved_settings) != checkpoint.settings:
-                raise PynePortableSnapshotError(
-                    "Portable incremental snapshot settings do not match this session"
-                )
-            if checkpoint.provider_required and resolved_settings.data_provider is None:
-                raise PynePortableSnapshotError(
-                    "Portable snapshot restore requires a data_provider"
-                )
+        resolved_settings = _portable_restore_settings(
+            checkpoint.settings,
+            provider_required=checkpoint.provider_required,
+            settings=settings,
+            data_provider=data_provider,
+        )
         restored = cls(
             script=script,
             params=copy.deepcopy(checkpoint.params),
@@ -1044,6 +1094,32 @@ class PyneIncrementalSession:
 
 def _script_sha256(script: str) -> str:
     return hashlib.sha256(script.encode("utf-8")).hexdigest()
+
+
+def _portable_restore_settings(
+    contract: Mapping[str, Any],
+    *,
+    provider_required: bool,
+    settings: PyneSettings | None,
+    data_provider: DataProvider | None,
+) -> PyneSettings:
+    if settings is None:
+        resolved = settings_from_portable_contract(contract)
+        if data_provider is not None:
+            resolved = replace(resolved, data_provider=data_provider)
+        elif provider_required:
+            raise PynePortableSnapshotError(
+                "Portable snapshot restore requires matching settings or a data_provider"
+            )
+        return resolved
+    resolved = replace(settings, data_provider=data_provider) if data_provider is not None else settings
+    if portable_settings_contract(resolved) != contract:
+        raise PynePortableSnapshotError(
+            "Portable incremental snapshot settings do not match this session"
+        )
+    if provider_required and resolved.data_provider is None:
+        raise PynePortableSnapshotError("Portable snapshot restore requires a data_provider")
+    return resolved
 
 
 class _ReadOnlyMapping(Mapping[Any, Any]):

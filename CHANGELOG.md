@@ -6,17 +6,28 @@
   `pn.runtime_capabilities()` and `pn.schema()`, with early diagnostics for
   unsupported incremental TA/request calls.
 - Expanded incremental TA with `rma`, `wma`, `vwma`, `variance`, `stdev`,
-  `stoch`, `cci`, and `supertrend`, including batch parity and portable-restore
-  coverage.
-- Expanded the pinned `TradingView/ta/10` adapter to six reviewed members,
-  including cumulative volume delta backed by authoritative lower-timeframe
-  data.
-- Added opt-in bounded batch/incremental execution traces with preview
-  isolation, dropped-event accounting, and script-defined decision events.
+  `stoch`, `cci`, `supertrend`, `hma`, `dmi`, `adx`, `sar`, `mfi`, `vwap`,
+  `barssince`, `valuewhen`, `crossover`, `crossunder`, and `cross`, including
+  batch parity and portable-restore coverage.
+- Expanded the pinned `TradingView/ta/10` adapter to nine reviewed members,
+  including dynamic-length `ema2`, `rma2`, and `atr2`; only the two volume
+  members declare authoritative lower-timeframe host-data requirements.
+- Added `pn.inspect_script()` and `pyne inspect` for source-free hashes,
+  mode-aware capability requirements, compatibility diagnostics, external
+  library demand, and host-resource hints before execution.
+- Added portable typed-state snapshot v2 as an opt-in cross-process restore
+  format that omits replay history, uses a fixed runtime type allowlist, and
+  fails closed for arbitrary user types. Replay snapshot v1 remains the default.
+- Added opt-in bounded execution trace schema v2 with hierarchical timing
+  spans, slow-span summaries, configurable field redaction, preview isolation,
+  dropped-event accounting, and script-defined decision events.
+- Added corpus demand reports for the next incremental TA and external-library
+  candidates without executing or copying Pine source.
 - Stabilized the portable-restore performance gate with alternating paired
-  measurements, retained raw samples, and an unchanged growth threshold.
-- Reused the shared strategy ledger profit and closed-trade builders from the
-  incremental strategy path.
+  measurements and retained raw samples, plus typed-state-v2/replay-v1 restore
+  and trace-v2 overhead comparisons.
+- Converged batch and incremental strategy order lifecycle serialization on a
+  shared core and added a full lifecycle parity scenario.
 - Isolated ordinary execution and incremental-session caches by default while
   retaining an explicit host-owned shared execution scope.
 - Added typed provider error categories and a test-runner-independent provider

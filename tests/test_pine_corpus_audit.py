@@ -59,7 +59,7 @@ value = close > open ? close : open
 def test_report_is_aggregate_only_and_never_claims_source_execution(tmp_path: Path) -> None:
     report = pine_corpus_audit.build_report(_write_corpus(tmp_path))
 
-    assert report["schemaVersion"] == 1
+    assert report["schemaVersion"] == 2
     assert report["sourcePolicy"] == {
         "executesPine": False,
         "copiesSource": False,
@@ -113,6 +113,21 @@ def test_report_classifies_runtime_syntax_host_and_render_boundaries(tmp_path: P
     assert features["time"]["status"] == "api-covered"
     assert source_features["pine.ternary"]["status"] == "syntax-rewrite"
     assert "runtime-gap" not in report["compatibility"]
+    candidates = {
+        item["member"]: item
+        for item in report["capabilityDemand"]["incrementalTaCandidates"]
+    }
+    assert "vwap" not in candidates
+    assert candidates["pivot_point_levels"]["occurrenceCount"] == 1
+    assert report["capabilityDemand"]["externalLibraryCandidates"] == [
+        {
+            "identifier": "Example/helpers/3",
+            "member": "calculate",
+            "fileCount": 1,
+            "occurrenceCount": 1,
+            "examples": ["modern"],
+        }
+    ]
 
 
 def test_cli_writes_machine_readable_json_without_source_text(tmp_path: Path) -> None:

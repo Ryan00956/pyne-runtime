@@ -131,6 +131,96 @@ def test_portable_snapshot_fails_after_exact_replay_history_exceeds_max_bars() -
     with pytest.raises(pn.PynePortableSnapshotError, match="history exceeded max_bars"):
         session.snapshot_portable()
 
+    state_payload = session.snapshot_portable(mode="state")
+    assert json.loads(state_payload)["format"] == pn.PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_FORMAT
+    restored = pn.PyneIncrementalSession.from_portable_snapshot(
+        state_payload,
+        script=SCRIPT,
+        settings=settings,
+    )
+    assert restored.snapshot_result() == session.snapshot_result()
+
+
+def test_portable_typed_state_v2_restores_without_replay_history() -> None:
+    script = """
+indicator("State V2", mode="incremental")
+def init(ctx):
+    ctx.ta.hma("hma", 5)
+    ctx.strategy.configure(initial_capital=1000)
+def on_bar(ctx, bar):
+    values = ctx.state("values", [])
+    values.value.append({"time": bar.time, "close": bar.close})
+    if ctx.bar_index == 0:
+        ctx.line_new(0, bar.low, 0, bar.high)
+    ctx.strategy.entry("L", ctx.strategy.long, qty=2, price=bar.close, when=ctx.bar_index == 0)
+    ctx.strategy.close("L", qty=1, price=bar.close, when=ctx.bar_index == 2)
+    ctx.plot("HMA", ctx.ta.hma("hma").update(bar.close))
+    ctx.plot("Position", ctx.strategy.position_size)
+"""
+    settings = _settings(trace_enabled=True, trace_timings_enabled=False)
+    session = pn.PyneIncrementalSession(script=script, settings=settings)
+    session.seed([_bar(index, float(index)) for index in range(1, 7)])
+
+    first = session.snapshot_portable_state()
+    second = session.snapshot_portable(mode="state")
+    envelope = json.loads(first)
+
+    assert first == second
+    assert envelope["format"] == pn.PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_FORMAT
+    assert "bars" not in envelope["payload"]
+    restored = pn.PyneIncrementalSession.from_portable_snapshot(
+        first,
+        script=script,
+        settings=settings,
+    )
+    assert restored.snapshot_result() == session.snapshot_result()
+    next_bar = _bar(7, 7.0)
+    assert restored.on_bar_closed(next_bar) == session.on_bar_closed(next_bar)
+
+
+def test_portable_typed_state_v2_fails_closed_for_unknown_user_types() -> None:
+    session = pn.PyneIncrementalSession(
+        script=SCRIPT,
+        params={"unsupported": complex(1, 2)},
+        settings=_settings(),
+    )
+    session.seed([_bar(1, 1)])
+
+    with pytest.raises(pn.PynePortableSnapshotError, match="cannot encode builtins.complex"):
+        session.snapshot_portable(mode="state")
+
+
+def test_portable_typed_state_v2_restores_in_a_fresh_process(tmp_path: Path) -> None:
+    session = pn.PyneIncrementalSession(script=SCRIPT, settings=_settings())
+    session.seed([_bar(1, 1), _bar(2, 2)])
+    snapshot_path = tmp_path / "session-v2.pyne-snapshot.json"
+    script_path = tmp_path / "indicator.py"
+    snapshot_path.write_bytes(session.snapshot_portable(mode="state"))
+    script_path.write_text(SCRIPT, encoding="utf-8")
+    probe = """
+import json
+import sys
+import pyne_runtime as pn
+payload = open(sys.argv[1], "rb").read()
+script = open(sys.argv[2], encoding="utf-8").read()
+session = pn.PyneIncrementalSession.from_portable_snapshot(payload, script=script)
+result = session.on_bar_closed({"time": 3, "open": 2.5, "high": 4, "low": 2, "close": 3, "volume": 10})
+print(json.dumps(result.output, sort_keys=True, separators=(",", ":")))
+"""
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
+
+    completed = subprocess.run(
+        [sys.executable, "-c", probe, str(snapshot_path), str(script_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    expected = session.on_bar_closed(_bar(3, 3))
+
+    assert json.loads(completed.stdout) == expected.output
+
 
 class _Provider:
     capabilities = {"request.security": True}

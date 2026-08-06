@@ -48,14 +48,16 @@ class IncrementalRequestModule:
 
     def security(self, *args: Any, **kwargs: Any) -> Any:
         module, ctx = self._module()
-        value = module.security(*args, **kwargs)
-        self._publish_diagnostics(module, ctx)
+        with ctx.trace.span("request.security", category="request"):
+            value = module.security(*args, **kwargs)
+            self._publish_diagnostics(module, ctx)
         return _current_request_value(value)
 
     def security_lower_tf(self, *args: Any, **kwargs: Any) -> Any:
         module, ctx = self._module()
-        value = module.security_lower_tf(*args, **kwargs)
-        self._publish_diagnostics(module, ctx)
+        with ctx.trace.span("request.security_lower_tf", category="request"):
+            value = module.security_lower_tf(*args, **kwargs)
+            self._publish_diagnostics(module, ctx)
         return _current_request_value(value)
 
     def cache_stats(self) -> dict[str, int]:

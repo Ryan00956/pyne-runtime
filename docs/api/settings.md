@@ -154,7 +154,13 @@ Execution trace:
   `result.meta["trace"]`. The default is `False`.
 - `trace_max_events`: maximum retained trace events. Additional events increase
   `droppedEvents` without failing execution.
-- Environment variables: `PYNE_TRACE_ENABLED`, `PYNE_TRACE_MAX_EVENTS`.
+- `trace_timings_enabled`: collect monotonic hierarchical span durations. The
+  default is `True` when tracing is enabled.
+- `trace_slow_span_ms`: threshold for the bounded slow-span list.
+- `trace_redacted_fields`: exact case-insensitive secret-like field-name set.
+- Environment variables: `PYNE_TRACE_ENABLED`, `PYNE_TRACE_MAX_EVENTS`,
+  `PYNE_TRACE_TIMINGS_ENABLED`, `PYNE_TRACE_SLOW_SPAN_MS`, and
+  `PYNE_TRACE_REDACTED_FIELDS`.
 - See [Execution Trace](../concepts/execution_trace.md) for event and preview
   semantics.
 

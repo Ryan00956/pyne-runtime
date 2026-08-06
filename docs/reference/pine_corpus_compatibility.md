@@ -107,9 +107,15 @@ in 11.
 
 ## Remaining Boundaries
 
-- Imported libraries: the one project-used `TradingView/ta/10` member above is
-  implemented. Other pinned members still need an explicit Python port, a
-  verified Pyne equivalent, or removal while converting each indicator.
+- Imported libraries: the pinned `TradingView/ta/10` registry now has nine
+  explicit members, including the project-used volume adapter. Any other pinned
+  member still needs an explicit Python port, a verified Pyne equivalent, or
+  removal while converting each indicator. The audit now ranks these unresolved
+  library members under `capabilityDemand.externalLibraryCandidates`.
+- Incremental TA: the audit ranks batch-covered TA members that remain outside
+  the 27-member incremental surface under
+  `capabilityDemand.incrementalTaCandidates`. These lists are demand evidence,
+  not automatic promotion or source-execution claims.
 - Host state/data: chart theme and visible-range values, corporate actions,
   currency conversion, and automatic authoritative symbol timezone/volume
   type, plus realtime alert scheduling. Pyne accepts timezone and volume-type

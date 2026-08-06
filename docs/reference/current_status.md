@@ -53,24 +53,29 @@ These counts come directly from the request, strategy, and TA status `build_repo
   `pn.schema()["runtimeCapabilities"]` distinguish batch from incremental TA and
   lifecycle support; validation rejects statically visible unsupported
   incremental calls before bar processing.
-- **Expanded incremental TA:** scalar `rma`, `wma`, `vwma`, `variance`, `stdev`,
-  `stoch`, `cci`, and `supertrend` join the existing helper set with
-  batch/incremental parity and portable-restore coverage.
+- **Static script preflight:** `pn.inspect_script()` and `pyne inspect` report a
+  source hash, mode-aware requirements, compatibility diagnostics, host needs,
+  pinned libraries, and resource hints without executing or echoing source.
+- **Expanded incremental TA:** 27 scalar helpers now include `hma`, `dmi`,
+  `adx`, `sar`, `mfi`, `vwap`, `barssince`, `valuewhen`, and the three cross
+  predicates, with batch/incremental parity and portable-restore coverage.
 - **Batch/incremental parity kit:** hosts and contributors can run normalized,
   assertion-ready semantic comparisons without depending on the test runner.
 - **Stable integration surfaces:** the package exposes versioned output, parameter,
   request-provider, and strategy-report schemas together with CLI validation and
   process execution controls.
-- **Bounded execution trace:** opt-in batch and incremental traces disclose
-  lifecycle, request, strategy, output, state, and script-defined events under a
-  strict event budget; preview events remain isolated from committed sessions.
+- **Bounded execution trace v2:** opt-in batch and incremental traces disclose
+  redacted lifecycle, request, strategy, output, state, script-defined events,
+  hierarchical timings, and slow spans under a strict event budget; preview
+  events remain isolated from committed sessions.
 - **Output schema v2:** `plotcandle`, linefill and polyline objects, and merged
   table cells have explicit contracts. Version 1 remains a declared fallback
   for hosts and scripts that stay within its surface.
-- **Pinned external-library adapter:** six reviewed `TradingView/ta/10` members
-  cover percentage/CAGR, since-condition extrema, up/down volume, and cumulative
-  volume delta. Volume members use authoritative host lower-timeframe OHLCV;
-  unknown libraries fail closed.
+- **Pinned external-library adapter:** nine reviewed `TradingView/ta/10` members
+  add dynamic-length `ema2`, `rma2`, and `atr2` to percentage/CAGR,
+  since-condition extrema, up/down volume, and cumulative volume delta. Only
+  volume members require authoritative host lower-timeframe OHLCV; unknown
+  libraries fail closed.
 - **Measured Pine migration inventory:** `scripts/pine_corpus_audit.py` inventories
   an external Pine corpus without executing or copying source, classifies live
   runtime/host/render boundaries, and keeps API-analogue counts distinct from
@@ -101,10 +106,11 @@ migration evidence is documented separately in the
   simulator and does not model an order book, queue position, tick path, real
   partial fills, broker margin calls, or other unavailable intrabar facts.
 - **Incremental lifecycle boundary:** shared session managers and opaque state
-  snapshots remain process-local. Portable snapshots can cross processes only
-  by replaying a complete history within the configured `max_bars` bound; they
-  do not embed providers or replace host-owned distributed coordination. The
-  incremental callback surface is not automatic parity with every batch API.
+  snapshots remain process-local. Portable replay v1 can cross processes by
+  replaying complete bounded history; typed-state v2 can restore an allowlisted
+  runtime graph without replay history. Neither embeds providers or replaces
+  host-owned distributed coordination. The incremental callback surface is not
+  automatic parity with every batch API.
 - **Security boundary:** `safe` and `research` restrict the Python environment but
   are not a complete multi-tenant sandbox. Untrusted scripts require process or
   container/operating-system isolation appropriate to the host's threat model.
@@ -125,19 +131,27 @@ retention, process-local and portable snapshot/restore, incremental request
 support, Render IR v2, batch/incremental parity tooling, multi-session
 performance/stability gates, and the first pinned external-library adapter.
 The source candidate also includes mode-aware capability discovery, early
-incremental diagnostics, 16 incremental TA helpers, a six-member pinned library
-surface, bounded execution tracing, and paired raw-sample restore performance
-evidence. The large plot and TA implementations are split into focused internal
-modules without changing established public entry points.
+incremental diagnostics, static script inspection, 27 incremental TA helpers,
+a nine-member pinned library surface, typed-state portable snapshots, bounded
+execution trace v2, and paired raw-sample restore/trace performance evidence.
+The large plot and TA implementations are split into focused internal modules
+without changing established public entry points.
 
 This is not a release claim. The next delivery slice is:
 
-1. **Candidate packaging:** build and inspect the `0.3.0rc1` artifacts, then pin
-   a published wheel and checksum only when the host integration is ready for
-   its own fresh-process acceptance pass.
-2. **Measured expansion:** use converted-script demand and the capability
-   contract to choose the next TA or pinned-library additions; require parity
-   fixtures for every promoted surface.
+1. **Local candidate acceptance:** build and inspect the `0.3.0rc1` artifacts,
+   install the wheel into a clean process, and run the host acceptance probes.
+   Publishing remains a separate explicit decision.
+2. **Measured expansion:** use the corpus audit's generated demand lists and the
+   capability contract to choose later TA or pinned-library additions; require
+   parity fixtures for every promoted surface.
+
+The local wheel, clean-process CLI inspection, typed-state restore, v2 session,
+and independent workbench probes pass. The legacy
+`candlescope-plugin-pyne 0.2.0` descriptor deliberately rejects the candidate
+because it remains exactly pinned to `pyne-runtime 0.2.0rc1`; updating that
+plugin dependency/version and its Release lock is a separate CandleScope
+delivery step and is not performed by this unpublished runtime candidate.
 
 Each slice must preserve the existing batch API and output schemas, remain
 fail-closed at host boundaries, and pass the full release gate before the next

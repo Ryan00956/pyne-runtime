@@ -29,6 +29,8 @@ from .collections import (
 from .data import PyneData
 from .executor import execute_pyne_script, execute_pyne_script_in_process
 from .incremental import (
+    PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_FORMAT,
+    PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_VERSION,
     PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_FORMAT,
     PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION,
     PYNE_INCREMENTAL_SNAPSHOT_VERSION,
@@ -43,6 +45,7 @@ from .incremental import (
     is_incremental_pyne_script,
     run_incremental_parity,
 )
+from .inspection import PYNE_SCRIPT_INSPECTION_SCHEMA_VERSION, inspect_script
 from .math_ext import PyneMath
 from .metadata import SessionInfo, SessionNamespace, SymbolInfo, TimeframeInfo
 from .pine_libraries import (
@@ -179,11 +182,14 @@ __all__ = [
     "PYNE_INPUT_SCHEMA_VERSION",
     "PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_FORMAT",
     "PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION",
+    "PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_FORMAT",
+    "PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_VERSION",
     "PYNE_INCREMENTAL_SNAPSHOT_VERSION",
     "PYNE_OUTPUT_SCHEMA_VERSION",
     "PYNE_PARAM_SCHEMA_VERSION",
     "PYNE_RUNTIME_CAPABILITIES_SCHEMA_VERSION",
     "PYNE_REQUEST_PROVIDER_SCHEMA_VERSION",
+    "PYNE_SCRIPT_INSPECTION_SCHEMA_VERSION",
     "PYNE_STRATEGY_REPORT_SCHEMA_VERSION",
     "PYNE_TRACE_SCHEMA_VERSION",
     "PyneTraceRecorder",
@@ -199,6 +205,7 @@ __all__ = [
     "fixnan",
     "from_pandas",
     "is_incremental_pyne_script",
+    "inspect_script",
     "array_namespace",
     "assert_data_provider_conformance",
     "barmerge",

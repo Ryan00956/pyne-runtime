@@ -24,12 +24,16 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from pyne_runtime.context import PyneContext  # noqa: E402
+from pyne_runtime.capabilities import (  # noqa: E402
+    BATCH_TA_CAPABILITIES,
+    INCREMENTAL_TA_CAPABILITIES,
+)
 from pyne_runtime.namespace import RuntimeServices, build_script_namespace  # noqa: E402
 from pyne_runtime.security import PyneSecurityPolicy  # noqa: E402
 from pyne_runtime.settings import PyneSettings  # noqa: E402
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 STANDARD_NAMESPACES = frozenset(
     {
         "alert",
@@ -85,9 +89,41 @@ HOST_OWNED_FEATURES = frozenset(
 )
 RENDER_CONTRACT_GAPS = frozenset()
 PINNED_LIBRARY_ADAPTERS = {
+    "TradingView/ta/10#atr2": (
+        'pine_library("TradingView/ta/10").atr2',
+        "Pinned pure-series adapter with a dynamic smoothing length.",
+    ),
+    "TradingView/ta/10#cagr": (
+        'pine_library("TradingView/ta/10").cagr',
+        "Pinned pure-series adapter.",
+    ),
+    "TradingView/ta/10#changePercent": (
+        'pine_library("TradingView/ta/10").changePercent',
+        "Pinned pure-series adapter.",
+    ),
+    "TradingView/ta/10#ema2": (
+        'pine_library("TradingView/ta/10").ema2',
+        "Pinned pure-series adapter with a dynamic smoothing length.",
+    ),
+    "TradingView/ta/10#highestSince": (
+        'pine_library("TradingView/ta/10").highestSince',
+        "Pinned pure-series adapter.",
+    ),
+    "TradingView/ta/10#lowestSince": (
+        'pine_library("TradingView/ta/10").lowestSince',
+        "Pinned pure-series adapter.",
+    ),
     "TradingView/ta/10#requestUpAndDownVolume": (
         'pine_library("TradingView/ta/10").requestUpAndDownVolume',
         "Pinned adapter backed by authoritative host lower-timeframe OHLCV.",
+    ),
+    "TradingView/ta/10#requestVolumeDelta": (
+        'pine_library("TradingView/ta/10").requestVolumeDelta',
+        "Pinned adapter backed by authoritative host lower-timeframe OHLCV.",
+    ),
+    "TradingView/ta/10#rma2": (
+        'pine_library("TradingView/ta/10").rma2',
+        "Pinned pure-series adapter with a dynamic smoothing length.",
     ),
 }
 PYTHON_SPELLING_REWRITES = {
@@ -438,6 +474,61 @@ def build_report(corpus: Path) -> dict[str, Any]:
         },
         "features": feature_rows,
         "sourceFeatures": source_rows,
+        "capabilityDemand": _capability_demand(feature_rows),
+    }
+
+
+def _capability_demand(feature_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Rank concrete corpus demand without treating Pine source as executable."""
+    batch_ta = set(BATCH_TA_CAPABILITIES)
+    incremental_ta = set(INCREMENTAL_TA_CAPABILITIES)
+    incremental_candidates: dict[str, dict[str, Any]] = {}
+    external_candidates: list[dict[str, Any]] = []
+    for row in feature_rows:
+        feature = str(row["feature"])
+        target = str(row.get("pyneTarget") or "")
+        ta_target = target if target.startswith("ta.") else feature if feature.startswith("ta.") else ""
+        if ta_target:
+            member = ta_target.split(".", 1)[1]
+            if member in batch_ta and member not in incremental_ta:
+                current = incremental_candidates.setdefault(
+                    member,
+                    {
+                        "member": member,
+                        "pyneTarget": f"ctx.ta.{member}",
+                        "fileCount": 0,
+                        "occurrenceCount": 0,
+                        "examples": set(),
+                    },
+                )
+                current["fileCount"] += int(row["fileCount"])
+                current["occurrenceCount"] += int(row["occurrenceCount"])
+                current["examples"].update(row.get("examples") or [])
+        if feature.startswith(PINE_LIBRARY_FEATURE_PREFIX) and row["status"] == "library-rewrite":
+            library_and_member = feature.removeprefix(PINE_LIBRARY_FEATURE_PREFIX)
+            library, _, member = library_and_member.partition(PINE_LIBRARY_MEMBER_SEPARATOR)
+            external_candidates.append(
+                {
+                    "identifier": library,
+                    "member": member,
+                    "fileCount": int(row["fileCount"]),
+                    "occurrenceCount": int(row["occurrenceCount"]),
+                    "examples": list(row.get("examples") or []),
+                }
+            )
+    incremental_rows = []
+    for item in incremental_candidates.values():
+        normalized = dict(item)
+        normalized["examples"] = sorted(item["examples"])[:5]
+        incremental_rows.append(normalized)
+    def ranking(item: dict[str, Any]) -> tuple[int, int, str]:
+        return (-item["fileCount"], -item["occurrenceCount"], item["member"])
+
+    incremental_rows.sort(key=ranking)
+    external_candidates.sort(key=ranking)
+    return {
+        "incrementalTaCandidates": incremental_rows,
+        "externalLibraryCandidates": external_candidates,
     }
 
 
@@ -607,6 +698,31 @@ def render_markdown(report: dict[str, Any]) -> str:
     )
     for item in report["sourceFeatures"]:
         lines.append(f"| `{item['feature']}` | {item['fileCount']} | {item['occurrenceCount']} |")
+    lines.extend(
+        [
+            "",
+            "## Incremental TA expansion demand",
+            "",
+            "| Member | Files | Uses |",
+            "| --- | ---: | ---: |",
+        ]
+    )
+    for item in report["capabilityDemand"]["incrementalTaCandidates"]:
+        lines.append(f"| `ctx.ta.{item['member']}` | {item['fileCount']} | {item['occurrenceCount']} |")
+    lines.extend(
+        [
+            "",
+            "## External library adapter demand",
+            "",
+            "| Library member | Files | Uses |",
+            "| --- | ---: | ---: |",
+        ]
+    )
+    for item in report["capabilityDemand"]["externalLibraryCandidates"]:
+        lines.append(
+            f"| `{item['identifier']}#{item['member']}` | {item['fileCount']} | "
+            f"{item['occurrenceCount']} |"
+        )
     return "\n".join(lines) + "\n"
 
 

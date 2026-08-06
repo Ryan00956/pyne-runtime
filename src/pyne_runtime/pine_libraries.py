@@ -23,20 +23,39 @@ class PineLibraryDescriptor:
     identifier: str
     members: tuple[str, ...]
     data_requirements: tuple[str, ...]
+    member_data_requirements: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    def requirements_for(self, members: set[str] | tuple[str, ...]) -> tuple[str, ...]:
+        """Return the host capabilities required by the selected members."""
+        selected = set(members)
+        requirements = {
+            requirement
+            for member, member_requirements in self.member_data_requirements
+            if member in selected
+            for requirement in member_requirements
+        }
+        return tuple(sorted(requirements))
 
 
 SUPPORTED_PINE_LIBRARIES = (
     PineLibraryDescriptor(
         identifier=TRADINGVIEW_TA_10,
         members=(
+            "atr2",
             "cagr",
             "changePercent",
+            "ema2",
             "highestSince",
             "lowestSince",
             "requestUpAndDownVolume",
             "requestVolumeDelta",
+            "rma2",
         ),
         data_requirements=("request.security_lower_tf",),
+        member_data_requirements=(
+            ("requestUpAndDownVolume", ("request.security_lower_tf",)),
+            ("requestVolumeDelta", ("request.security_lower_tf",)),
+        ),
     ),
 )
 
@@ -47,6 +66,43 @@ class TradingViewTa10Library:
     def __init__(self, ctx: PyneContext, request: RequestModule) -> None:
         self._ctx = ctx
         self._request = request
+
+    def ema2(self, src: Any, length: Any) -> PyneSeries:
+        """Return an EMA whose smoothing length may vary on every bar."""
+        values = _library_series(src, len(self._ctx.times))
+        lengths = _library_series(length, len(self._ctx.times))
+        result = _dynamic_average(values, lengths, alpha_numerator=2.0, ema_style=True)
+        return PyneSeries(result, name="ta10.ema2")
+
+    def rma2(self, source: Any, length: Any) -> PyneSeries:
+        """Return an RMA whose smoothing length may vary on every bar."""
+        values = _library_series(source, len(self._ctx.times))
+        lengths = _library_series(length, len(self._ctx.times))
+        result = _dynamic_average(values, lengths, alpha_numerator=1.0, ema_style=False)
+        return PyneSeries(result, name="ta10.rma2")
+
+    def atr2(self, length: Any) -> PyneSeries:
+        """Return ATR using a per-bar RMA smoothing length."""
+        size = len(self._ctx.times)
+        lengths = _library_series(length, size)
+        highs = np.asarray(self._ctx.high.values, dtype=np.float64)
+        lows = np.asarray(self._ctx.low.values, dtype=np.float64)
+        closes = np.asarray(self._ctx.close.values, dtype=np.float64)
+        ranges = np.full(size, np.nan, dtype=np.float64)
+        for index in range(size):
+            if not np.isfinite(highs[index]) or not np.isfinite(lows[index]):
+                continue
+            values = [highs[index] - lows[index]]
+            if index > 0 and np.isfinite(closes[index - 1]):
+                values.extend(
+                    (
+                        abs(highs[index] - closes[index - 1]),
+                        abs(lows[index] - closes[index - 1]),
+                    )
+                )
+            ranges[index] = max(values)
+        result = _dynamic_average(ranges, lengths, alpha_numerator=1.0, ema_style=False)
+        return PyneSeries(result, name="ta10.atr2")
 
     def requestUpAndDownVolume(
         self,
@@ -284,6 +340,10 @@ class PineLibraryRegistry:
                 "identifier": item.identifier,
                 "members": list(item.members),
                 "dataRequirements": list(item.data_requirements),
+                "memberDataRequirements": {
+                    member: list(requirements)
+                    for member, requirements in item.member_data_requirements
+                },
             }
             for item in SUPPORTED_PINE_LIBRARIES
         ]
@@ -329,6 +389,43 @@ def _library_series(value: Any, size: int) -> np.ndarray:
     if len(values) != size:
         raise ValueError(f"TradingView/ta/10 expected {size} values, got {len(values)}")
     return values
+
+
+def _dynamic_average(
+    source: np.ndarray,
+    lengths: np.ndarray,
+    *,
+    alpha_numerator: float,
+    ema_style: bool,
+) -> np.ndarray:
+    """Evaluate TradingView library-style dynamic EMA/RMA smoothing."""
+    result = np.full(len(source), np.nan, dtype=np.float64)
+    previous = np.nan
+    for index, (value, length) in enumerate(zip(source, lengths)):
+        if not np.isfinite(length) or length <= 0.0:
+            previous = np.nan
+            continue
+        if not np.isfinite(value):
+            result[index] = previous
+            continue
+        if np.isnan(previous):
+            if ema_style:
+                previous = float(value)
+            else:
+                window = max(int(length), 1)
+                start = index - window + 1
+                if start < 0:
+                    continue
+                seed = source[start : index + 1]
+                if not np.all(np.isfinite(seed)):
+                    continue
+                previous = float(np.mean(seed))
+        else:
+            denominator = length + 1.0 if ema_style else length
+            alpha = min(max(alpha_numerator / denominator, 0.0), 1.0)
+            previous = alpha * float(value) + (1.0 - alpha) * previous
+        result[index] = previous
+    return result
 
 
 def _since_extreme(cond: Any, source: Any, *, highest: bool) -> np.ndarray:

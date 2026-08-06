@@ -69,20 +69,31 @@ BATCH_TA_CAPABILITIES = (
 )
 
 INCREMENTAL_TA_CAPABILITIES = (
+    "adx",
     "atr",
+    "barssince",
     "boll",
     "cci",
+    "cross",
+    "crossover",
+    "crossunder",
+    "dmi",
     "ema",
     "highest",
+    "hma",
     "lowest",
     "macd",
+    "mfi",
     "rma",
     "rsi",
+    "sar",
     "sma",
     "stdev",
     "stoch",
     "supertrend",
+    "valuewhen",
     "variance",
+    "vwap",
     "vwma",
     "wma",
 )
@@ -147,6 +158,7 @@ def runtime_capabilities() -> dict[str, Any]:
                 "drawings": list(DRAWING_CAPABILITIES),
                 "preview": True,
                 "portableSnapshot": True,
+                "portableSnapshotFormats": ["replay-v1", "typed-state-v2"],
             },
         },
         "externalLibraries": [
@@ -154,15 +166,22 @@ def runtime_capabilities() -> dict[str, Any]:
                 "identifier": item.identifier,
                 "members": list(item.members),
                 "dataRequirements": list(item.data_requirements),
+                "memberDataRequirements": {
+                    member: list(requirements)
+                    for member, requirements in item.member_data_requirements
+                },
                 "modes": ["batch"],
             }
             for item in SUPPORTED_PINE_LIBRARIES
         ],
         "trace": {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "bounded": True,
             "defaultEnabled": False,
             "modes": ["batch", "incremental"],
+            "timingSpans": True,
+            "slowSpanSummary": True,
+            "fieldRedaction": True,
         },
         "security": {
             "modes": ["safe", "research", "unsafe"],

@@ -15,6 +15,15 @@ if TYPE_CHECKING:
 SECURITY_MODES = {"safe", "research", "unsafe"}
 EXECUTOR_MODES = {"inline", "process"}
 DEFAULT_ALLOWED_IMPORTS = ("numpy", "pandas", "scipy", "sklearn", "torch")
+DEFAULT_TRACE_REDACTED_FIELDS = (
+    "api_key",
+    "apikey",
+    "authorization",
+    "cookie",
+    "password",
+    "secret",
+    "token",
+)
 
 
 @dataclass(frozen=True)
@@ -38,6 +47,9 @@ class PyneSettings:
     cache_max_items: int = 32
     trace_enabled: bool = False
     trace_max_events: int = 1_000
+    trace_timings_enabled: bool = True
+    trace_slow_span_ms: float = 10.0
+    trace_redacted_fields: tuple[str, ...] = DEFAULT_TRACE_REDACTED_FIELDS
     allowed_imports: tuple[str, ...] = DEFAULT_ALLOWED_IMPORTS
     data_provider: DataProvider | None = None
     syminfo: Any = None
@@ -76,6 +88,21 @@ class PyneSettings:
         object.__setattr__(self, "cache_max_items", max(int(self.cache_max_items), 1))
         object.__setattr__(self, "trace_enabled", bool(self.trace_enabled))
         object.__setattr__(self, "trace_max_events", max(int(self.trace_max_events), 1))
+        object.__setattr__(self, "trace_timings_enabled", bool(self.trace_timings_enabled))
+        object.__setattr__(self, "trace_slow_span_ms", max(float(self.trace_slow_span_ms), 0.0))
+        object.__setattr__(
+            self,
+            "trace_redacted_fields",
+            tuple(
+                sorted(
+                    {
+                        str(item).strip().lower()
+                        for item in self.trace_redacted_fields
+                        if str(item).strip()
+                    }
+                )
+            ),
+        )
         object.__setattr__(
             self,
             "allowed_imports",
@@ -116,6 +143,16 @@ class PyneSettings:
             cache_max_items=_int_env("PYNE_CACHE_MAX_ITEMS", 32),
             trace_enabled=_bool_env("PYNE_TRACE_ENABLED", False),
             trace_max_events=_int_env("PYNE_TRACE_MAX_EVENTS", 1_000),
+            trace_timings_enabled=_bool_env("PYNE_TRACE_TIMINGS_ENABLED", True),
+            trace_slow_span_ms=_float_env("PYNE_TRACE_SLOW_SPAN_MS", 10.0),
+            trace_redacted_fields=tuple(
+                item.strip()
+                for item in os.getenv(
+                    "PYNE_TRACE_REDACTED_FIELDS",
+                    ",".join(DEFAULT_TRACE_REDACTED_FIELDS),
+                ).split(",")
+                if item.strip()
+            ),
             allowed_imports=allowed_imports,
             syminfo={
                 "tickerid": os.getenv("PYNE_TICKERID", ""),

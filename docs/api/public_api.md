@@ -138,9 +138,14 @@ scripts as `nz()` and `fixnan()`.
 `is_incremental_pyne_script()` are host-facing helpers for confirmed/preview
 bar workflows. `PYNE_INCREMENTAL_SNAPSHOT_VERSION` versions opaque
 process-local checkpoints. `snapshot_portable()` and
-`from_portable_snapshot()` provide the versioned, checksummed, bounded replay
-format; `PynePortableSnapshotError` reports fail-closed portability or restore
-contract violations. `run_incremental_parity()` returns an
+`from_portable_snapshot()` provide versioned, checksummed replay-v1 and
+typed-state-v2 formats; `PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_*` and
+`PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_*` identify them.
+The typed-state identifiers are also exported explicitly as
+`pn.PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_FORMAT` and
+`pn.PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_VERSION`.
+`PynePortableSnapshotError` reports fail-closed portability or restore contract
+violations. `run_incremental_parity()` returns an
 `IncrementalParityReport` containing structured
 `IncrementalParityDifference` records for batch/incremental semantic drift.
 `SymbolInfo`, `TimeframeInfo`, `SessionInfo`, and `SessionNamespace` back the
@@ -189,8 +194,10 @@ contract also embedded in `pn.schema()`. `capability_diagnostics()` is the
 lower-level mode-aware diagnostic helper used by `pn.validate()` and
 incremental session preparation. `BATCH_TA_CAPABILITIES` and
 `INCREMENTAL_TA_CAPABILITIES` are the stable tuple views used in that contract.
-`PyneTraceRecorder` and `PYNE_TRACE_SCHEMA_VERSION` define the bounded trace
-document attached under `result.meta["trace"]` when tracing is enabled.
+`pn.inspect_script()` and `pn.PYNE_SCRIPT_INSPECTION_SCHEMA_VERSION` define the
+non-executing static preflight report. `PyneTraceRecorder` and
+`PYNE_TRACE_SCHEMA_VERSION` define the bounded trace document attached under
+`result.meta["trace"]` when tracing is enabled.
 
 Internal helpers and non-exported functions are not part of the compatibility contract.
 

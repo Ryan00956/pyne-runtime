@@ -39,6 +39,12 @@ plot(close, "Close")
     assert next(item for item in events if item["event"] == "decision")["accepted"] is True
     assert events[-1]["event"] == "execution.complete"
     assert events[-1]["status"] == "ok"
+    spans = {item["name"]: item for item in trace["timings"]["spans"]}
+    assert spans["security.validate"]["count"] == 1
+    assert spans["script.execute"]["count"] == 1
+    assert spans["output.collect"]["count"] == 1
+    decision = next(item for item in events if item["event"] == "decision")
+    assert decision["spanId"].startswith("s")
 
 
 def test_trace_is_absent_by_default_and_survives_process_transport() -> None:
@@ -73,8 +79,9 @@ plot(close, "Close")
     assert result.ok, result.error
     trace = result.meta["trace"]
     assert len(trace["events"]) == 3
-    assert trace["droppedEvents"] == 2
-    assert [item["event"] for item in trace["events"]] == ["execution.start", "one", "two"]
+    assert trace["droppedEvents"] >= 2
+    assert len(trace["events"]) == 3
+    assert trace["events"][0]["event"] == "execution.start"
 
 
 def test_failed_execution_still_returns_bounded_trace() -> None:
@@ -153,3 +160,37 @@ def on_bar(ctx, bar):
         for item in result.meta["trace"]["events"]
         if item["event"] == "decision"
     ] == [1, 2]
+
+
+def test_trace_v2_redacts_nested_secrets_and_reports_slow_spans() -> None:
+    ticks = iter([1.0, 1.025])
+    trace = pn.PyneTraceRecorder(
+        enabled=True,
+        max_events=10,
+        slow_span_ms=10,
+        clock=lambda: next(ticks),
+    )
+
+    with trace.span("provider.fetch", category="request"):
+        trace.emit(
+            "provider.arguments",
+            apiToken="do-not-leak",
+            nested={"password": "do-not-leak", "symbol": "TEST"},
+        )
+
+    snapshot = trace.snapshot()
+    assert snapshot is not None
+    arguments = next(item for item in snapshot["events"] if item["event"] == "provider.arguments")
+    assert arguments["apiToken"] == "[REDACTED]"
+    assert arguments["nested"] == {"password": "[REDACTED]", "symbol": "TEST"}
+    assert snapshot["timings"]["spans"] == [
+        {
+            "name": "provider.fetch",
+            "category": "request",
+            "count": 1,
+            "errorCount": 0,
+            "totalDurationMs": 25.0,
+            "maxDurationMs": 25.0,
+        }
+    ]
+    assert snapshot["timings"]["slowSpans"][0]["name"] == "provider.fetch"

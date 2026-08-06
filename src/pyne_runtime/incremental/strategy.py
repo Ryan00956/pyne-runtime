@@ -27,6 +27,7 @@ from ..strategy.ledger import (
 from ..strategy.orders import (
     _exit_trigger,
     _normalize_intrabar_path,
+    _order_lifecycle_state,
     _normalize_oca_type,
     _normalize_same_bar_fill_priority,
     _pending_trigger,
@@ -1369,36 +1370,14 @@ def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list
         orders,
         key=lambda item: (item.get("_submit_time", item.get("time", 0)), item.get("_seq", 0)),
     ):
-        order_type = str(order.get("type", ""))
-        pending = bool(order.get("_pending_submission"))
-        active = bool(order.get("_active", True))
-        canceled = bool(order.get("_canceled")) or order_type in {"cancel", "cancel_all"}
-        rejected = bool(order.get("_rejected_reason"))
-        if canceled:
-            status = "canceled"
-            phase = "pending_canceled" if pending else "cancel"
-        elif rejected:
-            status = "rejected"
-            phase = "pending_rejected" if pending else "rejected"
-        elif active:
-            status = "filled"
-            phase = (
-                "pending_fill"
-                if pending
-                else "exit_fill"
-                if order_type == "exit"
-                else "close_fill"
-                if order_type == "close"
-                else "close_all_fill"
-                if order_type == "close_all"
-                else "market_fill"
-            )
-        elif pending:
-            status = "pending"
-            phase = "pending"
-        else:
-            status = "submitted"
-            phase = order_type
+        state = _order_lifecycle_state(order)
+        order_type = state["order_type"]
+        pending = state["pending"]
+        active = state["active"]
+        canceled = state["canceled"]
+        rejected = state["rejected"]
+        status = state["status"]
+        phase = state["phase"]
         event: dict[str, Any] = {
             "id": order.get("id"),
             "from_entry": order.get("from_entry"),

@@ -422,6 +422,83 @@ def _portable_restore_growth(repeats: int) -> dict[str, Any]:
     )
 
 
+def _portable_typed_state_restore_ratio(repeats: int) -> dict[str, Any]:
+    settings = pn.PyneSettings(executor_mode="inline", max_bars=1_000)
+    session = pn.PyneIncrementalSession(
+        script=_INCREMENTAL_SCRIPT,
+        settings=settings,
+        retention_bars=64,
+    )
+    session.seed(_bars(320))
+    replay_snapshot = session.snapshot_portable(mode="replay")
+    state_snapshot = session.snapshot_portable(mode="state")
+
+    def restore(snapshot: bytes) -> pn.PyneIncrementalSession:
+        return pn.PyneIncrementalSession.from_portable_snapshot(
+            snapshot,
+            script=_INCREMENTAL_SCRIPT,
+            settings=settings,
+        )
+
+    restore(replay_snapshot)
+    restore(state_snapshot)
+    result = _paired_growth_check(
+        "incremental_typed_state_restore_vs_replay",
+        small_callback=lambda: restore(replay_snapshot),
+        large_callback=lambda: restore(state_snapshot),
+        repeats=repeats,
+        limit=1.25,
+        unit="seconds",
+    )
+    result.update(
+        {
+            "baseline": "replay-v1",
+            "candidate": "typed-state-v2",
+            "ratioMeaning": "typed-state-v2 / replay-v1",
+            "replayPayloadBytes": len(replay_snapshot),
+            "typedStatePayloadBytes": len(state_snapshot),
+        }
+    )
+    return result
+
+
+def _trace_overhead_ratio(repeats: int) -> dict[str, Any]:
+    data = _bars(320)
+
+    def run_session(*, trace_enabled: bool) -> None:
+        session = pn.PyneIncrementalSession(
+            script=_INCREMENTAL_SCRIPT,
+            settings=pn.PyneSettings(
+                executor_mode="inline",
+                max_bars=1_000,
+                trace_enabled=trace_enabled,
+                trace_max_events=5_000,
+                trace_slow_span_ms=1_000.0,
+            ),
+            retention_bars=64,
+        )
+        session.seed(data)
+
+    run_session(trace_enabled=False)
+    run_session(trace_enabled=True)
+    result = _paired_growth_check(
+        "incremental_trace_v2_overhead",
+        small_callback=lambda: run_session(trace_enabled=False),
+        large_callback=lambda: run_session(trace_enabled=True),
+        repeats=repeats,
+        limit=2.5,
+        unit="seconds",
+    )
+    result.update(
+        {
+            "baseline": "trace-disabled",
+            "candidate": "trace-v2-enabled",
+            "ratioMeaning": "trace-v2-enabled / trace-disabled",
+        }
+    )
+    return result
+
+
 def build_report(*, repeats: int) -> dict[str, Any]:
     checks = [
         _strategy_close_growth(repeats),
@@ -436,6 +513,8 @@ def build_report(*, repeats: int) -> dict[str, Any]:
         _incremental_memory_growth(),
         _portable_snapshot_growth(repeats),
         _portable_restore_growth(repeats),
+        _portable_typed_state_restore_ratio(repeats),
+        _trace_overhead_ratio(repeats),
     ]
     return {
         "schema": "pyne.performance-smoke.v1",

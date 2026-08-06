@@ -63,13 +63,14 @@ fills, and barstate flags.
 `performance_smoke.py` protects the algorithmic growth contracts that are easy
 to miss in semantic fixtures: dense strategy replay time and memory,
 incremental window indexing, multi-session scaling, bounded retained-memory
-growth, portable snapshot/restore scaling, long-period monotonic and pivot
-checks, TA NaN fast paths, weighted averages, and rolling order statistics. It
+growth, portable snapshot/restore scaling, typed-state-v2 versus replay-v1
+restore cost, trace-v2 opt-in overhead, long-period monotonic and pivot checks,
+TA NaN fast paths, weighted averages, and rolling order statistics. It
 uses relative growth ratios rather than machine-specific absolute latency
 budgets. Portable restore uses alternating small/large pairs, reports every raw
-sample, and gates the median paired ratio with the existing threshold. The
-non-JSON output also prints both measured values so a failure is auditable
-without rerunning the gate.
+sample, and gates the median paired ratio. The typed-state and trace comparisons
+use the same alternating raw-sample contract. The non-JSON output also prints
+both measured values so a failure is auditable without rerunning the gate.
 
 `incremental_stability_smoke.py` exercises multiple isolated sessions through
 longer streams and checks retention bounds, deterministic portable snapshot
