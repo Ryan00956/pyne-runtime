@@ -49,18 +49,28 @@ These counts come directly from the request, strategy, and TA status `build_repo
   TA/drawings/strategy state, call the two supported `request.*` families, emit
   Render IR v2, use rolling retention plus process-local or bounded portable
   checkpoints, and share bounded TTL/LRU sessions through an in-process manager.
+- **Mode-aware capability discovery:** `pn.runtime_capabilities()` and
+  `pn.schema()["runtimeCapabilities"]` distinguish batch from incremental TA and
+  lifecycle support; validation rejects statically visible unsupported
+  incremental calls before bar processing.
+- **Expanded incremental TA:** scalar `rma`, `wma`, `vwma`, `variance`, `stdev`,
+  `stoch`, `cci`, and `supertrend` join the existing helper set with
+  batch/incremental parity and portable-restore coverage.
 - **Batch/incremental parity kit:** hosts and contributors can run normalized,
   assertion-ready semantic comparisons without depending on the test runner.
 - **Stable integration surfaces:** the package exposes versioned output, parameter,
   request-provider, and strategy-report schemas together with CLI validation and
   process execution controls.
+- **Bounded execution trace:** opt-in batch and incremental traces disclose
+  lifecycle, request, strategy, output, state, and script-defined events under a
+  strict event budget; preview events remain isolated from committed sessions.
 - **Output schema v2:** `plotcandle`, linefill and polyline objects, and merged
   table cells have explicit contracts. Version 1 remains a declared fallback
   for hosts and scripts that stay within its surface.
-- **Pinned external-library adapter:** the project-required
-  `TradingView/ta/10#requestUpAndDownVolume` member is available only through
-  the explicit registry and authoritative host lower-timeframe OHLCV. Unknown
-  libraries fail closed.
+- **Pinned external-library adapter:** six reviewed `TradingView/ta/10` members
+  cover percentage/CAGR, since-condition extrema, up/down volume, and cumulative
+  volume delta. Volume members use authoritative host lower-timeframe OHLCV;
+  unknown libraries fail closed.
 - **Measured Pine migration inventory:** `scripts/pine_corpus_audit.py` inventories
   an external Pine corpus without executing or copying source, classifies live
   runtime/host/render boundaries, and keeps API-analogue counts distinct from
@@ -114,17 +124,20 @@ typed provider errors with a reusable conformance kit, incremental TTL/LRU
 retention, process-local and portable snapshot/restore, incremental request
 support, Render IR v2, batch/incremental parity tooling, multi-session
 performance/stability gates, and the first pinned external-library adapter.
-The large plot and TA implementations are also split into focused internal
-modules without changing the public package API.
+The source candidate also includes mode-aware capability discovery, early
+incremental diagnostics, 16 incremental TA helpers, a six-member pinned library
+surface, bounded execution tracing, and paired raw-sample restore performance
+evidence. The large plot and TA implementations are split into focused internal
+modules without changing established public entry points.
 
 This is not a release claim. The next delivery slice is:
 
 1. **Candidate packaging:** build and inspect the `0.3.0rc1` artifacts, then pin
    a published wheel and checksum only when the host integration is ready for
    its own fresh-process acceptance pass.
-2. **Measured expansion:** widen incremental TA, performance/parity, and
-   external-library
-   coverage only where real converted indicators require it.
+2. **Measured expansion:** use converted-script demand and the capability
+   contract to choose the next TA or pinned-library additions; require parity
+   fixtures for every promoted surface.
 
 Each slice must preserve the existing batch API and output schemas, remain
 fail-closed at host boundaries, and pass the full release gate before the next

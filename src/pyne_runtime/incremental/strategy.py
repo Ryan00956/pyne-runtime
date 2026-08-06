@@ -18,7 +18,12 @@ from ..strategy.costs import (
     _margin_required,
     _normalize_commission_type,
 )
-from ..strategy.ledger import _trade_float, _trade_open_profit
+from ..strategy.ledger import (
+    _closed_trade,
+    _trade_float,
+    _trade_open_profit,
+    _trade_realized_profit,
+)
 from ..strategy.orders import (
     _exit_trigger,
     _normalize_intrabar_path,
@@ -1229,12 +1234,7 @@ class IncrementalStrategyNamespace:
             closing_qty = min(trade_qty, remaining)
             remaining -= closing_qty
             side = str(trade["side"])
-            profit = _realized_profit(
-                side=side,
-                qty=closing_qty,
-                entry_price=float(trade["entry_price"]),
-                exit_price=fill_price,
-            )
+            profit = _trade_realized_profit(trade, closing_qty, fill_price)
             entry_commission = float(trade.get("commission", 0.0))
             reported_profit = profit
             if entry_commission > 0 and closing_qty < trade_qty:
@@ -1246,25 +1246,20 @@ class IncrementalStrategyNamespace:
                 self._grossprofit += profit
             else:
                 self._grossloss += profit
-            closed_trade = {
-                "entry_id": trade.get("entry_id", ""),
-                "exit_id": exit_id,
-                "side": side,
-                "qty": _round8(closing_qty),
-                "entry_price": trade.get("entry_price"),
-                "exit_price": _round8(fill_price),
-                "entry_time": trade.get("entry_time"),
-                "exit_time": self._current_time(),
-                "profit": _round8(reported_profit),
-                "commission": _round8(entry_commission_share + exit_commission_share),
-                "net_profit": _round8(
-                    reported_profit - entry_commission_share - exit_commission_share
-                ),
-            }
-            if trade.get("entry_comment"):
-                closed_trade["entry_comment"] = str(trade.get("entry_comment", ""))
-            if exit_comment:
-                closed_trade["exit_comment"] = str(exit_comment)
+            closed_trade = _closed_trade(
+                previous_trade=trade,
+                order={
+                    "id": exit_id,
+                    "time": self._current_time(),
+                    "comment": exit_comment,
+                },
+                qty=closing_qty,
+                exit_price=fill_price,
+                profit=reported_profit,
+                commission=entry_commission_share + exit_commission_share,
+            )
+            closed_trade.pop("_entry_bar_index", None)
+            closed_trade.pop("_exit_bar_index", None)
             self._append_closed_trade(closed_trade)
             closed_signed_qty += closing_qty if side == self.long else -closing_qty
             leftover_qty = trade_qty - closing_qty
@@ -1336,11 +1331,6 @@ def _round8(value: float) -> float:
 def _signed_trade_qty(trade: dict[str, Any]) -> float:
     qty = abs(float(trade.get("qty", 0.0)))
     return qty if trade.get("side") == IncrementalStrategyNamespace.long else -qty
-
-def _realized_profit(*, side: str, qty: float, entry_price: float, exit_price: float) -> float:
-    if side == IncrementalStrategyNamespace.long:
-        return (float(exit_price) - float(entry_price)) * abs(float(qty))
-    return (float(entry_price) - float(exit_price)) * abs(float(qty))
 
 def _trade_profit_percent(trade: dict[str, Any], *, profit: float | None = None) -> float:
     if trade.get("_empty_ledger"):

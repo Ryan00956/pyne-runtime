@@ -124,6 +124,7 @@ script execution and the contract between the script and the host.
 | Use Pyne from a charting or research host | [Host Integration Guide](docs/tutorials/host_integration_guide.md) |
 | Supply higher- or lower-timeframe data | [Host-Backed `request.security()`](docs/tutorials/host_request_security.md) |
 | Process preview and confirmed realtime bars | [Incremental Runtime](docs/concepts/incremental_runtime.md) |
+| Discover support or inspect decisions | [Runtime Capabilities](docs/api/capabilities.md) and [Execution Trace](docs/concepts/execution_trace.md) |
 | Consume every renderer and strategy field | [Output Schema](docs/reference/output_schema.md) |
 | Explore runnable scripts | [Packaged Examples](examples/README.md) |
 
@@ -137,6 +138,7 @@ release gate checks real output, package contracts, and installability.
 | TradingView-backed capture parity | Request **21/21**, Strategy **27/27**, and TA **9/9** captured cases, currently at **0 diff** |
 | CI matrix | Linux, Windows, and macOS on Python 3.11, 3.12, and 3.13 |
 | Contract checks | Generated project status, output schemas, public imports, capture parity, and architecture boundaries |
+| Runtime self-description | Versioned batch/incremental capabilities, early unsupported-call diagnostics, and bounded trace evidence |
 | Distribution checks | Wheel and source build, metadata validation, clean installed-wheel smoke, CLI, and packaged examples |
 
 Capture parity applies to the checked-in fixtures and cases; it is evidence for

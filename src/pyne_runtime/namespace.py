@@ -31,6 +31,7 @@ from .string_ext import string_namespace
 from .ta import TaModule
 from .ticker import TickerNamespace
 from .time_ext import dayofweek_namespace, time_namespace
+from .trace import PyneTraceRecorder
 
 
 @dataclass
@@ -42,6 +43,7 @@ class RuntimeServices:
     params: dict[str, Any]
     policy: PyneSecurityPolicy
     execution_scope: PyneExecutionScope | None = None
+    trace: PyneTraceRecorder | None = None
     ta: TaModule = field(init=False)
     input: InputModule = field(init=False)
     state: PyneStateNamespace = field(init=False)
@@ -69,6 +71,11 @@ class RuntimeServices:
             self.collector,
             max_pending_order_operations=self.policy.max_strategy_pending_operations,
         )
+        if self.trace is None:
+            self.trace = PyneTraceRecorder(
+                enabled=self.settings.trace_enabled,
+                max_events=self.settings.trace_max_events,
+            )
 
 
 def build_script_namespace(services: RuntimeServices) -> dict[str, Any]:
@@ -137,6 +144,7 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
     namespace["runtime"] = runtime_namespace
     namespace["barmerge"] = barmerge
     namespace["strategy"] = services.strategy
+    namespace["trace"] = services.trace
     namespace["array"] = ArrayNamespace(
         max_size=services.policy.max_array_size,
         max_depth=services.policy.max_collection_depth,

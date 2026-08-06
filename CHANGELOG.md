@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Added a versioned, mode-aware runtime capability contract through
+  `pn.runtime_capabilities()` and `pn.schema()`, with early diagnostics for
+  unsupported incremental TA/request calls.
+- Expanded incremental TA with `rma`, `wma`, `vwma`, `variance`, `stdev`,
+  `stoch`, `cci`, and `supertrend`, including batch parity and portable-restore
+  coverage.
+- Expanded the pinned `TradingView/ta/10` adapter to six reviewed members,
+  including cumulative volume delta backed by authoritative lower-timeframe
+  data.
+- Added opt-in bounded batch/incremental execution traces with preview
+  isolation, dropped-event accounting, and script-defined decision events.
+- Stabilized the portable-restore performance gate with alternating paired
+  measurements, retained raw samples, and an unchanged growth threshold.
+- Reused the shared strategy ledger profit and closed-trade builders from the
+  incremental strategy path.
 - Isolated ordinary execution and incremental-session caches by default while
   retaining an explicit host-owned shared execution scope.
 - Added typed provider error categories and a test-runner-independent provider

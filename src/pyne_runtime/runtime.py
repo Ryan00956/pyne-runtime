@@ -37,6 +37,7 @@ from .security import (
     validate_script_security,
 )
 from .settings import PyneSettings
+from .trace import PyneTraceRecorder
 
 
 class PyneRuntime:
@@ -72,13 +73,23 @@ class PyneRuntime:
         Returns:
             PyneResult with all computed outputs.
         """
+        trace = PyneTraceRecorder(
+            enabled=self.settings.trace_enabled,
+            max_events=self.settings.trace_max_events,
+        )
+        runtime_mode = "incremental" if is_incremental_pyne_script(script) else "batch"
+        trace.emit("execution.start", mode=runtime_mode, bars=len(ohlcv))
+
+        def finish(result: PyneResult, *, status: str) -> PyneResult:
+            return self._finalize_trace(result, trace, status=status)
+
         if not ohlcv:
-            return PyneResult(
+            return finish(PyneResult(
                 ok=False,
                 code="PYNE_INVALID_OHLCV",
                 error="No OHLCV data provided",
                 hint=error_hint("PYNE_INVALID_OHLCV"),
-            )
+            ), status="error")
 
         params = params or {}
         execution_scope = self.execution_scope or PyneExecutionScope.fresh(
@@ -89,12 +100,12 @@ class PyneRuntime:
             policy = PyneSecurityPolicy.from_settings(self.settings, security_mode)
 
             if len(ohlcv) > policy.max_bars:
-                return PyneResult(
+                return finish(PyneResult(
                     ok=False,
                     code="PYNE_INVALID_OHLCV",
                     error=f"Too many data points (max {policy.max_bars})",
                     hint="Reduce the history window or increase max_bars for trusted workloads.",
-                )
+                ), status="error")
 
             validate_script_security(script, policy)
 
@@ -105,11 +116,12 @@ class PyneRuntime:
                     policy=policy,
                     settings=self.settings,
                     execution_scope=execution_scope,
+                    trace=trace,
                 )
                 result = self._collect_incremental_result(incremental.seed(ohlcv))
                 result.meta = {**result.meta, "securityMode": policy.mode}
                 enforce_output_limits(result.output, policy)
-                return result
+                return finish(result, status="ok")
 
             # 1. Build data context
             ctx = PyneContext.from_ohlcv(
@@ -126,6 +138,7 @@ class PyneRuntime:
                 params=params,
                 policy=policy,
                 execution_scope=execution_scope,
+                trace=trace,
             )
 
             # 3. Build script execution namespace
@@ -141,29 +154,42 @@ class PyneRuntime:
             result.meta = {**result.meta, "securityMode": policy.mode}
             if services.request.diagnostics:
                 result.meta["requestDiagnostics"] = services.request.diagnostics
-            return result
+                for item in services.request.diagnostics:
+                    trace.emit("request.complete", **item)
+            strategy = result.output.get("strategy") or {}
+            if strategy:
+                trace.emit(
+                    "strategy.complete",
+                    orders=len(strategy.get("orders") or []),
+                    closedTrades=len(strategy.get("closedtrades") or []),
+                    position=(strategy.get("position") or {}).get("size"),
+                )
+            return finish(result, status="ok")
 
         except SyntaxError as exc:
-            return PyneResult(
+            return finish(PyneResult(
                 ok=False,
                 code="PYNE_SYNTAX_ERROR",
                 error=str(exc.msg or exc),
                 line=exc.lineno,
                 column=exc.offset,
                 hint=error_hint("PYNE_SYNTAX_ERROR"),
-            )
+            ), status="error")
 
         except PyneTimeoutError as exc:
-            return PyneResult(
+            return finish(PyneResult(
                 ok=False,
                 code="PYNE_TIMEOUT",
                 error=str(exc),
                 hint=error_hint("PYNE_TIMEOUT"),
-            )
+            ), status="error")
         except PyneSecurityError as exc:
             message = str(exc)
             code = classify_security_error(message)
-            return PyneResult(ok=False, code=code, error=message, hint=error_hint(code))
+            return finish(
+                PyneResult(ok=False, code=code, error=message, hint=error_hint(code)),
+                status="error",
+            )
         except PyneRequestError as exc:
             code = exc.code
             context = (
@@ -173,24 +199,46 @@ class PyneRuntime:
             )
             if exc.request_context:
                 context["requestProviderRequest"] = exc.request_context
-            return PyneResult(
+            return finish(PyneResult(
                 ok=False,
                 code=code,
                 error=str(exc),
                 hint=error_hint(code),
                 error_context=context,
-            )
+            ), status="error")
         except PyneInputError as exc:
             code = exc.code
-            return PyneResult(ok=False, code=code, error=str(exc), hint=error_hint(code))
+            return finish(
+                PyneResult(ok=False, code=code, error=str(exc), hint=error_hint(code)),
+                status="error",
+            )
         except Exception as exc:
             error_msg = f"Script error: {exc}"
-            return PyneResult(
+            return finish(PyneResult(
                 ok=False,
                 code="PYNE_RUNTIME_ERROR",
                 error=error_msg,
                 hint=error_hint("PYNE_RUNTIME_ERROR"),
-            )
+            ), status="error")
+
+    @staticmethod
+    def _finalize_trace(
+        result: PyneResult,
+        trace: PyneTraceRecorder,
+        *,
+        status: str,
+    ) -> PyneResult:
+        trace.emit(
+            "execution.complete",
+            status=status,
+            code=result.code,
+            outputKeys=sorted(result.output),
+            lineCount=len(result.lines),
+        )
+        snapshot = trace.snapshot()
+        if snapshot is not None:
+            result.meta = {**result.meta, "trace": snapshot}
+        return result
 
     def _collect_incremental_result(self, result: IncrementalPyneResult) -> PyneResult:
         return PyneResult(

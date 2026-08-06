@@ -82,6 +82,17 @@ def _median_seconds(callback: Callable[[], Any], repeats: int) -> float:
     return statistics.median(samples)
 
 
+def _seconds_once(callback: Callable[[], Any]) -> float:
+    gc.collect()
+    started = time.perf_counter()
+    result = callback()
+    elapsed = time.perf_counter() - started
+    if hasattr(result, "ok") and not result.ok:
+        raise RuntimeError(result.error)
+    del result
+    return elapsed
+
+
 def _growth_check(
     name: str,
     *,
@@ -100,6 +111,52 @@ def _growth_check(
         "limit": limit,
         "passed": ratio <= limit,
     }
+
+
+def _paired_growth_check(
+    name: str,
+    *,
+    small_callback: Callable[[], Any],
+    large_callback: Callable[[], Any],
+    repeats: int,
+    limit: float,
+    unit: str,
+) -> dict[str, Any]:
+    """Measure paired sizes in alternating order and retain every raw sample."""
+
+    sample_count = max(int(repeats), 3)
+    small_samples: list[float] = []
+    large_samples: list[float] = []
+    ratio_samples: list[float] = []
+    for index in range(sample_count):
+        if index % 2 == 0:
+            small = _seconds_once(small_callback)
+            large = _seconds_once(large_callback)
+        else:
+            large = _seconds_once(large_callback)
+            small = _seconds_once(small_callback)
+        small_samples.append(small)
+        large_samples.append(large)
+        ratio_samples.append(large / small if small > 0 else float("inf"))
+
+    result = _growth_check(
+        name,
+        small=statistics.median(small_samples),
+        large=statistics.median(large_samples),
+        limit=limit,
+        unit=unit,
+    )
+    result.update(
+        {
+            "ratio": statistics.median(ratio_samples),
+            "passed": statistics.median(ratio_samples) <= limit,
+            "smallSamples": small_samples,
+            "largeSamples": large_samples,
+            "ratioSamples": ratio_samples,
+            "statistic": "median_paired_ratio",
+        }
+    )
+    return result
 
 
 def _strategy_close_growth(repeats: int) -> dict[str, Any]:
@@ -330,7 +387,7 @@ def _portable_snapshot_growth(repeats: int) -> dict[str, Any]:
 
 
 def _portable_restore_growth(repeats: int) -> dict[str, Any]:
-    def evaluate(count: int) -> float:
+    def payload(count: int) -> tuple[bytes, pn.PyneSettings]:
         settings = pn.PyneSettings(executor_mode="inline", max_bars=1_000)
         session = pn.PyneIncrementalSession(
             script=_INCREMENTAL_SCRIPT,
@@ -338,20 +395,28 @@ def _portable_restore_growth(repeats: int) -> dict[str, Any]:
             retention_bars=64,
         )
         session.seed(_bars(count))
-        payload = session.snapshot_portable()
-        return _median_seconds(
-            lambda: pn.PyneIncrementalSession.from_portable_snapshot(
-                payload,
-                script=_INCREMENTAL_SCRIPT,
-                settings=settings,
-            ),
-            repeats,
+        return session.snapshot_portable(), settings
+
+    small_payload, small_settings = payload(80)
+    large_payload, large_settings = payload(160)
+
+    def restore(
+        snapshot: bytes,
+        settings: pn.PyneSettings,
+    ) -> pn.PyneIncrementalSession:
+        return pn.PyneIncrementalSession.from_portable_snapshot(
+            snapshot,
+            script=_INCREMENTAL_SCRIPT,
+            settings=settings,
         )
 
-    return _growth_check(
+    restore(small_payload, small_settings)
+    restore(large_payload, large_settings)
+    return _paired_growth_check(
         "incremental_portable_restore_time_growth",
-        small=evaluate(80),
-        large=evaluate(160),
+        small_callback=lambda: restore(small_payload, small_settings),
+        large_callback=lambda: restore(large_payload, large_settings),
+        repeats=repeats,
         limit=3.5,
         unit="seconds",
     )
@@ -396,7 +461,9 @@ def main() -> int:
         for check in report["checks"]:
             status = "PASS" if check["passed"] else "FAIL"
             print(
-                f"{status} {check['name']}: ratio={check['ratio']:.3f} limit={check['limit']:.3f}"
+                f"{status} {check['name']}: small={check['small']:.6g} "
+                f"large={check['large']:.6g} {check['unit']} "
+                f"ratio={check['ratio']:.3f} limit={check['limit']:.3f}"
             )
         print("PASS" if report["passed"] else "FAIL")
     return 1 if args.check and not report["passed"] else 0

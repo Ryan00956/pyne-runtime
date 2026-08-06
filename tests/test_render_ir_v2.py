@@ -145,9 +145,72 @@ plot(delta, "Delta")
     )
 
     assert result.ok, result.error
-    assert result.values("Up") == [5.0, 0.0, 11.0]
+    assert result.values("Up") == [5.0, 7.0, 11.0]
     assert result.values("Down") == [-3.0, 0.0, 0.0]
-    assert result.values("Delta") == [2.0, 0.0, 11.0]
+    assert result.values("Delta") == [2.0, 7.0, 11.0]
+
+
+def test_pinned_tradingview_ta_10_volume_delta_uses_period_cumulative_values() -> None:
+    result = pn.run(
+        """
+tv_ta = pine_library("TradingView/ta/10")
+opening, highest, lowest, current = tv_ta.requestVolumeDelta("1", "1D")
+plot(opening, "Opening")
+plot(highest, "Highest")
+plot(lowest, "Lowest")
+plot(current, "Current")
+""",
+        _bars(),
+        data_provider=_LowerTimeframeProvider(),
+        syminfo={"tickerid": "TEST:BTCUSD", "timezone": "UTC"},
+        timeframe={"period": "10"},
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Opening") == [0.0, 2.0, 9.0]
+    assert result.values("Highest") == [5.0, 9.0, 20.0]
+    assert result.values("Lowest") == [0.0, 0.0, 0.0]
+    assert result.values("Current") == [2.0, 9.0, 20.0]
+
+
+def test_pinned_tradingview_ta_10_pure_series_members() -> None:
+    bars = [
+        {"time": 0, "open": 100, "high": 102, "low": 98, "close": 100, "volume": 1},
+        {
+            "time": 86_400,
+            "open": 100,
+            "high": 112,
+            "low": 99,
+            "close": 110,
+            "volume": 1,
+        },
+        {
+            "time": 31_536_000,
+            "open": 110,
+            "high": 125,
+            "low": 105,
+            "close": 121,
+            "volume": 1,
+        },
+    ]
+    result = pn.run(
+        """
+tv_ta = pine_library("TradingView/ta/10")
+plot(tv_ta.changePercent(close, open), "Change")
+plot(tv_ta.highestSince(bar_index == 1, close), "Highest Since")
+plot(tv_ta.lowestSince(bar_index == 1, close), "Lowest Since")
+plot(tv_ta.cagr(0, 100, 31536000, 121), "CAGR")
+""",
+        bars,
+        executor_mode="inline",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Change") == [0.0, 10.0, 10.0]
+    assert result.values("Highest Since") == [100.0, 110.0, 121.0]
+    assert result.values("Lowest Since") == [100.0, 110.0, 110.0]
+    assert result.values("CAGR") == [21.0]
 
 
 def test_external_library_registry_fails_closed_for_unknown_library() -> None:

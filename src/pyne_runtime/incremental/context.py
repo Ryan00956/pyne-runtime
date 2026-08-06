@@ -11,6 +11,7 @@ from typing import Any
 from ..barstate import PyneIncrementalBarState
 from ..metadata import SessionInfo, SymbolInfo, TimeframeInfo
 from ..security import PyneSecurityError
+from ..trace import PyneTraceRecorder
 from .bar import IncrementalBar, _session_info_for_bar
 from .drawing import IncrementalDrawingMixin, _filter_object_events
 from .limits import (
@@ -38,6 +39,7 @@ class IncrementalContext(IncrementalDrawingMixin):
         timeframe: TimeframeInfo | None = None,
         session: SessionInfo | None = None,
         max_drawing_objects: int = 500,
+        trace: PyneTraceRecorder | None = None,
     ) -> None:
         self.params = params
         self.meta = meta or {}
@@ -69,12 +71,22 @@ class IncrementalContext(IncrementalDrawingMixin):
         self._current_object_events: list[dict[str, Any]] = []
         self._request_bars: list[dict[str, Any]] = []
         self._request_diagnostics: list[dict[str, Any]] = []
+        self._request_namespace: Any = None
         self._object_counter = 0
         self._max_drawing_objects = max(int(max_drawing_objects), 1)
+        self.trace = trace or PyneTraceRecorder()
         self.current_bar: IncrementalBar | None = None
         self.bar_index = -1
         self.last_bar_index = -1
         self.barstate = PyneIncrementalBarState()
+
+    @property
+    def request(self) -> Any:
+        if self._request_namespace is None:
+            raise PyneSecurityError(
+                "ctx.request.* can only be used inside incremental callbacks"
+            )
+        return self._request_namespace
 
     def clone_for_preview(self) -> "IncrementalContext":
         discarded: dict[str, Any] = {
@@ -198,6 +210,14 @@ class IncrementalContext(IncrementalDrawingMixin):
             self._varip_states = {}
         self.session = _session_info_for_bar(bar, self._default_session)
         self.strategy.begin_bar()
+        self.trace.emit(
+            "bar.begin",
+            time=bar.time,
+            barIndex=bar_index,
+            confirmed=barstate.isconfirmed,
+            realtime=barstate.isrealtime,
+            new=barstate.isnew,
+        )
 
     def request_bars(self) -> list[dict[str, Any]]:
         """Return committed chart bars plus the active preview/confirmed bar."""
@@ -221,6 +241,8 @@ class IncrementalContext(IncrementalDrawingMixin):
 
     def record_request_diagnostics(self, values: list[dict[str, Any]]) -> None:
         self._request_diagnostics.extend(copy.deepcopy(values))
+        for item in values:
+            self.trace.emit("request.complete", **item)
 
     def state(self, name: str, default: Any = None) -> StateCell:
         key = str(name)
@@ -355,6 +377,14 @@ class IncrementalContext(IncrementalDrawingMixin):
             {**entry, "data": []},
         )
         current_entry["data"].append(point)
+        self.trace.emit(
+            "output.plot",
+            time=self.current_bar.time,
+            name=name,
+            value=number,
+            pane=resolved_pane,
+            type=normalized_type,
+        )
 
     def marker(
         self,
@@ -397,6 +427,13 @@ class IncrementalContext(IncrementalDrawingMixin):
             {**entry, "data": []},
         )
         current_entry["data"].append(point)
+        self.trace.emit(
+            "output.marker",
+            time=self.current_bar.time,
+            text=text,
+            shape=shape,
+            pane=resolved_pane,
+        )
 
     def plotcandle(
         self,
@@ -538,6 +575,7 @@ class IncrementalContext(IncrementalDrawingMixin):
         if object_events:
             output["object_events"] = object_events
 
+        trace_snapshot = self.trace.snapshot()
         return IncrementalPyneResult(
             ok=True,
             lines=lines,
@@ -553,6 +591,7 @@ class IncrementalContext(IncrementalDrawingMixin):
                     if self._request_diagnostics
                     else {}
                 ),
+                **({"trace": trace_snapshot} if trace_snapshot is not None else {}),
             },
         )
 

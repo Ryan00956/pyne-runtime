@@ -111,6 +111,14 @@ strategy ledger. If a preview for the same `time` was already seen,
 `ctx.barstate.isnew` is false during the confirmed callback; if the host sends
 only a closed bar, it is true.
 
+The currently promoted incremental TA helpers are `sma`, `ema`, `rma`, `wma`,
+`vwma`, `variance`, `stdev`, `boll`, `macd`, `rsi`, `atr`, `highest`, `lowest`,
+`stoch`, `cci`, and `supertrend`. Query
+`pn.runtime_capabilities()["modes"]["incremental"]` instead of assuming every
+batch `ta.*` helper has a scalar incremental implementation. `pn.validate()`
+and session preparation report statically visible unsupported `ctx.ta.*` calls
+before bar processing.
+
 Event times must remain monotonic. Once a host has submitted a preview for a
 later bar, it must not submit a closed event for an earlier bar; close the
 current preview bar before advancing to the next preview time.
@@ -267,6 +275,8 @@ Incremental runtime code is split by lifecycle role:
   current-bar scalar and lower-timeframe array results.
 - `incremental.checkpoint` owns the bounded portable snapshot envelope.
 - `incremental.parity` compares normalized batch and incremental semantics.
+- `capabilities` publishes the mode-aware supported surface and early
+  diagnostics.
 - `incremental.strategy` owns scalar current-bar strategy state and callback
     reporting, while reusing shared batch strategy constants and pure helpers.
 - `incremental.context` exposes the callback-facing `ctx` object.

@@ -12,6 +12,8 @@ pn.read_ohlcv
 pn.from_pandas
 pn.validate
 pn.schema
+pn.runtime_capabilities
+pn.capability_diagnostics
 pn.__version__
 
 pn.PyneData
@@ -96,6 +98,7 @@ pn.BarMergeNamespace
 pn.StrategyModule
 pn.PyneExecutionScope
 pn.pyne_cache
+pn.PyneTraceRecorder
 
 pn.execute_pyne_script
 pn.execute_pyne_script_in_process
@@ -114,6 +117,10 @@ pn.PYNE_OUTPUT_SCHEMA_VERSION
 pn.PYNE_PARAM_SCHEMA_VERSION
 pn.PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
 pn.PYNE_STRATEGY_REPORT_SCHEMA_VERSION
+pn.PYNE_RUNTIME_CAPABILITIES_SCHEMA_VERSION
+pn.PYNE_TRACE_SCHEMA_VERSION
+pn.BATCH_TA_CAPABILITIES
+pn.INCREMENTAL_TA_CAPABILITIES
 pn.na
 pn.nz
 pn.fixnan
@@ -177,6 +184,13 @@ multiple inline executions. By default each batch execution and each
 incremental session owns an isolated scope. `pyne_cache` remains the
 package-level service for explicit host cache management; it is not the cache
 injected into ordinary script executions.
+`runtime_capabilities()` returns the versioned batch/incremental capability
+contract also embedded in `pn.schema()`. `capability_diagnostics()` is the
+lower-level mode-aware diagnostic helper used by `pn.validate()` and
+incremental session preparation. `BATCH_TA_CAPABILITIES` and
+`INCREMENTAL_TA_CAPABILITIES` are the stable tuple views used in that contract.
+`PyneTraceRecorder` and `PYNE_TRACE_SCHEMA_VERSION` define the bounded trace
+document attached under `result.meta["trace"]` when tracing is enabled.
 
 Internal helpers and non-exported functions are not part of the compatibility contract.
 

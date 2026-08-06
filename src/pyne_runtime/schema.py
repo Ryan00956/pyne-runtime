@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .capabilities import runtime_capabilities
+
 from ._request_contract import (
     REQUEST_METADATA_KEY_ALIASES,
     REQUEST_API_VALUES,
@@ -316,6 +318,7 @@ SCRIPT_NAMESPACE_CONTRACT: dict[str, Any] = {
             "runtime",
             "barmerge",
             "strategy",
+            "trace",
             "array",
             "map",
             "matrix",
@@ -998,5 +1001,6 @@ def schema() -> dict[str, Any]:
         "requestProvider": request_provider_schema(),
         "strategyReport": strategy_report_schema(),
         "scriptNamespace": script_namespace_schema(),
+        "runtimeCapabilities": runtime_capabilities(),
     }
 

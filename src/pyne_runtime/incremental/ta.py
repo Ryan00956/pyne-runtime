@@ -60,6 +60,121 @@ class _StepEMA:
         return self.ema
 
 
+class _StepRMA:
+    def __init__(self, period: int) -> None:
+        self.period = max(int(period), 1)
+        self.alpha = 1.0 / self.period
+        self.seed_sum = 0.0
+        self.seed_count = 0
+        self.value: float | None = None
+
+    def update(self, value: Any) -> float | None:
+        number = _number_or_none(value)
+        if number is None:
+            return self.value
+        if self.value is None:
+            self.seed_sum += number
+            self.seed_count += 1
+            if self.seed_count < self.period:
+                return None
+            self.value = self.seed_sum / self.period
+            return self.value
+        self.value = self.alpha * number + (1.0 - self.alpha) * self.value
+        return self.value
+
+
+class _StepWMA:
+    def __init__(self, period: int) -> None:
+        self.period = max(int(period), 1)
+        self.window: deque[float | None] = deque()
+        self.simple_sum = 0.0
+        self.weighted_sum = 0.0
+        self.valid_count = 0
+        self.denominator = self.period * (self.period + 1) / 2.0
+
+    def update(self, value: Any) -> float | None:
+        number = _number_or_none(value)
+        numeric = number or 0.0
+        next_weight = len(self.window) + 1
+        self.window.append(number)
+        self.simple_sum += numeric
+        self.weighted_sum += next_weight * numeric
+        if number is not None:
+            self.valid_count += 1
+        if len(self.window) > self.period:
+            removed = self.window.popleft()
+            self.weighted_sum -= self.simple_sum
+            self.simple_sum -= removed or 0.0
+            if removed is not None:
+                self.valid_count -= 1
+        if len(self.window) < self.period or self.valid_count < self.period:
+            return None
+        return self.weighted_sum / self.denominator
+
+
+class _StepVWMA:
+    def __init__(self, period: int) -> None:
+        self.period = max(int(period), 1)
+        self.window: deque[tuple[float | None, float | None]] = deque()
+        self.numerator = 0.0
+        self.denominator = 0.0
+
+    def update(self, value: Any, volume: Any) -> float | None:
+        number = _number_or_none(value)
+        weight = _number_or_none(volume)
+        self.window.append((number, weight))
+        if number is not None and weight is not None:
+            self.numerator += number * weight
+        if weight is not None:
+            self.denominator += weight
+        if len(self.window) > self.period:
+            removed_value, removed_weight = self.window.popleft()
+            if removed_value is not None and removed_weight is not None:
+                self.numerator -= removed_value * removed_weight
+            if removed_weight is not None:
+                self.denominator -= removed_weight
+        if len(self.window) < self.period or self.denominator <= 0.0:
+            return None
+        return self.numerator / self.denominator
+
+
+class _StepVariance:
+    def __init__(self, period: int, *, biased: bool = True) -> None:
+        self.period = max(int(period), 1)
+        self.biased = bool(biased)
+        self.window: deque[float | None] = deque()
+        self.sum = 0.0
+        self.sumsq = 0.0
+        self.valid_count = 0
+
+    def update(self, value: Any) -> float | None:
+        number = _number_or_none(value)
+        self.window.append(number)
+        if number is not None:
+            self.sum += number
+            self.sumsq += number * number
+            self.valid_count += 1
+        if len(self.window) > self.period:
+            removed = self.window.popleft()
+            if removed is not None:
+                self.sum -= removed
+                self.sumsq -= removed * removed
+                self.valid_count -= 1
+        if len(self.window) < self.period or self.valid_count < self.period:
+            return None
+        denominator = self.period if self.biased else self.period - 1
+        if denominator <= 0:
+            return None
+        centered = max(self.sumsq - self.sum * self.sum / self.period, 0.0)
+        return centered / denominator
+
+
+class _StepStdev(_StepVariance):
+    def update(self, value: Any) -> float | None:
+        variance = super().update(value)
+        return None if variance is None else math.sqrt(variance)
+
+
 class _StepBOLL:
     def __init__(self, period: int, multiplier: float = 2.0) -> None:
         self.period = max(int(period), 1)
@@ -213,6 +328,110 @@ class _StepMonotonic:
         return self.window[0][1] if self.window else None
 
 
+class _StepStoch:
+    def __init__(self, period: int) -> None:
+        self.highest = _StepMonotonic(period, highest=True)
+        self.lowest = _StepMonotonic(period, highest=False)
+
+    def update(self, source: Any, high: Any, low: Any) -> float | None:
+        current = _number_or_none(source)
+        highest = self.highest.update(high)
+        lowest = self.lowest.update(low)
+        if highest is None and self.highest.window:
+            highest = self.highest.window[0][1]
+        if lowest is None and self.lowest.window:
+            lowest = self.lowest.window[0][1]
+        if current is None or highest is None or lowest is None:
+            return None
+        spread = highest - lowest
+        return 50.0 if spread == 0.0 else 100.0 * (current - lowest) / spread
+
+
+class _StepCCI:
+    def __init__(self, period: int) -> None:
+        self.period = max(int(period), 1)
+        self.window: deque[float | None] = deque()
+
+    def update(self, source: Any) -> float | None:
+        current = _number_or_none(source)
+        self.window.append(current)
+        if len(self.window) > self.period:
+            self.window.popleft()
+        if len(self.window) < self.period or any(value is None for value in self.window):
+            return None
+        values = [float(value) for value in self.window if value is not None]
+        average = sum(values) / self.period
+        deviation = sum(abs(value - average) for value in values) / self.period
+        if deviation == 0.0:
+            return 0.0
+        return (float(current) - average) / (0.015 * deviation)
+
+
+class _StepSupertrend:
+    def __init__(self, factor: float, atr_period: int) -> None:
+        self.factor = float(factor)
+        self.atr = _StepATR(atr_period)
+        self.previous_atr: float | None = None
+        self.previous_close: float | None = None
+        self.previous_upper = 0.0
+        self.previous_lower = 0.0
+        self.previous_supertrend: float | None = 0.0
+        self.index = -1
+
+    def update(
+        self,
+        bar_or_high: Any,
+        low: Any = None,
+        close: Any = None,
+    ) -> tuple[float | None, float | None]:
+        if low is None and close is None:
+            high = _number_or_none(getattr(bar_or_high, "high"))
+            low_value = _number_or_none(getattr(bar_or_high, "low"))
+            close_value = _number_or_none(getattr(bar_or_high, "close"))
+        else:
+            high = _number_or_none(bar_or_high)
+            low_value = _number_or_none(low)
+            close_value = _number_or_none(close)
+        self.index += 1
+        atr = self.atr.update(high, low_value, close_value)
+        if high is None or low_value is None or close_value is None or atr is None:
+            self.previous_atr = atr
+            self.previous_close = close_value
+            self.previous_upper = 0.0
+            self.previous_lower = 0.0
+            return (0.0 if self.index == 0 else None), 1.0
+
+        midpoint = (high + low_value) / 2.0
+        upper = midpoint + self.factor * atr
+        lower = midpoint - self.factor * atr
+        previous_close = self.previous_close
+        if not (
+            lower > self.previous_lower
+            or (previous_close is not None and previous_close < self.previous_lower)
+        ):
+            lower = self.previous_lower
+        if not (
+            upper < self.previous_upper
+            or (previous_close is not None and previous_close > self.previous_upper)
+        ):
+            upper = self.previous_upper
+
+        if self.index == 0 or self.previous_atr is None:
+            direction = 1.0
+        elif self.previous_supertrend == self.previous_upper:
+            direction = -1.0 if close_value > upper else 1.0
+        else:
+            direction = 1.0 if close_value < lower else -1.0
+        supertrend = lower if direction == -1.0 else upper
+
+        self.previous_atr = atr
+        self.previous_close = close_value
+        self.previous_upper = upper
+        self.previous_lower = lower
+        self.previous_supertrend = supertrend
+        return supertrend, direction
+
+
 class IncrementalTaNamespace:
     """Stateful TA helper namespace available as ``ctx.ta``."""
 
@@ -235,6 +454,56 @@ class IncrementalTaNamespace:
             if period is None:
                 raise ValueError(f"ctx.ta.ema('{name}') has not been initialized")
             self._helpers[key] = _StepEMA(period)
+        return self._helpers[key]
+
+    def rma(self, name: str, period: int | None = None) -> _StepRMA:
+        key = f"rma:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.rma('{name}') has not been initialized")
+            self._helpers[key] = _StepRMA(period)
+        return self._helpers[key]
+
+    def wma(self, name: str, period: int | None = None) -> _StepWMA:
+        key = f"wma:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.wma('{name}') has not been initialized")
+            self._limits.reserve_window(period, label=key)
+            self._helpers[key] = _StepWMA(period)
+        return self._helpers[key]
+
+    def vwma(self, name: str, period: int | None = None) -> _StepVWMA:
+        key = f"vwma:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.vwma('{name}') has not been initialized")
+            self._limits.reserve_window(period, label=key)
+            self._helpers[key] = _StepVWMA(period)
+        return self._helpers[key]
+
+    def variance(
+        self,
+        name: str,
+        period: int | None = None,
+        *,
+        biased: bool = True,
+    ) -> _StepVariance:
+        key = f"variance:{name}:{int(bool(biased))}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.variance('{name}') has not been initialized")
+            self._limits.reserve_window(period, label=key)
+            self._helpers[key] = _StepVariance(period, biased=biased)
+        return self._helpers[key]
+
+    def stdev(self, name: str, period: int | None = None) -> _StepStdev:
+        key = f"stdev:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.stdev('{name}') has not been initialized")
+            self._limits.reserve_window(period, label=key)
+            self._helpers[key] = _StepStdev(period)
         return self._helpers[key]
 
     def boll(self, name: str, period: int | None = None, multiplier: float = 2.0) -> _StepBOLL:
@@ -292,6 +561,37 @@ class IncrementalTaNamespace:
                 raise ValueError(f"ctx.ta.lowest('{name}') has not been initialized")
             self._limits.reserve_window(period, label=key)
             self._helpers[key] = _StepMonotonic(period, highest=False)
+        return self._helpers[key]
+
+    def stoch(self, name: str, period: int | None = None) -> _StepStoch:
+        key = f"stoch:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.stoch('{name}') has not been initialized")
+            self._limits.reserve_window(period * 2, label=key)
+            self._helpers[key] = _StepStoch(period)
+        return self._helpers[key]
+
+    def cci(self, name: str, period: int | None = None) -> _StepCCI:
+        key = f"cci:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.cci('{name}') has not been initialized")
+            self._limits.reserve_window(period, label=key)
+            self._helpers[key] = _StepCCI(period)
+        return self._helpers[key]
+
+    def supertrend(
+        self,
+        name: str,
+        factor: float | None = None,
+        atr_period: int = 10,
+    ) -> _StepSupertrend:
+        key = f"supertrend:{name}"
+        if key not in self._helpers:
+            if factor is None:
+                raise ValueError(f"ctx.ta.supertrend('{name}') has not been initialized")
+            self._helpers[key] = _StepSupertrend(factor, atr_period)
         return self._helpers[key]
 
 def _rsi_from_avgs(avg_gain: float, avg_loss: float) -> float:

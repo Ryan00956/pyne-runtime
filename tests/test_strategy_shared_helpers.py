@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pyne_runtime.incremental import strategy as incremental_strategy
-from pyne_runtime.strategy import costs, orders, risk
+from pyne_runtime.strategy import costs, ledger, orders, risk
 from pyne_runtime.strategy.constants import (
     StrategyCommission,
     StrategyDirection,
@@ -106,3 +106,11 @@ def test_incremental_strategy_reuses_shared_margin_helpers() -> None:
     ) == 25
     assert costs._is_exposure_reduction(5, 3)
     assert not costs._is_exposure_reduction(5, -1)
+
+
+def test_incremental_strategy_reuses_shared_ledger_helpers() -> None:
+    assert incremental_strategy._trade_realized_profit is ledger._trade_realized_profit
+    assert incremental_strategy._closed_trade is ledger._closed_trade
+
+    trade = {"side": "long", "qty": 2, "entry_price": 10}
+    assert ledger._trade_realized_profit(trade, 1.5, 12) == 3

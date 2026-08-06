@@ -15,6 +15,8 @@ settings = pn.PyneSettings(
     max_collection_depth=8,
     max_strategy_pending_operations=1_000_000,
     incremental_retention_bars=10_000,
+    trace_enabled=False,
+    trace_max_events=1_000,
     data_provider=None,
     syminfo={"tickerid": "NASDAQ:AAPL", "mintick": 0.01},
     timeframe="1h",
@@ -145,4 +147,14 @@ Strategy work limits:
   and OCA work consumed by pending orders across all replays in one execution.
   Exceeding the budget fails closed with `PYNE_SECURITY_ERROR`.
 - Environment variable: `PYNE_MAX_STRATEGY_PENDING_OPERATIONS`.
+
+Execution trace:
+
+- `trace_enabled`: attach a bounded structured trace under
+  `result.meta["trace"]`. The default is `False`.
+- `trace_max_events`: maximum retained trace events. Additional events increase
+  `droppedEvents` without failing execution.
+- Environment variables: `PYNE_TRACE_ENABLED`, `PYNE_TRACE_MAX_EVENTS`.
+- See [Execution Trace](../concepts/execution_trace.md) for event and preview
+  semantics.
 

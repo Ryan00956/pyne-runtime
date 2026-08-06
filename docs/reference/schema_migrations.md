@@ -11,6 +11,8 @@ Current schema versions:
 - `params`: `PYNE_PARAM_SCHEMA_VERSION`
 - `requestProvider`: `PYNE_REQUEST_PROVIDER_SCHEMA_VERSION`
 - `strategyReport`: `PYNE_STRATEGY_REPORT_SCHEMA_VERSION`
+- `runtimeCapabilities`: `PYNE_RUNTIME_CAPABILITIES_SCHEMA_VERSION`
+- execution trace: `PYNE_TRACE_SCHEMA_VERSION`
 - process-local incremental snapshot: `PYNE_INCREMENTAL_SNAPSHOT_VERSION`
 - portable incremental snapshot: `PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION`
 
@@ -27,6 +29,19 @@ and node limits. Restore replays the bounded committed bar history and does not
 deserialize arbitrary Python objects. Providers are deliberately not embedded
 and must be supplied again for provider-backed scripts. Older or unknown
 versions fail closed rather than being guessed or migrated implicitly.
+
+## Runtime Capability And Trace Schemas
+
+`pn.schema()["runtimeCapabilities"]` is an additive top-level schema-bundle
+section. It has an independent version and declares batch/incremental support,
+pinned library modes, trace availability, and security/language boundaries.
+Hosts should branch on its `schemaVersion` rather than infer support from a
+package version or namespace name.
+
+An enabled execution trace appears under `result.meta["trace"]` and has an
+independent `schemaVersion`. Trace metadata is additive: hosts that do not use
+diagnostic traces can ignore the field. Consumers must allow bounded event
+lists and inspect `droppedEvents` before treating the trace as complete.
 
 ## Output Schema
 

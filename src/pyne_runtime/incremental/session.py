@@ -22,6 +22,7 @@ from types import (
 from typing import Any, Callable
 
 from ..barstate import PyneIncrementalBarState
+from ..capabilities import capability_diagnostics
 from ..cache import PyneCacheNamespace, PyneCacheSnapshot, PyneExecutionScope
 from ..chart import ChartNamespace
 from ..collections import ArrayNamespace, MapNamespace, MatrixNamespace, order_namespace
@@ -38,6 +39,7 @@ from ..security import (
     validate_script_security,
 )
 from ..settings import PyneSettings
+from ..trace import PyneTraceRecorder
 from .bar import IncrementalBar
 from .checkpoint import (
     DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
@@ -103,6 +105,7 @@ class PyneIncrementalSession:
         settings: PyneSettings | None = None,
         execution_scope: PyneExecutionScope | None = None,
         retention_bars: int | None = None,
+        trace: PyneTraceRecorder | None = None,
     ) -> None:
         self.script = script
         self.params = _readonly_params(params or {})
@@ -116,6 +119,10 @@ class PyneIncrementalSession:
             max_items=self.settings.cache_max_items,
         )
         self.security_mode = self.policy.mode
+        self.trace = trace or PyneTraceRecorder(
+            enabled=self.settings.trace_enabled,
+            max_events=self.settings.trace_max_events,
+        )
         self._limits = IncrementalLimits.for_policy(
             self.policy,
             retention_bars=self.retention_bars,
@@ -145,6 +152,9 @@ class PyneIncrementalSession:
         if self._prepared:
             return
         validate_script_security(self.script, self.policy)
+        unsupported = capability_diagnostics(self.script, runtime_mode="incremental")
+        if unsupported:
+            raise PyneSecurityError(str(unsupported[0]["message"]))
         self._globals = self._build_namespace()
         self._base_namespace_names = set(self._globals)
         self._base_namespace_values = dict(self._globals)
@@ -183,6 +193,7 @@ class PyneIncrementalSession:
             timeframe=self.settings.timeframe,
             session=self.settings.session,
             max_drawing_objects=self.settings.max_drawing_objects,
+            trace=self.trace,
         )
         self._call_optional(self._init_func, self._ctx)
         self._closed_count = 0
@@ -233,6 +244,7 @@ class PyneIncrementalSession:
                 timeframe=self.settings.timeframe,
                 session=self.settings.session,
                 max_drawing_objects=self.settings.max_drawing_objects,
+                trace=self.trace,
             )
             self._call_optional(self._init_func, self._ctx)
         bar_index = self._closed_count
@@ -276,6 +288,7 @@ class PyneIncrementalSession:
                 timeframe=self.settings.timeframe,
                 session=self.settings.session,
                 max_drawing_objects=self.settings.max_drawing_objects,
+                trace=self.trace,
             )
             self._call_optional(self._init_func, self._ctx)
         preview_ctx = self._ctx.clone_for_preview()
@@ -318,6 +331,14 @@ class PyneIncrementalSession:
         barstate: PyneIncrementalBarState,
     ) -> None:
         try:
+            before_state = (
+                {
+                    key: repr(cell.value)
+                    for key, cell in {**ctx._states, **ctx._varip_states}.items()
+                }
+                if ctx.trace.enabled
+                else {}
+            )
             ctx.begin_bar(
                 bar,
                 bar_index=bar_index,
@@ -326,15 +347,41 @@ class PyneIncrementalSession:
             )
             func = self._on_preview if preview and self._on_preview is not None else self._on_bar
             previous_ctx = self._active_ctx
+            previous_request_namespace = ctx._request_namespace
             self._active_ctx = ctx
+            ctx._request_namespace = self._globals["request"]
             try:
                 with self._preview_global_scope(enabled=preview, func=func) as active_func:
                     with execution_timeout(self.policy.timeout_seconds):
                         self._call_required(active_func, ctx, bar)
             finally:
+                ctx._request_namespace = previous_request_namespace
                 self._active_ctx = previous_ctx
             ctx.sync_varip_payload()
             ctx.strategy.end_bar()
+            if ctx.trace.enabled:
+                after_cells = {**ctx._states, **ctx._varip_states}
+                for key, cell in after_cells.items():
+                    previous = before_state.get(key)
+                    current = repr(cell.value)
+                    if previous != current:
+                        ctx.trace.emit(
+                            "state.change",
+                            time=bar.time,
+                            name=key,
+                            previous=previous,
+                            current=current,
+                            preview=preview,
+                        )
+                if ctx.strategy.touched:
+                    ctx.trace.emit(
+                        "strategy.bar",
+                        time=bar.time,
+                        position=ctx.strategy.position_size,
+                        orders=len(ctx.strategy._orders),
+                        closedTrades=len(ctx.strategy._closed_trades),
+                        preview=preview,
+                    )
             if barstate.isconfirmed and not preview:
                 ctx.commit_request_bar()
                 ctx.commit_state_history()
@@ -451,6 +498,12 @@ class PyneIncrementalSession:
             provider=self.settings.data_provider,
         )
         cache_namespace = PyneCacheNamespace(self.execution_scope.cache)
+        trace_namespace = SimpleNamespace(
+            emit=lambda event, **details: active_ctx("trace.emit()").trace.emit(
+                event,
+                **details,
+            )
+        )
         pyne_namespace = SimpleNamespace(
             cache=cache_namespace.cache,
             cache_clear=cache_namespace.cache_clear,
@@ -492,6 +545,7 @@ class PyneIncrementalSession:
             "var": state,
             "varip": varip,
             "request": request_namespace,
+            "trace": trace_namespace,
             "barmerge": barmerge,
             "security": request_namespace.security,
             **drawing_namespaces,
@@ -836,6 +890,7 @@ class PyneIncrementalSession:
         self.prepare()
         memo: dict[int, Any] = {}
         self._ctx = copy.deepcopy(snapshot.context, memo)
+        self.trace = self._ctx.trace
         self._meta = copy.deepcopy(snapshot.meta, memo)
         for name, value in snapshot.global_values.items():
             self._globals[name] = copy.deepcopy(value, memo)

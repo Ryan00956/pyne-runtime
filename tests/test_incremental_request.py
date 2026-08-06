@@ -80,8 +80,8 @@ plot(ltf.last(), "LTF Last")
         incremental_script="""
 indicator("Incremental Requests", mode="incremental", overlay=False)
 def on_bar(ctx, bar):
-    htf = request.security("TEST:BTCUSD", "20S", "close")
-    ltf = request.security_lower_tf("TEST:BTCUSD", "5S", "close")
+    htf = ctx.request.security("TEST:BTCUSD", "20S", "close")
+    ltf = ctx.request.security_lower_tf("TEST:BTCUSD", "5S", "close")
     ctx.plot("HTF", htf)
     ctx.plot("LTF Count", ltf.size())
     ctx.plot("LTF Last", ltf.last())

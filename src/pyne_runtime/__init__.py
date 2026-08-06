@@ -5,6 +5,13 @@ from ._version import __version__
 from .api import from_pandas, read_ohlcv, run, schema, validate
 from .barstate import PyneBarState, PyneIncrementalBarState
 from .cache import PyneExecutionScope, pyne_cache
+from .capabilities import (
+    BATCH_TA_CAPABILITIES,
+    INCREMENTAL_TA_CAPABILITIES,
+    PYNE_RUNTIME_CAPABILITIES_SCHEMA_VERSION,
+    capability_diagnostics,
+    runtime_capabilities,
+)
 from .color import Color, color
 from .collections import (
     ArrayNamespace,
@@ -97,6 +104,7 @@ from .strategy import StrategyModule
 from .string_ext import StringNamespace, string_namespace
 from .ticker import TickerNamespace
 from .time_ext import TimeNamespace
+from .trace import PYNE_TRACE_SCHEMA_VERSION, PyneTraceRecorder
 from .utils import fixnan, nz
 from .values import na
 
@@ -104,6 +112,7 @@ __all__ = [
     "__version__",
     "ArrayNamespace",
     "BarMergeNamespace",
+    "BATCH_TA_CAPABILITIES",
     "Color",
     "DataProvider",
     "MapNamespace",
@@ -150,6 +159,7 @@ __all__ = [
     "LowerTimeframeSeries",
     "IncrementalParityDifference",
     "IncrementalParityReport",
+    "INCREMENTAL_TA_CAPABILITIES",
     "PyneStateNamespace",
     "PyneVar",
     "RequestEvalContext",
@@ -172,8 +182,11 @@ __all__ = [
     "PYNE_INCREMENTAL_SNAPSHOT_VERSION",
     "PYNE_OUTPUT_SCHEMA_VERSION",
     "PYNE_PARAM_SCHEMA_VERSION",
+    "PYNE_RUNTIME_CAPABILITIES_SCHEMA_VERSION",
     "PYNE_REQUEST_PROVIDER_SCHEMA_VERSION",
     "PYNE_STRATEGY_REPORT_SCHEMA_VERSION",
+    "PYNE_TRACE_SCHEMA_VERSION",
+    "PyneTraceRecorder",
     "SharedPyneIncrementalSession",
     "SUPPORTED_PINE_LIBRARIES",
     "SessionInfo",
@@ -189,6 +202,7 @@ __all__ = [
     "array_namespace",
     "assert_data_provider_conformance",
     "barmerge",
+    "capability_diagnostics",
     "color",
     "map_namespace",
     "matrix_namespace",
@@ -200,6 +214,7 @@ __all__ = [
     "run",
     "run_data_provider_conformance",
     "run_incremental_parity",
+    "runtime_capabilities",
     "schema",
     "string_namespace",
     "validate",

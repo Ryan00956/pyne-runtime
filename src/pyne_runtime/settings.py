@@ -36,6 +36,8 @@ class PyneSettings:
     max_strategy_pending_operations: int = 1_000_000
     incremental_retention_bars: int = 10_000
     cache_max_items: int = 32
+    trace_enabled: bool = False
+    trace_max_events: int = 1_000
     allowed_imports: tuple[str, ...] = DEFAULT_ALLOWED_IMPORTS
     data_provider: DataProvider | None = None
     syminfo: Any = None
@@ -72,6 +74,8 @@ class PyneSettings:
             max(int(self.incremental_retention_bars), 1),
         )
         object.__setattr__(self, "cache_max_items", max(int(self.cache_max_items), 1))
+        object.__setattr__(self, "trace_enabled", bool(self.trace_enabled))
+        object.__setattr__(self, "trace_max_events", max(int(self.trace_max_events), 1))
         object.__setattr__(
             self,
             "allowed_imports",
@@ -110,6 +114,8 @@ class PyneSettings:
             ),
             incremental_retention_bars=_int_env("PYNE_INCREMENTAL_RETENTION_BARS", 10_000),
             cache_max_items=_int_env("PYNE_CACHE_MAX_ITEMS", 32),
+            trace_enabled=_bool_env("PYNE_TRACE_ENABLED", False),
+            trace_max_events=_int_env("PYNE_TRACE_MAX_EVENTS", 1_000),
             allowed_imports=allowed_imports,
             syminfo={
                 "tickerid": os.getenv("PYNE_TICKERID", ""),
@@ -159,3 +165,10 @@ def _int_env(name: str, default: int) -> int:
         return int(os.getenv(name, str(default)))
     except (TypeError, ValueError):
         return default
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}

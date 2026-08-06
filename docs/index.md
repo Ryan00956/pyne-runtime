@@ -25,6 +25,8 @@ strategy, request, and host-renderer output workflows.
   an application with parameter UI, request providers, structured output, and
   release checks.
 - [Runtime API](api/runtime.md): choose `pn.run()` or `PyneRuntime`.
+- [Runtime Capabilities](api/capabilities.md): discover mode-specific support
+  and validate incremental calls before execution.
 - [Settings API](api/settings.md): configure execution, security, metadata, and
   provider behavior.
 - [Request API](api/request.md): implement typed host data providers for
@@ -78,6 +80,8 @@ strategy, request, and host-renderer output workflows.
   handle semantics.
 - [Incremental Runtime](concepts/incremental_runtime.md): confirmed and preview
   bar execution.
+- [Execution Trace](concepts/execution_trace.md): collect bounded lifecycle and
+  script decision evidence.
 - [Security Modes](concepts/security_modes.md): script execution boundaries.
 
 ## Compatibility And Development
