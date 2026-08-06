@@ -16,6 +16,8 @@ Current schema versions:
 - process-local incremental snapshot: `PYNE_INCREMENTAL_SNAPSHOT_VERSION`
 - portable incremental snapshot: `PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION`
 - portable typed-state snapshot: `PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_VERSION`
+- script inspection: `PYNE_SCRIPT_INSPECTION_SCHEMA_VERSION`
+- directory inspection: `PYNE_SCRIPT_DIRECTORY_INSPECTION_SCHEMA_VERSION`
 
 ## Incremental Snapshot Schemas
 
@@ -37,6 +39,18 @@ again for provider-backed scripts. The restore entry point detects the exact
 format identifier; older or unknown versions fail closed rather than being
 guessed or migrated implicitly.
 
+Typed-state v2 restore validates exact node fields, duplicate decoded mapping
+keys, set/hashability constraints, ndarray shape and element budgets, and
+method/dunder shadowing before reconstruction. Graph nodes retain their source
+objects during encoding so temporary object-id reuse cannot create accidental
+aliases. These checks are fail-closed compatibility rules, not best-effort
+repairs of malformed payloads.
+
+Script inspection schema version 2 adds provider/output requirements, migration
+readiness, and signature-aware resource hints. Directory inspection schema
+version 1 wraps per-script v2 manifests with deterministic paths and summary
+counts; hosts should branch on both independent versions.
+
 ## Runtime Capability And Trace Schemas
 
 `pn.schema()["runtimeCapabilities"]` is an additive top-level schema-bundle
@@ -52,6 +66,9 @@ lists and inspect `droppedEvents` before treating the trace as complete.
 Trace schema version 2 adds hierarchical timing spans, aggregate/slow-span
 summaries, and field-redaction metadata. Duration values are nondeterministic
 diagnostics and should not be used as replay equality keys.
+Per-span event records are disabled by default to bound hot-path overhead;
+`trace_span_events` opts into them. Decoders restoring older state treat the
+missing setting as `False`.
 
 ## Output Schema
 

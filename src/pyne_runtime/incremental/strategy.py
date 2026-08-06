@@ -20,14 +20,17 @@ from ..strategy.costs import (
 )
 from ..strategy.ledger import (
     _closed_trade,
+    _event_time,
+    _trade_at,
     _trade_float,
     _trade_open_profit,
+    _trade_profit_percent,
     _trade_realized_profit,
 )
 from ..strategy.orders import (
     _exit_trigger,
+    _incremental_strategy_lifecycle_events,
     _normalize_intrabar_path,
-    _order_lifecycle_state,
     _normalize_oca_type,
     _normalize_same_bar_fill_priority,
     _pending_trigger,
@@ -168,15 +171,7 @@ class IncrementalStrategyTradesNamespace:
         return self._strategy._open_trades
 
     def _trade(self, trade_num: int) -> dict[str, Any]:
-        trades = self._trades()
-        if not trades:
-            return {"_empty_ledger": True} if int(trade_num) in {-1, 0} else {}
-        index = int(trade_num)
-        if index < 0:
-            index = len(trades) + index
-        if index < 0 or index >= len(trades):
-            return {}
-        return trades[index]
+        return _trade_at(self._trades(), trade_num)
 
 
 class IncrementalStrategyNamespace:
@@ -1333,19 +1328,6 @@ def _signed_trade_qty(trade: dict[str, Any]) -> float:
     qty = abs(float(trade.get("qty", 0.0)))
     return qty if trade.get("side") == IncrementalStrategyNamespace.long else -qty
 
-def _trade_profit_percent(trade: dict[str, Any], *, profit: float | None = None) -> float:
-    if trade.get("_empty_ledger"):
-        return 0.0
-    qty = abs(_trade_float(trade, "qty"))
-    entry_price = abs(_trade_float(trade, "entry_price"))
-    denominator = qty * entry_price
-    if math.isnan(denominator) or denominator <= 0:
-        return math.nan
-    trade_profit = _trade_float(trade, "profit") if profit is None else float(profit)
-    if math.isnan(trade_profit):
-        return math.nan
-    return _round8(trade_profit / denominator * 100.0)
-
 def _requested_exit_qty(
     *,
     target_qty: float,
@@ -1359,89 +1341,8 @@ def _requested_exit_qty(
         return target * max(float(qty_percent), 0.0) / 100.0
     return target
 
+
 def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
     return float(value)
-
-def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    events = []
-    for order in sorted(
-        orders,
-        key=lambda item: (item.get("_submit_time", item.get("time", 0)), item.get("_seq", 0)),
-    ):
-        state = _order_lifecycle_state(order)
-        order_type = state["order_type"]
-        pending = state["pending"]
-        active = state["active"]
-        canceled = state["canceled"]
-        rejected = state["rejected"]
-        status = state["status"]
-        phase = state["phase"]
-        event: dict[str, Any] = {
-            "id": order.get("id"),
-            "from_entry": order.get("from_entry"),
-            "type": order_type,
-            "status": status,
-            "phase": phase,
-            "submitted_time": order.get("_submit_time", order.get("time")),
-            "filled_time": order.get("time") if active and not canceled else None,
-            "canceled_time": order.get("_canceled_time", order.get("time")) if canceled else None,
-            "rejected_time": order.get("_rejected_time") if rejected else None,
-            "side": order.get("side"),
-            "qty": order.get("qty"),
-            "price": order.get("price"),
-            "position_after": order.get("position_after"),
-        }
-        if order.get("reason") is not None:
-            event["reason"] = order.get("reason")
-        if order.get("comment") is not None:
-            event["comment"] = order.get("comment")
-        if order.get("commission") is not None:
-            event["commission"] = order.get("commission")
-        if order.get("oca_name") is not None:
-            event["oca_name"] = order.get("oca_name")
-        if order.get("oca_type") is not None:
-            event["oca_type"] = order.get("oca_type")
-        if order.get("_limit") is not None:
-            event["limit"] = order.get("_limit")
-        if order.get("_stop") is not None:
-            event["stop"] = order.get("_stop")
-        if order.get("_requested_fill_qty") is not None and (
-            active or rejected or (pending and order.get("reason"))
-        ):
-            event["requested_qty"] = _round8(float(order.get("_requested_fill_qty", 0.0)))
-        if order.get("_filled_qty") is not None and (active or rejected):
-            event["filled_qty"] = _round8(float(order.get("_filled_qty", 0.0)))
-        if order.get("_target_qty") is not None:
-            event["target_qty"] = _round8(float(order.get("_target_qty", 0.0)))
-        if order.get("_qty_percent") is not None:
-            event["qty_percent"] = _round8(float(order.get("_qty_percent", 0.0)))
-        if order.get("_transaction_qty") is not None:
-            event["transaction_qty"] = _round8(float(order.get("_transaction_qty", 0.0)))
-        if order.get("_canceled_by") is not None:
-            event["canceled_by"] = order.get("_canceled_by")
-        if order.get("_rejected_reason") is not None:
-            event["rejected_reason"] = order.get("_rejected_reason")
-        if order.get("canceled") is not None:
-            event["canceled"] = order.get("canceled")
-        returnable = {
-            key: value
-            for key, value in event.items()
-            if value is not None
-            or key in {"price", "filled_time", "canceled_time", "rejected_time"}
-        }
-        events.append(returnable)
-    return events
-
-
-def _event_time(item: dict[str, Any]) -> int:
-    for key in ("exit_time", "time", "entry_time", "_submit_time"):
-        value = item.get(key)
-        if value is None:
-            continue
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            continue
-    return -1

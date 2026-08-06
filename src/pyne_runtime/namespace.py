@@ -76,6 +76,7 @@ class RuntimeServices:
                 enabled=self.settings.trace_enabled,
                 max_events=self.settings.trace_max_events,
                 timings_enabled=self.settings.trace_timings_enabled,
+                span_events=self.settings.trace_span_events,
                 slow_span_ms=self.settings.trace_slow_span_ms,
                 redacted_fields=self.settings.trace_redacted_fields,
             )

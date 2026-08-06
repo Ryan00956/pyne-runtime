@@ -210,7 +210,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             self._varip_states = {}
         self.session = _session_info_for_bar(bar, self._default_session)
         self.strategy.begin_bar()
-        self.trace.emit(
+        self.trace._emit_runtime(
             "bar.begin",
             time=bar.time,
             barIndex=bar_index,
@@ -377,7 +377,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             {**entry, "data": []},
         )
         current_entry["data"].append(point)
-        self.trace.emit(
+        self.trace._emit_runtime(
             "output.plot",
             time=self.current_bar.time,
             name=name,
@@ -427,7 +427,7 @@ class IncrementalContext(IncrementalDrawingMixin):
             {**entry, "data": []},
         )
         current_entry["data"].append(point)
-        self.trace.emit(
+        self.trace._emit_runtime(
             "output.marker",
             time=self.current_bar.time,
             text=text,

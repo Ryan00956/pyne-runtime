@@ -24,6 +24,7 @@ class PyneTraceRecorder:
         enabled: bool = False,
         max_events: int = 1_000,
         timings_enabled: bool = True,
+        span_events: bool = False,
         slow_span_ms: float = 10.0,
         redacted_fields: tuple[str, ...] | list[str] | set[str] | None = None,
         clock: Callable[[], float] | None = None,
@@ -31,6 +32,7 @@ class PyneTraceRecorder:
         self.enabled = bool(enabled)
         self.max_events = max(int(max_events), 1)
         self.timings_enabled = bool(timings_enabled)
+        self.span_events = bool(span_events)
         self.slow_span_ms = max(float(slow_span_ms), 0.0)
         self.redacted_fields = frozenset(
             str(item).strip().lower()
@@ -66,6 +68,22 @@ class PyneTraceRecorder:
             )
         self._events.append(payload)
 
+    def _emit_runtime(self, event: str, /, **bounded_details: Any) -> None:
+        """Append trusted runtime details that are already bounded/redacted."""
+        if not self.enabled:
+            return
+        if len(self._events) >= self.max_events:
+            self._dropped += 1
+            return
+        payload: dict[str, Any] = {
+            "sequence": len(self._events),
+            "event": str(event),
+        }
+        if self._span_stack and "spanId" not in bounded_details:
+            payload["spanId"] = self._span_stack[-1]
+        payload.update(bounded_details)
+        self._events.append(payload)
+
     @contextmanager
     def span(
         self,
@@ -84,14 +102,15 @@ class PyneTraceRecorder:
         parent_id = self._span_stack[-1] if self._span_stack else None
         self._span_stack.append(span_id)
         started = self._clock() if self.timings_enabled else 0.0
-        self.emit(
-            "span.start",
-            spanId=span_id,
-            parentSpanId=parent_id,
-            name=name,
-            category=category,
-            **details,
-        )
+        if self.span_events:
+            self.emit(
+                "span.start",
+                spanId=span_id,
+                parentSpanId=parent_id,
+                name=name,
+                category=category,
+                **details,
+            )
         status = "ok"
         error_type: str | None = None
         try:
@@ -118,20 +137,21 @@ class PyneTraceRecorder:
                 duration_ms=duration_ms,
                 status=status,
             )
-            self.emit(
-                "span.complete",
-                spanId=span_id,
-                parentSpanId=parent_id,
-                name=name,
-                category=category,
-                status=status,
-                durationMs=None if duration_ms is None else round(duration_ms, 6),
-                errorType=error_type,
-            )
+            if self.span_events:
+                self.emit(
+                    "span.complete",
+                    spanId=span_id,
+                    parentSpanId=parent_id,
+                    name=name,
+                    category=category,
+                    status=status,
+                    durationMs=None if duration_ms is None else round(duration_ms, 6),
+                    errorType=error_type,
+                )
 
     @property
     def events(self) -> list[dict[str, Any]]:
-        return copy.deepcopy(self._events)
+        return _copy_jsonlike(self._events)
 
     def snapshot(self) -> dict[str, Any] | None:
         if not self.enabled:
@@ -157,6 +177,7 @@ class PyneTraceRecorder:
             },
             "timings": {
                 "enabled": self.timings_enabled,
+                "spanEvents": self.span_events,
                 "spans": timings,
                 "slowSpanThresholdMs": self.slow_span_ms,
                 "slowSpans": copy.deepcopy(self._slow_spans),
@@ -252,10 +273,38 @@ def _trace_value(
     return {"type": type(value).__qualname__}
 
 
+def bounded_trace_value(
+    value: Any,
+    *,
+    redacted_fields: frozenset[str] = _DEFAULT_REDACTED_FIELDS,
+) -> Any:
+    """Return the same bounded JSON-like value used by trace events."""
+    return _trace_value(value, redacted_fields=redacted_fields)
+
+
 def _is_redacted_key(key: str, redacted_fields: frozenset[str]) -> bool:
+    if not key or not redacted_fields:
+        return False
     normalized = str(key).strip().lower().replace("-", "_")
     compact = normalized.replace("_", "")
-    return any(
-        field in normalized or field.replace("_", "") in compact
-        for field in redacted_fields
-    )
+    if redacted_fields == _DEFAULT_REDACTED_FIELDS:
+        return (
+            "apikey" in compact
+            or "authorization" in compact
+            or "cookie" in compact
+            or "password" in compact
+            or "secret" in compact
+            or "token" in compact
+        )
+    for field in redacted_fields:
+        if field in normalized or field.replace("_", "") in compact:
+            return True
+    return False
+
+
+def _copy_jsonlike(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _copy_jsonlike(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_copy_jsonlike(item) for item in value]
+    return value

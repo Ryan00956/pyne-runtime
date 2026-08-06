@@ -45,7 +45,7 @@ explicitly:
 diagnostics = pn.validate(script, runtime_mode="incremental")
 ```
 
-Statically discoverable unsupported calls such as `ctx.ta.alma()` return a
+Statically discoverable unsupported calls such as `ctx.ta.tsi()` return a
 `PYNE_UNSUPPORTED_FEATURE` diagnostic at the call site. Incremental session
 preparation applies the same check before processing any bar. Dynamic Python
 attribute construction cannot always be proven statically and can still fail

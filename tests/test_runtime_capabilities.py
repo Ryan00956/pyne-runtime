@@ -20,7 +20,8 @@ def test_runtime_capabilities_are_versioned_mode_aware_and_defensive() -> None:
     assert first["schemaVersion"] == pn.PYNE_RUNTIME_CAPABILITIES_SCHEMA_VERSION
     assert "wma" in first["modes"]["incremental"]["ta"]
     assert "hma" in first["modes"]["batch"]["ta"]
-    assert "alma" not in first["modes"]["incremental"]["ta"]
+    assert "alma" in first["modes"]["incremental"]["ta"]
+    assert "tsi" not in first["modes"]["incremental"]["ta"]
     assert first["modes"]["incremental"]["portableSnapshot"] is True
     assert first["trace"]["bounded"] is True
     assert "entry_when" in first["modes"]["batch"]["strategy"]
@@ -54,7 +55,7 @@ def test_validate_reports_unsupported_incremental_capability_at_call_site() -> N
     script = """
 indicator("Unsupported", mode="incremental")
 def on_bar(ctx, bar):
-    ctx.plot("ALMA", ctx.ta.alma("alma", period=4).update(bar.close))
+    ctx.plot("TSI", ctx.ta.tsi("tsi", short=4, long=8).update(bar.close))
 """
 
     diagnostics = pn.validate(script)
@@ -62,22 +63,22 @@ def on_bar(ctx, bar):
     unsupported = [item for item in diagnostics if item["code"] == "PYNE_UNSUPPORTED_FEATURE"]
     assert len(unsupported) == 1
     assert unsupported[0]["line"] == 4
-    assert unsupported[0]["column"] == 22
-    assert "ta.alma()" in unsupported[0]["message"]
+    assert unsupported[0]["column"] == 21
+    assert "ta.tsi()" in unsupported[0]["message"]
 
 
 def test_incremental_execution_fails_before_running_unsupported_callback() -> None:
     script = """
 indicator("Unsupported", mode="incremental")
 def on_bar(ctx, bar):
-    ctx.ta.alma("alma", period=4)
+    ctx.ta.tsi("tsi", short=4, long=8)
 """
 
     result = pn.run(script, _bars(), executor_mode="inline")
 
     assert not result.ok
     assert result.code == "PYNE_UNSUPPORTED_FEATURE"
-    assert "ta.alma()" in str(result.error)
+    assert "ta.tsi()" in str(result.error)
 
 
 def test_validate_reports_unsupported_incremental_request_member() -> None:

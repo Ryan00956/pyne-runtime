@@ -5,6 +5,7 @@ import math
 from collections import deque
 from typing import Any
 
+from ..ta_kernels import _normalize_pivot_type, _pivot_level_values
 from .limits import IncrementalLimits, _LimitTracker
 
 
@@ -175,6 +176,154 @@ class _StepStdev(_StepVariance):
         return None if variance is None else math.sqrt(variance)
 
 
+class _StepChange:
+    def __init__(self, period: int = 1) -> None:
+        self.period = max(int(period), 1)
+        self.window: deque[float | None] = deque(maxlen=self.period + 1)
+
+    def update(self, value: Any) -> float | None:
+        current = _number_or_none(value)
+        self.window.append(current)
+        if len(self.window) <= self.period:
+            return None
+        previous = self.window[0]
+        return None if current is None or previous is None else current - previous
+
+
+class _StepExtremeBars:
+    def __init__(self, period: int, *, highest: bool) -> None:
+        self.period = max(int(period), 1)
+        self.highest = bool(highest)
+        self.index = -1
+        self.window: deque[tuple[int, float]] = deque()
+
+    def update(self, value: Any) -> float | None:
+        self.index += 1
+        expiry = self.index - self.period
+        while self.window and self.window[0][0] <= expiry:
+            self.window.popleft()
+        current = _number_or_none(value)
+        if current is not None:
+            if self.highest:
+                while self.window and self.window[-1][1] <= current:
+                    self.window.pop()
+            else:
+                while self.window and self.window[-1][1] >= current:
+                    self.window.pop()
+            self.window.append((self.index, current))
+        return None if not self.window else float(self.window[0][0] - self.index)
+
+
+class _StepPivot:
+    """Causal pivot detector returning the value on its confirmation bar."""
+
+    def __init__(self, left: int, right: int, *, highest: bool) -> None:
+        self.left = max(int(left), 0)
+        self.right = max(int(right), 0)
+        self.highest = bool(highest)
+        self.window_size = self.left + self.right + 1
+        self.window: deque[float | None] = deque(maxlen=self.window_size)
+
+    @property
+    def confirmation_offset(self) -> int:
+        return -self.right
+
+    def update(self, value: Any) -> float | None:
+        self.window.append(_number_or_none(value))
+        if len(self.window) <= self.right:
+            return None
+        values = list(self.window)
+        center = values[len(values) - self.right - 1]
+        if center is None:
+            return None
+        valid = [item for item in values if item is not None]
+        extreme = max(valid) if self.highest else min(valid)
+        return center if center == extreme and valid.count(extreme) == 1 else None
+
+
+class _StepTrueRange:
+    def __init__(self) -> None:
+        self.previous_close: float | None = None
+
+    def update(self, bar_or_high: Any, low: Any = None, close: Any = None) -> float | None:
+        if low is None and close is None:
+            high = _number_or_none(getattr(bar_or_high, "high"))
+            low_value = _number_or_none(getattr(bar_or_high, "low"))
+            close_value = _number_or_none(getattr(bar_or_high, "close"))
+        else:
+            high = _number_or_none(bar_or_high)
+            low_value = _number_or_none(low)
+            close_value = _number_or_none(close)
+        if high is None or low_value is None:
+            result = None
+        elif self.previous_close is None:
+            result = high - low_value
+        else:
+            result = max(
+                high - low_value,
+                abs(high - self.previous_close),
+                abs(low_value - self.previous_close),
+            )
+        self.previous_close = close_value
+        return result
+
+
+class _StepCum:
+    def __init__(self) -> None:
+        self.total = 0.0
+
+    def update(self, value: Any) -> float:
+        current = _number_or_none(value)
+        if current is not None:
+            self.total += current
+        return self.total
+
+
+class _StepSWMA:
+    def __init__(self) -> None:
+        self.window: deque[float | None] = deque(maxlen=4)
+
+    def update(self, value: Any) -> float | None:
+        self.window.append(_number_or_none(value))
+        if len(self.window) < 4 or any(item is None for item in self.window):
+            return None
+        a, b, c, d = self.window
+        return (float(a) + 2.0 * float(b) + 2.0 * float(c) + float(d)) / 6.0
+
+
+class _StepALMA:
+    def __init__(self, period: int, offset: float = 0.85, sigma: float = 6.0) -> None:
+        self.period = max(int(period), 1)
+        if float(sigma) == 0.0:
+            raise ValueError("ctx.ta.alma() sigma must be non-zero")
+        midpoint = float(offset) * (self.period - 1)
+        width = self.period / float(sigma)
+        raw = [math.exp(-((index - midpoint) ** 2) / (2.0 * width * width)) for index in range(self.period)]
+        total = sum(raw)
+        self.weights = tuple(weight / total for weight in raw)
+        self.window: deque[float | None] = deque(maxlen=self.period)
+
+    def update(self, value: Any) -> float | None:
+        self.window.append(_number_or_none(value))
+        if len(self.window) < self.period or any(item is None for item in self.window):
+            return None
+        return sum(float(item) * weight for item, weight in zip(self.window, self.weights))
+
+
+class _StepDev:
+    def __init__(self, period: int) -> None:
+        self.period = max(int(period), 1)
+        self.window: deque[float | None] = deque(maxlen=self.period)
+
+    def update(self, value: Any) -> float | None:
+        self.window.append(_number_or_none(value))
+        if len(self.window) < self.period or any(item is None for item in self.window):
+            return None
+        values = [float(item) for item in self.window]
+        mean = sum(values) / self.period
+        return sum(abs(item - mean) for item in values) / self.period
+
+
 class _StepBOLL:
     def __init__(self, period: int, multiplier: float = 2.0) -> None:
         self.period = max(int(period), 1)
@@ -203,6 +352,12 @@ class _StepBOLL:
         variance = max(self.sumsq / self.period - mid * mid, 0.0)
         std = math.sqrt(variance)
         return mid + self.multiplier * std, mid, mid - self.multiplier * std
+
+
+class _StepBB(_StepBOLL):
+    def update(self, value: Any) -> tuple[float | None, float | None, float | None]:
+        upper, middle, lower = super().update(value)
+        return middle, upper, lower
 
 
 class _StepMACD:
@@ -714,6 +869,81 @@ class _StepSupertrend:
         return supertrend, direction
 
 
+class _StepPivotPointLevels:
+    def __init__(self, pivot_type: str = "traditional", *, developing: bool = False) -> None:
+        self.pivot_type = _normalize_pivot_type(pivot_type)
+        self.developing = bool(developing)
+        if self.pivot_type == "woodie" and self.developing:
+            raise ValueError(
+                "ctx.ta.pivot_point_levels() does not allow developing=True with Woodie"
+            )
+        self.fixed_levels = tuple([None] * 11)
+        self.period_open: float | None = None
+        self.period_high: float | None = None
+        self.period_low: float | None = None
+        self.period_close: float | None = None
+
+    def update(
+        self,
+        bar: Any,
+        *,
+        anchor: Any = False,
+        developing: bool | None = None,
+        pivot_type: str | None = None,
+    ) -> tuple[float | None, ...]:
+        selected_type = self.pivot_type if pivot_type is None else _normalize_pivot_type(pivot_type)
+        selected_developing = self.developing if developing is None else bool(developing)
+        if selected_type == "woodie" and selected_developing:
+            raise ValueError(
+                "ctx.ta.pivot_point_levels() does not allow developing=True with Woodie"
+            )
+        current_open = _number_or_none(getattr(bar, "open"))
+        high = _number_or_none(getattr(bar, "high"))
+        low = _number_or_none(getattr(bar, "low"))
+        close = _number_or_none(getattr(bar, "close"))
+
+        if bool(anchor):
+            if self.period_open is not None:
+                self.fixed_levels = _optional_levels(
+                    _pivot_level_values(
+                        selected_type,
+                        period_open=_nan(self.period_open),
+                        period_high=_nan(self.period_high),
+                        period_low=_nan(self.period_low),
+                        period_close=_nan(self.period_close),
+                        current_open=_nan(current_open),
+                    )
+                )
+            else:
+                self.fixed_levels = tuple([None] * 11)
+            self.period_open = None
+            self.period_high = None
+            self.period_low = None
+            self.period_close = None
+
+        if self.period_open is None:
+            self.period_open = current_open
+        if high is not None:
+            self.period_high = high if self.period_high is None else max(self.period_high, high)
+        if low is not None:
+            self.period_low = low if self.period_low is None else min(self.period_low, low)
+        if close is not None:
+            self.period_close = close
+
+        if not selected_developing:
+            return self.fixed_levels
+        return _optional_levels(
+            _pivot_level_values(
+                selected_type,
+                period_open=_nan(self.period_open),
+                period_high=_nan(self.period_high),
+                period_low=_nan(self.period_low),
+                period_close=_nan(self.period_close),
+                current_open=_nan(current_open),
+            )
+        )
+
+
 class IncrementalTaNamespace:
     """Stateful TA helper namespace available as ``ctx.ta``."""
 
@@ -788,6 +1018,114 @@ class IncrementalTaNamespace:
             self._helpers[key] = _StepStdev(period)
         return self._helpers[key]
 
+    def change(self, name: str, period: int | None = None) -> _StepChange:
+        key = f"change:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.change('{name}') has not been initialized")
+            self._limits.reserve_window(int(period) + 1, label=key)
+            self._helpers[key] = _StepChange(period)
+        return self._helpers[key]
+
+    def highestbars(self, name: str, period: int | None = None) -> _StepExtremeBars:
+        return self._extreme_bars(name, period, highest=True)
+
+    def lowestbars(self, name: str, period: int | None = None) -> _StepExtremeBars:
+        return self._extreme_bars(name, period, highest=False)
+
+    def _extreme_bars(
+        self,
+        name: str,
+        period: int | None,
+        *,
+        highest: bool,
+    ) -> _StepExtremeBars:
+        family = "highestbars" if highest else "lowestbars"
+        key = f"{family}:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.{family}('{name}') has not been initialized")
+            self._limits.reserve_window(period, label=key)
+            self._helpers[key] = _StepExtremeBars(period, highest=highest)
+        return self._helpers[key]
+
+    def pivothigh(
+        self,
+        name: str,
+        left: int | None = None,
+        right: int | None = None,
+    ) -> _StepPivot:
+        return self._pivot(name, left, right, highest=True)
+
+    def pivotlow(
+        self,
+        name: str,
+        left: int | None = None,
+        right: int | None = None,
+    ) -> _StepPivot:
+        return self._pivot(name, left, right, highest=False)
+
+    def _pivot(
+        self,
+        name: str,
+        left: int | None,
+        right: int | None,
+        *,
+        highest: bool,
+    ) -> _StepPivot:
+        family = "pivothigh" if highest else "pivotlow"
+        key = f"{family}:{name}"
+        if key not in self._helpers:
+            if left is None:
+                raise ValueError(f"ctx.ta.{family}('{name}') has not been initialized")
+            selected_right = int(left) if right is None else int(right)
+            self._limits.reserve_window(int(left) + selected_right + 1, label=key)
+            self._helpers[key] = _StepPivot(left, selected_right, highest=highest)
+        return self._helpers[key]
+
+    def tr(self, name: str) -> _StepTrueRange:
+        key = f"tr:{name}"
+        if key not in self._helpers:
+            self._helpers[key] = _StepTrueRange()
+        return self._helpers[key]
+
+    def cum(self, name: str) -> _StepCum:
+        key = f"cum:{name}"
+        if key not in self._helpers:
+            self._helpers[key] = _StepCum()
+        return self._helpers[key]
+
+    def swma(self, name: str) -> _StepSWMA:
+        key = f"swma:{name}"
+        if key not in self._helpers:
+            self._limits.reserve_window(4, label=key)
+            self._helpers[key] = _StepSWMA()
+        return self._helpers[key]
+
+    def alma(
+        self,
+        name: str,
+        period: int | None = None,
+        offset: float = 0.85,
+        sigma: float = 6.0,
+    ) -> _StepALMA:
+        key = f"alma:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.alma('{name}') has not been initialized")
+            self._limits.reserve_window(period, label=key)
+            self._helpers[key] = _StepALMA(period, offset, sigma)
+        return self._helpers[key]
+
+    def dev(self, name: str, period: int | None = None) -> _StepDev:
+        key = f"dev:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.dev('{name}') has not been initialized")
+            self._limits.reserve_window(period, label=key)
+            self._helpers[key] = _StepDev(period)
+        return self._helpers[key]
+
     def boll(self, name: str, period: int | None = None, multiplier: float = 2.0) -> _StepBOLL:
         key = f"boll:{name}"
         if key not in self._helpers:
@@ -795,6 +1133,15 @@ class IncrementalTaNamespace:
                 raise ValueError(f"ctx.ta.boll('{name}') has not been initialized")
             self._limits.reserve_window(period, label=key)
             self._helpers[key] = _StepBOLL(period, multiplier)
+        return self._helpers[key]
+
+    def bb(self, name: str, period: int | None = None, mult: float = 2.0) -> _StepBB:
+        key = f"bb:{name}"
+        if key not in self._helpers:
+            if period is None:
+                raise ValueError(f"ctx.ta.bb('{name}') has not been initialized")
+            self._limits.reserve_window(period, label=key)
+            self._helpers[key] = _StepBB(period, mult)
         return self._helpers[key]
 
     def macd(
@@ -973,6 +1320,25 @@ class IncrementalTaNamespace:
             self._helpers[key] = _StepSupertrend(factor, atr_period)
         return self._helpers[key]
 
+    def pivot_point_levels(
+        self,
+        name: str,
+        pivot_type: str | None = None,
+        *,
+        developing: bool = False,
+    ) -> _StepPivotPointLevels:
+        key = f"pivot_point_levels:{name}"
+        if key not in self._helpers:
+            if pivot_type is None:
+                raise ValueError(
+                    f"ctx.ta.pivot_point_levels('{name}') has not been initialized"
+                )
+            self._helpers[key] = _StepPivotPointLevels(
+                pivot_type,
+                developing=developing,
+            )
+        return self._helpers[key]
+
 def _rsi_from_avgs(avg_gain: float, avg_loss: float) -> float:
     if avg_loss == 0:
         return 100.0 if avg_gain > 0 else 0.0
@@ -987,3 +1353,14 @@ def _number_or_none(value: Any) -> float | None:
         return None
     number = float(value)
     return None if math.isnan(number) else number
+
+
+def _nan(value: float | None) -> float:
+    return math.nan if value is None else float(value)
+
+
+def _optional_levels(values: Any) -> tuple[float | None, ...]:
+    return tuple(
+        None if not math.isfinite(float(value)) else float(value)
+        for value in values
+    )

@@ -17,6 +17,7 @@ settings = pn.PyneSettings(
     incremental_retention_bars=10_000,
     trace_enabled=False,
     trace_max_events=1_000,
+    trace_span_events=False,
     data_provider=None,
     syminfo={"tickerid": "NASDAQ:AAPL", "mintick": 0.01},
     timeframe="1h",
@@ -156,10 +157,13 @@ Execution trace:
   `droppedEvents` without failing execution.
 - `trace_timings_enabled`: collect monotonic hierarchical span durations. The
   default is `True` when tracing is enabled.
+- `trace_span_events`: also retain `span.start` and `span.complete` in the
+  bounded event list. The default is `False`; aggregate timings and slow-span
+  evidence remain available without the two per-span events.
 - `trace_slow_span_ms`: threshold for the bounded slow-span list.
 - `trace_redacted_fields`: exact case-insensitive secret-like field-name set.
 - Environment variables: `PYNE_TRACE_ENABLED`, `PYNE_TRACE_MAX_EVENTS`,
-  `PYNE_TRACE_TIMINGS_ENABLED`, `PYNE_TRACE_SLOW_SPAN_MS`, and
+  `PYNE_TRACE_TIMINGS_ENABLED`, `PYNE_TRACE_SPAN_EVENTS`, `PYNE_TRACE_SLOW_SPAN_MS`, and
   `PYNE_TRACE_REDACTED_FIELDS`.
 - See [Execution Trace](../concepts/execution_trace.md) for event and preview
   semantics.

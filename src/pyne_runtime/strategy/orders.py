@@ -295,6 +295,68 @@ def _strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list[dict[str, A
     return events
 
 
+def _incremental_strategy_lifecycle_events(
+    orders: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Serialize the scalar engine ledger with the shared lifecycle state machine."""
+    events: list[dict[str, Any]] = []
+    for order in _orders_in_lifecycle_order(orders):
+        state = _order_lifecycle_state(order)
+        pending = state["pending"]
+        active = state["active"]
+        canceled = state["canceled"]
+        rejected = state["rejected"]
+        event: dict[str, Any] = {
+            "id": order.get("id"),
+            "from_entry": order.get("from_entry"),
+            "type": state["order_type"],
+            "status": state["status"],
+            "phase": state["phase"],
+            "submitted_time": order.get("_submit_time", order.get("time")),
+            "filled_time": order.get("time") if active and not canceled else None,
+            "canceled_time": order.get("_canceled_time", order.get("time"))
+            if canceled
+            else None,
+            "rejected_time": order.get("_rejected_time") if rejected else None,
+            "side": order.get("side"),
+            "qty": order.get("qty"),
+            "price": order.get("price"),
+            "position_after": order.get("position_after"),
+        }
+        for key in ("reason", "comment", "commission", "oca_name", "oca_type", "canceled"):
+            if order.get(key) is not None:
+                event[key] = order.get(key)
+        for internal_key, public_key in (("_limit", "limit"), ("_stop", "stop")):
+            if order.get(internal_key) is not None:
+                event[public_key] = order.get(internal_key)
+        if order.get("_requested_fill_qty") is not None and (
+            active or rejected or (pending and order.get("reason"))
+        ):
+            event["requested_qty"] = round(float(order.get("_requested_fill_qty", 0.0)), 8)
+        if order.get("_filled_qty") is not None and (active or rejected):
+            event["filled_qty"] = round(float(order.get("_filled_qty", 0.0)), 8)
+        for internal_key, public_key in (
+            ("_target_qty", "target_qty"),
+            ("_qty_percent", "qty_percent"),
+            ("_transaction_qty", "transaction_qty"),
+        ):
+            if order.get(internal_key) is not None:
+                event[public_key] = round(float(order.get(internal_key, 0.0)), 8)
+        if order.get("_canceled_by") is not None:
+            event["canceled_by"] = order.get("_canceled_by")
+        if order.get("_rejected_reason") is not None:
+            event["rejected_reason"] = order.get("_rejected_reason")
+        events.append(
+            {
+                key: value
+                for key, value in event.items()
+                if value is not None
+                or key in {"price", "filled_time", "canceled_time", "rejected_time"}
+            }
+        )
+    return events
+
+
 def _orders_in_replay_order(
     orders: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:

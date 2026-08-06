@@ -25,7 +25,10 @@ def test_incremental_strategy_reuses_shared_order_helpers() -> None:
     assert incremental_strategy._pending_trigger is orders._pending_trigger
     assert incremental_strategy._exit_trigger is orders._exit_trigger
     assert incremental_strategy._normalize_intrabar_path is orders._normalize_intrabar_path
-    assert incremental_strategy._order_lifecycle_state is orders._order_lifecycle_state
+    assert (
+        incremental_strategy._incremental_strategy_lifecycle_events
+        is orders._incremental_strategy_lifecycle_events
+    )
 
     assert orders._normalize_intrabar_path("same-bar-priority") == "same_bar_priority"
     assert orders._pending_trigger(
@@ -128,6 +131,35 @@ def test_incremental_strategy_reuses_shared_margin_helpers() -> None:
 def test_incremental_strategy_reuses_shared_ledger_helpers() -> None:
     assert incremental_strategy._trade_realized_profit is ledger._trade_realized_profit
     assert incremental_strategy._closed_trade is ledger._closed_trade
+    assert incremental_strategy._trade_at is ledger._trade_at
+    assert incremental_strategy._trade_profit_percent is ledger._trade_profit_percent
+    assert incremental_strategy._event_time is ledger._event_time
 
     trade = {"side": "long", "qty": 2, "entry_price": 10}
     assert ledger._trade_realized_profit(trade, 1.5, 12) == 3
+
+
+def test_shared_incremental_lifecycle_kernel_is_order_stable() -> None:
+    orders_input = [
+        {
+            "id": f"O{index}",
+            "type": "entry",
+            "_seq": index,
+            "_submit_time": index // 3,
+            "time": index,
+            "_active": index % 4 == 0,
+            "_pending_submission": index % 4 == 1,
+            "_canceled": index % 4 == 2,
+            "_rejected_reason": "risk" if index % 4 == 3 else None,
+            "qty": 1.0,
+            "price": 100.0 + index,
+        }
+        for index in range(100)
+    ]
+    shuffled = list(reversed(orders_input))
+
+    expected = orders._incremental_strategy_lifecycle_events(orders_input)
+    actual = orders._incremental_strategy_lifecycle_events(shuffled)
+
+    assert actual == expected
+    assert len(actual) == 100

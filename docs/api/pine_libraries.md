@@ -42,6 +42,8 @@ allowlist, semantic tests, and member-specific data requirements.
 
 The identifier is intentionally pinned to `TradingView/ta/10`; newer upstream
 library revisions are not silently substituted. These adapters are local,
-reviewed implementations. Deterministic tests establish Pyne semantics, but the
-three new dynamic-length members are not promoted as TradingView-capture parity
-until an external capture fixture is checked in.
+reviewed implementations. A checked-in 16-bar TradingView capture now parity
+gates dynamic `ema2`, `rma2`, and `atr2` together with pivot and traditional
+pivot-level behavior: 8 plotted series and 78 checked points currently report
+0 diff. This evidence applies only to the captured cases and does not promote
+the pinned adapter beyond its explicit batch-only allowlist.

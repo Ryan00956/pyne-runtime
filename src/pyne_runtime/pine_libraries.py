@@ -409,17 +409,10 @@ def _dynamic_average(
             result[index] = previous
             continue
         if np.isnan(previous):
-            if ema_style:
-                previous = float(value)
-            else:
-                window = max(int(length), 1)
-                start = index - window + 1
-                if start < 0:
-                    continue
-                seed = source[start : index + 1]
-                if not np.all(np.isfinite(seed)):
-                    continue
-                previous = float(np.mean(seed))
+            # TradingView's public ta library seeds both dynamic recursive
+            # averages from the first valid source value. This deliberately
+            # differs from native ta.rma(), whose fixed-length seed is an SMA.
+            previous = float(value)
         else:
             denominator = length + 1.0 if ema_style else length
             alpha = min(max(alpha_numerator / denominator, 0.0), 1.0)

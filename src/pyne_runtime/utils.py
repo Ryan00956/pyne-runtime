@@ -437,8 +437,9 @@ def pivothigh(src: PyneSeries | np.ndarray, left: int, right: int) -> PyneSeries
         right: Number of bars to the right.
 
     Returns:
-        Array with pivot high values at pivot bars, NaN elsewhere.
-        Note: Results are delayed by ``right`` bars.
+        Array with pivot high values on their confirmation bars, NaN elsewhere.
+        The returned price belongs to the pivot ``right`` bars earlier, matching
+        Pine's causal ``ta.pivothigh()`` contract.
     """
     return _pivot(src, left, right, highest=True)
 
@@ -457,7 +458,7 @@ def pivotlow(src: PyneSeries | np.ndarray, left: int, right: int) -> PyneSeries 
         right: Number of bars to the right.
 
     Returns:
-        Array with pivot low values at pivot bars, NaN elsewhere.
+        Array with pivot low values on their confirmation bars, NaN elsewhere.
     """
     return _pivot(src, left, right, highest=False)
 
@@ -469,7 +470,7 @@ def _pivot(
     *,
     highest: bool,
 ) -> PyneSeries | np.ndarray:
-    """Detect unique centered extrema in O(n), preserving right-side alignment."""
+    """Detect unique centered extrema in O(n), returning causal confirmations."""
     source = to_numpy(src, dtype=np.float64)
     n = len(source)
     result = np.full(n, np.nan)
@@ -478,21 +479,16 @@ def _pivot(
     if left < 0 or right < 0:
         return wrap_like(result, src)
     window_size = left + right + 1
-    if window_size > n:
+    if right >= n:
         return wrap_like(result, src)
 
     candidates: deque[int] = deque()
-    nan_count = 0
     for index, value in enumerate(source):
-        window_start = index - window_size + 1
-        if index >= window_size and np.isnan(source[index - window_size]):
-            nan_count -= 1
+        window_start = max(index - window_size + 1, 0)
         while candidates and candidates[0] < window_start:
             candidates.popleft()
 
-        if np.isnan(value):
-            nan_count += 1
-        else:
+        if not np.isnan(value):
             if highest:
                 while candidates and source[candidates[-1]] < value:
                     candidates.pop()
@@ -501,13 +497,15 @@ def _pivot(
                     candidates.pop()
             candidates.append(index)
 
-        if index < window_size - 1 or nan_count:
+        if index < right:
             continue
         center = index - right
+        if np.isnan(source[center]) or not candidates:
+            continue
         extreme_index = candidates[0]
         duplicated = len(candidates) > 1 and source[candidates[1]] == source[extreme_index]
         if extreme_index == center and not duplicated:
-            result[center] = source[center]
+            result[index] = source[center]
     return wrap_like(result, src)
 
 

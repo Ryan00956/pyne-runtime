@@ -14,6 +14,7 @@ from .checkpoint import PynePortableSnapshotError
 
 
 PYNE_TYPED_STATE_GRAPH_VERSION = 1
+_MAX_TYPED_ARRAY_BYTES = 256 * 1024 * 1024
 _RUNTIME_TYPE_MODULES = (
     "pyne_runtime.barstate",
     "pyne_runtime.cache",
@@ -56,7 +57,11 @@ def decode_typed_state_graph(
     nodes = graph["nodes"]
     if not isinstance(nodes, list) or len(nodes) > max(int(max_nodes), 1):
         raise PynePortableSnapshotError("Portable typed state graph node budget is invalid")
-    return _GraphDecoder(nodes, max_depth=max_depth).decode(graph["root"])
+    return _GraphDecoder(
+        nodes,
+        max_depth=max_depth,
+        max_nodes=max_nodes,
+    ).decode(graph["root"])
 
 
 class _GraphEncoder:
@@ -65,6 +70,7 @@ class _GraphEncoder:
         self.max_depth = max(int(max_depth), 1)
         self.nodes: list[dict[str, Any]] = []
         self._memo: dict[int, int] = {}
+        self._memo_values: list[Any] = []
         self._runtime_types = _runtime_type_registry()
 
     def encode(self, value: Any, *, depth: int = 0) -> Any:
@@ -86,6 +92,7 @@ class _GraphEncoder:
                 f"Portable typed state exceeds {self.maximum} object nodes"
             )
         self._memo[oid] = node_id
+        self._memo_values.append(value)
         self.nodes.append({})
         node = self._encode_node(value, depth=depth + 1)
         self.nodes[node_id] = node
@@ -155,9 +162,10 @@ class _GraphEncoder:
 
 
 class _GraphDecoder:
-    def __init__(self, nodes: list[Any], *, max_depth: int) -> None:
+    def __init__(self, nodes: list[Any], *, max_depth: int, max_nodes: int) -> None:
         self.nodes = nodes
         self.max_depth = max(int(max_depth), 1)
+        self.max_nodes = max(int(max_nodes), 1)
         self._values: dict[int, Any] = {}
         self._building: set[int] = set()
         self._runtime_types = _runtime_type_registry()
@@ -188,6 +196,7 @@ class _GraphDecoder:
         if not isinstance(node, dict) or not isinstance(node.get("kind"), str):
             raise PynePortableSnapshotError("Portable typed state node is invalid")
         kind = node["kind"]
+        _validate_node_fields(node, kind)
         self._building.add(node_id)
         try:
             if kind == "list":
@@ -204,6 +213,10 @@ class _GraphDecoder:
                     key = self.decode(pair[0], depth=depth)
                     item = self.decode(pair[1], depth=depth)
                     try:
+                        if key in result:
+                            raise PynePortableSnapshotError(
+                                "Portable typed state mapping contains duplicate keys"
+                            )
                         result[key] = item
                     except (TypeError, ValueError) as exc:
                         raise PynePortableSnapshotError(
@@ -221,11 +234,21 @@ class _GraphDecoder:
             if kind == "set":
                 result = set()
                 self._values[node_id] = result
-                result.update(self._decode_items(node, depth=depth))
+                try:
+                    result.update(self._decode_items(node, depth=depth))
+                except (TypeError, ValueError) as exc:
+                    raise PynePortableSnapshotError(
+                        "Portable typed state set item is invalid"
+                    ) from exc
                 return result
             if kind in {"tuple", "frozenset"}:
                 items = self._decode_items(node, depth=depth)
-                result = tuple(items) if kind == "tuple" else frozenset(items)
+                try:
+                    result = tuple(items) if kind == "tuple" else frozenset(items)
+                except (TypeError, ValueError) as exc:
+                    raise PynePortableSnapshotError(
+                        "Portable typed state frozenset item is invalid"
+                    ) from exc
                 self._values[node_id] = result
                 return result
             if kind == "ndarray":
@@ -239,6 +262,20 @@ class _GraphDecoder:
                     raise PynePortableSnapshotError("Portable typed ndarray dtype is invalid") from exc
                 if resolved_dtype.kind not in "biufUS":
                     raise PynePortableSnapshotError("Portable typed ndarray dtype is unsupported")
+                if not all(
+                    not isinstance(item, bool) and isinstance(item, int) and item >= 0
+                    for item in shape
+                ):
+                    raise PynePortableSnapshotError("Portable typed ndarray shape is invalid")
+                element_count = math.prod(shape)
+                if element_count > self.max_nodes:
+                    raise PynePortableSnapshotError(
+                        "Portable typed ndarray exceeds the element budget"
+                    )
+                if resolved_dtype.itemsize * element_count > _MAX_TYPED_ARRAY_BYTES:
+                    raise PynePortableSnapshotError(
+                        "Portable typed ndarray exceeds the byte budget"
+                    )
                 items = self.decode(node.get("items"), depth=depth)
                 try:
                     result = np.asarray(items, dtype=resolved_dtype).reshape(tuple(shape))
@@ -268,6 +305,8 @@ class _GraphDecoder:
                 self._restore_attributes(result, node, depth=depth)
                 if type_name == "pyne_runtime.trace:PyneTraceRecorder":
                     object.__setattr__(result, "_clock", time.perf_counter)
+                    if not hasattr(result, "span_events"):
+                        object.__setattr__(result, "span_events", False)
                 return result
             raise PynePortableSnapshotError(f"Unsupported portable typed state node {kind!r}")
         finally:
@@ -281,8 +320,14 @@ class _GraphDecoder:
         for pair in attributes:
             if not isinstance(pair, list) or len(pair) != 2 or not isinstance(pair[0], str):
                 raise PynePortableSnapshotError("Portable typed state object attribute is invalid")
+            attribute_name = pair[0]
+            class_attribute = getattr(type(target), attribute_name, None)
+            if attribute_name.startswith("__") or callable(class_attribute):
+                raise PynePortableSnapshotError(
+                    f"Portable typed state cannot shadow runtime attribute {attribute_name!r}"
+                )
             try:
-                object.__setattr__(target, pair[0], self.decode(pair[1], depth=depth))
+                object.__setattr__(target, attribute_name, self.decode(pair[1], depth=depth))
             except (AttributeError, TypeError, ValueError) as exc:
                 raise PynePortableSnapshotError(
                     f"Portable typed state cannot restore attribute {pair[0]!r}"
@@ -371,6 +416,24 @@ def _node_list(node: dict[str, Any], key: str) -> list[Any]:
     if not isinstance(values, list):
         raise PynePortableSnapshotError(f"Portable typed state node {key} is invalid")
     return values
+
+
+def _validate_node_fields(node: dict[str, Any], kind: str) -> None:
+    expected = {
+        "list": {"kind", "items"},
+        "tuple": {"kind", "items"},
+        "deque": {"kind", "maxlen", "items"},
+        "dict": {"kind", "items"},
+        "set": {"kind", "items"},
+        "frozenset": {"kind", "items"},
+        "ndarray": {"kind", "dtype", "shape", "items"},
+        "namespace": {"kind", "attributes"},
+        "object": {"kind", "type", "attributes"},
+    }.get(kind)
+    if expected is not None and set(node) != expected:
+        raise PynePortableSnapshotError(
+            f"Portable typed state {kind} node fields are invalid"
+        )
 
 
 def _stable_set_key(value: Any) -> tuple[str, str]:

@@ -235,8 +235,12 @@ plot(tv_ta.atr2(3 - (bar_index >= 3)), "ATR2")
 
     assert result.ok, result.error
     assert result.values("EMA2") == pytest.approx([10.0, 11.333333, 12.4, 12.64, 13.984])
-    assert result.values("RMA2") == pytest.approx([12.0, 12.5, 14.25])
-    assert result.values("ATR2") == pytest.approx([2.666667, 2.833333, 3.416667])
+    assert result.values("RMA2") == pytest.approx(
+        [10.0, 10.666667, 11.777778, 12.388889, 14.194444]
+    )
+    assert result.values("ATR2") == pytest.approx(
+        [2.0, 2.333333, 2.555556, 2.777778, 3.388889]
+    )
 
 
 def test_pinned_library_reports_member_level_host_requirements() -> None:

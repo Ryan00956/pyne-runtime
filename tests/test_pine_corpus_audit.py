@@ -118,7 +118,7 @@ def test_report_classifies_runtime_syntax_host_and_render_boundaries(tmp_path: P
         for item in report["capabilityDemand"]["incrementalTaCandidates"]
     }
     assert "vwap" not in candidates
-    assert candidates["pivot_point_levels"]["occurrenceCount"] == 1
+    assert "pivot_point_levels" not in candidates
     assert report["capabilityDemand"]["externalLibraryCandidates"] == [
         {
             "identifier": "Example/helpers/3",

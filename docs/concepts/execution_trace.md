@@ -10,6 +10,7 @@ settings = pn.PyneSettings(
     trace_enabled=True,
     trace_max_events=500,
     trace_timings_enabled=True,
+    trace_span_events=False,
     trace_slow_span_ms=10.0,
 )
 result = pn.run(script, bars, settings=settings)
@@ -23,6 +24,11 @@ callbacks, and host-backed requests. Nested work carries `spanId` and
 `parentSpanId`; the timing summary aggregates count, errors, total duration, and
 maximum duration by span name. Up to 32 spans at or above
 `trace_slow_span_ms` are retained as bounded slow-span evidence.
+Per-span `span.start` and `span.complete` events are disabled by default to keep
+trace overhead and event-budget consumption bounded. Set
+`trace_span_events=True` only when an ordered span event stream is required;
+aggregate timings, parent-aware slow spans, and custom events remain available
+with the default.
 
 Scripts can add JSON-like decision evidence:
 
@@ -56,8 +62,8 @@ represented only by their type name; the recorder does not store their `repr`.
 Timing uses a monotonic process clock and is diagnostic rather than
 deterministic output. Disable only timing samples with
 `trace_timings_enabled=False` while retaining ordered trace events. The
-performance smoke gate records raw paired trace-enabled/disabled samples so the
-opt-in overhead remains visible.
+performance smoke gate records raw paired trace-enabled/disabled samples and
+fails when the median paired trace-v2 ratio exceeds `1.5x`.
 
 Tracing is diagnostic evidence, not a security audit log. Redaction is a bounded
 field-name defense, not content inspection; scripts can still place sensitive

@@ -133,9 +133,9 @@ script execution and the contract between the script and the host.
 The repository does not treat API names alone as compatibility evidence. Its
 release gate checks real output, package contracts, and installability.
 
-| Evidence in the current `0.3.0rc1` source candidate | Verified surface |
+| Evidence in the current `0.3.0rc2` source candidate | Verified surface |
 | --- | --- |
-| TradingView-backed capture parity | Request **21/21**, Strategy **27/27**, and TA **9/9** captured cases, currently at **0 diff** |
+| TradingView-backed capture parity | Request **21/21**, Strategy **27/27**, and TA **10/10** captured cases, currently at **0 diff**; the external-library slice covers 8 plots and 78 checked points |
 | CI matrix | Linux, Windows, and macOS on Python 3.11, 3.12, and 3.13 |
 | Contract checks | Generated project status, output schemas, public imports, capture parity, and architecture boundaries |
 | Runtime self-description | Static script inspection, versioned batch/incremental capabilities, early unsupported-call diagnostics, and bounded trace-v2 evidence |

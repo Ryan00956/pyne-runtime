@@ -47,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     export = load_csv_capture(args.values, fixture)
     validate_capture_series(fixture, export["series"])
 
+    previous_capture = fixture.get("external_capture", {})
     fixture["external_capture"] = {
         "provider": "tradingview",
         "status": "captured",
@@ -55,6 +56,8 @@ def main(argv: list[str] | None = None) -> int:
         "series": export["series"],
         "bars": export["bars"],
     }
+    if previous_capture.get("plot_titles"):
+        fixture["external_capture"]["plot_titles"] = previous_capture["plot_titles"]
     if args.note:
         fixture["external_capture"]["notes"] = args.note
 
@@ -75,7 +78,7 @@ def load_csv_capture(path: Path, fixture: dict[str, Any]) -> dict[str, Any]:
         capture_index_title = CAPTURE_INDEX_TITLE
         if capture_index_title not in fieldnames:
             raise SystemExit(f"CSV export missing capture index column: {capture_index_title}")
-        plot_titles = list(fixture.get("expected_series", {}))
+        plot_titles = capture_plot_titles(fixture)
         missing_titles = sorted(set(plot_titles) - set(fieldnames))
         if missing_titles:
             raise SystemExit("CSV export missing plot title(s): " + ", ".join(missing_titles))
@@ -132,7 +135,7 @@ def validate_capture_series(
     fixture: dict[str, Any],
     series: dict[str, list[dict[str, Any]]],
 ) -> None:
-    expected_titles = set(fixture.get("expected_series", {}))
+    expected_titles = set(capture_plot_titles(fixture))
     unknown_titles = sorted(set(series) - expected_titles)
     if unknown_titles:
         raise SystemExit(
@@ -146,6 +149,14 @@ def validate_capture_series(
 
 def is_chart_csv_column(column: str) -> bool:
     return column.strip() in CHART_CSV_COLUMNS
+
+
+def capture_plot_titles(fixture: dict[str, Any]) -> list[str]:
+    expected = list(fixture.get("expected_series", {}))
+    if expected:
+        return expected
+    capture = fixture.get("external_capture", {})
+    return list(capture.get("plot_titles") or capture.get("series", {}))
 
 
 if __name__ == "__main__":  # pragma: no cover

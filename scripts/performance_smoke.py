@@ -486,7 +486,7 @@ def _trace_overhead_ratio(repeats: int) -> dict[str, Any]:
         small_callback=lambda: run_session(trace_enabled=False),
         large_callback=lambda: run_session(trace_enabled=True),
         repeats=repeats,
-        limit=2.5,
+        limit=1.5,
         unit="seconds",
     )
     result.update(

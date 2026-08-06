@@ -39,7 +39,7 @@ from ..security import (
     validate_script_security,
 )
 from ..settings import PyneSettings
-from ..trace import PyneTraceRecorder
+from ..trace import PyneTraceRecorder, bounded_trace_value
 from .bar import IncrementalBar
 from .checkpoint import (
     DEFAULT_PORTABLE_SNAPSHOT_MAX_BYTES,
@@ -127,6 +127,7 @@ class PyneIncrementalSession:
             enabled=self.settings.trace_enabled,
             max_events=self.settings.trace_max_events,
             timings_enabled=self.settings.trace_timings_enabled,
+            span_events=self.settings.trace_span_events,
             slow_span_ms=self.settings.trace_slow_span_ms,
             redacted_fields=self.settings.trace_redacted_fields,
         )
@@ -340,7 +341,10 @@ class PyneIncrementalSession:
         try:
             before_state = (
                 {
-                    key: repr(cell.value)
+                    key: bounded_trace_value(
+                        cell.value,
+                        redacted_fields=ctx.trace.redacted_fields,
+                    )
                     for key, cell in {**ctx._states, **ctx._varip_states}.items()
                 }
                 if ctx.trace.enabled
@@ -377,9 +381,12 @@ class PyneIncrementalSession:
                 after_cells = {**ctx._states, **ctx._varip_states}
                 for key, cell in after_cells.items():
                     previous = before_state.get(key)
-                    current = repr(cell.value)
+                    current = bounded_trace_value(
+                        cell.value,
+                        redacted_fields=ctx.trace.redacted_fields,
+                    )
                     if previous != current:
-                        ctx.trace.emit(
+                        ctx.trace._emit_runtime(
                             "state.change",
                             time=bar.time,
                             name=key,
@@ -388,7 +395,7 @@ class PyneIncrementalSession:
                             preview=preview,
                         )
                 if ctx.strategy.touched:
-                    ctx.trace.emit(
+                    ctx.trace._emit_runtime(
                         "strategy.bar",
                         time=bar.time,
                         position=ctx.strategy.position_size,

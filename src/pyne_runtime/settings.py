@@ -48,6 +48,7 @@ class PyneSettings:
     trace_enabled: bool = False
     trace_max_events: int = 1_000
     trace_timings_enabled: bool = True
+    trace_span_events: bool = False
     trace_slow_span_ms: float = 10.0
     trace_redacted_fields: tuple[str, ...] = DEFAULT_TRACE_REDACTED_FIELDS
     allowed_imports: tuple[str, ...] = DEFAULT_ALLOWED_IMPORTS
@@ -89,6 +90,7 @@ class PyneSettings:
         object.__setattr__(self, "trace_enabled", bool(self.trace_enabled))
         object.__setattr__(self, "trace_max_events", max(int(self.trace_max_events), 1))
         object.__setattr__(self, "trace_timings_enabled", bool(self.trace_timings_enabled))
+        object.__setattr__(self, "trace_span_events", bool(self.trace_span_events))
         object.__setattr__(self, "trace_slow_span_ms", max(float(self.trace_slow_span_ms), 0.0))
         object.__setattr__(
             self,
@@ -144,6 +146,7 @@ class PyneSettings:
             trace_enabled=_bool_env("PYNE_TRACE_ENABLED", False),
             trace_max_events=_int_env("PYNE_TRACE_MAX_EVENTS", 1_000),
             trace_timings_enabled=_bool_env("PYNE_TRACE_TIMINGS_ENABLED", True),
+            trace_span_events=_bool_env("PYNE_TRACE_SPAN_EVENTS", False),
             trace_slow_span_ms=_float_env("PYNE_TRACE_SLOW_SPAN_MS", 10.0),
             trace_redacted_fields=tuple(
                 item.strip()

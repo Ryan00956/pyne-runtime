@@ -194,3 +194,28 @@ def test_trace_v2_redacts_nested_secrets_and_reports_slow_spans() -> None:
         }
     ]
     assert snapshot["timings"]["slowSpans"][0]["name"] == "provider.fetch"
+    assert snapshot["timings"]["spanEvents"] is False
+    assert not any(item["event"].startswith("span.") for item in snapshot["events"])
+
+
+def test_trace_span_events_can_be_enabled_without_losing_timing_aggregates() -> None:
+    ticks = iter([1.0, 1.005])
+    trace = pn.PyneTraceRecorder(
+        enabled=True,
+        max_events=10,
+        span_events=True,
+        clock=lambda: next(ticks),
+    )
+
+    with trace.span("script.execute"):
+        trace.emit("decision", accepted=True)
+
+    snapshot = trace.snapshot()
+    assert snapshot is not None
+    assert snapshot["timings"]["spanEvents"] is True
+    assert [item["event"] for item in snapshot["events"]] == [
+        "span.start",
+        "decision",
+        "span.complete",
+    ]
+    assert snapshot["timings"]["spans"][0]["count"] == 1

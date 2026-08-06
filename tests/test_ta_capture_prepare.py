@@ -67,7 +67,7 @@ def test_ta_capture_prepare_all_fixtures(tmp_path: Path) -> None:
 
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["default_scope"] == "all"
-    assert manifest["fixture_count"] == 9
+    assert manifest["fixture_count"] == 10
     statuses = {entry["fixture"]: entry["status"] for entry in manifest["entries"]}
     assert statuses["ta_core_indicators.json"] == "captured"
     assert statuses["ta_advanced_indicators.json"] == "captured"

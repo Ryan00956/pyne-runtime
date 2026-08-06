@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Expanded incremental TA from 27 to 39 helpers with demand-led `change`,
+  `highestbars`, `lowestbars`, `pivothigh`, `pivotlow`, `tr`, `cum`, `swma`,
+  `alma`, `dev`, `bb`, and `pivot_point_levels` implementations, including
+  batch parity, resource bounds, and portable-restore coverage.
+- Added Inspector v2 manifests with directory scanning, provider/output
+  requirements, migration readiness, and signature-aware history estimates.
+- Hardened portable typed-state v2 against duplicate mapping keys, malformed
+  containers, oversized arrays, field shadowing, and graph-reference aliasing;
+  exact restore is covered by a 1,000-bar repeated-restore soak.
+- Made per-span trace events an explicit opt-in while retaining aggregate and
+  slow-span diagnostics by default, and tightened the paired trace-overhead
+  release gate to 1.5x.
+- Added an external TradingView `TradingView/ta/10` capture covering 8 series
+  and 78 checked points at 0 diff, and aligned dynamic RMA/ATR seeding plus
+  pivot confirmation behavior with that evidence.
+- Consolidated batch and incremental trade timestamps, profit percentages, and
+  lifecycle serialization onto shared strategy helpers.
 - Added a versioned, mode-aware runtime capability contract through
   `pn.runtime_capabilities()` and `pn.schema()`, with early diagnostics for
   unsupported incremental TA/request calls.
