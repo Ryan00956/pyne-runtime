@@ -150,6 +150,37 @@ def test_inspect_path_scans_directory_and_summarizes_migration_blockers(
     assert payload["summary"]["scriptCount"] == 2
 
 
+def test_inspect_path_reports_per_file_inspector_v2_migration_surface(tmp_path: Path) -> None:
+    (tmp_path / "ok.py").write_text(
+        'indicator("First")\nplot(ta.sma(close, 5), "SMA")\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "blocked.py").write_text(
+        'indicator("Second", mode="incremental")\n'
+        "def on_bar(ctx, bar):\n"
+        '    ctx.plot("TSI", ctx.ta.tsi("tsi", 13, 25).update(bar.close))\n',
+        encoding="utf-8",
+    )
+
+    report = pn.inspect_path(tmp_path, recursive=False, runtime_mode="incremental")
+    serialized = json.dumps(report)
+
+    assert report["summary"]["scriptCount"] == 2
+    assert 'indicator("First")' not in serialized
+    assert 'def on_bar(ctx, bar):' not in serialized
+    by_path = {item["path"]: item["report"] for item in report["scripts"]}
+    for item in by_path.values():
+        assert "supported" in item["compatibility"]
+        assert "dynamicAccesses" in item["compatibility"]
+        assert "host" in item["requirements"]
+        assert "externalLibraries" in item["requirements"]
+        assert "minimumHistoryBars" in item["resourceHints"]
+        assert "batchToIncremental" in item["migration"]
+    assert by_path["ok.py"]["compatibility"]["supported"] is True
+    assert by_path["blocked.py"]["compatibility"]["supported"] is False
+    assert by_path["blocked.py"]["requirements"]["ta"] == ["tsi"]
+
+
 def test_inspector_v2_marks_dynamic_history_and_provider_inputs_unknown() -> None:
     report = pn.inspect_script(
         """

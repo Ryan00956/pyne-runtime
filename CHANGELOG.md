@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Locked Inspector v2 directory reports as the Phase 5A migration surface and
+  deferred pinned-library expansion: unknown identifiers remain fail-closed
+  without a reviewed owner/library/version/member.
 - Closed the Incremental TA expansion slice without adding helpers: the frozen
   corpus ranks no P0/P1 implement item, so the 17 Batch-only names stay
   Incremental fail-closed with explicit `defer` reasons.
