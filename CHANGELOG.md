@@ -5,7 +5,10 @@
 - Hardened the isolated package smoke so the installed wheel must match the
   repository source schema/capability identity, pass `pyne inspect` without
   importing the repository `src` tree, and make no package-index request in
-  offline mode.
+  offline mode. Source-schema comparison now reuses the isolated wheel
+  environment so the repository source has its declared runtime dependencies.
+- Pinned Ruff 0.15.13 for reproducible lint results after the unbounded
+  development dependency produced platform-dependent CI results.
 - Locally accepted the standalone `0.3.0rc2` candidate after two full local
   gates plus isolated installed-wheel validation. Product adapters and their
   candidate locks are owned by separate repositories; remote matrix CI, tag,

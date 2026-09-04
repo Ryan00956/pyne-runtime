@@ -86,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
         if schema["output"]["schemaVersion"] != 2:
             raise RuntimeError("unexpected output schema version")
         source_schema = _run_json(
-            [args.python, "-m", "pyne_runtime", "schema"],
+            [str(python), "-m", "pyne_runtime", "schema"],
             cwd=repo_root,
             env=_source_schema_env(clean_env, repo_root),
         )
