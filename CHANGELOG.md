@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Hardened the isolated package smoke so the installed wheel must match the
+  repository source schema/capability identity and pass `pyne inspect` without
+  importing the repository `src` tree.
 - Locally accepted the standalone `0.3.0rc2` candidate after two full local
   gates plus isolated installed-wheel validation. Product adapters and their
   candidate locks are owned by separate repositories; remote matrix CI, tag,

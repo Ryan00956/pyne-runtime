@@ -88,6 +88,17 @@ def test_package_smoke_sanitizes_source_import_environment() -> None:
     assert "VIRTUAL_ENV" not in env
 
 
+def test_package_smoke_uses_repo_source_only_for_schema_identity() -> None:
+    module = _load_package_smoke()
+    clean_env = module._sanitized_env({"PATH": "bin", "PYTHONPATH": "outside"})
+
+    source_env = module._source_schema_env(clean_env, ROOT)
+
+    assert "PYTHONPATH" not in clean_env
+    assert source_env["PYTHONPATH"] == str((ROOT / "src").resolve())
+    assert source_env["PYTHONNOUSERSITE"] == "1"
+
+
 def test_package_smoke_checks_wheel_import_location(tmp_path: Path) -> None:
     module = _load_package_smoke()
 
