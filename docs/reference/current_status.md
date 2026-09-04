@@ -143,14 +143,10 @@ restore testing.
 The large plot and TA implementations are split into focused internal modules
 without changing established public entry points.
 
-This is not a release claim. The next delivery slice is:
-
-1. **Local candidate acceptance:** the `0.3.0rc2` source tree has now passed
-   local CandleScope bridge/workbench focused tests, backend focused tests
-   (`test_pyne_workbench_manifest`, `test_pyne_strategy_provider`,
-   `test_plugin_runtime_architecture`), candidate wheel/Twine checks, and
-   installed-wheel smoke. Publishing, tag, and remote matrix CI remain a
-   separate explicit decision.
+This is not a release claim. The `0.3.0rc2` source tree is **locally accepted**
+after two full `scripts/check.ps1` runs and a CandleScope focused host re-check.
+Publishing, tag, remote matrix CI, and promoting RC to stable remain a later
+explicit decision.
 2. **Measured expansion:** the frozen 104-file Pine corpus and
    [capability demand backlog](../development/capability_demand_backlog_zh.md)
    currently show no unexplained Runtime core gap and no P0 Incremental TA

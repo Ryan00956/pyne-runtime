@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Locally accepted the `0.3.0rc2` candidate after two full local gates and
+  CandleScope focused host re-checks. Remote matrix CI, push, tag, and GitHub
+  Release remain unauthorized.
 - Deferred sandbox and distributed-session work: `safe`/`research` remain
   language restrictions, `multiTenantSandbox` stays false, and portable
   snapshots still do not embed providers or replace host coordination.
