@@ -9,6 +9,8 @@
   environment so the repository source has its declared runtime dependencies.
 - Pinned Ruff 0.15.13 for reproducible lint results after the unbounded
   development dependency produced platform-dependent CI results.
+- Raised the development Twine floor to 7 so isolated builds using Metadata
+  2.5 can be validated consistently outside the latest CI image.
 - Locally accepted the standalone `0.3.0rc2` candidate after two full local
   gates plus isolated installed-wheel validation. Product adapters and their
   candidate locks are owned by separate repositories; remote matrix CI, tag,

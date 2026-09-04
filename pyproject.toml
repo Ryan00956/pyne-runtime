@@ -45,7 +45,7 @@ dev = [
   "hatchling>=1.25",
   "pytest>=7",
   "ruff==0.15.13",
-  "twine>=5",
+  "twine>=7",
 ]
 all = [
   "pandas>=2",
