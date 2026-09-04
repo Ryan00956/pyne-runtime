@@ -154,8 +154,9 @@ This is not a release claim. The next delivery slice is:
 2. **Measured expansion:** the frozen 104-file Pine corpus and
    [capability demand backlog](../development/capability_demand_backlog_zh.md)
    currently show no unexplained Runtime core gap and no P0 Incremental TA
-   implement item; later TA or pinned-library additions still require a
-   realtime workload plus parity fixtures.
+   implement item. Phase 4 therefore does not add Incremental helpers; later TA
+   or pinned-library additions still require a realtime workload plus parity
+   fixtures.
 
 The local wheel, clean-process CLI inspection, typed-state restore, v2 session,
 and independent workbench probes are release gates. CandleScope candidate-host

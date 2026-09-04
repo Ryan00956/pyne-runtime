@@ -128,10 +128,8 @@ Python 脚本；`pyne inspect` 对其报 `PYNE_SYNTAX_ERROR` 符合语言边界�
 Incremental 已支持 `entry` / `close` 等 confirmed-bar API。`*_when` 系列仍是
 batch replay 辅助，不因一个演示脚本自动扩展。
 
-## 对后续阶段的约束
+## 阶段状态
 
-- **Phase 3**：继续验收当前 `0.3.0rc2` CandleScope 纵向链路；不新增 Runtime API。
-- **Phase 4**：不实现 17 项差集。需求榜已给出 `defer` 理由。
-- **Phase 5A**：可改善 inspect/migration 报告，但不得把 Desktop Pine 源码写入仓库。
-- **Phase 5B / 6 / 7 / 8**：启动条件当前不成立（无授权库、无宿主数据源批准、无策略语义缺口证据、无多租户威胁模型）。
+- **Phase 3**：本地 CandleScope bridge/workbench 41 passed、backend focused 10 passed；候选 wheel 已构建。未改 published release lock。
+- **Phase 4**：完成。无 P0/P1 Incremental TA implement 项；17 个 Batch-only helper 全部 `defer`，Incremental 继续 fail-closed。
 - 出现新的已迁移 `.py` / `.pyne` 语料后，必须重新跑 `pyne inspect` 并修订本榜。

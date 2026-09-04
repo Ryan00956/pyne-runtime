@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Closed the Incremental TA expansion slice without adding helpers: the frozen
+  corpus ranks no P0/P1 implement item, so the 17 Batch-only names stay
+  Incremental fail-closed with explicit `defer` reasons.
 - Recorded local CandleScope candidate-host acceptance for the `0.3.0rc2`
   source tree: bridge/workbench focused tests 41 passed, backend focused tests
   10 passed, and a candidate wheel/sdist pair passed Twine without writing
