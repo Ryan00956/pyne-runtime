@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-DOCS_BASE_URL = "https://github.com/Ryan00956/pyne-runtime/tree/main/docs"
+DOCS_BASE_URL = "https://github.com/helenananaa/pyne-runtime/tree/main/docs"
 
 
 ERROR_HINTS: dict[str, str] = {
@@ -108,6 +108,8 @@ def error_docs_url(code: str) -> str | None:
 
 
 def classify_security_error(message: str) -> str:
+    if "Incremental runtime does not support " in message:
+        return "PYNE_UNSUPPORTED_FEATURE"
     if "output series" in message or "output points" in message or "Drawing object limit" in message:
         return "PYNE_OUTPUT_LIMIT_EXCEEDED"
     if "Import" in message or "import" in message:

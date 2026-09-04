@@ -8,17 +8,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Ryan00956/pyne-runtime/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Ryan00956/pyne-runtime/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/helenananaa/pyne-runtime/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/helenananaa/pyne-runtime/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11, 3.12, and 3.13" src="https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Project status: alpha" src="https://img.shields.io/badge/status-alpha-F59E0B">
-  <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-2563EB"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2563EB"></a>
 </p>
 
 <p align="center">
   <a href="docs/quickstart.md">Quickstart</a> &middot;
   <a href="examples/README.md">Examples</a> &middot;
   <a href="docs/index.md">Documentation</a> &middot;
-  <a href="https://github.com/Ryan00956/pyne-runtime/releases">Releases</a> &middot;
+  <a href="https://github.com/helenananaa/pyne-runtime/releases">Releases</a> &middot;
   <a href="docs/reference/current_status.md">Current status</a> &middot;
   <a href="docs/reference/pine_like_api_matrix.md">API matrix</a>
 </p>
@@ -48,7 +48,7 @@ Pyne Runtime is distributed as a universal wheel on GitHub Releases. Pin the
 release tag and exact asset when installing it into a host application:
 
 ```bash
-python -m pip install "https://github.com/Ryan00956/pyne-runtime/releases/download/v0.2.0rc1/pyne_runtime-0.2.0rc1-py3-none-any.whl"
+python -m pip install "https://github.com/helenananaa/pyne-runtime/releases/download/v0.2.0rc1/pyne_runtime-0.2.0rc1-py3-none-any.whl"
 pyne --version
 ```
 
@@ -60,7 +60,7 @@ To run the repository examples, clone the matching tag and install the optional
 development dependencies:
 
 ```bash
-git clone --branch v0.2.0rc1 --depth 1 https://github.com/Ryan00956/pyne-runtime.git
+git clone --branch v0.2.0rc1 --depth 1 https://github.com/helenananaa/pyne-runtime.git
 cd pyne-runtime
 python -m pip install -e ".[dev,pandas]"
 pyne run examples/ma_cross.py --ohlcv examples/sample_ohlcv.csv --out result.json
@@ -124,6 +124,7 @@ script execution and the contract between the script and the host.
 | Use Pyne from a charting or research host | [Host Integration Guide](docs/tutorials/host_integration_guide.md) |
 | Supply higher- or lower-timeframe data | [Host-Backed `request.security()`](docs/tutorials/host_request_security.md) |
 | Process preview and confirmed realtime bars | [Incremental Runtime](docs/concepts/incremental_runtime.md) |
+| Preflight a script or inspect decisions | [Runtime Capabilities](docs/api/capabilities.md), `pyne inspect`, and [Execution Trace](docs/concepts/execution_trace.md) |
 | Consume every renderer and strategy field | [Output Schema](docs/reference/output_schema.md) |
 | Explore runnable scripts | [Packaged Examples](examples/README.md) |
 
@@ -132,11 +133,12 @@ script execution and the contract between the script and the host.
 The repository does not treat API names alone as compatibility evidence. Its
 release gate checks real output, package contracts, and installability.
 
-| Evidence in the current `0.2.0rc1` checkout | Verified surface |
+| Evidence in the current `0.3.0rc2` source candidate | Verified surface |
 | --- | --- |
-| TradingView-backed capture parity | Request **21/21**, Strategy **27/27**, and TA **9/9** captured cases, currently at **0 diff** |
+| TradingView-backed capture parity | Request **21/21**, Strategy **27/27**, and TA **10/10** captured cases, currently at **0 diff**; the external-library slice covers 8 plots and 78 checked points |
 | CI matrix | Linux, Windows, and macOS on Python 3.11, 3.12, and 3.13 |
 | Contract checks | Generated project status, output schemas, public imports, capture parity, and architecture boundaries |
+| Runtime self-description | Static script inspection, versioned batch/incremental capabilities, early unsupported-call diagnostics, and bounded trace-v2 evidence |
 | Distribution checks | Wheel and source build, metadata validation, clean installed-wheel smoke, CLI, and packaged examples |
 
 Capture parity applies to the checked-in fixtures and cases; it is evidence for
@@ -219,4 +221,4 @@ metadata checks, and an offline installed-wheel smoke test. See
 
 ## License
 
-Pyne Runtime is licensed under the [GNU General Public License v3.0](LICENSE).
+Pyne Runtime is licensed under the [MIT License](LICENSE).

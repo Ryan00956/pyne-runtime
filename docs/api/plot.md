@@ -124,6 +124,23 @@ table.cell(summary, 0, 0, "Close")
 table.cell(summary, 1, 0, close)
 ```
 
+The `chart.point` namespace creates mutable coordinate objects:
+
+```python
+start = chart.point.from_index(bar_index[2], high[2])
+finish = chart.point.now(close)
+trend = line.new(start, finish)
+
+finish.price = high
+line.set_second_point(trend, finish)
+```
+
+Available constructors are `chart.point.new(time, index, price)`,
+`chart.point.now(price)`, `chart.point.from_index(index, price)`,
+`chart.point.from_time(time, price)`, and `chart.point.copy(point)`. Drawing
+point overloads select `point.index` for `xloc.bar_index` and `point.time` for
+`xloc.bar_time`.
+
 For object coordinates, series arguments are resolved to their latest valid
 value. This makes history references such as `bar_index[2]` and `close[2]`
 usable in batch execution.
@@ -137,6 +154,8 @@ session.
 Supported `line` methods:
 
 - `line.new(x1, y1, x2, y2, color="#2196f3", width=1, style="solid", extend="none")`
+- `line.new(first_point, second_point, xloc=xloc.bar_index)`
+- `line.set_first_point(ref, point)` / `line.set_second_point(ref, point)`
 - `line.set_xy1(ref, x, y)`
 - `line.set_xy2(ref, x, y)`
 - `line.set_x1(ref, x)`
@@ -147,11 +166,16 @@ Supported `line` methods:
 - `line.set_width(ref, width)`
 - `line.set_style(ref, style)`
 - `line.set_extend(ref, extend)`
+- `line.get_x1(ref)` / `line.get_y1(ref)`
+- `line.get_x2(ref)` / `line.get_y2(ref)`
 - `line.delete(ref)`
+- `line.all` returns a fresh oldest-first array of live handles
 
 Supported `label` methods:
 
 - `label.new(x, y, text="", color="#ffffff", textcolor="#000000")`
+- `label.new(point, text="", color="#ffffff", textcolor="#000000")`
+- `label.set_point(ref, point)`
 - `label.set_xy(ref, x, y)`
 - `label.set_x(ref, x)`
 - `label.set_y(ref, y)`
@@ -160,11 +184,16 @@ Supported `label` methods:
 - `label.set_textcolor(ref, textcolor)`
 - `label.set_style(ref, style)`
 - `label.set_size(ref, size)`
+- `label.set_tooltip(ref, tooltip)`
+- `label.get_x(ref)` / `label.get_y(ref)` / `label.get_text(ref)`
 - `label.delete(ref)`
 
 Supported `box` methods:
 
 - `box.new(left, top, right, bottom, bgcolor="rgba(0,0,0,0)")`
+- `box.new(top_left_point, bottom_right_point, bgcolor="rgba(0,0,0,0)")`
+- `box.set_top_left_point(ref, point)`
+- `box.set_bottom_right_point(ref, point)`
 - `box.set_left(ref, left)`
 - `box.set_top(ref, top)`
 - `box.set_right(ref, right)`
@@ -174,18 +203,41 @@ Supported `box` methods:
 - `box.set_bgcolor(ref, bgcolor)`
 - `box.set_border_color(ref, border_color)`
 - `box.set_border_width(ref, border_width)`
+- `box.set_border_style(ref, border_style)`
+- `box.set_extend(ref, extend)`
+- `box.set_text(ref, text)`
+- `box.set_text_color(ref, color)`
+- `box.set_text_size(ref, size)`
+- `box.set_text_halign(ref, alignment)`
+- `box.set_text_valign(ref, alignment)`
+- `box.get_left(ref)` / `box.get_top(ref)`
+- `box.get_right(ref)` / `box.get_bottom(ref)`
+- `box.copy(ref)`
 - `box.delete(ref)`
+- `box.all` returns a fresh oldest-first array of live handles
 
 Supported `table` methods:
 
 - `table.new(position=position.top_right, columns=1, rows=1)`
 - `table.cell(ref, column, row, text="", text_color="#000000")`
 - `table.clear(ref)`
+- `table.merge_cells(ref, start_column, start_row, end_column, end_row)`
 - `table.set_position(ref, position)`
 - `table.set_bgcolor(ref, bgcolor)`
 - `table.set_frame_color(ref, frame_color)`
 - `table.set_border_color(ref, border_color)`
 - `table.delete(ref)`
+
+Merged regions are bounds-checked and cannot overlap. They are serialized in
+`output.objects.tables[*].merges` under output schema v2.
+
+Output schema v2 also exposes:
+
+- `plotcandle(open, high, low, close, ...)` under `output.candles`.
+- `linefill.new(line1, line2, color=...)`, `linefill.set_color`, and
+  `linefill.delete` under `output.objects.linefills`.
+- `polyline.new(points, ...)` and `polyline.delete` under
+  `output.objects.polylines`. Points must be `chart.point` values.
 
 Table placement constants are available under `position.*`, including
 `position.top_right`, `position.middle_center`, and `position.bottom_left`.
@@ -205,13 +257,15 @@ Common plotting and drawing constants:
   `shape.labelup`, `shape.labeldown`, `shape.square`, `shape.diamond`
 - `location.abovebar`, `location.belowbar`, `location.top`,
   `location.bottom`, `location.absolute`
-- `size.tiny`, `size.small`, `size.normal`, `size.large`, `size.huge`
+- `size.auto`, `size.tiny`, `size.small`, `size.normal`, `size.large`, `size.huge`
 - `display.none`, `display.all`, `display.pane`, `display.data_window`,
   `display.status_line`
-- `format.inherit`, `format.price`, `format.volume`, `format.percent`
+- `format.inherit`, `format.mintick`, `format.price`, `format.volume`,
+  `format.percent`
 - `scale.left`, `scale.right`, `scale.none`
 - `xloc.bar_index`, `xloc.bar_time`
 - `yloc.price`, `yloc.abovebar`, `yloc.belowbar`
+- `extend.none`, `extend.left`, `extend.right`, `extend.both`
 - `text.align_left`, `text.align_center`, `text.align_right`,
   `text.align_top`, `text.align_middle`, `text.align_bottom`
 - `line.style_solid`, `line.style_dashed`, `line.style_dotted`

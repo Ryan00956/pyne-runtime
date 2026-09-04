@@ -9,14 +9,17 @@ from typing import Any
 import numpy as np
 
 from . import utils
-from .cache import pyne_cache
+from .cache import PyneExecutionScope
+from .chart import ChartNamespace
 from .collections import ArrayNamespace, MapNamespace, MatrixNamespace, order_namespace
 from .color import color as color_singleton
 from .context import PyneContext
 from .input import InputModule
 from .math_ext import PyneMath
+from .pine_libraries import PineLibraryRegistry
 from .plot import OutputCollector, create_plot_functions
 from .request import RequestModule, barmerge
+from .runtime_ext import runtime_namespace
 from .security import PyneSecurityPolicy, build_builtins
 from .series import switch as series_switch
 from .series import when as series_when
@@ -27,7 +30,8 @@ from .strategy import StrategyModule
 from .string_ext import string_namespace
 from .ta import TaModule
 from .ticker import TickerNamespace
-from .time_ext import time_namespace
+from .time_ext import dayofweek_namespace, time_namespace
+from .trace import PyneTraceRecorder
 
 
 @dataclass
@@ -38,6 +42,8 @@ class RuntimeServices:
     settings: PyneSettings
     params: dict[str, Any]
     policy: PyneSecurityPolicy
+    execution_scope: PyneExecutionScope | None = None
+    trace: PyneTraceRecorder | None = None
     ta: TaModule = field(init=False)
     input: InputModule = field(init=False)
     state: PyneStateNamespace = field(init=False)
@@ -47,6 +53,10 @@ class RuntimeServices:
     strategy: StrategyModule = field(init=False)
 
     def __post_init__(self) -> None:
+        if self.execution_scope is None:
+            self.execution_scope = PyneExecutionScope.fresh(
+                max_items=self.settings.cache_max_items,
+            )
         self.ta = TaModule(self.ctx)
         self.input = InputModule(params=self.params, context=self.ctx)
         self.state = PyneStateNamespace()
@@ -61,6 +71,15 @@ class RuntimeServices:
             self.collector,
             max_pending_order_operations=self.policy.max_strategy_pending_operations,
         )
+        if self.trace is None:
+            self.trace = PyneTraceRecorder(
+                enabled=self.settings.trace_enabled,
+                max_events=self.settings.trace_max_events,
+                timings_enabled=self.settings.trace_timings_enabled,
+                span_events=self.settings.trace_span_events,
+                slow_span_ms=self.settings.trace_slow_span_ms,
+                redacted_fields=self.settings.trace_redacted_fields,
+            )
 
 
 def build_script_namespace(services: RuntimeServices) -> dict[str, Any]:
@@ -99,7 +118,12 @@ def install_data_namespace(namespace: dict[str, Any], services: RuntimeServices)
     namespace["low"] = ctx.low
     namespace["close"] = ctx.close
     namespace["volume"] = ctx.volume
-    namespace["time"] = time_namespace(ctx.time)
+    namespace["time"] = time_namespace(
+        ctx.time,
+        timeframe=ctx.timeframe,
+        timezone=ctx.syminfo.timezone or "UTC",
+    )
+    namespace["dayofweek"] = dayofweek_namespace(ctx.time, ctx.syminfo.timezone or "UTC")
     namespace["time_close"] = ctx.time_close
     namespace["bar_index"] = ctx.bar_index
     namespace["last_bar_index"] = ctx.last_bar_index
@@ -120,8 +144,11 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
     namespace["ta"] = services.ta
     namespace["input"] = services.input
     namespace["request"] = services.request
+    namespace["pine_library"] = PineLibraryRegistry(services.ctx, services.request)
+    namespace["runtime"] = runtime_namespace
     namespace["barmerge"] = barmerge
     namespace["strategy"] = services.strategy
+    namespace["trace"] = services.trace
     namespace["array"] = ArrayNamespace(
         max_size=services.policy.max_array_size,
         max_depth=services.policy.max_collection_depth,
@@ -141,6 +168,10 @@ def install_api_namespace(namespace: dict[str, Any], services: RuntimeServices) 
     namespace["ticker"] = TickerNamespace(ctx.syminfo)
     namespace["color"] = color_singleton
     namespace["math"] = PyneMath(mintick=getattr(ctx.syminfo, "mintick", 1.0))
+    namespace["chart"] = ChartNamespace(
+        current_time=ctx.time,
+        current_index=ctx.bar_index,
+    )
     namespace["pyne"] = _pyne_namespace(services)
     namespace["cache"] = namespace["pyne"].cache
     namespace["cache_clear"] = namespace["pyne"].cache_clear
@@ -157,6 +188,8 @@ def install_plot_namespace(namespace: dict[str, Any], services: RuntimeServices)
 def install_utility_namespace(namespace: dict[str, Any], services: RuntimeServices) -> None:
     """Install top-level utility functions and common TA aliases."""
     ta = services.ta
+    math_namespace = namespace["math"]
+    chart_time = namespace["time"]
     namespace["crossover"] = utils.crossover
     namespace["cross"] = utils.cross
     namespace["crossunder"] = utils.crossunder
@@ -188,10 +221,49 @@ def install_utility_namespace(namespace: dict[str, Any], services: RuntimeServic
     namespace["wma"] = ta.wma
     namespace["rma"] = ta.rma
     namespace["vwma"] = ta.vwma
+    namespace["vwap"] = ta.vwap
     namespace["rsi"] = ta.rsi
     namespace["macd"] = ta.macd
     namespace["atr"] = ta.atr
     namespace["bb"] = ta.bb
+    namespace["cci"] = ta.cci
+    namespace["linreg"] = ta.linreg
+    namespace["mfi"] = ta.mfi
+    namespace["mom"] = ta.mom
+    namespace["pivothigh"] = ta.pivothigh
+    namespace["pivotlow"] = ta.pivotlow
+    namespace["stdev"] = ta.stdev
+    namespace["stoch"] = ta.stoch
+    namespace["tostring"] = string_namespace.tostring
+    namespace["security"] = _legacy_security(services.request)
+    namespace["heikinashi"] = namespace["ticker"].heikinashi
+    namespace["timestamp"] = chart_time.timestamp
+    namespace["year"] = chart_time.year
+    namespace["month"] = chart_time.month
+    namespace["dayofmonth"] = chart_time.dayofmonth
+    namespace["hour"] = chart_time.hour
+    namespace["minute"] = chart_time.minute
+    namespace["second"] = chart_time.second
+    for name in (
+        "abs",
+        "avg",
+        "ceil",
+        "cos",
+        "exp",
+        "floor",
+        "log",
+        "log10",
+        "max",
+        "min",
+        "pow",
+        "round",
+        "sign",
+        "sin",
+        "sqrt",
+        "sum",
+        "tan",
+    ):
+        namespace[name] = getattr(math_namespace, name)
 
 
 def install_compat_namespace(namespace: dict[str, Any], services: RuntimeServices) -> None:
@@ -207,11 +279,35 @@ def install_builtins_namespace(namespace: dict[str, Any], services: RuntimeServi
 
 
 def _pyne_namespace(services: RuntimeServices) -> SimpleNamespace:
+    if services.execution_scope is None:  # pragma: no cover - guarded by __post_init__
+        raise RuntimeError("Runtime services have no execution scope")
+    cache = services.execution_scope.cache
     return SimpleNamespace(
-        cache=pyne_cache.get_or_load,
-        cache_clear=pyne_cache.clear,
-        cache_stats=pyne_cache.stats,
+        cache=cache.get_or_load,
+        cache_clear=cache.clear,
+        cache_stats=cache.stats,
         var=services.state.var,
         state=services.state.state,
         state_snapshot=services.state.snapshot,
     )
+
+
+def _legacy_security(request: RequestModule) -> Any:
+    """Expose Pine v4's positional ``security`` spelling over request.security."""
+
+    def security(
+        symbol: str,
+        timeframe: str,
+        expression: Any,
+        gaps: str = barmerge.gaps_off,
+        lookahead: str = barmerge.lookahead_off,
+    ) -> Any:
+        return request.security(
+            symbol,
+            timeframe,
+            expression,
+            gaps=gaps,
+            lookahead=lookahead,
+        )
+
+    return security

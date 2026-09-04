@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from pyne_runtime.incremental import IncrementalLimits, PyneIncrementalSessionManager
+from pyne_runtime.incremental import (
+    IncrementalLimits,
+    PyneIncrementalSessionCapacityError,
+    PyneIncrementalSessionManager,
+)
 from pyne_runtime.incremental.limits import _LimitTracker
 from pyne_runtime.security import PyneSecurityError
 
@@ -53,6 +57,55 @@ def test_incremental_session_manager_reference_counts_and_releases() -> None:
 
     manager.release("chart-a")
     assert manager.snapshot()["sessions"] == 0
+
+
+def test_incremental_session_manager_retains_idle_session_until_ttl() -> None:
+    now = {"value": 100.0}
+    manager = PyneIncrementalSessionManager(
+        idle_ttl_seconds=10,
+        clock=lambda: now["value"],
+    )
+    first = manager.acquire("chart-a", DummySession)
+    manager.release("chart-a")
+
+    assert manager.snapshot()["keys"]["chart-a"]["idle"] is True
+    second = manager.acquire("chart-a", DummySession)
+    assert second is first
+    manager.release("chart-a")
+
+    now["value"] = 111.0
+    assert manager.collect_expired() == ["chart-a"]
+    assert manager.snapshot()["sessions"] == 0
+
+
+def test_incremental_session_manager_evicts_lru_idle_session_at_capacity() -> None:
+    now = {"value": 1.0}
+    manager = PyneIncrementalSessionManager(
+        max_sessions=2,
+        idle_ttl_seconds=100,
+        clock=lambda: now["value"],
+    )
+    manager.acquire("old", DummySession)
+    manager.release("old")
+    now["value"] = 2.0
+    active = manager.acquire("active", DummySession)
+    now["value"] = 3.0
+    manager.acquire("new", DummySession)
+
+    state = manager.snapshot()
+    assert set(state["keys"]) == {"active", "new"}
+    assert active.ref_count == 1
+
+
+def test_incremental_session_manager_fails_closed_when_all_slots_are_active() -> None:
+    manager = PyneIncrementalSessionManager(max_sessions=1, idle_ttl_seconds=100)
+    manager.acquire("active", DummySession)
+
+    with pytest.raises(PyneIncrementalSessionCapacityError, match="capacity reached"):
+        manager.acquire("blocked", DummySession)
+
+    assert manager.close("active") is False
+    assert manager.close("active", force=True) is True
 
 
 def test_incremental_session_manager_seeds_once_then_snapshots() -> None:

@@ -219,7 +219,7 @@ def test_weighted_and_regression_work_is_bounded_by_rebase_chunks(monkeypatch) -
     assert calls <= 8
 
 
-def test_pivots_match_unique_centered_window_reference() -> None:
+def test_pivots_match_causal_confirmation_reference() -> None:
     source = np.array([1.0, 3.0, 2.0, 3.0, 1.0, np.nan, 5.0, 4.0, 2.0, -1.0, 2.0])
     left = 2
     right = 1
@@ -568,13 +568,13 @@ def _pivot_reference(
     highest: bool,
 ) -> np.ndarray:
     result = np.full(len(source), np.nan)
-    for index in range(left, len(source) - right):
-        window = source[index - left : index + right + 1]
-        if np.any(np.isnan(window)):
+    for index in range(0, len(source) - right):
+        window = source[max(index - left, 0) : index + right + 1]
+        if np.isnan(source[index]):
             continue
-        target = np.max(window) if highest else np.min(window)
+        target = np.nanmax(window) if highest else np.nanmin(window)
         if source[index] == target and np.sum(window == target) == 1:
-            result[index] = source[index]
+            result[index + right] = source[index]
     return result
 
 

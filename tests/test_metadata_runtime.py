@@ -41,6 +41,8 @@ def test_runtime_metadata_can_be_supplied_through_run() -> None:
 indicator("Metadata", overlay=False)
 plot(syminfo.mintick, "Min Tick")
 plot(1 if syminfo.ticker == "AAPL" else 0, "Ticker Match")
+plot(1 if syminfo.timezone == "America/New_York" else 0, "Timezone Match")
+plot(1 if syminfo.volumetype == "base" else 0, "Volume Type Match")
 plot(timeframe.multiplier, "Timeframe Multiplier")
 plot(1 if timeframe.isintraday else 0, "Intraday")
 plot(1 if timeframe.isdaily else 0, "Daily")
@@ -48,7 +50,13 @@ plot(session.ismarket, "Market")
 """,
         _bars(),
         executor_mode="inline",
-        syminfo={"tickerid": "NASDAQ:AAPL", "mintick": 0.01, "currency": "USD"},
+        syminfo={
+            "tickerid": "NASDAQ:AAPL",
+            "mintick": 0.01,
+            "currency": "USD",
+            "timezone": "America/New_York",
+            "volume_type": "base",
+        },
         timeframe="1h",
         session={"ismarket": False},
     )
@@ -56,6 +64,8 @@ plot(session.ismarket, "Market")
     assert result.ok
     assert result.values("Min Tick") == [0.01, 0.01, 0.01]
     assert result.values("Ticker Match") == [1.0, 1.0, 1.0]
+    assert result.values("Timezone Match") == [1.0, 1.0, 1.0]
+    assert result.values("Volume Type Match") == [1.0, 1.0, 1.0]
     assert result.values("Timeframe Multiplier") == [60.0, 60.0, 60.0]
     assert result.values("Intraday") == [1.0, 1.0, 1.0]
     assert result.values("Daily") == [0.0, 0.0, 0.0]
@@ -173,6 +183,82 @@ def test_timeframe_parses_daily_weekly_and_monthly_periods() -> None:
     assert pn.TimeframeInfo.from_value("2W").isweekly
     assert pn.TimeframeInfo.from_value("3M").ismonthly
     assert pn.TimeframeInfo.from_value("5").multiplier == 5
+
+
+def test_timeframe_exposes_pine_like_type_flags_and_seconds_conversion() -> None:
+    result = pn.run(
+        """
+plot(timeframe.in_seconds(), "Chart Seconds")
+plot(timeframe.in_seconds("2W"), "Two Weeks")
+plot(1 if timeframe.isseconds else 0, "Seconds")
+plot(1 if timeframe.isminutes else 0, "Minutes")
+plot(1 if timeframe.isdwm else 0, "DWM")
+""",
+        _bars(),
+        executor_mode="inline",
+        timeframe="15S",
+    )
+
+    assert result.ok, result.error
+    assert result.values("Chart Seconds") == [15.0, 15.0, 15.0]
+    assert result.values("Two Weeks") == [1_209_600.0, 1_209_600.0, 1_209_600.0]
+    assert result.values("Seconds") == [1.0, 1.0, 1.0]
+    assert result.values("Minutes") == [0.0, 0.0, 0.0]
+    assert result.values("DWM") == [0.0, 0.0, 0.0]
+
+    minute = pn.TimeframeInfo.from_value("30")
+    assert minute.isminutes
+    assert minute.in_seconds() == 1_800
+    daily = pn.TimeframeInfo.from_value("1D")
+    assert daily.isdwm
+    assert daily.in_seconds() == 86_400
+
+
+def test_timeframe_change_and_from_seconds_follow_valid_period_boundaries() -> None:
+    bars = [
+        {
+            "time": 1704153540,  # 2024-01-01 23:59 UTC
+            "open": 1,
+            "high": 1,
+            "low": 1,
+            "close": 1,
+            "volume": 1,
+        },
+        {
+            "time": 1704153600,  # 2024-01-02 00:00 UTC
+            "open": 1,
+            "high": 1,
+            "low": 1,
+            "close": 1,
+            "volume": 1,
+        },
+        {
+            "time": 1704153660,
+            "open": 1,
+            "high": 1,
+            "low": 1,
+            "close": 1,
+            "volume": 1,
+        },
+    ]
+    result = pn.run(
+        """
+plot(timeframe.change("1D"), "New Day")
+plot(timeframe.change("2"), "Two Minutes")
+plot(1 if timeframe.from_seconds(604800) == "1W" else 0, "Exact Week")
+plot(1 if timeframe.from_seconds(604799) == "7D" else 0, "Next Period")
+""",
+        bars,
+        executor_mode="inline",
+        syminfo={"timezone": "UTC"},
+        timeframe="1",
+    )
+
+    assert result.ok, result.error
+    assert result.values("New Day") == [1.0, 1.0, 0.0]
+    assert result.values("Two Minutes") == [1.0, 1.0, 0.0]
+    assert result.values("Exact Week") == [1.0, 1.0, 1.0]
+    assert result.values("Next Period") == [1.0, 1.0, 1.0]
 
 
 def test_strategy_slippage_uses_syminfo_mintick_when_not_overridden() -> None:

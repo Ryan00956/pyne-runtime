@@ -9,6 +9,7 @@ from typing import Any
 
 from ._version import __version__
 from .api import read_ohlcv, run, validate
+from .inspection import inspect_path, inspect_script
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,6 +37,23 @@ def main(argv: list[str] | None = None) -> int:
 
     validate_parser = subparsers.add_parser("validate", help="Validate a Pyne script")
     validate_parser.add_argument("script")
+
+    inspect_parser = subparsers.add_parser(
+        "inspect",
+        help="Print a static runtime requirement manifest for a Pyne script",
+    )
+    inspect_parser.add_argument("script")
+    inspect_parser.add_argument("--runtime-mode", choices=("batch", "incremental"))
+    inspect_parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Inspect matching scripts recursively when the path is a directory",
+    )
+    inspect_parser.add_argument(
+        "--pattern",
+        default="*.py",
+        help="Directory scan glob pattern (default: *.py)",
+    )
 
     schema_parser = subparsers.add_parser("schema", help="Print the Pyne input/output schema")
     schema_parser.set_defaults(schema=True)
@@ -72,6 +90,26 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_cli_error("PYNE_CLI_INPUT_ERROR", str(exc))
         print(json.dumps({"ok": not diagnostics, "diagnostics": diagnostics}, indent=2))
         return 0 if not diagnostics else 1
+
+    if args.command == "inspect":
+        try:
+            path = Path(args.script)
+            if path.is_dir():
+                report = inspect_path(
+                    path,
+                    runtime_mode=args.runtime_mode,
+                    recursive=args.recursive,
+                    pattern=args.pattern,
+                )
+                supported = report["summary"]["unsupportedCount"] == 0
+            else:
+                source = path.read_text(encoding="utf-8")
+                report = inspect_script(source, runtime_mode=args.runtime_mode)
+                supported = report["compatibility"]["supported"]
+        except (OSError, UnicodeError, ValueError) as exc:
+            return _emit_cli_error("PYNE_CLI_INPUT_ERROR", str(exc))
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if supported else 1
 
     if args.command == "schema":
         from .api import schema

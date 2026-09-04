@@ -2,6 +2,115 @@
 
 ## Unreleased
 
+- Relicensed the project from GPL-3.0 to MIT with authorization from the sole
+  contributor, and aligned the repository and package metadata.
+- Hardened the isolated package smoke so the installed wheel must match the
+  repository source schema/capability identity, pass `pyne inspect` without
+  importing the repository `src` tree, and make no package-index request in
+  offline mode. Source-schema comparison now reuses the isolated wheel
+  environment so the repository source has its declared runtime dependencies.
+- Pinned Ruff 0.15.13 for reproducible lint results after the unbounded
+  development dependency produced platform-dependent CI results.
+- Raised the development Twine floor to 7 so isolated builds using Metadata
+  2.5 can be validated consistently outside the latest CI image.
+- Locally accepted the standalone `0.3.0rc2` candidate after two full local
+  gates plus isolated installed-wheel validation. Product adapters and their
+  candidate locks are owned by separate repositories; remote matrix CI, tag,
+  and GitHub Release remain separate decisions.
+- Deferred sandbox and distributed-session work: `safe`/`research` remain
+  language restrictions, `multiTenantSandbox` stays false, and portable
+  snapshots still do not embed providers or replace host coordination.
+- Deferred Incremental strategy `*_when` helpers and new report fields: no
+  frozen strategy workload or capture mismatch justifies expanding the
+  deterministic bar-replay surface.
+- Deferred new `request.*` families: only `security` and `security_lower_tf`
+  remain declared, and unknown families stay fail-closed until a host data
+  source, provider contract, and golden fixture exist.
+- Locked Inspector v2 directory reports as the Phase 5A migration surface and
+  deferred pinned-library expansion: unknown identifiers remain fail-closed
+  without a reviewed owner/library/version/member.
+- Closed the Incremental TA expansion slice without adding helpers: the frozen
+  corpus ranks no P0/P1 implement item, so the 17 Batch-only names stay
+  Incremental fail-closed with explicit `defer` reasons.
+- Froze the 104-file Pine corpus identity and published a reviewed capability
+  demand backlog: no unexplained Runtime core gap, Incremental TA expansion
+  deferred until a realtime workload exists, and third-party libraries remain
+  fail-closed.
+- Aligned Incremental TA helper lists, corpus incremental-surface counts, and
+  TA capture plot/point totals with `runtime_capabilities()` and the live
+  capture gate, and added contract tests that fail on future capability-doc
+  drift.
+- Expanded incremental TA from 27 to 39 helpers with demand-led `change`,
+  `highestbars`, `lowestbars`, `pivothigh`, `pivotlow`, `tr`, `cum`, `swma`,
+  `alma`, `dev`, `bb`, and `pivot_point_levels` implementations, including
+  batch parity, resource bounds, and portable-restore coverage.
+- Added Inspector v2 manifests with directory scanning, provider/output
+  requirements, migration readiness, and signature-aware history estimates.
+- Hardened portable typed-state v2 against duplicate mapping keys, malformed
+  containers, oversized arrays, field shadowing, and graph-reference aliasing;
+  exact restore is covered by a 1,000-bar repeated-restore soak.
+- Made per-span trace events an explicit opt-in while retaining aggregate and
+  slow-span diagnostics by default, and tightened the paired trace-overhead
+  release gate to 1.5x.
+- Added an external TradingView `TradingView/ta/10` capture covering 8 series
+  and 78 checked points at 0 diff, and aligned dynamic RMA/ATR seeding plus
+  pivot confirmation behavior with that evidence.
+- Consolidated batch and incremental trade timestamps, profit percentages, and
+  lifecycle serialization onto shared strategy helpers.
+- Added a versioned, mode-aware runtime capability contract through
+  `pn.runtime_capabilities()` and `pn.schema()`, with early diagnostics for
+  unsupported incremental TA/request calls.
+- Expanded incremental TA with `rma`, `wma`, `vwma`, `variance`, `stdev`,
+  `stoch`, `cci`, `supertrend`, `hma`, `dmi`, `adx`, `sar`, `mfi`, `vwap`,
+  `barssince`, `valuewhen`, `crossover`, `crossunder`, and `cross`, including
+  batch parity and portable-restore coverage.
+- Expanded the pinned `TradingView/ta/10` adapter to nine reviewed members,
+  including dynamic-length `ema2`, `rma2`, and `atr2`; only the two volume
+  members declare authoritative lower-timeframe host-data requirements.
+- Added `pn.inspect_script()` and `pyne inspect` for source-free hashes,
+  mode-aware capability requirements, compatibility diagnostics, external
+  library demand, and host-resource hints before execution.
+- Added portable typed-state snapshot v2 as an opt-in cross-process restore
+  format that omits replay history, uses a fixed runtime type allowlist, and
+  fails closed for arbitrary user types. Replay snapshot v1 remains the default.
+- Added opt-in bounded execution trace schema v2 with hierarchical timing
+  spans, slow-span summaries, configurable field redaction, preview isolation,
+  dropped-event accounting, and script-defined decision events.
+- Added corpus demand reports for the next incremental TA and external-library
+  candidates without executing or copying Pine source.
+- Stabilized the portable-restore performance gate with alternating paired
+  measurements and retained raw samples, plus typed-state-v2/replay-v1 restore
+  and trace-v2 overhead comparisons.
+- Converged batch and incremental strategy order lifecycle serialization on a
+  shared core and added a full lifecycle parity scenario.
+- Isolated ordinary execution and incremental-session caches by default while
+  retaining an explicit host-owned shared execution scope.
+- Added typed provider error categories and a test-runner-independent provider
+  conformance kit; bumped the request-provider schema to version 10.
+- Added bounded TTL/LRU incremental session management, rolling history
+  retention, and process-local snapshot/restore with fail-closed state checks.
+- Added output schema version 2 with `plotcandle`, linefill and polyline drawing
+  objects, and validated merged table cells; output schema version 1 remains a
+  documented legacy fallback.
+- Added a fail-closed pinned external-library registry and the project-required
+  `TradingView/ta/10#requestUpAndDownVolume` adapter backed by authoritative
+  host lower-timeframe OHLCV.
+- Added a reusable batch/incremental parity runner with normalized semantic
+  output comparisons and assertion-ready difference reports.
+- Completed incremental Render IR v2 coverage for candles, line fills,
+  polylines, merged table cells, lifecycle events, retention, and preview
+  isolation.
+- Added incremental `request.security()` and `request.security_lower_tf()`
+  support with typed diagnostics, bounded provider-range caching, and batch
+  parity coverage.
+- Added deterministic, checksummed, size/depth/node-bounded portable session
+  snapshots with fresh-process restore, script/settings validation, and
+  fail-closed provider and retained-history requirements.
+- Added multi-session scaling, bounded-memory, snapshot/restore performance,
+  and stability smoke gates.
+- Split plot namespace/value assembly and TA numerical kernels into focused
+  internal modules without changing the public package API.
+
 ## 0.2.0rc1 - 2026-07-20
 
 - Added a tag-gated GitHub Release workflow that publishes the universal wheel,

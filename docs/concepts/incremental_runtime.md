@@ -40,6 +40,7 @@ session = pn.PyneIncrementalSession(
     script=script,
     params=params,
     settings=pn.PyneSettings(executor_mode="inline"),
+    retention_bars=10_000,
 )
 ```
 
@@ -56,11 +57,12 @@ when present. The seed result is committed history: its plotted lines, markers,
 drawing object snapshot, object events, and strategy report can be rendered as
 the durable chart state.
 
-Committed incremental `ctx.plot()` and `ctx.marker()` output follows the same
-host-facing renderer contract as batch `plot()` and `marker()` for the covered
-surface: line color, width, style, histogram/columns output, marker
-shape/location/size, and default pane assignment from `indicator(...,
-overlay=...)`. Explicit `pane=` values still override the indicator default.
+Committed incremental output follows Render IR v2 for `ctx.plot()`,
+`ctx.plotcandle()`, markers, line/label/box/table objects, line fills,
+polylines, and merged table cells. Line color, width, style,
+histogram/columns output, marker shape/location/size, and default pane
+assignment match the covered batch surface. Explicit `pane=` values still
+override the indicator default.
 
 Send unconfirmed realtime ticks or partial OHLCV updates through
 `on_bar_updated()`:
@@ -109,6 +111,17 @@ strategy ledger. If a preview for the same `time` was already seen,
 `ctx.barstate.isnew` is false during the confirmed callback; if the host sends
 only a closed bar, it is true.
 
+The currently promoted incremental TA helpers are `adx`, `alma`, `atr`,
+`barssince`, `bb`, `boll`, `cci`, `change`, `cross`, `crossover`,
+`crossunder`, `cum`, `dev`, `dmi`, `ema`, `highest`, `highestbars`, `hma`,
+`lowest`, `lowestbars`, `macd`, `mfi`, `pivot_point_levels`, `pivothigh`,
+`pivotlow`, `rma`, `rsi`, `sar`, `sma`, `stdev`, `stoch`, `supertrend`,
+`swma`, `tr`, `valuewhen`, `variance`, `vwap`, `vwma`, and `wma`. Query
+`pn.runtime_capabilities()["modes"]["incremental"]` instead of assuming every
+batch `ta.*` helper has a scalar incremental implementation. `pn.validate()`
+and session preparation report statically visible unsupported `ctx.ta.*` calls
+before bar processing.
+
 Event times must remain monotonic. Once a host has submitted a preview for a
 later bar, it must not submit a closed event for an earlier bar; close the
 current preview bar before advancing to the next preview time.
@@ -130,11 +143,113 @@ current = session.snapshot_result()
 Use it when a UI reconnects, when a viewport range changes, or after a host
 needs to discard a preview overlay and redraw the last committed state.
 
+Committed runtime-managed history is rolling rather than lifetime-bounded.
+`retention_bars` defaults to `PyneSettings.incremental_retention_bars` (10,000)
+and caps retained plot points, markers, object events, strategy logs, and state
+history. `meta.totalCommittedBars` remains an absolute lifetime counter, while
+`meta.retainedBars` and `meta.retentionBars` disclose the current window. The
+initial seed is still bounded by `max_bars`. TA windows, open trades, pending
+orders, and live drawing objects remain as active state even when old report
+history is trimmed.
+
+For process-local recovery, capture committed state separately from the render
+snapshot:
+
+```python
+checkpoint = session.snapshot_state()
+restored = pn.PyneIncrementalSession.from_snapshot(
+    checkpoint,
+    script=script,
+    settings=settings,
+)
+```
+
+`snapshot_state()` includes committed context, TA/state/strategy/drawing state,
+module globals, the session-scoped cache, counters, and retention position. It
+excludes temporary preview state. The snapshot is an opaque in-process Python
+object, not a JSON or distributed persistence format. Script hash, params,
+security mode, snapshot version, and retention policy must match at restore.
+Closures and script-defined classes fail closed because they cannot be safely
+rebound to a fresh execution namespace.
+
+For a bounded checkpoint that can cross process boundaries, the default
+portable format remains replay v1:
+
+```python
+payload = session.snapshot_portable()
+
+restored = pn.PyneIncrementalSession.from_portable_snapshot(
+    payload,
+    script=script,
+    settings=settings,
+)
+```
+
+The portable payload is canonical JSON with a format identifier, version, and
+SHA-256 checksum. Decode and restore enforce byte, nesting-depth, and node-count
+limits before replaying the retained committed bars. The data provider is never
+serialized; a provider-backed session must receive matching settings or an
+explicit provider during restore. Replay export fails closed if the session has
+committed more bars than its `max_bars` replay bound, because a partial history
+could restore different state.
+
+For restart latency independent of replay length, opt into typed-state v2:
+
+```python
+payload = session.snapshot_portable(mode="state")
+# Equivalent convenience spelling:
+payload = session.snapshot_portable_state()
+
+restored = pn.PyneIncrementalSession.from_portable_snapshot(
+    payload,
+    script=script,
+    settings=settings,
+)
+```
+
+Typed-state v2 omits committed replay bars and restores the runtime-managed
+state graph directly. It accepts JSON-like containers, bounded numeric/string
+arrays, and an exact allowlist of Pyne runtime types; it never imports a class
+named by the payload. Unknown user classes, closures, functions, unsupported
+array dtypes, invalid references, and limit violations fail closed. It is not a
+general Python serializer. The script hash, parameters, security and retention
+contracts still have to match, and providers must still be supplied by the
+host. `from_portable_snapshot()` detects replay v1 and typed-state v2 from the
+format identifier.
+
+Use `run_incremental_parity()` when one feature must produce equivalent batch
+and incremental host output:
+
+```python
+report = pn.run_incremental_parity(
+    batch_script=batch_script,
+    incremental_script=incremental_script,
+    data=data,
+)
+report.assert_ok()
+```
+
+The runner normalizes transport-only identifiers before comparing output and
+returns structured differences. Projects can supply a custom semantic-view
+function when only a documented subset should be equivalent.
+
+Incremental callbacks also expose `ctx.request.security()` and
+`ctx.request.security_lower_tf()`. The first returns the requested value aligned
+to the current chart bar; the second returns a `PyneArray` containing the current
+bar's lower-timeframe group. Provider diagnostics are published under
+`result.meta["requestDiagnostics"]`, and authoritative provider ranges are
+cached across callbacks within the runtime output/cache limits. Preview
+diagnostics stay temporary, while fetched provider evidence may warm that
+bounded cache for the matching confirmed callback.
+
 For multi-chart services, `PyneIncrementalSessionManager` provides a small
 in-process shared-session cache:
 
 ```python
-manager = pn.PyneIncrementalSessionManager()
+manager = pn.PyneIncrementalSessionManager(
+    max_sessions=64,
+    idle_ttl_seconds=300,
+)
 shared = manager.acquire(chart_key, lambda: pn.PyneIncrementalSession(script=script))
 
 try:
@@ -147,7 +262,12 @@ finally:
 
 `seed_or_snapshot()` seeds once and returns snapshots afterward. `process_bar()`
 deduplicates identical repeated bar events, which helps UI transports that can
-retry the same message.
+retry the same message. Released sessions with a positive TTL remain idle for
+quick reconnects. `collect_expired()` removes expired idle sessions. When the
+capacity is full, the least-recently-used idle session is evicted; if every slot
+is active, acquisition fails with `PyneIncrementalSessionCapacityError`.
+`close(key)` explicitly removes an idle session, while an active session
+requires the deliberate `force=True` override.
 
 ## Consuming Object Events
 
@@ -177,6 +297,14 @@ Incremental runtime code is split by lifecycle role:
 - `incremental.limits` tracks drawing, state, and resource limits.
 - `incremental.ta` owns step-by-step technical-analysis helpers.
 - `incremental.drawing` owns line, label, box, and table mutation helpers.
+- `incremental.request` adapts the typed batch request provider contract to
+  current-bar scalar and lower-timeframe array results.
+- `incremental.checkpoint` owns the bounded replay-v1 and typed-state-v2
+  portable snapshot envelopes; `incremental.state_codec` owns the fixed typed
+  object-graph allowlist.
+- `incremental.parity` compares normalized batch and incremental semantics.
+- `capabilities` publishes the mode-aware supported surface and early
+  diagnostics.
 - `incremental.strategy` owns scalar current-bar strategy state and callback
     reporting, while reusing shared batch strategy constants and pure helpers.
 - `incremental.context` exposes the callback-facing `ctx` object.

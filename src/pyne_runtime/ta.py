@@ -27,450 +27,28 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from . import utils
+from .collections import PyneArray
 from .series import PyneSeries, to_numpy, wrap_like
+from .ta_kernels import (
+    _ROLLING_REBASE_CHUNK,
+    _FenwickTree as _FenwickTree,
+    _broadcast_pivot_types,
+    _broadcast_ta_input,
+    _fixnan,
+    _pivot_level_values,
+    _rolling_linear_regression_values,
+    _rolling_mean_and_mad,
+    _rolling_nansum as _rolling_nansum,
+    _rolling_percentile_values,
+    _rolling_weighted_average_values,
+    _valid_boolean_correlation,
+    _valid_weighted_convolution,
+    _window_sums as _window_sums,
+)
+from .values import is_na_value
 
 if TYPE_CHECKING:
     from .context import PyneContext
-
-
-def _fixnan(values: np.ndarray) -> np.ndarray:
-    result = np.array(values, dtype=np.float64, copy=True)
-    last = np.nan
-    for idx, value in enumerate(result):
-        if np.isnan(value):
-            if not np.isnan(last):
-                result[idx] = last
-            continue
-        last = value
-    return result
-
-
-_ROLLING_REBASE_CHUNK = 4096
-_FLOAT_EXACT_SCALE = 1 << 1074
-
-
-def _window_sums(values: np.ndarray, period: int) -> np.ndarray:
-    cumulative = np.concatenate(
-        (np.zeros(1, dtype=values.dtype), np.cumsum(values, dtype=values.dtype))
-    )
-    return cumulative[period:] - cumulative[:-period]
-
-
-def _block_window_sums(values: np.ndarray, period: int) -> np.ndarray:
-    """Sum windows from block-local prefixes/suffixes, avoiding cumulative poisoning."""
-    source = np.asarray(values, dtype=np.float64)
-    n = len(source)
-    if period == 1:
-        return source.copy()
-
-    prefix = np.empty(n, dtype=np.float64)
-    suffix = np.empty(n, dtype=np.float64)
-    with np.errstate(over="ignore", invalid="ignore"):
-        for block_start in range(0, n, period):
-            block_stop = min(block_start + period, n)
-            block = source[block_start:block_stop]
-            prefix[block_start:block_stop] = np.cumsum(block)
-            suffix[block_start:block_stop] = np.cumsum(block[::-1])[::-1]
-
-        starts = np.arange(0, n - period + 1, dtype=np.intp)
-        ends = starts + period - 1
-        sums = suffix[starts] + prefix[ends]
-        same_block = starts // period == ends // period
-        sums[same_block] = prefix[ends[same_block]]
-    return sums
-
-
-def _exact_window_sums(values: np.ndarray, period: int) -> np.ndarray:
-    """Accumulate finite binary64 values exactly, rounding once per output window."""
-    source = np.asarray(values, dtype=np.float64)
-    result = np.empty(len(source) - period + 1, dtype=np.float64)
-    window = [0] * period
-    total = 0
-    for index, value in enumerate(source):
-        numerator, denominator = float(value).as_integer_ratio()
-        shift = 1074 - (denominator.bit_length() - 1)
-        scaled_value = numerator << shift
-        slot = index % period
-        if index >= period:
-            total -= window[slot]
-        window[slot] = scaled_value
-        total += scaled_value
-        if index < period - 1:
-            continue
-        output_index = index - period + 1
-        try:
-            result[output_index] = total / _FLOAT_EXACT_SCALE
-        except OverflowError:
-            result[output_index] = np.inf if total > 0 else -np.inf
-    return result
-
-
-def _rolling_nansum(values: np.ndarray, period: int) -> np.ndarray:
-    """Return full-window ``nansum`` values without letting infinities poison later windows."""
-    source = np.asarray(values, dtype=np.float64)
-    finite = np.isfinite(source)
-    finite_values = np.where(finite, source, 0.0)
-    with np.errstate(over="ignore", invalid="ignore"):
-        cumulative = np.concatenate(([0.0], np.cumsum(finite_values)))
-        left = cumulative[period:]
-        right = cumulative[:-period]
-        sums = left - right
-        cancellation_bound = (
-            np.maximum(np.abs(left), np.abs(right)) * np.finfo(np.float64).eps * 4.0
-        )
-    nonfinite_sums = ~np.isfinite(sums)
-    cancellation_risk = np.abs(sums) <= cancellation_bound
-    magnitudes = np.abs(finite_values[finite_values != 0.0])
-    dynamic_range_is_unsafe = bool(
-        len(magnitudes)
-        and np.min(magnitudes) <= np.max(magnitudes) * np.finfo(np.float64).eps * 4.0
-    )
-    if np.any(nonfinite_sums) or dynamic_range_is_unsafe:
-        # Binary64 has a bounded exponent range, so fixed-scale integer
-        # accumulation remains O(n) while recovering after finite overflow.
-        sums = _exact_window_sums(finite_values, period)
-    elif np.any(cancellation_risk):
-        # Prefix subtraction can erase a small window sum after a much larger
-        # historical cumulative value. Block-local prefix/suffix sums recover
-        # without an O(n*period) fallback.
-        sums = _block_window_sums(finite_values, period)
-    positive_infinity = _window_sums((source == np.inf).astype(np.int64), period)
-    negative_infinity = _window_sums((source == -np.inf).astype(np.int64), period)
-
-    both = (positive_infinity > 0) & (negative_infinity > 0)
-    sums[positive_infinity > 0] = np.inf
-    sums[negative_infinity > 0] = -np.inf
-    sums[both] = np.nan
-    return sums
-
-
-def _exact_rolling_weighted_sums(values: np.ndarray, period: int) -> np.ndarray:
-    """Return 1..period weighted sums with exact binary64 accumulation."""
-    source = np.asarray(values, dtype=np.float64)
-    result = np.empty(len(source) - period + 1, dtype=np.float64)
-    scaled_values: list[int] = []
-    for value in source:
-        numerator, denominator = float(value).as_integer_ratio()
-        shift = 1074 - (denominator.bit_length() - 1)
-        scaled_values.append(numerator << shift)
-
-    simple = sum(scaled_values[:period])
-    weighted = sum((index + 1) * value for index, value in enumerate(scaled_values[:period]))
-    for output_index in range(len(result)):
-        try:
-            result[output_index] = weighted / _FLOAT_EXACT_SCALE
-        except OverflowError:
-            result[output_index] = np.inf if weighted > 0 else -np.inf
-        next_index = output_index + period
-        if next_index >= len(source):
-            continue
-        outgoing = scaled_values[output_index]
-        incoming = scaled_values[next_index]
-        weighted = weighted - simple + period * incoming
-        simple = simple - outgoing + incoming
-    return result
-
-
-def _rolling_weighted_sums(values: np.ndarray, period: int) -> np.ndarray:
-    """Return 1..period weighted sums in O(n), periodically rebasing drift."""
-    source = np.asarray(values, dtype=np.float64)
-    n = len(source)
-    result = np.empty(n - period + 1, dtype=np.float64)
-    weights = np.arange(1, period + 1, dtype=np.float64)
-    chunk_size = max(period, _ROLLING_REBASE_CHUNK)
-    first_output = period - 1
-    with np.errstate(over="ignore", invalid="ignore"):
-        for output_start in range(first_output, n, chunk_size):
-            output_stop = min(output_start + chunk_size, n)
-            segment_start = output_start - period + 1
-            segment = source[segment_start:output_stop]
-            simple = float(np.sum(segment[:period]))
-            weighted = float(np.dot(segment[:period], weights))
-            for end_index in range(output_start, output_stop):
-                result[end_index - period + 1] = weighted
-                relative_end = end_index - output_start + period - 1
-                next_index = relative_end + 1
-                if next_index >= len(segment):
-                    continue
-                outgoing = segment[relative_end - period + 1]
-                incoming = segment[next_index]
-                weighted = weighted - simple + period * incoming
-                simple = simple - outgoing + incoming
-
-    # An overflowing recurrence can otherwise remain infinite after the large
-    # value leaves its window. Exact integer state preserves O(n) recovery.
-    if np.any(~np.isfinite(result)) and np.all(np.isfinite(source)):
-        return _exact_rolling_weighted_sums(source, period)
-    return result
-
-
-def _rolling_weighted_average_values(source: np.ndarray, period: int) -> np.ndarray:
-    """Compute finite weighted averages with block-local centering."""
-    values = np.asarray(source, dtype=np.float64)
-    n = len(values)
-    result = np.empty(n - period + 1, dtype=np.float64)
-    denominator = period * (period + 1) / 2.0
-    chunk_size = max(period, _ROLLING_REBASE_CHUNK)
-    first_output = period - 1
-    for output_start in range(first_output, n, chunk_size):
-        output_stop = min(output_start + chunk_size, n)
-        segment_start = output_start - period + 1
-        segment = values[segment_start:output_stop]
-        finite = np.isfinite(segment)
-        anchor = float(np.mean(segment[finite])) if np.any(finite) else 0.0
-        centered = np.where(finite, segment - anchor, 0.0)
-        weighted = _rolling_weighted_sums(centered, period)
-        result[output_start - period + 1 : output_stop - period + 1] = (
-            anchor + weighted / denominator
-        )
-    return result
-
-
-def _rolling_linear_regression_values(
-    source: np.ndarray,
-    period: int,
-    offset: int,
-) -> np.ndarray:
-    """Compute rolling least-squares values in O(n) with centered chunks."""
-    values = np.asarray(source, dtype=np.float64)
-    n = len(values)
-    result = np.full(n, np.nan)
-    if period <= 0 or period > n:
-        return result
-    if period == 1:
-        return values.copy()
-
-    x_mean = (period - 1) / 2.0
-    denom = period * (period * period - 1) / 12.0
-    target_x = float(period - 1 - offset)
-    chunk_size = max(period, _ROLLING_REBASE_CHUNK)
-    first_output = period - 1
-    for output_start in range(first_output, n, chunk_size):
-        output_stop = min(output_start + chunk_size, n)
-        segment_start = output_start - period + 1
-        segment = values[segment_start:output_stop]
-        finite = np.isfinite(segment)
-        if not np.any(finite):
-            continue
-        anchor = float(np.mean(segment[finite]))
-        centered = np.where(finite, segment - anchor, 0.0)
-        counts = _window_sums(finite.astype(np.int64), period)
-        sums = _window_sums(centered, period)
-        weighted = _rolling_weighted_sums(centered, period) - sums
-        slopes = (weighted - x_mean * sums) / denom
-        means = anchor + sums / period
-        values_at_target = means + slopes * (target_x - x_mean)
-        values_at_target[counts != period] = np.nan
-        result[output_start:output_stop] = values_at_target
-    return result
-
-
-class _FenwickTree:
-    """Coordinate-compressed rolling counts and sums in O(log n)."""
-
-    def __init__(self, size: int) -> None:
-        self.counts = np.zeros(size + 1, dtype=np.int64)
-        self.sums = [0] * (size + 1)
-
-    def add(self, index: int, count: int, value: int) -> None:
-        position = index + 1
-        while position < len(self.counts):
-            self.counts[position] += count
-            self.sums[position] += value
-            position += position & -position
-
-    def prefix(self, stop: int) -> tuple[int, int]:
-        count = 0
-        total = 0
-        position = stop
-        while position > 0:
-            count += int(self.counts[position])
-            total += self.sums[position]
-            position -= position & -position
-        return count, total
-
-    def kth(self, order: int) -> int:
-        """Return the zero-based coordinate containing a one-based order statistic."""
-        position = 0
-        size = len(self.counts) - 1
-        step = 1 << (size.bit_length() - 1)
-        remaining = int(order)
-        while step:
-            candidate = position + step
-            if candidate < len(self.counts) and self.counts[candidate] < remaining:
-                remaining -= int(self.counts[candidate])
-                position = candidate
-            step >>= 1
-        return position
-
-
-def _rolling_mean_and_mad(
-    source: np.ndarray,
-    period: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Return full-window means and exact mean absolute deviations in O(n log n)."""
-    values = np.asarray(source, dtype=np.float64)
-    n = len(values)
-    means = np.full(n, np.nan)
-    deviations = np.full(n, np.nan)
-    if period <= 0 or period > n:
-        return means, deviations
-
-    finite = np.isfinite(values)
-    if period == 1:
-        means[finite] = values[finite]
-        deviations[finite] = 0.0
-        return means, deviations
-    if not np.any(finite):
-        return means, deviations
-    coordinates = np.unique(values[finite])
-    ranks = np.full(n, -1, dtype=np.intp)
-    ranks[finite] = np.searchsorted(coordinates, values[finite])
-    scaled_values = [0] * n
-    for index in np.flatnonzero(finite):
-        numerator, denominator = float(values[index]).as_integer_ratio()
-        shift = 1074 - (denominator.bit_length() - 1)
-        scaled_values[int(index)] = numerator << shift
-    tree = _FenwickTree(len(coordinates))
-    invalid_count = 0
-    window_sum = 0
-
-    for index in range(n):
-        if finite[index]:
-            scaled = scaled_values[index]
-            tree.add(int(ranks[index]), 1, scaled)
-            window_sum += scaled
-        else:
-            invalid_count += 1
-        if index >= period:
-            outgoing = index - period
-            if finite[outgoing]:
-                scaled = scaled_values[outgoing]
-                tree.add(int(ranks[outgoing]), -1, -scaled)
-                window_sum -= scaled
-            else:
-                invalid_count -= 1
-        if index < period - 1 or invalid_count:
-            continue
-
-        mean = window_sum / (_FLOAT_EXACT_SCALE * period)
-        split = int(np.searchsorted(coordinates, mean, side="right"))
-        left_count, left_sum = tree.prefix(split)
-        right_count = period - left_count
-        right_sum = window_sum - left_sum
-        minimum = tree.kth(1)
-        maximum = tree.kth(period)
-        if minimum == maximum:
-            means[index] = mean
-            deviations[index] = 0.0
-            continue
-        absolute_numerator = (
-            window_sum * left_count
-            - period * left_sum
-            + period * right_sum
-            - window_sum * right_count
-        )
-        means[index] = mean
-        deviations[index] = max(
-            absolute_numerator / (_FLOAT_EXACT_SCALE * period * period),
-            0.0,
-        )
-    return means, deviations
-
-
-def _interpolate_hazen(lower: float, upper: float, fraction: float) -> float:
-    with np.errstate(over="ignore", invalid="ignore"):
-        difference = upper - lower
-        if fraction >= 0.5:
-            return float(upper - difference * (1.0 - fraction))
-        return float(lower + difference * fraction)
-
-
-def _rolling_percentile_values(
-    source: np.ndarray,
-    period: int,
-    percentage: float,
-    *,
-    linear: bool,
-) -> np.ndarray:
-    """Compute exact rolling order statistics in O(n log n)."""
-    values = np.asarray(source, dtype=np.float64)
-    n = len(values)
-    result = np.full(n, np.nan)
-    if period <= 0 or period > n:
-        return result
-
-    valid = ~np.isnan(values)
-    if not np.any(valid):
-        return result
-    coordinates = np.unique(values[valid])
-    ranks = np.full(n, -1, dtype=np.intp)
-    ranks[valid] = np.searchsorted(coordinates, values[valid])
-    tree = _FenwickTree(len(coordinates))
-    invalid_count = 0
-    pct = float(np.clip(percentage, 0.0, 100.0))
-    nearest_rank = max(int(np.ceil(pct / 100.0 * period)), 1)
-    virtual_index = pct / 100.0 * period - 0.5
-
-    for index in range(n):
-        if valid[index]:
-            tree.add(int(ranks[index]), 1, 0.0)
-        else:
-            invalid_count += 1
-        if index >= period:
-            outgoing = index - period
-            if valid[outgoing]:
-                tree.add(int(ranks[outgoing]), -1, 0.0)
-            else:
-                invalid_count -= 1
-        if index < period - 1 or invalid_count:
-            continue
-
-        if not linear:
-            result[index] = coordinates[tree.kth(nearest_rank)]
-            continue
-        if virtual_index < 0.0:
-            boundary = float(coordinates[tree.kth(1)])
-            result[index] = _interpolate_hazen(boundary, boundary, 0.0)
-            continue
-        if virtual_index >= period - 1:
-            boundary = float(coordinates[tree.kth(period)])
-            result[index] = _interpolate_hazen(boundary, boundary, 0.0)
-            continue
-        lower_order = int(np.floor(virtual_index)) + 1
-        fraction = virtual_index - np.floor(virtual_index)
-        lower = float(coordinates[tree.kth(lower_order)])
-        upper = float(coordinates[tree.kth(lower_order + 1)])
-        result[index] = _interpolate_hazen(lower, upper, fraction)
-    return result
-
-
-_DIRECT_CONVOLUTION_WORK_LIMIT = 1_000_000
-
-
-def _valid_weighted_convolution(values: np.ndarray, weights: np.ndarray) -> np.ndarray:
-    """Return valid correlation, switching to FFT before direct work can grow quadratic."""
-    source = np.asarray(values, dtype=np.float64)
-    kernel = np.asarray(weights, dtype=np.float64)
-    if len(source) * len(kernel) <= _DIRECT_CONVOLUTION_WORK_LIMIT:
-        return np.correlate(source, kernel, mode="valid")
-
-    finite = np.isfinite(source)
-    anchor = float(np.mean(source[finite])) if np.any(finite) else 0.0
-    centered = np.where(finite, source - anchor, 0.0)
-    output_size = len(source) + len(kernel) - 1
-    fft_size = 1 << (output_size - 1).bit_length()
-    transformed = np.fft.rfft(centered, fft_size) * np.fft.rfft(kernel[::-1], fft_size)
-    convolution = np.fft.irfft(transformed, fft_size)[:output_size]
-    return convolution[len(kernel) - 1 : len(source)] + anchor * np.sum(kernel)
-
-
-def _valid_boolean_correlation(values: np.ndarray, weights: np.ndarray) -> np.ndarray:
-    correlated = _valid_weighted_convolution(
-        np.asarray(values, dtype=np.float64),
-        np.asarray(weights, dtype=np.float64),
-    )
-    return np.rint(correlated).astype(np.int64)
 
 
 def _rolling_variance_values(source: np.ndarray, period: int, ddof: int) -> np.ndarray:
@@ -768,6 +346,205 @@ class TaModule:
             )
 
         return wrap_like(result, src)
+
+    def vwap(
+        self,
+        source: PyneSeries | np.ndarray | None = None,
+        anchor: PyneSeries | np.ndarray | bool | None = None,
+        stdev_mult: PyneSeries | np.ndarray | float | None = None,
+    ) -> (
+        PyneSeries
+        | np.ndarray
+        | tuple[
+            PyneSeries | np.ndarray,
+            PyneSeries | np.ndarray,
+            PyneSeries | np.ndarray,
+        ]
+    ):
+        """Session or explicitly anchored Volume-Weighted Average Price.
+
+        Pine equivalents:
+        ``ta.vwap(source)``, ``ta.vwap(source, anchor)``, and
+        ``ta.vwap(source, anchor, stdev_mult)``.
+        """
+        if self._ctx is None:
+            raise RuntimeError("ta.vwap() requires OHLCV data from a Pyne runtime context")
+        if source is None:
+            source = self._ctx.hlc3
+
+        source_values = to_numpy(source, dtype=np.float64)
+        volume_values = to_numpy(self._ctx.volume, dtype=np.float64)
+        if source_values.ndim != 1:
+            raise ValueError("ta.vwap() source must be a one-dimensional series")
+        if volume_values.ndim != 1 or len(volume_values) != len(source_values):
+            raise ValueError("ta.vwap() volume must match the source length")
+        length = len(source_values)
+
+        if anchor is None:
+            session_anchor = to_numpy(self._ctx.session.isfirstbar, dtype=bool)
+            if len(session_anchor) == length and np.any(session_anchor[1:]):
+                anchor_values = session_anchor
+            else:
+                anchor_values = to_numpy(self._ctx.timeframe.change("1D"), dtype=bool)
+        else:
+            raw_anchor = _broadcast_ta_input(anchor, length, "anchor")
+            anchor_values = np.isfinite(raw_anchor) & (raw_anchor != 0.0)
+
+        multipliers = (
+            None if stdev_mult is None else _broadcast_ta_input(stdev_mult, length, "stdev_mult")
+        )
+        result = np.full(length, np.nan, dtype=np.float64)
+        upper = np.full(length, np.nan, dtype=np.float64)
+        lower = np.full(length, np.nan, dtype=np.float64)
+        running = False
+        volume_sum = 0.0
+        weighted_sum = 0.0
+        weighted_square_sum = 0.0
+
+        for index in range(length):
+            if bool(anchor_values[index]):
+                running = True
+                volume_sum = 0.0
+                weighted_sum = 0.0
+                weighted_square_sum = 0.0
+            if not running:
+                continue
+
+            price = source_values[index]
+            bar_volume = volume_values[index]
+            if not np.isfinite(price) or not np.isfinite(bar_volume):
+                continue
+            volume_sum += bar_volume
+            weighted_sum += price * bar_volume
+            weighted_square_sum += price * price * bar_volume
+            if volume_sum == 0.0:
+                continue
+
+            value = weighted_sum / volume_sum
+            result[index] = value
+            if multipliers is None or is_na_value(multipliers[index]):
+                continue
+            variance = max(weighted_square_sum / volume_sum - value * value, 0.0)
+            deviation = np.sqrt(variance) * multipliers[index]
+            upper[index] = value + deviation
+            lower[index] = value - deviation
+
+        wrapped = wrap_like(result, source, name="vwap")
+        if multipliers is None:
+            return wrapped
+        return (
+            wrapped,
+            wrap_like(upper, source, name="vwap.upper"),
+            wrap_like(lower, source, name="vwap.lower"),
+        )
+
+    def pivot_point_levels(
+        self,
+        type: str | PyneSeries | np.ndarray,
+        anchor: PyneSeries | np.ndarray | bool,
+        developing: PyneSeries | np.ndarray | bool = False,
+    ) -> PyneArray:
+        """Return Pine-ordered pivot levels as eleven chart-aligned series.
+
+        The returned array order is ``P, R1, S1, ... R5, S5``. With
+        ``developing=False``, a true anchor calculates a fixed level set from
+        the completed period and keeps it until the next anchor. Developing
+        levels instead use the current partial period on every bar.
+        """
+        if self._ctx is None:
+            raise RuntimeError(
+                "ta.pivot_point_levels() requires OHLC data from a Pyne runtime context"
+            )
+
+        opens = to_numpy(self._ctx.open, dtype=np.float64)
+        highs = to_numpy(self._ctx.high, dtype=np.float64)
+        lows = to_numpy(self._ctx.low, dtype=np.float64)
+        closes = to_numpy(self._ctx.close, dtype=np.float64)
+        length = len(closes)
+        pivot_types = _broadcast_pivot_types(type, length)
+        anchor_values = _broadcast_ta_input(
+            anchor,
+            length,
+            "anchor",
+            function="ta.pivot_point_levels()",
+        )
+        developing_values = _broadcast_ta_input(
+            developing,
+            length,
+            "developing",
+            function="ta.pivot_point_levels()",
+        )
+        anchors = np.isfinite(anchor_values) & (anchor_values != 0.0)
+        is_developing = np.isfinite(developing_values) & (developing_values != 0.0)
+        if any(
+            pivot_type == "woodie" and bool(is_developing[index])
+            for index, pivot_type in enumerate(pivot_types)
+        ):
+            raise ValueError(
+                "ta.pivot_point_levels() does not allow developing=True with the Woodie type"
+            )
+
+        output = np.full((11, length), np.nan, dtype=np.float64)
+        fixed_levels = np.full(11, np.nan, dtype=np.float64)
+        period_open = np.nan
+        period_high = np.nan
+        period_low = np.nan
+        period_close = np.nan
+        period_has_bars = False
+
+        for index in range(length):
+            if bool(anchors[index]):
+                if period_has_bars:
+                    fixed_levels = _pivot_level_values(
+                        pivot_types[index],
+                        period_open=period_open,
+                        period_high=period_high,
+                        period_low=period_low,
+                        period_close=period_close,
+                        current_open=opens[index],
+                    )
+                else:
+                    fixed_levels = np.full(11, np.nan, dtype=np.float64)
+                period_open = np.nan
+                period_high = np.nan
+                period_low = np.nan
+                period_close = np.nan
+                period_has_bars = False
+
+            if not period_has_bars:
+                period_open = opens[index]
+                period_has_bars = True
+            if np.isfinite(highs[index]):
+                period_high = (
+                    highs[index] if not np.isfinite(period_high) else max(period_high, highs[index])
+                )
+            if np.isfinite(lows[index]):
+                period_low = (
+                    lows[index] if not np.isfinite(period_low) else min(period_low, lows[index])
+                )
+            if np.isfinite(closes[index]):
+                period_close = closes[index]
+
+            levels = fixed_levels
+            if bool(is_developing[index]):
+                levels = _pivot_level_values(
+                    pivot_types[index],
+                    period_open=period_open,
+                    period_high=period_high,
+                    period_low=period_low,
+                    period_close=period_close,
+                    current_open=period_open,
+                )
+            output[:, index] = levels
+
+        return PyneArray(
+            wrap_like(
+                output[level_index],
+                self._ctx.close,
+                name=f"pivot_point_levels[{level_index}]",
+            )
+            for level_index in range(11)
+        )
 
     def rma(self, src: PyneSeries | np.ndarray, period: int) -> PyneSeries | np.ndarray:
         """Running Moving Average (Wilder's smoothing).

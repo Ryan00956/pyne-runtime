@@ -106,14 +106,7 @@ class StrategyTradesNamespace:
             if self._kind == "closedtrades"
             else self._strategy._open_trades
         )
-        if not trades:
-            return {"_empty_ledger": True} if int(trade_num) in {-1, 0} else {}
-        index = int(trade_num)
-        if index < 0:
-            index = len(trades) + index
-        if index < 0 or index >= len(trades):
-            return {}
-        return trades[index]
+        return _trade_at(trades, trade_num)
 
     def _trade_float(self, trade_num: int, key: str) -> float | PyneSeries:
         if self._strategy._process_orders_on_close:
@@ -143,6 +136,7 @@ def _trade_profit_percent(
     trade: dict[str, Any],
     *,
     close_price: float | None = None,
+    profit: float | None = None,
 ) -> float:
     if trade.get("_empty_ledger"):
         return 0.0
@@ -151,12 +145,35 @@ def _trade_profit_percent(
     denominator = qty * entry_price
     if is_na_value(denominator) or denominator <= 0:
         return float("nan")
-    profit = _trade_float(trade, "profit")
-    if is_na_value(profit) and close_price is not None:
-        profit = _trade_open_profit(trade, float(close_price))
-    if is_na_value(profit):
+    resolved_profit = _trade_float(trade, "profit") if profit is None else float(profit)
+    if is_na_value(resolved_profit) and close_price is not None:
+        resolved_profit = _trade_open_profit(trade, float(close_price))
+    if is_na_value(resolved_profit):
         return float("nan")
-    return round(float(profit) / denominator * 100.0, 8)
+    return round(float(resolved_profit) / denominator * 100.0, 8)
+
+
+def _trade_at(trades: list[dict[str, Any]], trade_num: int) -> dict[str, Any]:
+    if not trades:
+        return {"_empty_ledger": True} if int(trade_num) in {-1, 0} else {}
+    index = int(trade_num)
+    if index < 0:
+        index = len(trades) + index
+    if index < 0 or index >= len(trades):
+        return {}
+    return trades[index]
+
+
+def _event_time(item: dict[str, Any]) -> int:
+    for key in ("exit_time", "time", "entry_time", "_submit_time"):
+        value = item.get(key)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return -1
 
 
 def _trades_by_bar(

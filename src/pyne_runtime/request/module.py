@@ -13,7 +13,12 @@ from .alignment import (
     _align_request_values,
     _normalize_request_option,
 )
-from .errors import PyneInvalidSymbolError, PyneRequestError
+from .errors import (
+    PyneInvalidSymbolError,
+    PyneProviderError,
+    PyneRequestError,
+    RequestProviderErrorCategory,
+)
 from .eval import (
     RequestEvalContext,
     RequestValues,
@@ -102,7 +107,7 @@ class RequestModule:
             raise PyneRequestError(
                 "request.security() requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
-                category="missingProvider",
+                category=RequestProviderErrorCategory.MISSING_PROVIDER,
                 request_context=request_context,
             )
         try:
@@ -116,7 +121,7 @@ class RequestModule:
             raise PyneRequestError(
                 "request.security() requires provider capability 'request.security'",
                 code="PYNE_UNSUPPORTED_FEATURE",
-                category="unsupportedCapability",
+                category=RequestProviderErrorCategory.UNSUPPORTED_CAPABILITY,
                 request_context=request_context,
             )
         if self._evaluating:
@@ -253,7 +258,7 @@ class RequestModule:
             raise PyneRequestError(
                 "request.security_lower_tf() requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
-                category="missingProvider",
+                category=RequestProviderErrorCategory.MISSING_PROVIDER,
                 request_context=request_context,
             )
         try:
@@ -268,7 +273,7 @@ class RequestModule:
                 "request.security_lower_tf() requires provider capability "
                 "'request.security_lower_tf'",
                 code="PYNE_UNSUPPORTED_FEATURE",
-                category="unsupportedCapability",
+                category=RequestProviderErrorCategory.UNSUPPORTED_CAPABILITY,
                 request_context=request_context,
             )
         if self._evaluating:
@@ -390,7 +395,7 @@ class RequestModule:
             raise PyneRequestError(
                 "request context requires a host data provider",
                 code="PYNE_UNSUPPORTED_FEATURE",
-                category="missingProvider",
+                category=RequestProviderErrorCategory.MISSING_PROVIDER,
                 request_context=request_context,
             )
 
@@ -455,16 +460,23 @@ class RequestModule:
                     raise PyneRequestError(
                         f"Invalid symbol for request.security(): {symbol}",
                         code="PYNE_INVALID_SYMBOL",
-                        category="invalidSymbol",
+                        category=RequestProviderErrorCategory.INVALID_SYMBOL,
                         request_context=request_context,
                     ) from exc
             except PyneRequestError as exc:
                 raise exc.with_request_context(**request_context) from exc
+            except PyneProviderError as exc:
+                raise PyneRequestError(
+                    str(exc),
+                    code=exc.code,
+                    category=exc.category,
+                    request_context=request_context,
+                ) from exc
             except Exception as exc:
                 raise PyneRequestError(
                     f"request data provider failed: {exc}",
                     code="PYNE_RUNTIME_ERROR",
-                    category="providerFailure",
+                    category=RequestProviderErrorCategory.PROVIDER_FAILURE,
                     request_context=request_context,
                 ) from exc
 
@@ -472,7 +484,7 @@ class RequestModule:
                 raise PyneRequestError(
                     "request data provider must return a list of OHLCV bars",
                     code="PYNE_RUNTIME_ERROR",
-                    category="invalidReturnType",
+                    category=RequestProviderErrorCategory.INVALID_RETURN_TYPE,
                     request_context=request_context,
                 )
             for index, item in enumerate(requested):
@@ -480,14 +492,14 @@ class RequestModule:
                     raise PyneRequestError(
                         f"request data provider returned non-mapping bar at row {index}",
                         code="PYNE_RUNTIME_ERROR",
-                        category="invalidBarShape",
+                        category=RequestProviderErrorCategory.INVALID_BAR_SHAPE,
                         request_context=request_context,
                     )
                 if "time" not in item:
                     raise PyneRequestError(
                         f"request data provider returned OHLCV bar without time at row {index}",
                         code="PYNE_RUNTIME_ERROR",
-                        category="invalidBarShape",
+                        category=RequestProviderErrorCategory.INVALID_BAR_SHAPE,
                         request_context=request_context,
                     )
             requested = sorted(requested, key=lambda item: int(item.get("time", 0)))
@@ -552,7 +564,7 @@ class RequestModule:
             raise PyneRequestError(
                 f"request data provider returned invalid OHLCV: {exc}",
                 code="PYNE_RUNTIME_ERROR",
-                category="invalidBarShape",
+                category=RequestProviderErrorCategory.INVALID_BAR_SHAPE,
                 request_context=request_context,
             ) from exc
         cached = (
@@ -649,7 +661,7 @@ class RequestModule:
             raise PyneRequestError(
                 f"request.security() expression failed: {exc}",
                 code="PYNE_RUNTIME_ERROR",
-                category="expressionFailure",
+                category=RequestProviderErrorCategory.EXPRESSION_FAILURE,
                 request_context=request_context,
             ) from exc
         finally:

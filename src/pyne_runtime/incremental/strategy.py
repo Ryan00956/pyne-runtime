@@ -18,9 +18,18 @@ from ..strategy.costs import (
     _margin_required,
     _normalize_commission_type,
 )
-from ..strategy.ledger import _trade_float, _trade_open_profit
+from ..strategy.ledger import (
+    _closed_trade,
+    _event_time,
+    _trade_at,
+    _trade_float,
+    _trade_open_profit,
+    _trade_profit_percent,
+    _trade_realized_profit,
+)
 from ..strategy.orders import (
     _exit_trigger,
+    _incremental_strategy_lifecycle_events,
     _normalize_intrabar_path,
     _normalize_oca_type,
     _normalize_same_bar_fill_priority,
@@ -162,15 +171,7 @@ class IncrementalStrategyTradesNamespace:
         return self._strategy._open_trades
 
     def _trade(self, trade_num: int) -> dict[str, Any]:
-        trades = self._trades()
-        if not trades:
-            return {"_empty_ledger": True} if int(trade_num) in {-1, 0} else {}
-        index = int(trade_num)
-        if index < 0:
-            index = len(trades) + index
-        if index < 0 or index >= len(trades):
-            return {}
-        return trades[index]
+        return _trade_at(self._trades(), trade_num)
 
 
 class IncrementalStrategyNamespace:
@@ -237,6 +238,25 @@ class IncrementalStrategyNamespace:
     def _append_closed_trade(self, trade: dict[str, Any]) -> None:
         self._context._limit_tracker.reserve_strategy_log()
         self._closed_trades.append(trade)
+
+    def prune_history(self, cutoff_time: int) -> None:
+        """Trim report logs while preserving live pending/open position state."""
+
+        cutoff = int(cutoff_time)
+        live_order_ids = {
+            id(order) for order in (*self._pending_orders, *self._pending_exit_orders)
+        }
+        self._orders = [
+            order
+            for order in self._orders
+            if id(order) in live_order_ids or _event_time(order) >= cutoff
+        ]
+        self._closed_trades = [
+            trade for trade in self._closed_trades if _event_time(trade) >= cutoff
+        ]
+        self._context._limit_tracker.strategy_log_entries = (
+            len(self._orders) + len(self._closed_trades)
+        )
 
     def configure(self, **kwargs: Any) -> None:
         if "pyramiding" in kwargs:
@@ -1210,12 +1230,7 @@ class IncrementalStrategyNamespace:
             closing_qty = min(trade_qty, remaining)
             remaining -= closing_qty
             side = str(trade["side"])
-            profit = _realized_profit(
-                side=side,
-                qty=closing_qty,
-                entry_price=float(trade["entry_price"]),
-                exit_price=fill_price,
-            )
+            profit = _trade_realized_profit(trade, closing_qty, fill_price)
             entry_commission = float(trade.get("commission", 0.0))
             reported_profit = profit
             if entry_commission > 0 and closing_qty < trade_qty:
@@ -1227,25 +1242,20 @@ class IncrementalStrategyNamespace:
                 self._grossprofit += profit
             else:
                 self._grossloss += profit
-            closed_trade = {
-                "entry_id": trade.get("entry_id", ""),
-                "exit_id": exit_id,
-                "side": side,
-                "qty": _round8(closing_qty),
-                "entry_price": trade.get("entry_price"),
-                "exit_price": _round8(fill_price),
-                "entry_time": trade.get("entry_time"),
-                "exit_time": self._current_time(),
-                "profit": _round8(reported_profit),
-                "commission": _round8(entry_commission_share + exit_commission_share),
-                "net_profit": _round8(
-                    reported_profit - entry_commission_share - exit_commission_share
-                ),
-            }
-            if trade.get("entry_comment"):
-                closed_trade["entry_comment"] = str(trade.get("entry_comment", ""))
-            if exit_comment:
-                closed_trade["exit_comment"] = str(exit_comment)
+            closed_trade = _closed_trade(
+                previous_trade=trade,
+                order={
+                    "id": exit_id,
+                    "time": self._current_time(),
+                    "comment": exit_comment,
+                },
+                qty=closing_qty,
+                exit_price=fill_price,
+                profit=reported_profit,
+                commission=entry_commission_share + exit_commission_share,
+            )
+            closed_trade.pop("_entry_bar_index", None)
+            closed_trade.pop("_exit_bar_index", None)
             self._append_closed_trade(closed_trade)
             closed_signed_qty += closing_qty if side == self.long else -closing_qty
             leftover_qty = trade_qty - closing_qty
@@ -1318,24 +1328,6 @@ def _signed_trade_qty(trade: dict[str, Any]) -> float:
     qty = abs(float(trade.get("qty", 0.0)))
     return qty if trade.get("side") == IncrementalStrategyNamespace.long else -qty
 
-def _realized_profit(*, side: str, qty: float, entry_price: float, exit_price: float) -> float:
-    if side == IncrementalStrategyNamespace.long:
-        return (float(exit_price) - float(entry_price)) * abs(float(qty))
-    return (float(entry_price) - float(exit_price)) * abs(float(qty))
-
-def _trade_profit_percent(trade: dict[str, Any], *, profit: float | None = None) -> float:
-    if trade.get("_empty_ledger"):
-        return 0.0
-    qty = abs(_trade_float(trade, "qty"))
-    entry_price = abs(_trade_float(trade, "entry_price"))
-    denominator = qty * entry_price
-    if math.isnan(denominator) or denominator <= 0:
-        return math.nan
-    trade_profit = _trade_float(trade, "profit") if profit is None else float(profit)
-    if math.isnan(trade_profit):
-        return math.nan
-    return _round8(trade_profit / denominator * 100.0)
-
 def _requested_exit_qty(
     *,
     target_qty: float,
@@ -1349,99 +1341,8 @@ def _requested_exit_qty(
         return target * max(float(qty_percent), 0.0) / 100.0
     return target
 
+
 def _optional_float(value: Any) -> float | None:
     if value is None:
         return None
     return float(value)
-
-def _incremental_strategy_lifecycle_events(orders: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    events = []
-    for order in sorted(
-        orders,
-        key=lambda item: (item.get("_submit_time", item.get("time", 0)), item.get("_seq", 0)),
-    ):
-        order_type = str(order.get("type", ""))
-        pending = bool(order.get("_pending_submission"))
-        active = bool(order.get("_active", True))
-        canceled = bool(order.get("_canceled")) or order_type in {"cancel", "cancel_all"}
-        rejected = bool(order.get("_rejected_reason"))
-        if canceled:
-            status = "canceled"
-            phase = "pending_canceled" if pending else "cancel"
-        elif rejected:
-            status = "rejected"
-            phase = "pending_rejected" if pending else "rejected"
-        elif active:
-            status = "filled"
-            phase = (
-                "pending_fill"
-                if pending
-                else "exit_fill"
-                if order_type == "exit"
-                else "close_fill"
-                if order_type == "close"
-                else "close_all_fill"
-                if order_type == "close_all"
-                else "market_fill"
-            )
-        elif pending:
-            status = "pending"
-            phase = "pending"
-        else:
-            status = "submitted"
-            phase = order_type
-        event: dict[str, Any] = {
-            "id": order.get("id"),
-            "from_entry": order.get("from_entry"),
-            "type": order_type,
-            "status": status,
-            "phase": phase,
-            "submitted_time": order.get("_submit_time", order.get("time")),
-            "filled_time": order.get("time") if active and not canceled else None,
-            "canceled_time": order.get("_canceled_time", order.get("time")) if canceled else None,
-            "rejected_time": order.get("_rejected_time") if rejected else None,
-            "side": order.get("side"),
-            "qty": order.get("qty"),
-            "price": order.get("price"),
-            "position_after": order.get("position_after"),
-        }
-        if order.get("reason") is not None:
-            event["reason"] = order.get("reason")
-        if order.get("comment") is not None:
-            event["comment"] = order.get("comment")
-        if order.get("commission") is not None:
-            event["commission"] = order.get("commission")
-        if order.get("oca_name") is not None:
-            event["oca_name"] = order.get("oca_name")
-        if order.get("oca_type") is not None:
-            event["oca_type"] = order.get("oca_type")
-        if order.get("_limit") is not None:
-            event["limit"] = order.get("_limit")
-        if order.get("_stop") is not None:
-            event["stop"] = order.get("_stop")
-        if order.get("_requested_fill_qty") is not None and (
-            active or rejected or (pending and order.get("reason"))
-        ):
-            event["requested_qty"] = _round8(float(order.get("_requested_fill_qty", 0.0)))
-        if order.get("_filled_qty") is not None and (active or rejected):
-            event["filled_qty"] = _round8(float(order.get("_filled_qty", 0.0)))
-        if order.get("_target_qty") is not None:
-            event["target_qty"] = _round8(float(order.get("_target_qty", 0.0)))
-        if order.get("_qty_percent") is not None:
-            event["qty_percent"] = _round8(float(order.get("_qty_percent", 0.0)))
-        if order.get("_transaction_qty") is not None:
-            event["transaction_qty"] = _round8(float(order.get("_transaction_qty", 0.0)))
-        if order.get("_canceled_by") is not None:
-            event["canceled_by"] = order.get("_canceled_by")
-        if order.get("_rejected_reason") is not None:
-            event["rejected_reason"] = order.get("_rejected_reason")
-        if order.get("canceled") is not None:
-            event["canceled"] = order.get("canceled")
-        returnable = {
-            key: value
-            for key, value in event.items()
-            if value is not None
-            or key in {"price", "filled_time", "canceled_time", "rejected_time"}
-        }
-        events.append(returnable)
-    return events

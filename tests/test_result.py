@@ -37,7 +37,7 @@ def test_result_error_detail_is_structured() -> None:
         "message": "boom",
         "hint": "fix it",
         "docsUrl": (
-            "https://github.com/Ryan00956/pyne-runtime/tree/main/docs/"
+            "https://github.com/helenananaa/pyne-runtime/tree/main/docs/"
             "reference/error_codes.md#pyne-runtime-error"
         ),
     }

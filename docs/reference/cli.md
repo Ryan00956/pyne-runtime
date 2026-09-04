@@ -36,6 +36,19 @@ pyne validate examples/ma_cross.py
 
 Validation checks Python syntax and the configured Pyne security policy.
 
+## Inspect
+
+```bash
+pyne inspect examples/ma_cross.py --runtime-mode incremental
+```
+
+Inspection prints the versioned static preflight manifest produced by
+`pn.inspect_script()`. It does not execute the script or echo its source. The
+manifest reports the source hash, selected runtime mode, required namespaces,
+pinned external-library members, host capability requirements, resource hints,
+and compatibility diagnostics. Omit `--runtime-mode` to use the declaration and
+callback-based mode detector.
+
 ## Schema
 
 ```bash

@@ -170,12 +170,12 @@ def test_workflows_use_current_node_24_official_actions() -> None:
         assert "actions/setup-python@v5" not in body
 
 
-def test_readme_installs_the_current_release_wheel_without_a_source_checkout() -> None:
+def test_readme_installs_the_published_release_wheel_without_a_source_checkout() -> None:
     body = README.read_text(encoding="utf-8")
     project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
-    version = project["project"]["version"]
+    version = project["tool"]["pyne-runtime"]["published-version"]
     wheel_url = (
-        "https://github.com/Ryan00956/pyne-runtime/releases/download/"
+        "https://github.com/helenananaa/pyne-runtime/releases/download/"
         f"v{version}/pyne_runtime-{version}-py3-none-any.whl"
     )
 
@@ -198,22 +198,26 @@ def test_release_process_links_to_contract_docs() -> None:
         assert f"]({required})" in checklist
 
 
-def test_changelog_has_empty_unreleased_and_dated_release_section() -> None:
+def test_changelog_separates_unreleased_work_from_the_published_release() -> None:
     changelog = CHANGELOG.read_text(encoding="utf-8")
     project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
-    version = project["project"]["version"]
+    source_version = project["project"]["version"]
+    published_version = project["tool"]["pyne-runtime"]["published-version"]
     headings = _markdown_h2_headings(changelog)
     sections = _markdown_h2_sections(changelog)
 
     assert re.fullmatch(
         r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)rc(?:0|[1-9]\d*)",
-        version,
+        source_version,
     )
     assert headings[0] == "Unreleased"
-    assert sections["Unreleased"] == ""
+    if source_version == published_version:
+        assert sections["Unreleased"] == ""
+    else:
+        assert re.search(r"^- ", sections["Unreleased"], flags=re.MULTILINE)
 
     current_release = re.fullmatch(
-        rf"{re.escape(version)} - (\d{{4}}-\d{{2}}-\d{{2}})",
+        rf"{re.escape(published_version)} - (\d{{4}}-\d{{2}}-\d{{2}})",
         headings[1],
     )
     assert current_release is not None

@@ -89,8 +89,16 @@ Host applications should pin the tag, exact wheel filename, and SHA-256 rather
 than follow a moving `latest` URL. For example:
 
 ```bash
-python -m pip install "https://github.com/Ryan00956/pyne-runtime/releases/download/v0.2.0rc1/pyne_runtime-0.2.0rc1-py3-none-any.whl"
+python -m pip install "https://github.com/helenananaa/pyne-runtime/releases/download/v0.2.0rc1/pyne_runtime-0.2.0rc1-py3-none-any.whl"
 ```
+
+`project.version` identifies the source/build candidate. The latest actually
+published GitHub Release is recorded separately as
+`tool.pyne-runtime.published-version`; README install instructions must follow
+that published value until the new tag and verified assets exist. During
+development, new notes stay under `Unreleased`. The release commit moves them
+into a dated section matching `project.version` and updates the published
+version; the tag workflow must then publish and verify the matching assets.
 
 ## Changelog Rules
 

@@ -45,6 +45,8 @@ def main(argv: list[str] | None = None) -> int:
         tmp_path = Path(tmp)
         venv_dir = tmp_path / "venv"
         clean_env = _sanitized_env()
+        if args.offline:
+            clean_env = _offline_env(clean_env)
         _run(
             _venv_create_command(args.python, venv_dir, offline=args.offline),
             cwd=tmp_path,
@@ -81,12 +83,24 @@ def main(argv: list[str] | None = None) -> int:
             cwd=tmp_path,
             env=clean_env,
         )
-        if schema["output"]["schemaVersion"] != 1:
+        if schema["output"]["schemaVersion"] != 2:
             raise RuntimeError("unexpected output schema version")
+        source_schema = _run_json(
+            [str(python), "-m", "pyne_runtime", "schema"],
+            cwd=repo_root,
+            env=_source_schema_env(clean_env, repo_root),
+        )
+        if schema != source_schema:
+            raise RuntimeError("installed-wheel schema does not match repository source")
 
         script = repo_root / "examples" / "host_output_contract.py"
         ohlcv = repo_root / "examples" / "sample_ohlcv.csv"
         _run([str(pyne), "validate", str(script)], cwd=tmp_path, env=clean_env)
+        _run(
+            [str(pyne), "inspect", str(script), "--runtime-mode", "batch"],
+            cwd=tmp_path,
+            env=clean_env,
+        )
 
         out = tmp_path / "result.json"
         _run([
@@ -183,6 +197,19 @@ def _sanitized_env(source: dict[str, str] | None = None) -> dict[str, str]:
         env.pop(key, None)
     env["PYTHONNOUSERSITE"] = "1"
     env["PYTHONSAFEPATH"] = "1"
+    return env
+
+
+def _source_schema_env(clean_env: dict[str, str], repo_root: Path) -> dict[str, str]:
+    env = dict(clean_env)
+    env["PYTHONPATH"] = str((repo_root / "src").resolve())
+    return env
+
+
+def _offline_env(clean_env: dict[str, str]) -> dict[str, str]:
+    env = dict(clean_env)
+    env["PIP_NO_INDEX"] = "1"
+    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
     return env
 
 

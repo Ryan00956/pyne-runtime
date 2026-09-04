@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .capabilities import capability_diagnostics
 from .data import PyneData, coerce_ohlcv
 from .errors import classify_security_error, error_detail
 from .executor import execute_pyne_script
@@ -57,7 +58,12 @@ def from_pandas(df: Any, **columns: Any) -> PyneData:
     return PyneData.from_pandas(df, **columns)
 
 
-def validate(script: str | Path, *, settings: PyneSettings | None = None) -> list[dict[str, Any]]:
+def validate(
+    script: str | Path,
+    *,
+    settings: PyneSettings | None = None,
+    runtime_mode: str | None = None,
+) -> list[dict[str, Any]]:
     """Return diagnostics for syntax/security validation."""
     script_text = _read_script(script)
     diagnostics: list[dict[str, Any]] = []
@@ -74,6 +80,7 @@ def validate(script: str | Path, *, settings: PyneSettings | None = None) -> lis
         return diagnostics
 
     diagnostics.extend(migration_diagnostics(script_text))
+    diagnostics.extend(capability_diagnostics(script_text, runtime_mode=runtime_mode))
 
     policy = PyneSecurityPolicy.from_settings(settings or PyneSettings.from_env())
     try:

@@ -25,10 +25,14 @@ strategy, request, and host-renderer output workflows.
   an application with parameter UI, request providers, structured output, and
   release checks.
 - [Runtime API](api/runtime.md): choose `pn.run()` or `PyneRuntime`.
+- [Runtime Capabilities](api/capabilities.md): discover mode-specific support
+  and validate incremental calls before execution.
 - [Settings API](api/settings.md): configure execution, security, metadata, and
   provider behavior.
 - [Request API](api/request.md): implement typed host data providers for
   `request.security()` and `request.security_lower_tf()`.
+- [External Pine Libraries](api/pine_libraries.md): use the explicit pinned
+  adapter registry and its host-data requirements.
 - [Host-Backed Request Security](tutorials/host_request_security.md): provide
   OHLCV data for `request.security()` and `request.security_lower_tf()`
   examples.
@@ -76,6 +80,8 @@ strategy, request, and host-renderer output workflows.
   handle semantics.
 - [Incremental Runtime](concepts/incremental_runtime.md): confirmed and preview
   bar execution.
+- [Execution Trace](concepts/execution_trace.md): collect bounded lifecycle and
+  script decision evidence.
 - [Security Modes](concepts/security_modes.md): script execution boundaries.
 
 ## Compatibility And Development
@@ -84,6 +90,8 @@ strategy, request, and host-renderer output workflows.
   for current capability, boundaries, and evidence.
 - [Pine-Like API Matrix](reference/pine_like_api_matrix.md): supported,
   partial, and known-difference status by feature family.
+- [Pine Corpus Compatibility Audit](reference/pine_corpus_compatibility.md):
+  aggregate, non-executing corpus evidence and remaining boundaries.
 - [Compatibility](reference/compatibility.md): package and schema stability
   policy.
 - [Changelog](../CHANGELOG.md): release history and unreleased package changes.
@@ -92,5 +100,7 @@ strategy, request, and host-renderer output workflows.
 - [Error Codes](reference/error_codes.md): structured diagnostic codes.
 - [Quality Gates](development/quality_gates.md): local and release validation
   commands.
+- [Capability Completion Execution Plan](development/capability_completion_execution_plan_zh.md):
+  step-by-step, evidence-driven Runtime completion and standalone candidate acceptance.
 - [Python Package Long-Term Direction](development/python_package_long_term_plan_zh.md):
   roadmap for package maturity.

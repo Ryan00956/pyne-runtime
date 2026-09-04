@@ -1,6 +1,6 @@
 # Output Schema
 
-Pyne results use `schemaVersion = 1`.
+Pyne results use `schemaVersion = 2`.
 The strategy report contract has its own version at
 `pn.schema()["strategyReport"]["schemaVersion"]`.
 Schema migration policy and version history are documented in
@@ -60,6 +60,7 @@ uses `code = "PYNE_INVALID_PARAM"`.
 Structured output keys:
 
 - `lines`
+- `candles`
 - `histograms`
 - `markers`
 - `hlines`
@@ -110,6 +111,9 @@ before relying on these fields.
 - `lines`: entries include `id`, `title`, `color`, `linewidth`, `style`,
   `pane`, and `data`; data points include `time` and `value`, with optional
   per-point `color`.
+- `candles`: entries include `title`, `pane`, and `data`; points include
+  `time`, `open`, `high`, `low`, and `close`, with optional `color`,
+  `wickcolor`, and `bordercolor`.
 - `histograms`: entries include `title`, `color_up`, `color_down`, `pane`, and
   `data`; data points include `time` and `value`, with optional per-point
   `color`.
@@ -215,9 +219,11 @@ Drawing object snapshot format:
 Drawing object contract:
 
 `pn.schema()["output"]["objects"]` describes the stable snapshot groups under
-`output["objects"]`: `lines`, `labels`, `boxes`, and `tables`. All drawing
-objects include `id` and `pane`; table cells include `column`, `row`, `text`,
+`output["objects"]`: `lines`, `labels`, `boxes`, `tables`, `linefills`, and
+`polylines`. All drawing objects include `id` and `pane`; table cells include `column`, `row`, `text`,
 `text_color`, `bgcolor`, `width`, `height`, `text_halign`, and `text_valign`.
+Tables may include validated `merges`; linefills reference two live line IDs;
+polylines carry ordered `{x, y}` points and their curve/closure/style settings.
 
 Incremental drawing object event contract:
 

@@ -1,22 +1,37 @@
 """Incremental drawing object mutation helpers."""
+
 from __future__ import annotations
 
 import copy
 import math
 from typing import Any
 
+from ..chart import ChartPoint, chart_point_coordinates
+from ..collections import PyneArray
 from ..plot import ObjectRef
 from .limits import IncrementalResourceLimitError, StateCell
 from .strategy import _round8
 
 
+_MISSING = object()
+
+
 class IncrementalDrawingMixin:
+    def line_all(self) -> PyneArray:
+        return PyneArray(ObjectRef(id=object_id, kind="line") for object_id in self._object_lines)
+
+    def label_all(self) -> PyneArray:
+        return PyneArray(ObjectRef(id=object_id, kind="label") for object_id in self._object_labels)
+
+    def box_all(self) -> PyneArray:
+        return PyneArray(ObjectRef(id=object_id, kind="box") for object_id in self._object_boxes)
+
     def line_new(
         self,
         x1: Any,
         y1: Any,
-        x2: Any,
-        y2: Any,
+        x2: Any = _MISSING,
+        y2: Any = _MISSING,
         color: str = "#2196f3",
         width: int = 1,
         style: str = "solid",
@@ -24,13 +39,29 @@ class IncrementalDrawingMixin:
         xloc: str = "bar_index",
         pane: str | None = None,
     ) -> ObjectRef:
+        if isinstance(x1, ChartPoint) or isinstance(y1, ChartPoint):
+            if not isinstance(x1, ChartPoint) or not isinstance(y1, ChartPoint):
+                raise TypeError("line.new() point overload requires two chart.point values")
+            if x2 is not _MISSING:
+                xloc = str(x2)
+            if y2 is not _MISSING:
+                extend = str(y2)
+            resolved_x1, resolved_y1 = _drawing_point_coordinates(x1, xloc)
+            resolved_x2, resolved_y2 = _drawing_point_coordinates(y1, xloc)
+        else:
+            if x2 is _MISSING or y2 is _MISSING:
+                raise TypeError("line.new() requires x1, y1, x2, and y2")
+            resolved_x1 = _drawing_scalar(x1)
+            resolved_y1 = _drawing_scalar(y1)
+            resolved_x2 = _drawing_scalar(x2)
+            resolved_y2 = _drawing_scalar(y2)
         object_id = self._next_object_id("line")
         entry = {
             "id": object_id,
-            "x1": _drawing_scalar(x1),
-            "y1": _drawing_scalar(y1),
-            "x2": _drawing_scalar(x2),
-            "y2": _drawing_scalar(y2),
+            "x1": resolved_x1,
+            "y1": resolved_y1,
+            "x2": resolved_x2,
+            "y2": resolved_y2,
             "color": color,
             "width": int(width),
             "style": style,
@@ -47,6 +78,20 @@ class IncrementalDrawingMixin:
 
     def line_set_xy2(self, ref: ObjectRef, x: Any, y: Any) -> None:
         self._update_object(ref, "line", {"x2": _drawing_scalar(x), "y2": _drawing_scalar(y)})
+
+    def line_set_first_point(self, ref: ObjectRef, point: ChartPoint) -> None:
+        entry = self._object_entry(ref, "line")
+        if entry is None:
+            return
+        x, y = _drawing_point_coordinates(point, str(entry.get("xloc", "bar_index")))
+        self._update_object(ref, "line", {"x1": x, "y1": y})
+
+    def line_set_second_point(self, ref: ObjectRef, point: ChartPoint) -> None:
+        entry = self._object_entry(ref, "line")
+        if entry is None:
+            return
+        x, y = _drawing_point_coordinates(point, str(entry.get("xloc", "bar_index")))
+        self._update_object(ref, "line", {"x2": x, "y2": y})
 
     def line_set_x1(self, ref: ObjectRef, x: Any) -> None:
         self._update_object(ref, "line", {"x1": _drawing_scalar(x)})
@@ -73,12 +118,93 @@ class IncrementalDrawingMixin:
         self._update_object(ref, "line", {"extend": extend})
 
     def line_delete(self, ref: ObjectRef) -> None:
+        if isinstance(ref, ObjectRef) and ref.kind == "line":
+            for linefill_id, entry in list(self._object_linefills.items()):
+                if ref.id in {entry.get("line1_id"), entry.get("line2_id")}:
+                    self._delete_object(ObjectRef(id=linefill_id, kind="linefill"), "linefill")
         self._delete_object(ref, "line")
+
+    def linefill_new(
+        self,
+        line1: ObjectRef,
+        line2: ObjectRef,
+        color: str = "rgba(33,150,243,0.25)",
+        pane: str | None = None,
+    ) -> ObjectRef:
+        first = self._object_entry(line1, "line")
+        second = self._object_entry(line2, "line")
+        if first is None or second is None:
+            raise TypeError("linefill.new() requires two live line objects")
+        object_id = self._next_object_id("linefill")
+        entry = {
+            "id": object_id,
+            "line1_id": line1.id,
+            "line2_id": line2.id,
+            "color": color,
+            "pane": pane
+            or (str(first.get("pane")) if first.get("pane") == second.get("pane") else "main"),
+        }
+        self._object_linefills[object_id] = entry
+        self._record_object_event("create", "linefill", entry)
+        return ObjectRef(id=object_id, kind="linefill")
+
+    def linefill_set_color(self, ref: ObjectRef, color: str) -> None:
+        self._update_object(ref, "linefill", {"color": color})
+
+    def linefill_delete(self, ref: ObjectRef) -> None:
+        self._delete_object(ref, "linefill")
+
+    def polyline_new(
+        self,
+        points: PyneArray | list[ChartPoint] | tuple[ChartPoint, ...],
+        curved: bool = False,
+        closed: bool = False,
+        xloc: str = "bar_index",
+        line_color: str = "#2196f3",
+        fill_color: str | None = None,
+        line_style: str = "solid",
+        line_width: int = 1,
+        force_overlay: bool = False,
+        pane: str | None = None,
+    ) -> ObjectRef:
+        if isinstance(points, PyneArray):
+            raw_points = list(points)
+        elif isinstance(points, (list, tuple)):
+            raw_points = list(points)
+        else:
+            raise TypeError("polyline.new() points must be an array of chart.point values")
+        if not raw_points:
+            raise ValueError("polyline.new() requires at least one chart.point")
+        serialized_points: list[dict[str, Any]] = []
+        for point in raw_points:
+            if not isinstance(point, ChartPoint):
+                raise TypeError("polyline.new() points must contain only chart.point values")
+            x, y = _drawing_point_coordinates(point, xloc)
+            serialized_points.append({"x": x, "y": y})
+        object_id = self._next_object_id("polyline")
+        entry = {
+            "id": object_id,
+            "points": serialized_points,
+            "curved": bool(curved),
+            "closed": bool(closed),
+            "xloc": xloc,
+            "line_color": line_color,
+            "fill_color": fill_color,
+            "line_style": line_style,
+            "line_width": int(line_width),
+            "pane": pane or ("main" if force_overlay else "main"),
+        }
+        self._object_polylines[object_id] = entry
+        self._record_object_event("create", "polyline", entry)
+        return ObjectRef(id=object_id, kind="polyline")
+
+    def polyline_delete(self, ref: ObjectRef) -> None:
+        self._delete_object(ref, "polyline")
 
     def label_new(
         self,
         x: Any,
-        y: Any,
+        y: Any = _MISSING,
         text: str = "",
         color: str = "#ffffff",
         textcolor: str = "#000000",
@@ -88,12 +214,24 @@ class IncrementalDrawingMixin:
         yloc: str = "price",
         pane: str | None = None,
     ) -> ObjectRef:
+        if isinstance(x, ChartPoint):
+            point_text = text if y is _MISSING else y
+            if y is not _MISSING and text in {"bar_index", "bar_time"}:
+                xloc = text
+            resolved_x, resolved_y = _drawing_point_coordinates(x, xloc)
+            resolved_text = str(point_text)
+        else:
+            if y is _MISSING:
+                raise TypeError("label.new() requires x and y coordinates")
+            resolved_x = _drawing_scalar(x)
+            resolved_y = _drawing_scalar(y)
+            resolved_text = str(text)
         object_id = self._next_object_id("label")
         entry = {
             "id": object_id,
-            "x": _drawing_scalar(x),
-            "y": _drawing_scalar(y),
-            "text": str(text),
+            "x": resolved_x,
+            "y": resolved_y,
+            "text": resolved_text,
             "color": color,
             "textcolor": textcolor,
             "style": style,
@@ -108,6 +246,13 @@ class IncrementalDrawingMixin:
 
     def label_set_xy(self, ref: ObjectRef, x: Any, y: Any) -> None:
         self._update_object(ref, "label", {"x": _drawing_scalar(x), "y": _drawing_scalar(y)})
+
+    def label_set_point(self, ref: ObjectRef, point: ChartPoint) -> None:
+        entry = self._object_entry(ref, "label")
+        if entry is None:
+            return
+        x, y = _drawing_point_coordinates(point, str(entry.get("xloc", "bar_index")))
+        self._update_object(ref, "label", {"x": x, "y": y})
 
     def label_set_x(self, ref: ObjectRef, x: Any) -> None:
         self._update_object(ref, "label", {"x": _drawing_scalar(x)})
@@ -143,8 +288,8 @@ class IncrementalDrawingMixin:
         self,
         left: Any,
         top: Any,
-        right: Any,
-        bottom: Any,
+        right: Any = _MISSING,
+        bottom: Any = _MISSING,
         bgcolor: str = "rgba(0,0,0,0)",
         border_color: str = "#787b86",
         border_width: int = 1,
@@ -152,13 +297,29 @@ class IncrementalDrawingMixin:
         xloc: str = "bar_index",
         pane: str | None = None,
     ) -> ObjectRef:
+        if isinstance(left, ChartPoint) or isinstance(top, ChartPoint):
+            if not isinstance(left, ChartPoint) or not isinstance(top, ChartPoint):
+                raise TypeError("box.new() point overload requires two chart.point values")
+            if right is not _MISSING or bottom is not _MISSING:
+                raise TypeError(
+                    "box.new() point overload accepts drawing options as keyword arguments"
+                )
+            resolved_left, resolved_top = _drawing_point_coordinates(left, xloc)
+            resolved_right, resolved_bottom = _drawing_point_coordinates(top, xloc)
+        else:
+            if right is _MISSING or bottom is _MISSING:
+                raise TypeError("box.new() requires left, top, right, and bottom")
+            resolved_left = _drawing_scalar(left)
+            resolved_top = _drawing_scalar(top)
+            resolved_right = _drawing_scalar(right)
+            resolved_bottom = _drawing_scalar(bottom)
         object_id = self._next_object_id("box")
         entry = {
             "id": object_id,
-            "left": _drawing_scalar(left),
-            "top": _drawing_scalar(top),
-            "right": _drawing_scalar(right),
-            "bottom": _drawing_scalar(bottom),
+            "left": resolved_left,
+            "top": resolved_top,
+            "right": resolved_right,
+            "bottom": resolved_bottom,
             "bgcolor": bgcolor,
             "border_color": border_color,
             "border_width": int(border_width),
@@ -195,6 +356,23 @@ class IncrementalDrawingMixin:
             "box",
             {"right": _drawing_scalar(right), "bottom": _drawing_scalar(bottom)},
         )
+
+    def box_set_top_left_point(self, ref: ObjectRef, point: ChartPoint) -> None:
+        entry = self._object_entry(ref, "box")
+        if entry is None:
+            return
+        left, top = _drawing_point_coordinates(point, str(entry.get("xloc", "bar_index")))
+        self._update_object(ref, "box", {"left": left, "top": top})
+
+    def box_set_bottom_right_point(self, ref: ObjectRef, point: ChartPoint) -> None:
+        entry = self._object_entry(ref, "box")
+        if entry is None:
+            return
+        right, bottom = _drawing_point_coordinates(
+            point,
+            str(entry.get("xloc", "bar_index")),
+        )
+        self._update_object(ref, "box", {"right": right, "bottom": bottom})
 
     def box_set_bgcolor(self, ref: ObjectRef, bgcolor: str) -> None:
         self._update_object(ref, "box", {"bgcolor": bgcolor})
@@ -237,6 +415,7 @@ class IncrementalDrawingMixin:
             "border_width": int(border_width),
             "pane": pane or "main",
             "cells": [],
+            "merges": [],
         }
         self._object_tables[object_id] = entry
         self._table_cell_indices[object_id] = {}
@@ -299,6 +478,7 @@ class IncrementalDrawingMixin:
             return
         released = len(entry.get("cells") or [])
         entry["cells"] = []
+        entry["merges"] = []
         self._table_cell_indices.setdefault(ref.id, {}).clear()
         self._limit_tracker.release_table_cells(released)
         self._record_object_event(
@@ -306,6 +486,45 @@ class IncrementalDrawingMixin:
             "table",
             entry,
             event_object={"id": entry.get("id"), "cells": []},
+        )
+
+    def table_merge_cells(
+        self,
+        ref: ObjectRef,
+        start_column: int,
+        start_row: int,
+        end_column: int,
+        end_row: int,
+    ) -> None:
+        entry = self._object_entry(ref, "table")
+        if entry is None:
+            return
+        left, right = sorted((int(start_column), int(end_column)))
+        top, bottom = sorted((int(start_row), int(end_row)))
+        _require_table_coordinate(entry, left, top)
+        _require_table_coordinate(entry, right, bottom)
+        merge = {
+            "start_column": left,
+            "start_row": top,
+            "end_column": right,
+            "end_row": bottom,
+        }
+        for existing in entry.setdefault("merges", []):
+            overlaps = not (
+                right < existing["start_column"]
+                or left > existing["end_column"]
+                or bottom < existing["start_row"]
+                or top > existing["end_row"]
+            )
+            if overlaps:
+                raise ValueError("table.merge_cells() regions must not overlap")
+        entry["merges"].append(merge)
+        entry["merges"].sort(key=lambda item: (item["start_row"], item["start_column"]))
+        self._record_object_event(
+            "update",
+            "table",
+            entry,
+            event_object={"id": entry.get("id"), "merges": copy.deepcopy(entry["merges"])},
         )
 
     def table_set_position(self, ref: ObjectRef, position: str) -> None:
@@ -334,6 +553,8 @@ class IncrementalDrawingMixin:
             + len(self._object_labels)
             + len(self._object_boxes)
             + len(self._object_tables)
+            + len(self._object_linefills)
+            + len(self._object_polylines)
         )
         if total >= self._max_drawing_objects:
             raise IncrementalResourceLimitError(
@@ -348,6 +569,8 @@ class IncrementalDrawingMixin:
             "label": self._object_labels,
             "box": self._object_boxes,
             "table": self._object_tables,
+            "linefill": self._object_linefills,
+            "polyline": self._object_polylines,
         }
         return buckets[kind].get(ref.id)
 
@@ -370,6 +593,8 @@ class IncrementalDrawingMixin:
             "label": self._object_labels,
             "box": self._object_boxes,
             "table": self._object_tables,
+            "linefill": self._object_linefills,
+            "polyline": self._object_polylines,
         }[kind].pop(ref.id, None)
         if kind == "table":
             self._table_cell_indices.pop(ref.id, None)
@@ -412,9 +637,11 @@ class IncrementalDrawingMixin:
         if self._object_boxes:
             objects["boxes"] = list(copy.deepcopy(self._object_boxes).values())
         if self._object_tables:
-            objects["tables"] = [
-                _table_snapshot(entry) for entry in self._object_tables.values()
-            ]
+            objects["tables"] = [_table_snapshot(entry) for entry in self._object_tables.values()]
+        if self._object_linefills:
+            objects["linefills"] = list(copy.deepcopy(self._object_linefills).values())
+        if self._object_polylines:
+            objects["polylines"] = list(copy.deepcopy(self._object_polylines).values())
         return objects
 
 
@@ -438,6 +665,7 @@ def _filter_object_events(
         filtered.append(copy.deepcopy(event))
     return filtered
 
+
 def _drawing_scalar(value: Any) -> Any:
     if isinstance(value, StateCell):
         value = value.value
@@ -453,6 +681,12 @@ def _drawing_scalar(value: Any) -> Any:
         return value
     return None if math.isnan(number) else _round8(number)
 
+
+def _drawing_point_coordinates(point: ChartPoint, xloc: str) -> tuple[Any, Any]:
+    x, y = chart_point_coordinates(point, xloc)
+    return _drawing_scalar(x), _drawing_scalar(y)
+
+
 def _upsert_table_cell(
     entry: dict[str, Any],
     cell: dict[str, Any],
@@ -466,6 +700,13 @@ def _upsert_table_cell(
         return
     cell_indices[key] = len(cells)
     cells.append(cell)
+
+
+def _require_table_coordinate(entry: dict[str, Any], column: int, row: int) -> None:
+    if column < 0 or column >= int(entry["columns"]):
+        raise IndexError(f"table column {column} is outside the table")
+    if row < 0 or row >= int(entry["rows"]):
+        raise IndexError(f"table row {row} is outside the table")
 
 
 def _table_snapshot(entry: dict[str, Any]) -> dict[str, Any]:

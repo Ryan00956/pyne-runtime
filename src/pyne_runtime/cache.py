@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import threading
 import time
+import copy
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -16,6 +17,22 @@ class _CacheEntry:
 
     def expired(self, now: float) -> bool:
         return self.ttl is not None and (self.ttl <= 0 or now - self.created_at > self.ttl)
+
+
+@dataclass(frozen=True)
+class PyneCacheSnapshotEntry:
+    key: str
+    value: Any
+    remaining_ttl: float | None
+    last_access_age: float
+
+
+@dataclass(frozen=True)
+class PyneCacheSnapshot:
+    """Opaque process-local snapshot of one execution-scope cache."""
+
+    max_items: int
+    entries: tuple[PyneCacheSnapshotEntry, ...]
 
 
 class PyneCache:
@@ -74,6 +91,57 @@ class PyneCache:
                 "keys": list(self._items.keys()),
             }
 
+    def snapshot_state(self, *, memo: dict[int, Any] | None = None) -> PyneCacheSnapshot:
+        """Copy live entries for process-local incremental recovery."""
+
+        now = time.time()
+        entries: list[PyneCacheSnapshotEntry] = []
+        with self._lock:
+            for key, entry in self._items.items():
+                if entry.expired(now):
+                    continue
+                remaining_ttl = (
+                    None
+                    if entry.ttl is None
+                    else max(entry.ttl - (now - entry.created_at), 0.0)
+                )
+                entries.append(
+                    PyneCacheSnapshotEntry(
+                        key=key,
+                        value=copy.deepcopy(entry.value, memo),
+                        remaining_ttl=remaining_ttl,
+                        last_access_age=max(now - entry.last_access, 0.0),
+                    )
+                )
+            return PyneCacheSnapshot(max_items=self._max_items, entries=tuple(entries))
+
+    def restore_state(
+        self,
+        snapshot: PyneCacheSnapshot,
+        *,
+        memo: dict[int, Any] | None = None,
+    ) -> None:
+        """Replace cache contents from a process-local snapshot."""
+
+        if not isinstance(snapshot, PyneCacheSnapshot):
+            raise TypeError("snapshot must be a PyneCacheSnapshot")
+        now = time.time()
+        restored: dict[str, _CacheEntry] = {}
+        for item in snapshot.entries:
+            ttl = item.remaining_ttl
+            if ttl is not None and ttl <= 0:
+                continue
+            restored[item.key] = _CacheEntry(
+                value=copy.deepcopy(item.value, memo),
+                created_at=now,
+                last_access=now - max(item.last_access_age, 0.0),
+                ttl=ttl,
+            )
+        with self._lock:
+            self._max_items = max(int(snapshot.max_items), 1)
+            self._items = restored
+            self._enforce_limit()
+
     def _enforce_limit(self) -> None:
         while len(self._items) > self._max_items:
             oldest_key = min(
@@ -86,17 +154,35 @@ class PyneCache:
 pyne_cache = PyneCache()
 
 
+@dataclass(frozen=True)
+class PyneExecutionScope:
+    """Cache and other mutable services owned by one execution scope.
+
+    Runtimes create a fresh scope for every batch execution and every
+    incremental session unless a host explicitly supplies a shared scope.
+    """
+
+    cache: PyneCache
+
+    @classmethod
+    def fresh(cls, *, max_items: int = 32) -> "PyneExecutionScope":
+        return cls(cache=PyneCache(max_items=max_items))
+
+
 class PyneCacheNamespace:
     """Namespace injected as ``pyne`` inside user scripts."""
 
+    def __init__(self, cache: PyneCache | None = None) -> None:
+        self._cache = cache or pyne_cache
+
     def cache(self, key: str, loader: Callable[[], Any], ttl: float | None = None) -> Any:
-        return pyne_cache.get_or_load(key, loader, ttl=ttl)
+        return self._cache.get_or_load(key, loader, ttl=ttl)
 
     def cache_clear(self, key: str | None = None) -> int:
-        return pyne_cache.clear(key)
+        return self._cache.clear(key)
 
     def cache_stats(self) -> dict[str, Any]:
-        return pyne_cache.stats()
+        return self._cache.stats()
 
 
-pyne = PyneCacheNamespace()
+pyne = PyneCacheNamespace(pyne_cache)

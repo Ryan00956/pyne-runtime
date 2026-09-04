@@ -82,6 +82,8 @@ class PyneContext:
         ).to_ohlcv()
         timeframe_info = normalize_timeframe_info(timeframe)
         times = [int(d.get("time", 0)) for d in ohlcv]
+        symbol_info = normalize_symbol_info(syminfo)
+        timeframe_info = timeframe_info.bind(times, symbol_info.timezone)
         opens = np.array([float(d.get("open", 0)) for d in ohlcv], dtype=np.float64)
         highs = np.array([float(d.get("high", 0)) for d in ohlcv], dtype=np.float64)
         lows = np.array([float(d.get("low", 0)) for d in ohlcv], dtype=np.float64)
@@ -98,7 +100,7 @@ class PyneContext:
             time=PyneSeries(np.array(times, dtype=np.float64), name="time"),
             time_close=PyneSeries(time_closes, name="time_close"),
             times=times,
-            syminfo=normalize_symbol_info(syminfo),
+            syminfo=symbol_info,
             timeframe=timeframe_info,
             session=build_session_namespace(ohlcv, session),
             bar_count=len(ohlcv),

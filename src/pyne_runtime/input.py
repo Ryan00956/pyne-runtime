@@ -18,6 +18,7 @@ Usage::
 """
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
@@ -163,6 +164,116 @@ class InputModule:
         if maxval is not None and value > maxval:
             raise self._invalid(key, f"must be <= {maxval}, got {value!r}")
 
+    def _add_modern_ui_metadata(
+        self,
+        schema: dict[str, Any],
+        *,
+        display: str | None,
+        active: bool | None,
+    ) -> None:
+        if display is not None:
+            schema["display"] = str(display)
+        if active is not None:
+            schema["active"] = bool(active)
+
+    def __call__(
+        self,
+        defval: Any = None,
+        title: str = "",
+        *,
+        type: Any = None,
+        minval: int | float | None = None,
+        maxval: int | float | None = None,
+        step: int | float | None = None,
+        options: list[Any] | tuple[Any, ...] | None = None,
+        tooltip: str = "",
+        group: str = "",
+        inline: str = "",
+        confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
+    ) -> Any:
+        """Legacy inferred ``input(...)`` compatibility surface.
+
+        Pine v4 scripts commonly use ``input(defval, type=input.integer)``.
+        Pyne still executes Python rather than Pine source, but keeping this
+        callable form makes a faithful Python rewrite substantially smaller.
+        """
+        kind = self._legacy_input_kind(defval, type)
+        common = {
+            "title": title,
+            "tooltip": tooltip,
+            "group": group,
+            "inline": inline,
+            "confirm": confirm,
+            "display": display,
+            "active": active,
+        }
+        normalized_options = list(options) if options is not None else None
+        if kind == "int":
+            return self.int(
+                defval,
+                minval=minval,
+                maxval=maxval,
+                step=1 if step is None else step,
+                **common,
+            )
+        if kind == "float":
+            return self.float(
+                defval,
+                minval=minval,
+                maxval=maxval,
+                step=0.1 if step is None else step,
+                **common,
+            )
+        if kind == "bool":
+            return self.bool(defval, **common)
+        if kind == "string":
+            return self.string(defval, options=normalized_options, **common)
+        if kind == "color":
+            return self.color(defval, **common)
+        if kind == "source":
+            return self.source(defval, **common)
+        if kind == "timeframe":
+            return self.timeframe(defval, options=normalized_options, **common)
+        if kind == "symbol":
+            return self.symbol(defval, options=normalized_options, **common)
+        if kind == "session":
+            return self.session(defval, options=normalized_options, **common)
+        if kind == "time":
+            return self.time(defval, **common)
+        if kind == "text_area":
+            return self.text_area(defval, **common)
+        if kind == "price":
+            return self.price(defval, **common)
+        raise self._invalid(title or "input", f"unsupported legacy input type {kind!r}")
+
+    def _legacy_input_kind(self, defval: Any, type_value: Any) -> str:
+        if type_value is not None:
+            if isinstance(type_value, str):
+                name = type_value
+            else:
+                name = getattr(type_value, "__name__", "")
+            normalized = str(name).strip().lower()
+            aliases = {
+                "integer": "int",
+                "resolution": "timeframe",
+                "text": "string",
+            }
+            normalized = aliases.get(normalized, normalized)
+            if normalized:
+                return normalized
+
+        if isinstance(defval, bool):
+            return "bool"
+        if isinstance(defval, int):
+            return "int"
+        if isinstance(defval, float):
+            return "float"
+        if isinstance(defval, PyneSeries | np.ndarray):
+            return "source"
+        return "string"
+
     # ─── Typed input methods ────────────────────────────────
 
     def int(
@@ -176,6 +287,8 @@ class InputModule:
         group: str = "",
         inline: str = "",
         confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
     ) -> int:
         """Integer parameter.
 
@@ -201,6 +314,7 @@ class InputModule:
         if maxval is not None:
             schema["max"] = maxval
             schema["maxval"] = maxval
+        self._add_modern_ui_metadata(schema, display=display, active=active)
 
         val = self._resolve(key, defval, schema)
         val = self._coerce_int(key, val)
@@ -219,6 +333,8 @@ class InputModule:
         group: str = "",
         inline: str = "",
         confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
     ) -> float:
         """Float parameter.
 
@@ -244,6 +360,7 @@ class InputModule:
             schema["max"] = maxval
             schema["maxval"] = maxval
         schema["step"] = step
+        self._add_modern_ui_metadata(schema, display=display, active=active)
 
         val = self._resolve(key, defval, schema)
         val = self._coerce_float(key, val)
@@ -259,6 +376,8 @@ class InputModule:
         group: str = "",
         inline: str = "",
         confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
     ) -> bool:
         """Boolean parameter.
 
@@ -277,6 +396,7 @@ class InputModule:
             schema["inline"] = inline
         if confirm:
             schema["confirm"] = confirm
+        self._add_modern_ui_metadata(schema, display=display, active=active)
         val = self._resolve(key, defval, schema)
         result = self._coerce_bool(key, val)
         self._set_current(key, result)
@@ -291,6 +411,8 @@ class InputModule:
         group: str = "",
         inline: str = "",
         confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
     ) -> str:
         """String parameter (optionally with dropdown options).
 
@@ -311,12 +433,67 @@ class InputModule:
             schema["confirm"] = confirm
         if options is not None:
             schema["options"] = options
+        self._add_modern_ui_metadata(schema, display=display, active=active)
 
         val = self._resolve(key, defval, schema)
         result = self._coerce_str(key, val)
         self._validate_options(key, result, options)
         self._set_current(key, result)
         return result
+
+    def enum(
+        self,
+        defval: Any,
+        title: str = "",
+        options: list[Any] | tuple[Any, ...] | None = None,
+        tooltip: str = "",
+        group: str = "",
+        inline: str = "",
+        confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
+    ) -> Any:
+        """Enum-like parameter with JSON-safe option tokens.
+
+        Python ``Enum`` members are returned to the script while the parameter
+        schema exposes their primitive values (or names) to the host UI.
+        """
+        choices = list(options) if options is not None else _enum_choices(defval)
+        if not choices:
+            raise self._invalid(title or "enum", "requires at least one option")
+        tokens = [_enum_token(item) for item in choices]
+        default_token = _enum_token(defval)
+        if default_token not in tokens:
+            raise self._invalid(title or "enum", "default must be one of the enum options")
+
+        key = self._next_key(title, "enum")
+        schema: dict[str, Any] = {
+            "key": key,
+            "type": "enum",
+            "default": default_token,
+            "title": title,
+            "tooltip": tooltip,
+            "group": group,
+            "options": tokens,
+        }
+        if inline:
+            schema["inline"] = inline
+        if confirm:
+            schema["confirm"] = confirm
+        self._add_modern_ui_metadata(schema, display=display, active=active)
+
+        selected = self._resolve(key, default_token, schema)
+        selected_token = _enum_token(selected)
+        try:
+            index = tokens.index(selected_token)
+        except ValueError:
+            choices_text = ", ".join(repr(item) for item in tokens)
+            raise self._invalid(
+                key,
+                f"expected one of {choices_text}, got {selected_token!r}",
+            ) from None
+        self._set_current(key, tokens[index])
+        return choices[index]
 
     def color(
         self,
@@ -326,6 +503,8 @@ class InputModule:
         group: str = "",
         inline: str = "",
         confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
     ) -> str:
         """Color parameter.
 
@@ -344,6 +523,7 @@ class InputModule:
             schema["inline"] = inline
         if confirm:
             schema["confirm"] = confirm
+        self._add_modern_ui_metadata(schema, display=display, active=active)
         val = self._resolve(key, defval, schema)
         result = self._coerce_str(key, val)
         self._set_current(key, result)
@@ -357,6 +537,8 @@ class InputModule:
         group: str = "",
         inline: str = "",
         confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
     ) -> PyneSeries:
         """Source parameter — select price field (close, open, hl2, etc.).
 
@@ -399,6 +581,7 @@ class InputModule:
             schema["inline"] = inline
         if confirm:
             schema["confirm"] = confirm
+        self._add_modern_ui_metadata(schema, display=display, active=active)
 
         selected = self._resolve(key, default_name, schema)
 
@@ -424,6 +607,8 @@ class InputModule:
         group: str = "",
         inline: str = "",
         confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
     ) -> str:
         """Timeframe parameter.
 
@@ -444,12 +629,16 @@ class InputModule:
             schema["confirm"] = confirm
         if options is not None:
             schema["options"] = options
+        self._add_modern_ui_metadata(schema, display=display, active=active)
 
         val = self._resolve(key, defval, schema)
         result = self._coerce_str(key, val)
         self._validate_options(key, result, options)
         self._set_current(key, result)
         return result
+
+    integer = int
+    resolution = timeframe
 
     def symbol(
         self,
@@ -460,6 +649,8 @@ class InputModule:
         group: str = "",
         inline: str = "",
         confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
     ) -> str:
         """Symbol parameter.
 
@@ -480,6 +671,7 @@ class InputModule:
             schema["confirm"] = confirm
         if options is not None:
             schema["options"] = options
+        self._add_modern_ui_metadata(schema, display=display, active=active)
 
         val = self._resolve(key, defval, schema)
         result = self._coerce_str(key, val)
@@ -496,6 +688,8 @@ class InputModule:
         group: str = "",
         inline: str = "",
         confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
     ) -> str:
         """Session parameter.
 
@@ -516,6 +710,7 @@ class InputModule:
             schema["confirm"] = confirm
         if options is not None:
             schema["options"] = options
+        self._add_modern_ui_metadata(schema, display=display, active=active)
 
         val = self._resolve(key, defval, schema)
         result = self._coerce_str(key, val)
@@ -531,6 +726,8 @@ class InputModule:
         group: str = "",
         inline: str = "",
         confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
     ) -> int:
         """Timestamp parameter in Unix seconds.
 
@@ -549,9 +746,72 @@ class InputModule:
             schema["inline"] = inline
         if confirm:
             schema["confirm"] = confirm
+        self._add_modern_ui_metadata(schema, display=display, active=active)
 
         val = self._resolve(key, int(defval), schema)
         result = self._coerce_time(key, val)
+        self._set_current(key, result)
+        return result
+
+    def text_area(
+        self,
+        defval: str = "",
+        title: str = "",
+        tooltip: str = "",
+        group: str = "",
+        inline: str = "",
+        confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
+    ) -> str:
+        """Multiline string parameter compatible with ``input.text_area``."""
+        key = self._next_key(title, "text_area")
+        schema: dict[str, Any] = {
+            "key": key,
+            "type": "text_area",
+            "default": defval,
+            "title": title,
+            "tooltip": tooltip,
+            "group": group,
+        }
+        if inline:
+            schema["inline"] = inline
+        if confirm:
+            schema["confirm"] = confirm
+        self._add_modern_ui_metadata(schema, display=display, active=active)
+        val = self._resolve(key, defval, schema)
+        result = self._coerce_str(key, val)
+        self._set_current(key, result)
+        return result
+
+    def price(
+        self,
+        defval: float = 0.0,
+        title: str = "",
+        tooltip: str = "",
+        group: str = "",
+        inline: str = "",
+        confirm: bool = False,
+        display: str | None = None,
+        active: bool | None = None,
+    ) -> float:
+        """Interactive price parameter represented through the host input schema."""
+        key = self._next_key(title, "price")
+        schema: dict[str, Any] = {
+            "key": key,
+            "type": "price",
+            "default": defval,
+            "title": title,
+            "tooltip": tooltip,
+            "group": group,
+        }
+        if inline:
+            schema["inline"] = inline
+        if confirm:
+            schema["confirm"] = confirm
+        self._add_modern_ui_metadata(schema, display=display, active=active)
+        val = self._resolve(key, defval, schema)
+        result = self._coerce_float(key, val)
         self._set_current(key, result)
         return result
 
@@ -569,3 +829,18 @@ class InputModule:
             if isinstance(arr, np.ndarray) and np.asarray(ctx_arr) is arr:
                 return name
         return "close"
+
+
+def _enum_choices(defval: Any) -> list[Any]:
+    if isinstance(defval, Enum):
+        return list(type(defval))
+    return [defval]
+
+
+def _enum_token(value: Any) -> str:
+    if isinstance(value, Enum):
+        raw = value.value
+        if isinstance(raw, str | int | float | bool):
+            return str(raw)
+        return value.name
+    return str(value)

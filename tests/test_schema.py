@@ -26,7 +26,14 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert schema["output"]["renderables"]["lines"]["pointOptional"] == ["color"]
     assert "payload" in schema["output"]["renderables"]["signals"]["pointOptional"]
     assert schema["output"]["renderables"]["labels"]["status"].startswith("legacy")
-    assert schema["output"]["objects"]["groups"] == ["lines", "labels", "boxes", "tables"]
+    assert schema["output"]["objects"]["groups"] == [
+        "lines",
+        "labels",
+        "boxes",
+        "tables",
+        "linefills",
+        "polylines",
+    ]
     assert schema["output"]["objects"]["tables"]["cellRequired"] == [
         "column",
         "row",
@@ -50,6 +57,11 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
         for note in schema["output"]["migration"]["versions"][0]["notes"]
     )
     assert "timeframe" in schema["params"]["types"]
+    assert "text_area" in schema["params"]["types"]
+    assert "price" in schema["params"]["types"]
+    assert "enum" in schema["params"]["types"]
+    assert schema["params"]["entry"]["display"]
+    assert schema["params"]["entry"]["active"]
     assert schema["params"]["entry"]["id"]
     assert "get_ohlcv" in schema["requestProvider"]["method"]
     request_range = schema["requestProvider"]["range"]
@@ -146,31 +158,35 @@ def test_schema_bundle_exposes_versions_and_contracts() -> None:
     assert request_errors["missingProvider"]["code"] == "PYNE_UNSUPPORTED_FEATURE"
     assert request_errors["missingProvider"]["beforeGetOhlcv"] is True
     assert request_errors["unsupportedCapability"]["beforeGetOhlcv"] is True
-    assert request_errors["capabilityFailure"]["messageContains"] == (
-        "request capability provider failed"
+    assert request_errors["capabilityFailure"]["classification"] == (
+        "RequestProviderErrorCategory.CAPABILITY_FAILURE"
     )
     assert request_errors["invalidSymbol"]["code"] == "PYNE_INVALID_SYMBOL"
     assert request_errors["invalidSymbol"]["appliesTo"] == [*pn.REQUEST_API_VALUES]
     assert "empty groups" in request_errors["invalidSymbol"]["ignoreInvalidSymbol"]
     assert request_errors["providerFailure"]["code"] == "PYNE_RUNTIME_ERROR"
-    assert request_errors["invalidReturnType"]["messageContains"] == (
-        "must return a list of OHLCV bars"
+    assert request_errors["invalidReturnType"]["classification"] == (
+        "RequestProviderErrorCategory.INVALID_RETURN_TYPE"
     )
     assert request_errors["invalidReturnType"]["ignoreInvalidSymbol"] == (
         "does not apply; invalid provider return types remain errors"
     )
-    assert request_errors["invalidBarShape"]["messageContains"] == (
-        "request data provider returned"
+    assert request_errors["invalidBarShape"]["classification"] == (
+        "RequestProviderErrorCategory.INVALID_BAR_SHAPE"
     )
-    assert request_errors["invalidMetadata"]["messageContains"] == (
-        "request metadata must be a mapping"
+    assert request_errors["invalidMetadata"]["classification"] == (
+        "RequestProviderErrorCategory.INVALID_METADATA"
     )
-    assert request_errors["metadataFailure"]["messageContains"] == (
-        "request metadata provider failed"
+    assert request_errors["metadataFailure"]["classification"] == (
+        "RequestProviderErrorCategory.METADATA_FAILURE"
     )
-    assert request_errors["expressionFailure"]["messageContains"] == (
-        "request.security() expression failed"
+    assert request_errors["expressionFailure"]["classification"] == (
+        "RequestProviderErrorCategory.EXPRESSION_FAILURE"
     )
+    typed_errors = schema["requestProvider"]["typedErrors"]
+    assert typed_errors["categoryEnum"] == "RequestProviderErrorCategory"
+    assert typed_errors["providerSignals"]["providerFailure"] == "PyneProviderDataError"
+    assert "messages are not" in typed_errors["classification"]
     assert schema["requestProvider"]["migration"]["currentVersion"] == (
         pn.PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
     )

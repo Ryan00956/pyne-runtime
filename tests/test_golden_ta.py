@@ -24,19 +24,22 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
         "ta_trend_switch_indicators.json",
         "ta_tuple_outputs_indicators.json",
         "ta_warmup_boundaries_indicators.json",
+        "ta_external_library_indicators.json",
     ],
 )
 def test_ta_golden_fixture(fixture_name: str) -> None:
     fixture = _load_fixture(fixture_name)
 
+    capture = fixture.get("external_capture", {})
+    bars = fixture.get("chart_bars") or capture.get("bars") or []
     result = pn.run(
         fixture["script"],
-        fixture["chart_bars"],
+        bars,
         executor_mode="inline",
     )
 
     assert result.ok, result.error
-    for name, expected in fixture["expected_series"].items():
+    for name, expected in fixture.get("expected_series", {}).items():
         _assert_series_matches(result.get_series(name), expected)
     _assert_external_capture(fixture)
 
@@ -77,7 +80,7 @@ def _assert_external_capture(fixture: dict[str, Any]) -> None:
 
     result = pn.run(
         fixture["script"],
-        capture.get("bars") or fixture["chart_bars"],
+        capture.get("bars") or fixture.get("chart_bars") or [],
         executor_mode="inline",
     )
     assert result.ok, result.error

@@ -14,6 +14,10 @@ settings = pn.PyneSettings(
     max_matrix_cells=100_000,
     max_collection_depth=8,
     max_strategy_pending_operations=1_000_000,
+    incremental_retention_bars=10_000,
+    trace_enabled=False,
+    trace_max_events=1_000,
+    trace_span_events=False,
     data_provider=None,
     syminfo={"tickerid": "NASDAQ:AAPL", "mintick": 0.01},
     timeframe="1h",
@@ -121,6 +125,13 @@ Object limits:
   handles in one execution.
 - Environment variable: `PYNE_MAX_DRAWING_OBJECTS`.
 
+Incremental retention:
+
+- `incremental_retention_bars`: default rolling history retained by new
+  `PyneIncrementalSession` objects. It does not cap the lifetime number of live
+  confirmed events; the initial seed remains bounded by `max_bars`.
+- Environment variable: `PYNE_INCREMENTAL_RETENTION_BARS`.
+
 Collection limits:
 
 - `max_array_size`: maximum elements in an `array.*` value created by a script.
@@ -137,4 +148,23 @@ Strategy work limits:
   and OCA work consumed by pending orders across all replays in one execution.
   Exceeding the budget fails closed with `PYNE_SECURITY_ERROR`.
 - Environment variable: `PYNE_MAX_STRATEGY_PENDING_OPERATIONS`.
+
+Execution trace:
+
+- `trace_enabled`: attach a bounded structured trace under
+  `result.meta["trace"]`. The default is `False`.
+- `trace_max_events`: maximum retained trace events. Additional events increase
+  `droppedEvents` without failing execution.
+- `trace_timings_enabled`: collect monotonic hierarchical span durations. The
+  default is `True` when tracing is enabled.
+- `trace_span_events`: also retain `span.start` and `span.complete` in the
+  bounded event list. The default is `False`; aggregate timings and slow-span
+  evidence remain available without the two per-span events.
+- `trace_slow_span_ms`: threshold for the bounded slow-span list.
+- `trace_redacted_fields`: exact case-insensitive secret-like field-name set.
+- Environment variables: `PYNE_TRACE_ENABLED`, `PYNE_TRACE_MAX_EVENTS`,
+  `PYNE_TRACE_TIMINGS_ENABLED`, `PYNE_TRACE_SPAN_EVENTS`, `PYNE_TRACE_SLOW_SPAN_MS`, and
+  `PYNE_TRACE_REDACTED_FIELDS`.
+- See [Execution Trace](../concepts/execution_trace.md) for event and preview
+  semantics.
 

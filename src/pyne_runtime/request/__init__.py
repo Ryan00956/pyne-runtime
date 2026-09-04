@@ -2,7 +2,21 @@
 from __future__ import annotations
 
 from .alignment import BarMergeNamespace, barmerge
-from .errors import PyneInvalidSymbolError, PyneRequestError
+from .conformance import (
+    ProviderConformanceCheck,
+    ProviderConformanceReport,
+    assert_data_provider_conformance,
+    run_data_provider_conformance,
+)
+from .errors import (
+    PyneInvalidSymbolError,
+    PyneProviderCapabilityError,
+    PyneProviderDataError,
+    PyneProviderError,
+    PyneProviderMetadataError,
+    PyneRequestError,
+    RequestProviderErrorCategory,
+)
 from .eval import RequestEvalContext, RequestValues
 from .lower_tf import LowerTimeframeSeries
 from .module import RequestModule
@@ -42,7 +56,14 @@ __all__ = [
     "REQUEST_SECURITY_LOWER_TF_API",
     "REQUEST_SECURITY_LOWER_TF_CAPABILITY_ALIASES",
     "PyneInvalidSymbolError",
+    "PyneProviderCapabilityError",
+    "PyneProviderDataError",
+    "PyneProviderError",
+    "PyneProviderMetadataError",
     "PyneRequestError",
+    "ProviderConformanceCheck",
+    "ProviderConformanceReport",
+    "RequestProviderErrorCategory",
     "RequestCapabilities",
     "RequestCapabilityProvider",
     "RequestEvalContext",
@@ -53,5 +74,7 @@ __all__ = [
     "RequestSymbolMetadata",
     "RequestTimeframeMetadata",
     "RequestValues",
+    "assert_data_provider_conformance",
     "barmerge",
+    "run_data_provider_conformance",
 ]

@@ -43,6 +43,17 @@ strategy.entry_when(bar_index % 2 == 0, "L", strategy.long, qty=1, price=close)
 strategy.close_when(bar_index % 2 == 1, "L", price=close)
 """
 
+_INCREMENTAL_SCRIPT = """
+indicator("Incremental Smoke", mode="incremental")
+def init(ctx):
+    ctx.ta.sma("ma", period=8)
+def on_bar(ctx, bar):
+    total = ctx.state("total", 0.0)
+    total.value += bar.close
+    ctx.plot("MA", ctx.ta.sma("ma").update(bar.close))
+    ctx.plot("Total", total.value)
+"""
+
 
 def _bars(count: int) -> list[dict[str, float]]:
     return [
@@ -71,6 +82,17 @@ def _median_seconds(callback: Callable[[], Any], repeats: int) -> float:
     return statistics.median(samples)
 
 
+def _seconds_once(callback: Callable[[], Any]) -> float:
+    gc.collect()
+    started = time.perf_counter()
+    result = callback()
+    elapsed = time.perf_counter() - started
+    if hasattr(result, "ok") and not result.ok:
+        raise RuntimeError(result.error)
+    del result
+    return elapsed
+
+
 def _growth_check(
     name: str,
     *,
@@ -89,6 +111,52 @@ def _growth_check(
         "limit": limit,
         "passed": ratio <= limit,
     }
+
+
+def _paired_growth_check(
+    name: str,
+    *,
+    small_callback: Callable[[], Any],
+    large_callback: Callable[[], Any],
+    repeats: int,
+    limit: float,
+    unit: str,
+) -> dict[str, Any]:
+    """Measure paired sizes in alternating order and retain every raw sample."""
+
+    sample_count = max(int(repeats), 3)
+    small_samples: list[float] = []
+    large_samples: list[float] = []
+    ratio_samples: list[float] = []
+    for index in range(sample_count):
+        if index % 2 == 0:
+            small = _seconds_once(small_callback)
+            large = _seconds_once(large_callback)
+        else:
+            large = _seconds_once(large_callback)
+            small = _seconds_once(small_callback)
+        small_samples.append(small)
+        large_samples.append(large)
+        ratio_samples.append(large / small if small > 0 else float("inf"))
+
+    result = _growth_check(
+        name,
+        small=statistics.median(small_samples),
+        large=statistics.median(large_samples),
+        limit=limit,
+        unit=unit,
+    )
+    result.update(
+        {
+            "ratio": statistics.median(ratio_samples),
+            "passed": statistics.median(ratio_samples) <= limit,
+            "smallSamples": small_samples,
+            "largeSamples": large_samples,
+            "ratioSamples": ratio_samples,
+            "statistic": "median_paired_ratio",
+        }
+    )
+    return result
 
 
 def _strategy_close_growth(repeats: int) -> dict[str, Any]:
@@ -240,6 +308,197 @@ def _pivot_growth(repeats: int) -> dict[str, Any]:
     )
 
 
+def _incremental_multi_session_growth(repeats: int) -> dict[str, Any]:
+    data = _bars(120)
+
+    def evaluate(count: int) -> float:
+        def run_sessions() -> None:
+            sessions = [
+                pn.PyneIncrementalSession(
+                    script=_INCREMENTAL_SCRIPT,
+                    params={"session": index},
+                    settings=pn.PyneSettings(executor_mode="inline", max_bars=1_000),
+                    retention_bars=64,
+                )
+                for index in range(count)
+            ]
+            for session in sessions:
+                session.seed(data)
+
+        return _median_seconds(run_sessions, repeats)
+
+    return _growth_check(
+        "incremental_multi_session_time_growth",
+        small=evaluate(4),
+        large=evaluate(8),
+        limit=3.25,
+        unit="seconds",
+    )
+
+
+def _incremental_memory_growth() -> dict[str, Any]:
+    pn.PyneIncrementalSession(
+        script=_INCREMENTAL_SCRIPT,
+        settings=pn.PyneSettings(executor_mode="inline", max_bars=1_000),
+        retention_bars=64,
+    ).seed(_bars(16))
+
+    def peak_bytes(count: int) -> float:
+        gc.collect()
+        tracemalloc.start()
+        try:
+            session = pn.PyneIncrementalSession(
+                script=_INCREMENTAL_SCRIPT,
+                settings=pn.PyneSettings(executor_mode="inline", max_bars=1_000),
+                retention_bars=64,
+            )
+            session.seed(_bars(count))
+            _, peak = tracemalloc.get_traced_memory()
+            return float(peak)
+        finally:
+            tracemalloc.stop()
+
+    return _growth_check(
+        "incremental_bounded_memory_growth",
+        small=peak_bytes(300),
+        large=peak_bytes(600),
+        limit=3.0,
+        unit="bytes",
+    )
+
+
+def _portable_snapshot_growth(repeats: int) -> dict[str, Any]:
+    def evaluate(count: int) -> float:
+        session = pn.PyneIncrementalSession(
+            script=_INCREMENTAL_SCRIPT,
+            settings=pn.PyneSettings(executor_mode="inline", max_bars=1_000),
+            retention_bars=64,
+        )
+        session.seed(_bars(count))
+        return _median_seconds(session.snapshot_portable, repeats)
+
+    return _growth_check(
+        "incremental_portable_snapshot_time_growth",
+        small=evaluate(200),
+        large=evaluate(400),
+        limit=3.25,
+        unit="seconds",
+    )
+
+
+def _portable_restore_growth(repeats: int) -> dict[str, Any]:
+    def payload(count: int) -> tuple[bytes, pn.PyneSettings]:
+        settings = pn.PyneSettings(executor_mode="inline", max_bars=1_000)
+        session = pn.PyneIncrementalSession(
+            script=_INCREMENTAL_SCRIPT,
+            settings=settings,
+            retention_bars=64,
+        )
+        session.seed(_bars(count))
+        return session.snapshot_portable(), settings
+
+    small_payload, small_settings = payload(80)
+    large_payload, large_settings = payload(160)
+
+    def restore(
+        snapshot: bytes,
+        settings: pn.PyneSettings,
+    ) -> pn.PyneIncrementalSession:
+        return pn.PyneIncrementalSession.from_portable_snapshot(
+            snapshot,
+            script=_INCREMENTAL_SCRIPT,
+            settings=settings,
+        )
+
+    restore(small_payload, small_settings)
+    restore(large_payload, large_settings)
+    return _paired_growth_check(
+        "incremental_portable_restore_time_growth",
+        small_callback=lambda: restore(small_payload, small_settings),
+        large_callback=lambda: restore(large_payload, large_settings),
+        repeats=repeats,
+        limit=3.5,
+        unit="seconds",
+    )
+
+
+def _portable_typed_state_restore_ratio(repeats: int) -> dict[str, Any]:
+    settings = pn.PyneSettings(executor_mode="inline", max_bars=1_000)
+    session = pn.PyneIncrementalSession(
+        script=_INCREMENTAL_SCRIPT,
+        settings=settings,
+        retention_bars=64,
+    )
+    session.seed(_bars(320))
+    replay_snapshot = session.snapshot_portable(mode="replay")
+    state_snapshot = session.snapshot_portable(mode="state")
+
+    def restore(snapshot: bytes) -> pn.PyneIncrementalSession:
+        return pn.PyneIncrementalSession.from_portable_snapshot(
+            snapshot,
+            script=_INCREMENTAL_SCRIPT,
+            settings=settings,
+        )
+
+    restore(replay_snapshot)
+    restore(state_snapshot)
+    result = _paired_growth_check(
+        "incremental_typed_state_restore_vs_replay",
+        small_callback=lambda: restore(replay_snapshot),
+        large_callback=lambda: restore(state_snapshot),
+        repeats=repeats,
+        limit=1.25,
+        unit="seconds",
+    )
+    result.update(
+        {
+            "baseline": "replay-v1",
+            "candidate": "typed-state-v2",
+            "ratioMeaning": "typed-state-v2 / replay-v1",
+            "replayPayloadBytes": len(replay_snapshot),
+            "typedStatePayloadBytes": len(state_snapshot),
+        }
+    )
+    return result
+
+
+def _trace_overhead_ratio(repeats: int) -> dict[str, Any]:
+    data = _bars(320)
+
+    def run_session(*, trace_enabled: bool) -> None:
+        session = pn.PyneIncrementalSession(
+            script=_INCREMENTAL_SCRIPT,
+            settings=pn.PyneSettings(
+                executor_mode="inline",
+                max_bars=1_000,
+                trace_enabled=trace_enabled,
+                trace_max_events=5_000,
+                trace_slow_span_ms=1_000.0,
+            ),
+            retention_bars=64,
+        )
+        session.seed(data)
+
+    run_session(trace_enabled=False)
+    run_session(trace_enabled=True)
+    result = _paired_growth_check(
+        "incremental_trace_v2_overhead",
+        small_callback=lambda: run_session(trace_enabled=False),
+        large_callback=lambda: run_session(trace_enabled=True),
+        repeats=repeats,
+        limit=1.5,
+        unit="seconds",
+    )
+    result.update(
+        {
+            "baseline": "trace-disabled",
+            "candidate": "trace-v2-enabled",
+            "ratioMeaning": "trace-v2-enabled / trace-disabled",
+        }
+    )
+    return result
+
+
 def build_report(*, repeats: int) -> dict[str, Any]:
     checks = [
         _strategy_close_growth(repeats),
@@ -250,6 +509,12 @@ def build_report(*, repeats: int) -> dict[str, Any]:
         _wma_growth(repeats),
         _order_statistic_growth(repeats),
         _pivot_growth(repeats),
+        _incremental_multi_session_growth(repeats),
+        _incremental_memory_growth(),
+        _portable_snapshot_growth(repeats),
+        _portable_restore_growth(repeats),
+        _portable_typed_state_restore_ratio(repeats),
+        _trace_overhead_ratio(repeats),
     ]
     return {
         "schema": "pyne.performance-smoke.v1",
@@ -275,7 +540,9 @@ def main() -> int:
         for check in report["checks"]:
             status = "PASS" if check["passed"] else "FAIL"
             print(
-                f"{status} {check['name']}: ratio={check['ratio']:.3f} limit={check['limit']:.3f}"
+                f"{status} {check['name']}: small={check['small']:.6g} "
+                f"large={check['large']:.6g} {check['unit']} "
+                f"ratio={check['ratio']:.3f} limit={check['limit']:.3f}"
             )
         print("PASS" if report["passed"] else "FAIL")
     return 1 if args.check and not report["passed"] else 0

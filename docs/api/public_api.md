@@ -12,6 +12,10 @@ pn.read_ohlcv
 pn.from_pandas
 pn.validate
 pn.schema
+pn.runtime_capabilities
+pn.capability_diagnostics
+pn.inspect_script
+pn.inspect_path
 pn.__version__
 
 pn.PyneData
@@ -24,8 +28,14 @@ pn.PyneStateNamespace
 pn.PyneVar
 pn.PyneRuntime
 pn.PyneIncrementalSession
+pn.PyneIncrementalSessionSnapshot
+pn.PynePortableSnapshotError
+pn.PyneIncrementalSessionCapacityError
 pn.PyneIncrementalSessionManager
 pn.SharedPyneIncrementalSession
+pn.IncrementalParityDifference
+pn.IncrementalParityReport
+pn.run_incremental_parity
 pn.SymbolInfo
 pn.TimeframeInfo
 pn.SessionInfo
@@ -44,6 +54,10 @@ pn.order_namespace
 pn.Color
 pn.color
 pn.PyneMath
+pn.PineLibraryDescriptor
+pn.PineLibraryRegistry
+pn.SUPPORTED_PINE_LIBRARIES
+pn.TRADINGVIEW_TA_10
 pn.StringNamespace
 pn.string_namespace
 pn.TickerNamespace
@@ -69,13 +83,24 @@ pn.RequestSessionMetadata
 pn.RequestSymbolMetadata
 pn.RequestTimeframeMetadata
 pn.PyneInvalidSymbolError
+pn.PyneProviderError
+pn.PyneProviderCapabilityError
+pn.PyneProviderDataError
+pn.PyneProviderMetadataError
 pn.PyneRequestError
+pn.RequestProviderErrorCategory
+pn.ProviderConformanceCheck
+pn.ProviderConformanceReport
+pn.run_data_provider_conformance
+pn.assert_data_provider_conformance
 pn.RequestEvalContext
 pn.RequestModule
 pn.barmerge
 pn.BarMergeNamespace
 pn.StrategyModule
+pn.PyneExecutionScope
 pn.pyne_cache
+pn.PyneTraceRecorder
 
 pn.execute_pyne_script
 pn.execute_pyne_script_in_process
@@ -87,10 +112,19 @@ Version constants:
 ```python
 pn.__version__
 pn.PYNE_INPUT_SCHEMA_VERSION
+pn.PYNE_INCREMENTAL_SNAPSHOT_VERSION
+pn.PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_FORMAT
+pn.PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_VERSION
 pn.PYNE_OUTPUT_SCHEMA_VERSION
 pn.PYNE_PARAM_SCHEMA_VERSION
 pn.PYNE_REQUEST_PROVIDER_SCHEMA_VERSION
 pn.PYNE_STRATEGY_REPORT_SCHEMA_VERSION
+pn.PYNE_RUNTIME_CAPABILITIES_SCHEMA_VERSION
+pn.PYNE_TRACE_SCHEMA_VERSION
+pn.PYNE_SCRIPT_INSPECTION_SCHEMA_VERSION
+pn.PYNE_SCRIPT_DIRECTORY_INSPECTION_SCHEMA_VERSION
+pn.BATCH_TA_CAPABILITIES
+pn.INCREMENTAL_TA_CAPABILITIES
 pn.na
 pn.nz
 pn.fixnan
@@ -102,10 +136,22 @@ pn.fixnan
 scripts as `nz()` and `fixnan()`.
 `PyneBarState` is the batch-runtime namespace type behind script-level `barstate.*` flags.
 `PyneVar` and `PyneStateNamespace` power script-level `var()` / `pyne.var()` state cells.
-`PyneIncrementalSession`, `PyneIncrementalSessionManager`,
+`PyneIncrementalSession`, `PyneIncrementalSessionSnapshot`,
+`PyneIncrementalSessionManager`, `PyneIncrementalSessionCapacityError`,
 `SharedPyneIncrementalSession`, `PyneIncrementalBarState`, and
 `is_incremental_pyne_script()` are host-facing helpers for confirmed/preview
-bar workflows.
+bar workflows. `PYNE_INCREMENTAL_SNAPSHOT_VERSION` versions opaque
+process-local checkpoints. `snapshot_portable()` and
+`from_portable_snapshot()` provide versioned, checksummed replay-v1 and
+typed-state-v2 formats; `PYNE_INCREMENTAL_PORTABLE_SNAPSHOT_*` and
+`PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_*` identify them.
+The typed-state identifiers are also exported explicitly as
+`pn.PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_FORMAT` and
+`pn.PYNE_INCREMENTAL_PORTABLE_STATE_SNAPSHOT_VERSION`.
+`PynePortableSnapshotError` reports fail-closed portability or restore contract
+violations. `run_incremental_parity()` returns an
+`IncrementalParityReport` containing structured
+`IncrementalParityDifference` records for batch/incremental semantic drift.
 `SymbolInfo`, `TimeframeInfo`, `SessionInfo`, and `SessionNamespace` back the
 script-level `syminfo`, `timeframe`, and `session` namespaces.
 `ArrayNamespace`, `MapNamespace`, `MatrixNamespace`, `OrderNamespace`,
@@ -114,6 +160,9 @@ back the script-level `array`, `map`, `matrix`, and `order` APIs.
 `Color`, `color`, `PyneMath`, `StringNamespace`, `string_namespace`,
 `TickerNamespace`, `TimeNamespace`, and `ObjectRef` support script-facing
 color, math, string, ticker, time, and drawing-object helpers.
+`PineLibraryDescriptor`, `PineLibraryRegistry`, `SUPPORTED_PINE_LIBRARIES`,
+and `TRADINGVIEW_TA_10` describe the fail-closed pinned external-library
+adapter surface.
 `DataProvider` is the host protocol for `request.security()` market data access.
 `LowerTimeframeSeries` is the grouped result object returned by
 `request.security_lower_tf()`.
@@ -127,6 +176,11 @@ color, math, string, ticker, time, and drawing-object helpers.
 data adapters.
 `PyneInvalidSymbolError` is the provider-side signal used by
 `ignore_invalid_symbol=True`.
+`PyneProviderError` and its capability, data, and metadata subclasses provide
+typed provider-side failure signals. `RequestProviderErrorCategory` is the
+stable machine-readable category enum. The conformance report and helper
+functions let host adapters test the complete provider boundary without taking
+a dependency on a specific Python test runner.
 `PyneRequestError` is the stable runtime request error type used by host-backed
 request adapters.
 `RequestEvalContext` is the calculation-only context passed to `request.security()` expression thunks.
@@ -134,8 +188,20 @@ request adapters.
 `pn.barmerge.gaps_on` and `pn.barmerge.lookahead_off`.
 `BarMergeNamespace` is the concrete namespace type behind `pn.barmerge`.
 `StrategyModule` is the script-level `strategy.*` event namespace.
-`pyne_cache` is the package-level cache service surfaced for explicit host
-cache management.
+`PyneExecutionScope` lets a host intentionally share script cache state across
+multiple inline executions. By default each batch execution and each
+incremental session owns an isolated scope. `pyne_cache` remains the
+package-level service for explicit host cache management; it is not the cache
+injected into ordinary script executions.
+`runtime_capabilities()` returns the versioned batch/incremental capability
+contract also embedded in `pn.schema()`. `capability_diagnostics()` is the
+lower-level mode-aware diagnostic helper used by `pn.validate()` and
+incremental session preparation. `BATCH_TA_CAPABILITIES` and
+`INCREMENTAL_TA_CAPABILITIES` are the stable tuple views used in that contract.
+`pn.inspect_script()` and `pn.PYNE_SCRIPT_INSPECTION_SCHEMA_VERSION` define the
+non-executing static preflight report. `PyneTraceRecorder` and
+`PYNE_TRACE_SCHEMA_VERSION` define the bounded trace document attached under
+`result.meta["trace"]` when tracing is enabled.
 
 Internal helpers and non-exported functions are not part of the compatibility contract.
 

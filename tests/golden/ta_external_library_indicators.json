@@ -1,0 +1,142 @@
+{
+  "name": "ta_external_library_indicators",
+  "source": "TradingView table-view evidence captured from TVC:GOLD 1D on 2026-08-06.",
+  "script": "tv_ta = pine_library(\"TradingView/ta/10\")\nlength = 3.0 + ((bar_index + 3) % 5)\nlevels = ta.pivot_point_levels(\"Traditional\", (bar_index % 8) == 0)\nplot(tv_ta.ema2(close, length), \"TV ta10 EMA2\")\nplot(tv_ta.rma2(close, length), \"TV ta10 RMA2\")\nplot(tv_ta.atr2(length), \"TV ta10 ATR2\")\nplot(ta.pivothigh(high, 2, 2), \"TV Pivot High\")\nplot(ta.pivotlow(low, 2, 2), \"TV Pivot Low\")\nplot(levels.get(0), \"TV Pivot P\")\nplot(levels.get(1), \"TV Pivot R1\")\nplot(levels.get(2), \"TV Pivot S1\")",
+  "external_capture": {
+    "provider": "tradingview",
+    "status": "captured",
+    "assertion": "parity",
+    "tolerance": 0.005,
+    "plot_titles": [
+      "TV ta10 EMA2",
+      "TV ta10 RMA2",
+      "TV ta10 ATR2",
+      "TV Pivot High",
+      "TV Pivot Low",
+      "TV Pivot P",
+      "TV Pivot R1",
+      "TV Pivot S1"
+    ],
+    "bars": [
+      {"time": 1784073600, "open": 4052.711, "high": 4081.5, "low": 4017.54, "close": 4060.85, "volume": 0.0},
+      {"time": 1784160000, "open": 4062.68, "high": 4068.58, "low": 3969.458, "close": 3977.582, "volume": 0.0},
+      {"time": 1784246400, "open": 3976.319, "high": 4024.12, "low": 3959.778, "close": 4018.44, "volume": 0.0},
+      {"time": 1784505600, "open": 4017.4, "high": 4040.808, "low": 3982.71, "close": 4009.2, "volume": 0.0},
+      {"time": 1784592000, "open": 4009.41, "high": 4087.43, "low": 3999.95, "close": 4079.807, "volume": 0.0},
+      {"time": 1784678400, "open": 4082.3, "high": 4166.07, "low": 4076.188, "close": 4128.354, "volume": 0.0},
+      {"time": 1784764800, "open": 4122.592, "high": 4141.05, "low": 4040.28, "close": 4048.671, "volume": 0.0},
+      {"time": 1784851200, "open": 4049.311, "high": 4082.14, "low": 4022.12, "close": 4052.6, "volume": 0.0},
+      {"time": 1785110400, "open": 4052.28, "high": 4116.43, "low": 4052.28, "close": 4080.119, "volume": 0.0},
+      {"time": 1785196800, "open": 4079.304, "high": 4082.617, "low": 4011.58, "close": 4028.3, "volume": 0.0},
+      {"time": 1785283200, "open": 4027.48, "high": 4116.46, "low": 3996.07, "close": 4065.94, "volume": 0.0},
+      {"time": 1785369600, "open": 4068.59, "high": 4120.28, "low": 4028.59, "close": 4102.234, "volume": 0.0},
+      {"time": 1785456000, "open": 4103.62, "high": 4111.79, "low": 4021.079, "close": 4041.18, "volume": 0.0},
+      {"time": 1785715200, "open": 4041.18, "high": 4083.14, "low": 4019.16, "close": 4054.59, "volume": 0.0},
+      {"time": 1785801600, "open": 4054.59, "high": 4106.38, "low": 4042.53, "close": 4077.59, "volume": 0.0},
+      {"time": 1785888000, "open": 4077.9, "high": 4267.8, "low": 4065.52, "close": 4249.93, "volume": 0.0}
+    ],
+    "series": {
+      "TV ta10 EMA2": [
+        {"time": 1784073600, "value": 4060.85},
+        {"time": 1784160000, "value": 4040.033},
+        {"time": 1784246400, "value": 4029.237},
+        {"time": 1784505600, "value": 4021.222},
+        {"time": 1784592000, "value": 4040.75},
+        {"time": 1784678400, "value": 4065.78},
+        {"time": 1784764800, "value": 4061.503},
+        {"time": 1784851200, "value": 4057.051},
+        {"time": 1785110400, "value": 4066.278},
+        {"time": 1785196800, "value": 4053.619},
+        {"time": 1785283200, "value": 4057.139},
+        {"time": 1785369600, "value": 4068.413},
+        {"time": 1785456000, "value": 4054.796},
+        {"time": 1785715200, "value": 4054.714},
+        {"time": 1785801600, "value": 4062.339},
+        {"time": 1785888000, "value": 4115.937}
+      ],
+      "TV ta10 RMA2": [
+        {"time": 1784073600, "value": 4060.85},
+        {"time": 1784160000, "value": 4048.955},
+        {"time": 1784246400, "value": 4038.783},
+        {"time": 1784505600, "value": 4031.387},
+        {"time": 1784592000, "value": 4041.071},
+        {"time": 1784678400, "value": 4055.618},
+        {"time": 1784764800, "value": 4054.626},
+        {"time": 1784851200, "value": 4053.951},
+        {"time": 1785110400, "value": 4060.493},
+        {"time": 1785196800, "value": 4054.054},
+        {"time": 1785283200, "value": 4056.035},
+        {"time": 1785369600, "value": 4062.635},
+        {"time": 1785456000, "value": 4055.483},
+        {"time": 1785715200, "value": 4055.26},
+        {"time": 1785801600, "value": 4059.726},
+        {"time": 1785888000, "value": 4091.427}
+      ],
+      "TV ta10 ATR2": [
+        {"time": 1784073600, "value": 63.96},
+        {"time": 1784160000, "value": 68.983},
+        {"time": 1784246400, "value": 67.436},
+        {"time": 1784505600, "value": 65.102},
+        {"time": 1784592000, "value": 69.577},
+        {"time": 1784678400, "value": 72.961},
+        {"time": 1784764800, "value": 76.934},
+        {"time": 1784851200, "value": 71.296},
+        {"time": 1785110400, "value": 69.51},
+        {"time": 1785196800, "value": 69.815},
+        {"time": 1785283200, "value": 78.244},
+        {"time": 1785369600, "value": 80.165},
+        {"time": 1785456000, "value": 83.68},
+        {"time": 1785715200, "value": 78.755},
+        {"time": 1785801600, "value": 75.774},
+        {"time": 1785888000, "value": 96.859}
+      ],
+      "TV Pivot High": [
+        {"time": 1784246400, "value": 4081.5},
+        {"time": 1784851200, "value": 4166.07},
+        {"time": 1785715200, "value": 4120.28}
+      ],
+      "TV Pivot Low": [
+        {"time": 1784592000, "value": 3959.778},
+        {"time": 1785456000, "value": 3996.07},
+        {"time": 1785888000, "value": 4019.16}
+      ],
+      "TV Pivot P": [
+        {"time": 1785110400, "value": 4059.483},
+        {"time": 1785196800, "value": 4059.483},
+        {"time": 1785283200, "value": 4059.483},
+        {"time": 1785369600, "value": 4059.483},
+        {"time": 1785456000, "value": 4059.483},
+        {"time": 1785715200, "value": 4059.483},
+        {"time": 1785801600, "value": 4059.483},
+        {"time": 1785888000, "value": 4059.483}
+      ],
+      "TV Pivot R1": [
+        {"time": 1785110400, "value": 4159.187},
+        {"time": 1785196800, "value": 4159.187},
+        {"time": 1785283200, "value": 4159.187},
+        {"time": 1785369600, "value": 4159.187},
+        {"time": 1785456000, "value": 4159.187},
+        {"time": 1785715200, "value": 4159.187},
+        {"time": 1785801600, "value": 4159.187},
+        {"time": 1785888000, "value": 4159.187}
+      ],
+      "TV Pivot S1": [
+        {"time": 1785110400, "value": 3952.895},
+        {"time": 1785196800, "value": 3952.895},
+        {"time": 1785283200, "value": 3952.895},
+        {"time": 1785369600, "value": 3952.895},
+        {"time": 1785456000, "value": 3952.895},
+        {"time": 1785715200, "value": 3952.895},
+        {"time": 1785801600, "value": 3952.895},
+        {"time": 1785888000, "value": 3952.895}
+      ]
+    },
+    "notes": [
+      "TradingView table-view capture 2026-08-06, TVC:GOLD 1D, Pine v6, TradingView/ta/10.",
+      "The table displayed three decimal places; tolerance is 0.005 and bar dates were normalized to UTC midnight.",
+      "The local fixture preserves the captured absolute bar_index modulo with a +3 offset over the 16-bar window.",
+      "Pivot-level rows before the first self-contained anchor at index 8 were excluded because TradingView correctly retained chart history outside this 16-bar evidence window.",
+      "The temporary indicator was removed from the user's chart after capture; no Pine script was saved or published."
+    ]
+  }
+}
