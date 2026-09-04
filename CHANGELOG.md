@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Relicensed the project from GPL-3.0 to MIT with authorization from the sole
+  contributor, and aligned the repository and package metadata.
 - Hardened the isolated package smoke so the installed wheel must match the
   repository source schema/capability identity, pass `pyne inspect` without
   importing the repository `src` tree, and make no package-index request in

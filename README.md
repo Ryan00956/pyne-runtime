@@ -11,7 +11,7 @@
   <a href="https://github.com/helenananaa/pyne-runtime/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/helenananaa/pyne-runtime/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11, 3.12, and 3.13" src="https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Project status: alpha" src="https://img.shields.io/badge/status-alpha-F59E0B">
-  <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-2563EB"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2563EB"></a>
 </p>
 
 <p align="center">
@@ -221,4 +221,4 @@ metadata checks, and an offline installed-wheel smoke test. See
 
 ## License
 
-Pyne Runtime is licensed under the [GNU General Public License v3.0](LICENSE).
+Pyne Runtime is licensed under the [MIT License](LICENSE).
