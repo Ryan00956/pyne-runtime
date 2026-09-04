@@ -103,3 +103,22 @@ def test_explicit_batch_validation_does_not_apply_incremental_ta_contract() -> N
     assert pn.validate("value = ctx.ta.hma('hma', period=4)", runtime_mode="batch") == []
     with pytest.raises(ValueError, match="runtime_mode"):
         pn.validate("plot(close)", runtime_mode="streaming")
+
+
+def test_request_family_stays_fail_closed_without_host_data_contract() -> None:
+    capabilities = pn.runtime_capabilities()
+    expected = ["security", "security_lower_tf"]
+
+    assert capabilities["modes"]["batch"]["request"] == expected
+    assert capabilities["modes"]["incremental"]["request"] == expected
+    for family in (
+        "currency_rate",
+        "financial",
+        "economic",
+        "dividends",
+        "splits",
+        "earnings",
+        "data",
+    ):
+        assert family not in capabilities["modes"]["batch"]["request"]
+        assert family not in capabilities["modes"]["incremental"]["request"]

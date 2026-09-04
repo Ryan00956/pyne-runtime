@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Deferred new `request.*` families: only `security` and `security_lower_tf`
+  remain declared, and unknown families stay fail-closed until a host data
+  source, provider contract, and golden fixture exist.
 - Locked Inspector v2 directory reports as the Phase 5A migration surface and
   deferred pinned-library expansion: unknown identifiers remain fail-closed
   without a reviewed owner/library/version/member.
