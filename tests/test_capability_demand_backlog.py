@@ -8,6 +8,7 @@ import pyne_runtime as pn
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKLOG = ROOT / "docs" / "development" / "capability_demand_backlog_zh.md"
+EXAMPLES = ROOT / "examples"
 REQUIRED_COLUMNS = (
     "capability",
     "kind",
@@ -100,3 +101,28 @@ def test_demand_backlog_has_no_unjustified_p0_implement_rows() -> None:
     p0_section = body.split("## P0", 1)[1].split("## P1", 1)[0]
     assert "_(none)_" in p0_section
     assert re.search(r"\|\s*implement\s*\|?\s*$", p0_section, flags=re.MULTILINE) is None
+
+
+def test_packaged_example_corpus_matches_recorded_mode_boundaries() -> None:
+    batch = pn.inspect_path(EXAMPLES, runtime_mode="batch")
+    incremental = pn.inspect_path(EXAMPLES, runtime_mode="incremental")
+
+    assert batch["summary"] == {
+        "scriptCount": 10,
+        "supportedCount": 10,
+        "unsupportedCount": 0,
+        "runtimeModes": {"batch": 10},
+        "providerApis": ["request.security", "request.security_lower_tf"],
+        "batchToIncrementalBlockerCount": 2,
+    }
+    assert incremental["summary"]["scriptCount"] == 10
+    assert incremental["summary"]["supportedCount"] == 9
+    assert incremental["summary"]["unsupportedCount"] == 1
+    blocked = [
+        item for item in incremental["scripts"] if not item["report"]["compatibility"]["supported"]
+    ]
+    assert [item["path"] for item in blocked] == ["pine_like_semantics.py"]
+    assert {
+        blocker["requirement"]
+        for blocker in blocked[0]["report"]["migration"]["batchToIncremental"]["blockers"]
+    } == {"strategy.close_when", "strategy.entry_when"}
