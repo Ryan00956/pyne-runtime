@@ -122,3 +122,12 @@ def test_request_family_stays_fail_closed_without_host_data_contract() -> None:
     ):
         assert family not in capabilities["modes"]["batch"]["request"]
         assert family not in capabilities["modes"]["incremental"]["request"]
+
+
+def test_incremental_strategy_keeps_when_helpers_batch_only() -> None:
+    capabilities = pn.runtime_capabilities()
+    batch_only = ("close_when", "entry_when", "order_when")
+
+    for member in batch_only:
+        assert member in capabilities["modes"]["batch"]["strategy"]
+        assert member not in capabilities["modes"]["incremental"]["strategy"]

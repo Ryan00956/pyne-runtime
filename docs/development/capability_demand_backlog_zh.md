@@ -135,4 +135,5 @@ batch replay 辅助，不因一个演示脚本自动扩展。
 - **Phase 5A**：完成（现有 Inspector v2）。目录报告已提供 supported、unsupportedMembers、host、externalLibraries、dynamicAccesses、history hint 与 batch→incremental 迁移；本轮不扩展 schema。
 - **Phase 5B**：deferred。第三方/未 pinned 库无授权实现来源。
 - **Phase 6**：deferred。`request.currency_rate` / `dividends` / `splits` / `earnings` 各 1 文件命中，但 CandleScope 数据源未批准，core 不得联网。
+- **Phase 7**：deferred。无冻结策略缺口；`entry_when` / `close_when` / `order_when` 保持 Incremental 不支持；strategy capture 27/27、0 diff。
 - 出现新的已迁移 `.py` / `.pyne` 语料后，必须重新跑 `pyne inspect` 并修订本榜。
