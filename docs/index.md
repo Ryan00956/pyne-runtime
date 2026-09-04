@@ -100,5 +100,7 @@ strategy, request, and host-renderer output workflows.
 - [Error Codes](reference/error_codes.md): structured diagnostic codes.
 - [Quality Gates](development/quality_gates.md): local and release validation
   commands.
+- [Capability Completion Execution Plan](development/capability_completion_execution_plan_zh.md):
+  step-by-step, evidence-driven Runtime completion and CandleScope host acceptance.
 - [Python Package Long-Term Direction](development/python_package_long_term_plan_zh.md):
   roadmap for package maturity.
