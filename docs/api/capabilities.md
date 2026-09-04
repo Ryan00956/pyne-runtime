@@ -13,8 +13,10 @@ incremental_ta = capabilities["modes"]["incremental"]["ta"]
 The returned document has its own `schemaVersion` and lists mode-specific TA,
 request, strategy, drawing, callback, preview, and portable-snapshot support.
 It also declares the pinned external-library registry, trace contract, language
-boundary, and security boundary. Callers receive a defensive copy and may
-modify it without changing the runtime.
+boundary, and security boundary. The live member lists in that document are the
+checked source of truth; prose inventories in the Incremental guide, API matrix,
+and status page must match them rather than keep a second handwritten set.
+Callers receive a defensive copy and may modify it without changing the runtime.
 
 The same document is embedded in `pn.schema()["runtimeCapabilities"]`. Hosts
 can therefore obtain one complete integration bundle through `pyne schema`.

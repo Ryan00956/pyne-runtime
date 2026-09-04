@@ -111,10 +111,12 @@ strategy ledger. If a preview for the same `time` was already seen,
 `ctx.barstate.isnew` is false during the confirmed callback; if the host sends
 only a closed bar, it is true.
 
-The currently promoted incremental TA helpers are `adx`, `atr`, `barssince`,
-`boll`, `cci`, `cross`, `crossover`, `crossunder`, `dmi`, `ema`, `highest`,
-`hma`, `lowest`, `macd`, `mfi`, `rma`, `rsi`, `sar`, `sma`, `stdev`, `stoch`,
-`supertrend`, `valuewhen`, `variance`, `vwap`, `vwma`, and `wma`. Query
+The currently promoted incremental TA helpers are `adx`, `alma`, `atr`,
+`barssince`, `bb`, `boll`, `cci`, `change`, `cross`, `crossover`,
+`crossunder`, `cum`, `dev`, `dmi`, `ema`, `highest`, `highestbars`, `hma`,
+`lowest`, `lowestbars`, `macd`, `mfi`, `pivot_point_levels`, `pivothigh`,
+`pivotlow`, `rma`, `rsi`, `sar`, `sma`, `stdev`, `stoch`, `supertrend`,
+`swma`, `tr`, `valuewhen`, `variance`, `vwap`, `vwma`, and `wma`. Query
 `pn.runtime_capabilities()["modes"]["incremental"]` instead of assuming every
 batch `ta.*` helper has a scalar incremental implementation. `pn.validate()`
 and session preparation report statically visible unsupported `ctx.ta.*` calls

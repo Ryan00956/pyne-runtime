@@ -113,7 +113,7 @@ in 11.
   removal while converting each indicator. The audit now ranks these unresolved
   library members under `capabilityDemand.externalLibraryCandidates`.
 - Incremental TA: the audit ranks batch-covered TA members that remain outside
-  the 27-member incremental surface under
+  the 39-member incremental surface under
   `capabilityDemand.incrementalTaCandidates`. These lists are demand evidence,
   not automatic promotion or source-execution claims.
 - Host state/data: chart theme and visible-range values, corporate actions,

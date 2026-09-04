@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Aligned Incremental TA helper lists, corpus incremental-surface counts, and
+  TA capture plot/point totals with `runtime_capabilities()` and the live
+  capture gate, and added contract tests that fail on future capability-doc
+  drift.
 - Expanded incremental TA from 27 to 39 helpers with demand-led `change`,
   `highestbars`, `lowestbars`, `pivothigh`, `pivotlow`, `tr`, `cum`, `swma`,
   `alma`, `dev`, `bb`, and `pivot_point_levels` implementations, including

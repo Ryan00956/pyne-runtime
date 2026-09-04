@@ -56,9 +56,12 @@ These counts come directly from the request, strategy, and TA status `build_repo
 - **Static script preflight:** `pn.inspect_script()` and `pyne inspect` report a
   source hash, mode-aware requirements, compatibility diagnostics, host needs,
   pinned libraries, and resource hints without executing or echoing source.
-- **Expanded incremental TA:** 27 scalar helpers now include `hma`, `dmi`,
-  `adx`, `sar`, `mfi`, `vwap`, `barssince`, `valuewhen`, and the three cross
-  predicates, with batch/incremental parity and portable-restore coverage.
+- **Expanded incremental TA:** 39 scalar helpers now include `hma`, `dmi`,
+  `adx`, `sar`, `mfi`, `vwap`, `barssince`, `valuewhen`, the three cross
+  predicates, and the later demand-led `change`, `highestbars`, `lowestbars`,
+  `pivothigh`, `pivotlow`, `tr`, `cum`, `swma`, `alma`, `dev`, `bb`, and
+  `pivot_point_levels` members, with batch/incremental parity and
+  portable-restore coverage.
 - **Batch/incremental parity kit:** hosts and contributors can run normalized,
   assertion-ready semantic comparisons without depending on the test runner.
 - **Stable integration surfaces:** the package exposes versioned output, parameter,
