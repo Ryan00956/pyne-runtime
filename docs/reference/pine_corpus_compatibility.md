@@ -114,8 +114,10 @@ in 11.
   library members under `capabilityDemand.externalLibraryCandidates`.
 - Incremental TA: the audit ranks batch-covered TA members that remain outside
   the 39-member incremental surface under
-  `capabilityDemand.incrementalTaCandidates`. These lists are demand evidence,
-  not automatic promotion or source-execution claims.
+  `capabilityDemand.incrementalTaCandidates`. The frozen 104-file corpus currently
+  lists only `ta.tsi` (one file). These lists are demand evidence, not automatic
+  promotion or source-execution claims; the reviewed ranking is in the
+  [capability demand backlog](../development/capability_demand_backlog_zh.md).
 - Host state/data: chart theme and visible-range values, corporate actions,
   currency conversion, and automatic authoritative symbol timezone/volume
   type, plus realtime alert scheduling. Pyne accepts timezone and volume-type

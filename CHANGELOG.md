@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Froze the 104-file Pine corpus identity and published a reviewed capability
+  demand backlog: no unexplained Runtime core gap, Incremental TA expansion
+  deferred until a realtime workload exists, and third-party libraries remain
+  fail-closed.
 - Aligned Incremental TA helper lists, corpus incremental-surface counts, and
   TA capture plot/point totals with `runtime_capabilities()` and the live
   capture gate, and added contract tests that fail on future capability-doc
