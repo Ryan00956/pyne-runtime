@@ -32,10 +32,10 @@ dependencies = [
 published-version = "0.2.0rc1"
 
 [project.urls]
-Homepage = "https://github.com/Ryan00956/pyne-runtime"
-Repository = "https://github.com/Ryan00956/pyne-runtime"
-Documentation = "https://github.com/Ryan00956/pyne-runtime/tree/main/docs"
-Issues = "https://github.com/Ryan00956/pyne-runtime/issues"
+Homepage = "https://github.com/helenananaa/pyne-runtime"
+Repository = "https://github.com/helenananaa/pyne-runtime"
+Documentation = "https://github.com/helenananaa/pyne-runtime/tree/main/docs"
+Issues = "https://github.com/helenananaa/pyne-runtime/issues"
 
 [project.optional-dependencies]
 pandas = ["pandas>=2"]

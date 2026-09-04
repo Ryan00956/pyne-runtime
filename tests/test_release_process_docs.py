@@ -175,7 +175,7 @@ def test_readme_installs_the_published_release_wheel_without_a_source_checkout()
     project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
     version = project["tool"]["pyne-runtime"]["published-version"]
     wheel_url = (
-        "https://github.com/Ryan00956/pyne-runtime/releases/download/"
+        "https://github.com/helenananaa/pyne-runtime/releases/download/"
         f"v{version}/pyne_runtime-{version}-py3-none-any.whl"
     )
 
