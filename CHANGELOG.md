@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Recorded local CandleScope candidate-host acceptance for the `0.3.0rc2`
+  source tree: bridge/workbench focused tests 41 passed, backend focused tests
+  10 passed, and a candidate wheel/sdist pair passed Twine without writing
+  candidate URLs into the published host release lock.
 - Froze the 104-file Pine corpus identity and published a reviewed capability
   demand backlog: no unexplained Runtime core gap, Incremental TA expansion
   deferred until a realtime workload exists, and third-party libraries remain

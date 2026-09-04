@@ -47,8 +47,9 @@ in the [Python package long-term direction](../development/python_package_long_t
 - Expand beyond the declared 39 incremental TA helpers and nine pinned-library
   members only for concrete converted-script demand, with parity fixtures for
   each promoted surface.
-- Add host integration acceptance evidence before treating the `0.3.0rc2`
-  source candidate as a published runtime artifact.
+- Local CandleScope focused acceptance for the `0.3.0rc2` source candidate is
+  recorded; treat publishing, tag, and remote matrix CI as a separate decision
+  rather than a completed release.
 - Keep replay-v1 and typed-state-v2 portable snapshots bounded and fail closed;
   distributed session ownership, provider lifecycle, and storage orchestration
   remain host work.

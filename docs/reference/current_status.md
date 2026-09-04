@@ -145,9 +145,12 @@ without changing established public entry points.
 
 This is not a release claim. The next delivery slice is:
 
-1. **Local candidate acceptance:** build and inspect the `0.3.0rc2` artifacts,
-   install the wheel into a clean process, and run the host acceptance probes.
-   Publishing remains a separate explicit decision.
+1. **Local candidate acceptance:** the `0.3.0rc2` source tree has now passed
+   local CandleScope bridge/workbench focused tests, backend focused tests
+   (`test_pyne_workbench_manifest`, `test_pyne_strategy_provider`,
+   `test_plugin_runtime_architecture`), candidate wheel/Twine checks, and
+   installed-wheel smoke. Publishing, tag, and remote matrix CI remain a
+   separate explicit decision.
 2. **Measured expansion:** the frozen 104-file Pine corpus and
    [capability demand backlog](../development/capability_demand_backlog_zh.md)
    currently show no unexplained Runtime core gap and no P0 Incremental TA
