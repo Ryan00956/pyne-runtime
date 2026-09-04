@@ -44,9 +44,9 @@ Pine API 名称数量，而是优先关闭冻结语料和独立 Runtime 工作�
 | Request capture | 21/21，0 diff |
 | Strategy capture | 27/27，0 diff |
 | TA capture | 10/10，0 diff |
-| 本地全门禁 | 877 tests passed；性能、稳定性、build、Twine、installed-wheel smoke 通过 |
+| 本地全门禁 | 880 tests passed；性能、稳定性、build、Twine、installed-wheel smoke 通过 |
 
-测试数量会增长，后续验收不得把 `877` 写成必须相等的硬编码条件。
+测试数量会增长，后续验收不得把 `880` 写成必须相等的硬编码条件。
 正确判据是命令退出码为 0、没有 skipped critical gate，并保存当次实际计数。
 
 本计划的 Phase 1 已把能力计数和公开契约的漂移变成自动门禁。后续切片仍须保持文档、
