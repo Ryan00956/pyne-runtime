@@ -99,6 +99,15 @@ def test_package_smoke_uses_repo_source_only_for_schema_identity() -> None:
     assert source_env["PYTHONNOUSERSITE"] == "1"
 
 
+def test_package_smoke_offline_environment_disables_index_access() -> None:
+    module = _load_package_smoke()
+
+    env = module._offline_env(module._sanitized_env({"PATH": "bin"}))
+
+    assert env["PIP_NO_INDEX"] == "1"
+    assert env["PIP_DISABLE_PIP_VERSION_CHECK"] == "1"
+
+
 def test_package_smoke_checks_wheel_import_location(tmp_path: Path) -> None:
     module = _load_package_smoke()
 

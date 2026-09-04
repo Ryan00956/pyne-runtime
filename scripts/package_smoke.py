@@ -45,6 +45,8 @@ def main(argv: list[str] | None = None) -> int:
         tmp_path = Path(tmp)
         venv_dir = tmp_path / "venv"
         clean_env = _sanitized_env()
+        if args.offline:
+            clean_env = _offline_env(clean_env)
         _run(
             _venv_create_command(args.python, venv_dir, offline=args.offline),
             cwd=tmp_path,
@@ -201,6 +203,13 @@ def _sanitized_env(source: dict[str, str] | None = None) -> dict[str, str]:
 def _source_schema_env(clean_env: dict[str, str], repo_root: Path) -> dict[str, str]:
     env = dict(clean_env)
     env["PYTHONPATH"] = str((repo_root / "src").resolve())
+    return env
+
+
+def _offline_env(clean_env: dict[str, str]) -> dict[str, str]:
+    env = dict(clean_env)
+    env["PIP_NO_INDEX"] = "1"
+    env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
     return env
 
 
