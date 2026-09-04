@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Deferred sandbox and distributed-session work: `safe`/`research` remain
+  language restrictions, `multiTenantSandbox` stays false, and portable
+  snapshots still do not embed providers or replace host coordination.
 - Deferred Incremental strategy `*_when` helpers and new report fields: no
   frozen strategy workload or capture mismatch justifies expanding the
   deterministic bar-replay surface.

@@ -131,3 +131,13 @@ def test_incremental_strategy_keeps_when_helpers_batch_only() -> None:
     for member in batch_only:
         assert member in capabilities["modes"]["batch"]["strategy"]
         assert member not in capabilities["modes"]["incremental"]["strategy"]
+
+
+def test_security_modes_are_not_a_multi_tenant_sandbox() -> None:
+    security = pn.runtime_capabilities()["security"]
+
+    assert security["multiTenantSandbox"] is False
+    assert "safe" in security["modes"]
+    assert "research" in security["modes"]
+    assert "unsafe" in security["modes"]
+    assert security["processTimeout"] is True
