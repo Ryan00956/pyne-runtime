@@ -143,10 +143,11 @@ restore testing.
 The large plot and TA implementations are split into focused internal modules
 without changing established public entry points.
 
-This is not a release claim. The `0.3.0rc2` source tree is **locally accepted**
-after two full `scripts/check.ps1` runs and a CandleScope focused host re-check.
-Publishing, tag, remote matrix CI, and promoting RC to stable remain a later
-explicit decision.
+1. **Local candidate:** the `0.3.0rc2` source tree is **locally accepted** after
+   two full `scripts/check.ps1` runs, artifact metadata validation, and an
+   isolated installed-wheel smoke that rejects imports escaping its temporary
+   environment. This is not a release claim; publishing, tag, remote matrix CI,
+   and promoting RC to stable remain a later explicit decision.
 2. **Measured expansion:** the frozen 104-file Pine corpus and
    [capability demand backlog](../development/capability_demand_backlog_zh.md)
    currently show no unexplained Runtime core gap and no P0 Incremental TA
@@ -155,9 +156,10 @@ explicit decision.
    fixtures.
 
 The local wheel, clean-process CLI inspection, typed-state restore, v2 session,
-and independent workbench probes are release gates. CandleScope candidate-host
-acceptance uses an unpublished candidate lock and must not be mistaken for the
-production Release lock or a published package.
+capture parity, and packaged examples are this repository's release gates.
+Product-specific bridges, workbenches, data brokers, candidate locks, and
+end-to-end adoption tests belong to independent adapter repositories; their
+status is not a Pyne Runtime release claim.
 
 Each slice must preserve the existing batch API and output schemas, remain
 fail-closed at host boundaries, and pass the full release gate before the next

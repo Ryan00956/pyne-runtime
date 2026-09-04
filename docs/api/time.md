@@ -48,7 +48,7 @@ time(
 
 Current-timeframe calls preserve the exact host bar opens. Higher-timeframe
 opens use deterministic calendar boundaries in the configured symbol timezone.
-This matches CandleScope's 24/7 crypto timeline, but it does not reconstruct
+This matches a 24/7 market timeline, but it does not reconstruct
 exchange-session-specific higher-timeframe opens from sparse bars. A host that
 needs authoritative non-24/7 boundaries must supply aligned market metadata or
 requested data rather than relying on ticker-name inference.

@@ -67,9 +67,9 @@ in 11.
   by metadata and time helpers.
 - `ta.vwap(source)`, explicit anchor resets, standard-deviation bands, and the
   legacy `vwap(source)` spelling.
-- CandleScope plugin settings now retain host-configured exchange timezone,
-  currency, base currency, tick size, point value, and volume type when binding
-  the current market identity.
+- Runtime settings retain host-supplied exchange timezone, currency, base
+  currency, tick size, point value, and volume type when binding the current
+  market identity; concrete product adapters own how those values are sourced.
 
 ## Closed In The Third Slice
 

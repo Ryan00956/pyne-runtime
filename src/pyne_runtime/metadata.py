@@ -90,7 +90,7 @@ class TimeframeInfo:
         """Mark the first available bar and each subsequent timeframe boundary.
 
         Calendar boundaries use ``syminfo.timezone`` when the host supplies it;
-        otherwise they use UTC, which matches CandleScope's 24/7 crypto bars.
+        otherwise they use UTC, which matches a typical 24/7 market timeline.
         """
         if not self._times:
             raise RuntimeError("timeframe.change() requires a Pyne runtime context")

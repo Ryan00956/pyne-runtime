@@ -2,9 +2,10 @@
 
 ## Unreleased
 
-- Locally accepted the `0.3.0rc2` candidate after two full local gates and
-  CandleScope focused host re-checks. Remote matrix CI, push, tag, and GitHub
-  Release remain unauthorized.
+- Locally accepted the standalone `0.3.0rc2` candidate after two full local
+  gates plus isolated installed-wheel validation. Product adapters and their
+  candidate locks are owned by separate repositories; remote matrix CI, tag,
+  and GitHub Release remain separate decisions.
 - Deferred sandbox and distributed-session work: `safe`/`research` remain
   language restrictions, `multiTenantSandbox` stays false, and portable
   snapshots still do not embed providers or replace host coordination.
@@ -20,10 +21,6 @@
 - Closed the Incremental TA expansion slice without adding helpers: the frozen
   corpus ranks no P0/P1 implement item, so the 17 Batch-only names stay
   Incremental fail-closed with explicit `defer` reasons.
-- Recorded local CandleScope candidate-host acceptance for the `0.3.0rc2`
-  source tree: bridge/workbench focused tests 41 passed, backend focused tests
-  10 passed, and a candidate wheel/sdist pair passed Twine without writing
-  candidate URLs into the published host release lock.
 - Froze the 104-file Pine corpus identity and published a reviewed capability
   demand backlog: no unexplained Runtime core gap, Incremental TA expansion
   deferred until a realtime workload exists, and third-party libraries remain

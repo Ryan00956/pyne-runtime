@@ -18,6 +18,8 @@ PINE_LIBRARIES_DOC = DOCS / "api" / "pine_libraries.md"
 CAPABILITIES_DOC = DOCS / "api" / "capabilities.md"
 TA_DOC = DOCS / "api" / "ta.md"
 CORPUS_DOC = DOCS / "reference" / "pine_corpus_compatibility.md"
+COMPLETION_PLAN = DOCS / "development" / "capability_completion_execution_plan_zh.md"
+DEMAND_BACKLOG = DOCS / "development" / "capability_demand_backlog_zh.md"
 PYPROJECT = ROOT / "pyproject.toml"
 TA_CAPTURE_DIFF = ROOT / "scripts" / "ta_capture_diff.py"
 
@@ -197,3 +199,16 @@ def test_capabilities_doc_declares_runtime_capabilities_as_source_of_truth() -> 
     assert "pn.runtime_capabilities()" in body
     assert "checked source of truth" in body
     assert 'pn.schema()["runtimeCapabilities"]' in body
+
+
+def test_current_completion_docs_keep_product_adapters_out_of_runtime_scope() -> None:
+    plan = COMPLETION_PLAN.read_text(encoding="utf-8")
+    backlog = DEMAND_BACKLOG.read_text(encoding="utf-8")
+    status = CURRENT_STATUS.read_text(encoding="utf-8")
+
+    for body in (plan, backlog, status):
+        assert "CandleScope" not in body
+
+    assert "不读取或修改任何产品适配仓库" in plan
+    assert "Product-specific bridges" in status
+    assert "packaged examples" in backlog

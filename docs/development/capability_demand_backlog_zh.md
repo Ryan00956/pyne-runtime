@@ -16,13 +16,15 @@
 | 身份摘要 | `02ca3c50ff349fcf4c4adbde787abc9f8d4643bb254086a475b0c6344fc0dc3e` |
 | 摘要算法 | 对「文件名 + SHA-256」按文件名排序后的 JSON 做 SHA-256 |
 | 审计策略 | `scripts/pine_corpus_audit.py`，不执行、不复制 Pine 源码 |
-| 代表性 Pyne 脚本语料 | **未找到**。`Desktop/pyne`、`Documents/pyne` 等候选路径不存在 |
+| 代表性 Pyne 脚本语料 | 仓库内 `examples/*.py`（10 个随包维护的第一方脚本） |
 
 该身份与 [Pine Corpus Compatibility Audit](../reference/pine_corpus_compatibility.md)
 记录的 2026-08 快照（104 文件 / 1,643,207 字节）一致。语料更新后必须重新生成
 manifest 和本需求榜，不得沿用旧结论。
 
-完整逐文件 SHA-256 只保存在本地 `build/capability-completion/`，不提交用户绝对路径。
+完整 Pine 逐文件 SHA-256 只保存在本地 `build/capability-completion/`，不提交用户绝对
+路径。独立 Runtime 的 Pyne 需求结论以版本控制中的 packaged examples 为准；具体产品
+的迁移脚本及采用验收属于其适配仓库。
 
 ## 排序规则
 
@@ -56,8 +58,9 @@ manifest 和本需求榜，不得沿用旧结论。
 `pine_like_semantics.py` 使用 batch-only 的 `strategy.entry_when` /
 `strategy.close_when`。这是已声明的 Incremental strategy 边界，不是 TA gap。
 
-CandleScope 插件示例 `sma_cross.pyne` 是 Pine 拼写示例，不是可执行的 Pyne
-Python 脚本；`pyne inspect` 对其报 `PYNE_SYNTAX_ERROR` 符合语言边界。
+本仓库不把外部产品的 `.pyne` 示例、bridge 或 workbench 纳入代表性语料，也不据此扩大
+Runtime API。适配仓库可以在自己的需求榜中追加产品脚本，但不能反向改变这里已经声明
+的语言边界。
 
 ## P0
 
@@ -68,13 +71,13 @@ Python 脚本；`pyne inspect` 对其报 `PYNE_SYNTAX_ERROR` 符合语言边界�
 | --- | --- | --- | ---: | --- | --- | --- | --- | --- |
 | _(none)_ | — | 冻结 104 文件语料无 core gap；packaged examples 无 Incremental TA blocker | 0 | — | runtime | pine_corpus_audit + pyne inspect examples | — | document |
 
-## P1（宿主 / 迁移，不进入 Runtime implement）
+## P1（外部适配 / 迁移，不进入 Runtime implement）
 
 | capability | kind | blocking workload | files touched | modes | owner | evidence plan | risk | decision |
 | --- | --- | --- | ---: | --- | --- | --- | --- | --- |
 | `chart.fg_color` / `chart.bg_color` | host | 主题色由图表宿主提供 | 12 / 4 | both | host | host probe；Runtime 保持 fail-closed | host-data | host-first |
 | `chart.left_visible_bar_time` / `chart.right_visible_bar_time` | host | 可见范围由图表宿主提供 | 4 / 1 | both | host | host probe | host-data | host-first |
-| `request.currency_rate` | request | 1 个 Pine 文件引用；CandleScope 数据源未确认 | 1 | batch | host | 见 Phase 6 启动条件 | host-data | host-first |
+| `request.currency_rate` | request | 1 个 Pine 文件引用；无已批准的数据提供方契约 | 1 | batch | host | 见 Phase 6 启动条件 | host-data | host-first |
 | `request.dividends` / `request.splits` / `request.earnings` | request | 各 1 个文件；无宿主数据契约 | 1 | batch | host | 见 Phase 6 启动条件 | host-data | host-first |
 | `syminfo.timezone` / `syminfo.volumetype` | host | 元数据已可经 `PyneSettings` 注入；语料中的自动推断仍属宿主 | 1 | both | host | 现有 metadata tests | host-data | document |
 | Pine ternary / `:=` / 函数声明 / 循环 | syntax | 92 / 70 / 62 / 50 个文件需 Python 改写 | 92 | batch | runtime | cookbook + inspect 诊断 | lookahead | document |
@@ -87,7 +90,7 @@ Python 脚本；`pyne inspect` 对其报 `PYNE_SYNTAX_ERROR` 符合语言边界�
 
 | capability | kind | blocking workload | files touched | modes | owner | evidence plan | risk | decision |
 | --- | --- | --- | ---: | --- | --- | --- | --- | --- |
-| `ctx.ta.tsi` | incremental-ta | `Bjorgum Key Levels` 命中 1 次；无已迁移 Incremental 脚本、无宿主 realtime 流程证据 | 1 | incremental | runtime | semantic test / TV capture | state | defer |
+| `ctx.ta.tsi` | incremental-ta | `Bjorgum Key Levels` 命中 1 次；无 packaged Incremental 脚本或 realtime 流程证据 | 1 | incremental | runtime | semantic test / TV capture | state | defer |
 | `ctx.ta.cmo` | incremental-ta | 冻结语料未命中 | 0 | incremental | runtime | none until workload exists | state | defer |
 | `ctx.ta.correlation` | incremental-ta | 冻结语料未命中 | 0 | incremental | runtime | none until workload exists | state | defer |
 | `ctx.ta.donchian` | incremental-ta | 冻结语料未命中 | 0 | incremental | runtime | none until workload exists | state | defer |
@@ -130,12 +133,12 @@ batch replay 辅助，不因一个演示脚本自动扩展。
 
 ## 阶段状态
 
-- **Phase 3**：本地 CandleScope bridge/workbench 41 passed、backend focused 10 passed；候选 wheel 已构建。未改 published release lock。
+- **Phase 3**：候选 wheel/sdist 已构建并通过 Twine 与 isolated installed-wheel smoke；产品适配和 lock 不属于本仓库。
 - **Phase 4**：完成。无 P0/P1 Incremental TA implement 项；17 个 Batch-only helper 全部 `defer`，Incremental 继续 fail-closed。
 - **Phase 5A**：完成（现有 Inspector v2）。目录报告已提供 supported、unsupportedMembers、host、externalLibraries、dynamicAccesses、history hint 与 batch→incremental 迁移；本轮不扩展 schema。
 - **Phase 5B**：deferred。第三方/未 pinned 库无授权实现来源。
-- **Phase 6**：deferred。`request.currency_rate` / `dividends` / `splits` / `earnings` 各 1 文件命中，但 CandleScope 数据源未批准，core 不得联网。
+- **Phase 6**：deferred。`request.currency_rate` / `dividends` / `splits` / `earnings` 各 1 文件命中，但没有已批准的数据提供方契约，core 不得联网。
 - **Phase 7**：deferred。无冻结策略缺口；`entry_when` / `close_when` / `order_when` 保持 Incremental 不支持；strategy capture 27/27、0 diff。
 - **Phase 8**：deferred。无不可信脚本上传或多实例部署需求；`safe`/`research` 不是多租户沙箱，session 仍为进程内 TTL/LRU。
-- **Phase 9**：本地冻结。`check.ps1` 连续两次 877 passed；Host bridge/workbench 41 passed、backend 10 passed。候选为 **locally accepted**，不是 release-ready（远端 Linux/Windows/macOS CI 未跑，未 push/tag/release）。
-- 出现新的已迁移 `.py` / `.pyne` 语料后，必须重新跑 `pyne inspect` 并修订本榜。
+- **Phase 9**：本地冻结。`check.ps1` 连续两次 877 passed，独立安装 smoke 通过。候选为 **locally accepted**，不是 release-ready（远端 Linux/Windows/macOS CI 未跑，未 push/tag/release）。
+- 本仓库的 packaged examples 变化后必须重新跑 `pyne inspect` 并修订本榜；产品迁移语料由适配仓库独立维护。
